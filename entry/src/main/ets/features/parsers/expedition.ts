@@ -1,0 +1,117 @@
+import type { ApiDump } from '../../infra/web/types';
+import { parseSvdata, parseFormBody, makeEventId} from './common'
+import {
+  normalizeMissionStart,
+  normalizeDeckMission,
+  normalizeMissionResult,
+  normalizeMissionCatalog
+} from '../../domain/models/expedition'
+import type {
+  ApiMissionStartRespRaw,
+  ApiMissionResultRespRaw,
+  ApiDeckMissionTuple
+} from '../../domain/models/expedition'
+import type {
+  ExpeditionStartEvent,
+  ExpeditionUpdateEvent,
+  ExpeditionResultEvent,
+  ExpeditionCatalogEvent
+} from '../../domain/events/expedition'
+
+
+export function parseExpedition(
+  dump: ApiDump
+): (ExpeditionStartEvent | ExpeditionUpdateEvent | ExpeditionResultEvent | ExpeditionCatalogEvent)[] | null {
+  const { url, requestBody, responseText } = dump;
+
+  if (url.includes('/api_req_mission/start')) {
+    const params = parseFormBody(requestBody);
+    const deckId = Number(params.get('api_deck_id') ?? 0);
+    const missionId = Number(params.get('api_mission_id') ?? 0);
+
+    const js = parseSvdata<any>(responseText);
+    const raw = js?.api_data as ApiMissionStartRespRaw | undefined;
+    if (!raw) return null;
+
+    const payload = normalizeMissionStart(deckId, missionId, raw);
+    const evt: ExpeditionStartEvent = {
+      id: makeEventId(['ex-start', deckId, missionId, payload.complTime]),
+      type: 'EXPEDITION_START',
+      payload,
+      timestamp: Date.now(),
+      source: 'web',
+      raw: responseText,
+      endpoint: '/api_req_mission/start',
+    };
+    return [evt];
+  }
+
+  // 2) 远征结果 /api_req_mission/result
+  if (url.includes('/api_req_mission/result')) {
+    const params = parseFormBody(requestBody);
+    const deckId = Number(params.get('api_deck_id') ?? 0);
+    const missionId = Number(params.get('api_mission_id') ?? 0);
+
+    const js = parseSvdata<any>(responseText);
+    const raw = js?.api_data as ApiMissionResultRespRaw | undefined;
+    if (!raw) return null;
+
+    const payload = normalizeMissionResult(deckId, missionId, raw);
+    const evt: ExpeditionResultEvent = {
+      id: makeEventId(['ex-result', deckId, missionId, payload.finishedAt]),
+      type: 'EXPEDITION_RESULT',
+      payload,
+      timestamp: Date.now(),
+      source: 'web',
+      raw: responseText,
+      endpoint: '/api_req_mission/result',
+    };
+    return [evt];
+  }
+
+  // 3) 舰队状态（含远征计时）/api_get_member/deck 或 /api_port/port
+  if (url.includes('/api_get_member/deck') || url.includes('/api_port/port')) {
+    const js = parseSvdata<any>(responseText);
+    // 注意：有的返回结构里是 api_deck，有的是 api_deck_port
+    const decks = js?.api_data?.api_deck ?? js?.api_data?.api_deck_port;
+    if (!Array.isArray(decks)) return null;
+
+    const states = decks.map((d: any, idx: number) => {
+      const deckId = d.api_id ?? (idx + 1);
+      const tuple = d.api_mission as ApiDeckMissionTuple;
+      return normalizeDeckMission(deckId, tuple);
+    });
+
+    const evt: ExpeditionUpdateEvent = {
+      id: makeEventId(['ex-update', Date.now()]),
+      type: 'EXPEDITION_UPDATE',
+      payload: states,
+      timestamp: Date.now(),
+      source: 'web',
+      raw: responseText,
+      endpoint: url.includes('/api_port/port') ? '/api_port/port' : '/api_get_member/deck',
+    };
+    return [evt];
+  }
+
+  // 4) 远征 master 目录（用于前置检查/列表）/api_start2 或 /api_start2/getData
+  if (url.includes('/api_start2')) {
+    const js = parseSvdata<any>(responseText);
+    const arr = js?.api_data?.api_mst_mission as any[];
+    if (!Array.isArray(arr)) return null;
+
+    const list = arr.map(normalizeMissionCatalog);
+    const evt: ExpeditionCatalogEvent = {
+      id: makeEventId(['ex-catalog', list.length, Date.now()]),
+      type: 'EXPEDITION_CATALOG',
+      payload: list,
+      timestamp: Date.now(),
+      source: 'web',
+      raw: responseText,
+      endpoint: '/api_start2',
+    };
+    return [evt];
+  }
+
+  return null;
+}
