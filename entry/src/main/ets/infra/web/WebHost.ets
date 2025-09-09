@@ -24,6 +24,7 @@ export default struct WebHost{
       case 'API_DUMP':
       default:
       // TODO: 在这里把 {url, requestBody, responseText} 交给 parsers → DAO
+        //注意DUMP类型
         console.info('[API_DUMP]', (msg.url || '').slice(0, 120));
         break;
     }
