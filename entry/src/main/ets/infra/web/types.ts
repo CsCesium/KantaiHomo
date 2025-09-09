@@ -11,6 +11,10 @@ export interface HmosBridge {
   postAsync(msg: string): Promise<string>;
 }
 
+export type BridgeMsg =
+  | { type: 'YASEN_UI'; ts: number; yesId: string; noId: string; containerName: string }
+    | { type: 'PING' ; ts: number }
+    | { type: string; [k: string]: unknown };
 
 export interface ApiDump {
   type?: 'API_DUMP';

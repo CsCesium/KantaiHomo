@@ -1,26 +1,19 @@
 import relationalStore from '@ohos.data.relationalStore';
 import common from '@ohos.app.ability.common';
+import {getAppContext}from '../appContext'
 import { migrations, type Migration } from './migrations';
 
 type RdbStore = relationalStore.RdbStore;
 type ResultSet = relationalStore.ResultSet;
-type Context = common.Context;
 
 const DB_NAME = 'KantaiHomo.db';
-
 let store: RdbStore | null = null;
-let appContext: Context | null = null;
 
-export function initDbContext(ctx: Context): void {
-  appContext = ctx;
-}
+
 
 export async function getDB(): Promise<RdbStore> {
   if (store) {
     return store;
-  }
-  if (!appContext) {
-    throw new Error('[DB] appContext is not set. Call initDbContext(context) first.');
   }
 
   const config: relationalStore.StoreConfig = {
@@ -28,7 +21,7 @@ export async function getDB(): Promise<RdbStore> {
     securityLevel: relationalStore.SecurityLevel.S1,
   };
 
-  store = await relationalStore.getRdbStore(appContext, config);
+  store = await relationalStore.getRdbStore(getAppContext(), config);
   await runMigrations(store);
   return store;
 }
