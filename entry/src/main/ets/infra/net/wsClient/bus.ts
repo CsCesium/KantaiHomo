@@ -1,24 +1,34 @@
-type Unsub = () => void;
-type Handler<T> = (msg: T) => void;
+import type { AnyMsg } from './types';
+
+type Handler = (msg: AnyMsg) => void;
 
 export class EventBus {
-  private map = new Map<string, Set<Function>>();
+  private map: Map<string, Set<Handler>> = new Map<string, Set<Handler>>();
 
-  on<T>(key: string, handler: Handler<T>): Unsub {
-    if (!this.map.has(key)) this.map.set(key, new Set());
-    this.map.get(key)!.add(handler as any);
-    return () => this.off(key, handler);
+  public on(key: string, handler: Handler): () => void {
+    const set: Set<Handler> = this.map.get(key) ?? new Set<Handler>();
+    set.add(handler);
+    this.map.set(key, set);
+    return (): void => this.off(key, handler);
   }
 
-  off<T>(key: string, handler: Handler<T>) {
-    this.map.get(key)?.delete(handler as any);
+  public off(key: string, handler: Handler): void {
+    const set: Set<Handler> | undefined = this.map.get(key);
+    if (set !== undefined) {
+      set.delete(handler);
+      if (set.size === 0) {
+        this.map.delete(key);
+      }
+    }
   }
 
-  emit<T>(key: string, msg: T) {
-    this.map.get(key)?.forEach(fn => {
-      try { (fn as Handler<T>)(msg); } catch (e) { console.error(e); }
+  public emit(key: string, msg: AnyMsg): void {
+    const set: Set<Handler> | undefined = this.map.get(key);
+    if (set === undefined) { return; }
+    set.forEach((fn: Handler): void => {
+      try { fn(msg); } catch { /* swallow */ }
     });
   }
 }
 
-export const bus = new EventBus();
+export const bus: EventBus = new EventBus();

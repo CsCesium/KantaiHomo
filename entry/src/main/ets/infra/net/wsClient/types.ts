@@ -4,7 +4,7 @@ export type Channel =
     | "battle"            // 战斗相关（含夜战提示）
     | "log";              // 调试日志
 
-export interface BaseMsg<T = unknown> {
+export interface BaseMsg<T extends object> {
   ch: Channel;          // 通道
   type: string;         // 事件类型
   ts?: number;          // 服务器时间戳(毫秒)
@@ -27,4 +27,4 @@ export interface YasenPrompt {
 export type AnyMsg =
   | BaseMsg<ExpeditionReady>
     | BaseMsg<YasenPrompt>
-    | BaseMsg<unknown>;
+    | BaseMsg<Record<string, never>>;
