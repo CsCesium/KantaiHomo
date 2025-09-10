@@ -69,9 +69,7 @@ export interface PersistDeps {
 }
 
 /** Handler 契约 */
-export abstract class PersistHandler {
-  abstract invoke(ev: PersistEvent, deps: PersistDeps): Promise<void>;
-}
+export type PersistHandler = (ev: PersistEvent, deps: PersistDeps) => Promise<void>;
 
 /** WS 桥接适配器契约 */
 export interface PersistEventIdMaker {

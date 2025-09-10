@@ -18,7 +18,7 @@ export async function persistEvent(ev: PersistEvent, deps: PersistDeps): Promise
   if (handler == null) return;
 
   try {
-    await handler.invoke(ev, deps);
+    await handler(ev, deps);
     if (deps.recentIdCache) deps.recentIdCache.add(ev.id);
   } catch (e) {
     console.error('[persist] failed', ev.type, ev.id, e);
