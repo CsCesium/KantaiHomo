@@ -77,6 +77,10 @@ export interface InjectOptions {
   enableTouchPatch?: boolean;             // 默认 false
   enableTickerRAF?: boolean;              // 默认 true
   enablePixiPatch?: boolean;              // 默认 false
+
+  enableSessionPersist?: boolean; // 默认 true
+  enableIframeFit?: boolean;      // 默认 true
+  enableYasenDetect?:boolean;
 }
 
 export const defaultInjectOptions: Required<InjectOptions> = {
@@ -89,4 +93,7 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   enableTouchPatch: false,
   enableTickerRAF: true,
   enablePixiPatch: false,
+  enableSessionPersist: true,
+  enableIframeFit: true,
+  enableYasenDetect:false,
 };
