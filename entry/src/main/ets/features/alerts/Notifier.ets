@@ -32,7 +32,7 @@ export class SystemNotifier implements Notifier {
       },
     });
 
-    // 震动（可通过 KV 开关控制）
+    // TODO：震动（可通过 KV 开关控制）
     try {
       await vibrator.startVibration(
         { type: 'time', duration: 150 },
@@ -42,7 +42,7 @@ export class SystemNotifier implements Notifier {
       // 忽略震动错误
     }
 
-    // Toast（可通过 KV 开关控制）
+    // TODO：可通过 KV 开关控制
     try {
       promptAction.showToast({ message: '夜战选择出现：夜战突入 / 追撃せず' });
     } catch {

@@ -10,7 +10,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
-    windowStage.loadContent('webhost', (err) => {
+    windowStage.loadContent('infra/web/WebRoot', (err) => {
       if (err?.code) {
         console.error(`loadContent failed: ${JSON.stringify(err)}`)
       }
