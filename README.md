@@ -1,2 +1,2 @@
 # KantaiHomo
-A viewer for KantaiCollection in HarmonyOS
+A viewer for Kantai Collection(HTML5) in HarmonyOS
