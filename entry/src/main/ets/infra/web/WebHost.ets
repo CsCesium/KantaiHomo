@@ -8,6 +8,7 @@ import hilog from '@ohos.hilog'; //for debug
 import { lengthToNumber } from "../utils/TransUtil";
 import display from '@ohos.display';
 import window from "@ohos.window";
+import common from "@ohos.app.ability.common";
 
 interface iPayload {
   op: string;
@@ -128,6 +129,15 @@ export default struct WebHost {
 
   aboutToAppear() {
     try {
+      const context = getContext(this) as common.UIAbilityContext;
+      window.getLastWindow(context).then(win => {
+        win.setWindowLayoutFullScreen(true);
+        win.setWindowSystemBarEnable([]); // 隐藏状态栏
+      });
+    } catch (e) {
+      hilog.error(0x1234, 'Web', 'FullScreen error: %{public}s', e);
+    }
+    try {
       webview.WebviewController.setWebDebuggingAccess(true);
       display.on('change', this.displayChangeCb);
     } catch (e) {
@@ -209,7 +219,7 @@ export default struct WebHost {
 
 
     .height('100%').width('100%').backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
     .onAreaChange((oldArea: Area, newArea: Area) => {
       const p: string = this.decidePolicy(newArea); // 'height' (横屏) | 'width' (竖屏)
       const js =
