@@ -7,6 +7,7 @@ import { kvDelete, kvGetString, kvSet } from "../store/kv";
 import hilog from '@ohos.hilog'; //for debug
 import { lengthToNumber } from "../utils/TransUtil";
 import display from '@ohos.display';
+import window from "@ohos.window";
 
 interface iPayload {
   op: string;
@@ -20,15 +21,30 @@ export default struct WebHost {
   private controller: WebCtrl = new webview.WebviewController();
   private readonly HOME = HOME_URL;
   @State private progress: number = 0;
-  @State private btnAlign: Alignment = Alignment.Center; // 初始：左侧居中
-  @State private btnOffsetX: number = 8;
+
+  @State private btnAlign: Alignment = Alignment.Start;
+  @State private btnOffsetX: number = 16;
   @State private btnOffsetY: number = 0;
 
+  private win: window.Window | null = null;
 
   private displayChangeCb: (id: number) => void = (id: number): void => {
     const js: string = 'window.kcFitReflow && window.kcFitReflow();';
     this.controller.runJavaScript?.(js);
   };
+
+
+  // private enableFullScreen(): void {
+  //   try {
+  //     const ui = getContext(this).getUIContext();
+  //     this.win = ui.getWindow();
+  //     if (this.win !== null) {
+  //       this.win.setWindowLayoutFullScreen(true);
+  //     }
+  //   } catch (e) {
+  //     hilog.error(0x1234, 'Web', '%{public}s', `enableFullScreen error: ${e}`);
+  //   }
+  // }
 
   private handleJsMessage(raw: string) {
     const msg: AppChannelMessage | null = parseMsg(raw);
@@ -139,11 +155,7 @@ export default struct WebHost {
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       if (this.progress > 0 && this.progress < 100) {
-        Progress({ value: this.progress })
-          .width('100%')
-          .height(2)
-          .backgroundColor('#222')
-          .margin({ bottom: 2 })
+        Progress({ value: this.progress }).width('100%').height(2).backgroundColor('#222')
       }
 
       Web({ src: this.HOME, controller: this.controller })
@@ -168,7 +180,7 @@ export default struct WebHost {
           }
         })
         .onLoadIntercept(() => false)
-        .onInterceptRequest((event): WebResourceResponse | undefined => {
+        .onInterceptRequest((event)=> {
           return undefined;
         })
         .onPageBegin(() => {
@@ -185,6 +197,7 @@ export default struct WebHost {
         })
         .width('100%')
         .height('100%')
+        .backgroundColor('#000')
 
       Column({ space: 10 }) {
         this.ctrlBtn('⟳', () => { this.controller.refresh(); })
@@ -195,22 +208,25 @@ export default struct WebHost {
     }
 
 
-    .height('100%').width('100%').backgroundColor('#000').onAreaChange((oldArea: Area, newArea: Area) => {
-      const p: string = this.decidePolicy(newArea);
-      const js: string = 'window.kcFitSetPolicy && window.kcFitSetPolicy("' + p + '");';
+    .height('100%').width('100%').backgroundColor('#000')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .onAreaChange((oldArea: Area, newArea: Area) => {
+      const p: string = this.decidePolicy(newArea); // 'height' (横屏) | 'width' (竖屏)
+      const js =
+        'window.kcFitSetPolicy && window.kcFitSetPolicy("' + p + '");' +
+          'window.kcFitReflow && window.kcFitReflow();' +
+          'setTimeout(function(){window.kcFitReflow && window.kcFitReflow();}, 60);';
       this.controller.runJavaScript?.(js);
-      if (p === 'height') {
-        // 横屏：按钮左侧居中
-        this.btnAlign = Alignment.Center;
-        this.btnOffsetX = 8; this.btnOffsetY = 0;
-      } else {
-        // 竖屏：按钮底部居中
-        this.btnAlign = Alignment.Bottom;
-        this.btnOffsetX = 0; this.btnOffsetY = 8;
+
+      if (p === 'height') { // 横屏
+        this.btnAlign = Alignment.Start;
+        this.btnOffsetX = 16; this.btnOffsetY = 0;
+      } else {              // 竖屏
+        this.btnAlign = Alignment.BottomStart;
+        this.btnOffsetX = 0;  this.btnOffsetY = 16;
       }
     })
   }
-
   aboutToDisappear() {
     display.off('change', this.displayChangeCb);
   }

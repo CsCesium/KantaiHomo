@@ -19,7 +19,7 @@
         "icon": "$media:layered_image",
         "startWindowIcon": "$media:startIcon",
         "startWindowBackground": "$color:start_window_background",
-        "orientation": "auto_rotation_landscape",
+        "orientation": "auto_rotation",
         "exported": true,
         "skills": [
           {

@@ -25,7 +25,9 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   out.push(asEvalChunk('hm-inject://bridge.js', bridgeSnippet(o.channelName, o.postMethod)));
 
   if (o.enableSessionPersist) out.push(asEvalChunk('hm-inject://session.js',   sessionSnippet));
-  if (o.enableIframeFit)      out.push(asEvalChunk('hm-inject://iframeFit.js', iframeFitSnippet));
+  if (o.enableIframeFit)      {
+    out.push(asEvalChunk('hm-inject://iframeFit.js', iframeFitSnippet));
+  }
 
   if (o.enableXHRHook)    out.push(asEvalChunk('hm-inject://hookXHR.js',   hookXhrSnippet(o.channelName, o.postMethod, o.apiFilter)));
   if (o.enableFetchHook)  out.push(asEvalChunk('hm-inject://hookFetch.js', hookFetchSnippet(o.channelName, o.postMethod, o.apiFilter)));
