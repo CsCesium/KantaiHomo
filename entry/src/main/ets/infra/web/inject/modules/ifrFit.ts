@@ -50,11 +50,24 @@ window.__safeInject('iframeFit', function () {
       '::-webkit-scrollbar{width:0!important;height:0!important}' +
       '#game_frame{position:absolute!important;top:0!important;left:0!important;width:'+W+'px!important;height:'+H+'px!important;border:0!important;background:#000!important;display:block!important;backface-visibility:hidden!important;z-index:9999!important}';
   }
+
+  function vvWidth()  { return Math.round(window.visualViewport ? window.visualViewport.width  : window.innerWidth); }
+  function vvHeight() { return Math.round(window.visualViewport ? window.visualViewport.height : window.innerHeight); }
+
   function updateRootSizePx() {
-    document.documentElement.style.height = window.innerHeight + 'px';
-    document.documentElement.style.width  = window.innerWidth  + 'px';
-    document.body.style.height            = window.innerHeight + 'px';
-    document.body.style.width             = window.innerWidth  + 'px';
+    var w = vvWidth(), h = vvHeight();
+    var de = document.documentElement, bd = document.body;
+
+    ['width','min-width','max-width'].forEach(function(p){
+      de.style.setProperty(p, w + 'px', 'important');
+      bd.style.setProperty(p, w + 'px', 'important');
+    });
+    ['height','min-height','max-height'].forEach(function(p){
+      de.style.setProperty(p, h + 'px', 'important');
+      bd.style.setProperty(p, h + 'px', 'important');
+    });
+    de.style.setProperty('overflow','hidden','important');
+    bd.style.setProperty('overflow','hidden','important');
   }
 
   function computeScale(vw, vh) {
