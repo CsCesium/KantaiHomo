@@ -1,5 +1,5 @@
 //only for solve warning
-import WebHost from './WebHost';
+import WebHost from '../infra/web/WebHost';
 
 @Entry
 @Component
