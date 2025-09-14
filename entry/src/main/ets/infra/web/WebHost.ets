@@ -12,7 +12,6 @@ import common from "@ohos.app.ability.common";
 import { decideLayout, FitPolicy, HostMode } from "./responsive";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
-import ExpandedToolArea from "./components/ExpandedToolArea";
 
 interface iPayload {
   op: string;
