@@ -5,6 +5,8 @@ window.__safeInject('iframeFit', function () {
   var STYLE_FIT_ID   = 'kc-fit';
   var policy = 'auto';
   var TOP_GAP = 16;
+  var LOCK = false;
+  var CACHE = null;
 
   function ensureStyle(id) {
     var el = document.getElementById(id);
@@ -71,20 +73,27 @@ window.__safeInject('iframeFit', function () {
   }
 
   function computeScale(vw, vh) {
-    if (policy === 'height') return vh / H; // 横屏：按高铺满
-    if (policy === 'width')  return vw / W; // 竖屏：按宽铺满
-    return (vw >= vh) ? (vh / H) : (vw / W);
+    // if (policy === 'height') return vh / H; // 横屏：按高铺满
+    // if (policy === 'width')  return vw / W; // 竖屏：按宽铺满
+    // return (vw >= vh) ? (vh / H) : (vw / W);
+   if (policy === 'height') {
+      var s = vh / H;
+      if (W * s > vw) s = vw / W;
+      return s;
+    }
+    if (policy === 'width')  {
+      var s = vw / W;
+      if (H * s > vh) s = vh / H;
+      return s;
+    }
+    return Math.min(vw / W, vh / H);
   }
 
-  // 横屏：水平居中顶对齐；竖屏：顶对齐。并补偿内页下移 TOP_GAP
+
   function computeOffsets(vw, vh, scale) {
-    var cw = W * scale;
-    var x = 0, y = -TOP_GAP;               // 关键：整体上抬 16px（transform 在 scale 之后应用）
-    if (policy === 'height' || (policy === 'auto' && vw >= vh)) {
-      x = Math.max(0, (vw - cw) / 2);
-    } else {
-      x = 0;
-    }
+    var cw = W * scale, ch = H * scale;
+    var x = 0, y = -TOP_GAP;               //Key: 16px for fix the ifr error（transform aftrt scale）
+    x = (vw - cw) / 2;
     return { x: x, y: y };
   }
 
@@ -113,9 +122,26 @@ window.__safeInject('iframeFit', function () {
   function mountOrReflow() {
     var ifr = findGameIframe(); if (!ifr) return false;
     updateRootSizePx();                          // ← JS 设根尺寸（修复 htmlH/bodyH < innerH）
-    var vw = window.innerWidth, vh = window.innerHeight;
-    var sc = computeScale(vw, vh);
-    var off = computeOffsets(vw, vh, sc);
+    //var vw = window.innerWidth, vh = window.innerHeight;
+    var vw = vvWidth(), vh = vvHeight();
+
+    // var sc = computeScale(vw, vh);
+    // var off = computeOffsets(vw, vh, sc);
+    var sc, off;
+    if (LOCK && CACHE) {
+      sc  = CACHE.scale;
+      off = { x: CACHE.x, y: CACHE.y };
+    } else {
+      var effW = LOCK ? Math.max(vw, vh) : vw;
+      var effH = LOCK ? Math.min(vw, vh) : vh;
+
+      sc  = computeScale(effW, effH);
+      off = computeOffsets(vw, vh, sc);
+      if (LOCK && !CACHE) CACHE = { scale: sc, x: off.x, y: off.y };
+    }
+
+
+
     writeFitCSS(vw, vh, sc, off);
     applyInline(ifr, sc, off);
 
@@ -151,6 +177,14 @@ window.__safeInject('iframeFit', function () {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
   else run();
 
+  window.kcFitLock = function (b) {
+    var on = !!b;
+    if (on !== LOCK) {
+      LOCK = on;
+      if (!LOCK) CACHE = null; // 退出锁定时清缓存
+      mountOrReflow();
+    }
+  };
   // for ArkTS
   window.kcFitReflow = function(){ mountOrReflow(); };
   window.kcFitSetPolicy = function(p){ if (p==='height'||p==='width'||p==='auto'){ policy=p; mountOrReflow(); } };

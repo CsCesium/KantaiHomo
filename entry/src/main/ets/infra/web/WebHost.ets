@@ -9,7 +9,7 @@ import { lengthToNumber } from "../utils/TransUtil";
 import display from '@ohos.display';
 import window from "@ohos.window";
 import common from "@ohos.app.ability.common";
-import { decideLayout, HostMode } from "./responsive";
+import { decideLayout, FitPolicy, HostMode } from "./responsive";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import ExpandedToolArea from "./components/ExpandedToolArea";
@@ -27,9 +27,8 @@ export default struct WebHost {
   private readonly HOME = HOME_URL;
 
   @State private progress: number = 0;
-  @State private mode: HostMode = 'SMALL';
-
-  private win: window.Window | null = null;
+  @State private mode: HostMode = HostMode.COMPACT;
+  @State private fit: FitPolicy = 'height';
 
   private displayChangeCb: (id: number) => void = (id: number): void => {
     const js: string = 'window.kcFitReflow && window.kcFitReflow();';
@@ -111,21 +110,31 @@ export default struct WebHost {
 
   private onBegin = () => { this.progress = 5; this.injectAll(this.controller); }
   private onProg  = (p: number) => { this.progress = p; }
-  private onEnd   = () => { this.progress = 100; this.injectAll(this.controller); }
+  private onEnd   = () => {   this.progress = 100;
+    this.injectAll(this.controller);
+    this.applyFitLock();
+    this.pushFitPolicy(this.controller, this.fit);
+  }
 
-  private pushFitPolicy(controller: WebCtrl, policy: 'height'|'width') {
-  const js =
-    `window.kcFitSetPolicy && window.kcFitSetPolicy("${policy}");` +
-      `window.kcFitReflow && window.kcFitReflow();` +
-      `setTimeout(()=>{window.kcFitReflow && window.kcFitReflow();},60);`;
-  controller.runJavaScript?.(js);
-}
+  private pushFitPolicy(controller: WebCtrl, policy: FitPolicy) {
+    const js =
+      `window.kcFitSetPolicy && window.kcFitSetPolicy("${policy}");` +
+        `window.kcFitReflow && window.kcFitReflow();` +
+        `setTimeout(()=>{window.kcFitReflow && window.kcFitReflow();},60);`;
+    controller.runJavaScript?.(js);
+  }
+
+  private applyFitLock() {
+    const lock = this.mode === HostMode.COMPACT; // 小屏锁定“横屏画面”
+    const js = `window.kcFitLock && window.kcFitLock(${lock ? 'true' : 'false'});`;
+    this.controller.runJavaScript?.(js);
+  }
 
   private injectAll(controller: WebCtrl) {
     const script = buildInjectionBundle(defaultInjectOptions);
     controller.runJavaScript?.(script);
   }
-  private get showBottomTools(): boolean { return this.mode === 'EXPANDED'; }
+  private get showBottomTools(): boolean { return this.mode === HostMode.EXPANDED; }
 
   aboutToAppear() {
     try {
@@ -153,8 +162,8 @@ export default struct WebHost {
 
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
-          .width(this.mode === 'SMALL' ? 56 : 0)
-          .visibility(this.mode === 'SMALL' ? Visibility.Visible : Visibility.None)
+          .width(this.mode === HostMode.COMPACT ? 56 : 0)
+          .visibility(this.mode === HostMode.COMPACT ? Visibility.Visible : Visibility.None)
           .padding({ left: 4, right: 4, top: 8, bottom: 8 })
 
         Stack() {
@@ -172,7 +181,7 @@ export default struct WebHost {
       .height('100%').width('100%').backgroundColor('#000')
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
-        Blank().layoutWeight(1)   // 预留给面板
+        Blank().layoutWeight(1)   //TODO:Reserved for future dashboard
       }
       .height(this.showBottomTools ? 96 : 0)
       .visibility(this.showBottomTools ? Visibility.Visible : Visibility.None)
@@ -187,7 +196,9 @@ export default struct WebHost {
       const h = lengthToNumber(area.height);
       const decision = decideLayout(w, h);
       this.mode = decision.mode;
-      this.pushFitPolicy(this.controller, decision.policy);
+      this.fit  = decision.policy;
+      this.applyFitLock();
+      this.pushFitPolicy(this.controller, this.fit);
     })
   }
   aboutToDisappear() {

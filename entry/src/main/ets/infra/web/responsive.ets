@@ -1,15 +1,15 @@
-export type HostMode = 'SMALL' | 'EXPANDED';
-export type FitPolicy = 'height' | 'width';
+export enum HostMode { COMPACT = 0, EXPANDED = 1 }
+export type FitPolicy = 'height' | 'width'|'auto';
 
 export interface LayoutDecision { mode: HostMode; policy: FitPolicy; }
 
 export function decideLayout(widthVp: number, heightVp: number): LayoutDecision {
   const shortSide = Math.min(widthVp, heightVp);
 
-  if (shortSide <= 420) return { mode: 'SMALL', policy: 'height' };
-  if (widthVp >= 700)   return { mode: 'EXPANDED', policy: 'width' };
+  if (shortSide <= 420) return { mode: HostMode.COMPACT, policy: 'height' };
+  if (widthVp >= 700)   return { mode: HostMode.EXPANDED, policy: 'width' };
 
   return (widthVp >= heightVp)
-    ? { mode: 'SMALL', policy: 'height' }
-    : { mode: 'EXPANDED', policy: 'width' };
+    ? { mode: HostMode.COMPACT, policy: 'height' }
+    : { mode: HostMode.EXPANDED, policy: 'width' };
 }
