@@ -30,6 +30,28 @@ export default struct WebHost {
   @State private mode: HostMode = HostMode.COMPACT;
   @State private fit: FitPolicy = 'height';
 
+  private currentOri: window.Orientation = window.Orientation.AUTO_ROTATION;
+
+  private async setWindowOrientation(ori: window.Orientation) {
+    if (this.currentOri === ori) return;
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+      const win = await window.getLastWindow(ctx);
+      await win.setPreferredOrientation(ori);
+      this.currentOri = ori;
+    } catch (e) {
+      hilog.error(0x1234, 'Web', 'setPreferredOrientation failed: %{public}s', e);
+    }
+  }
+
+  private applyOrientationByMode() {
+    if (this.mode === HostMode.COMPACT) {
+      this.setWindowOrientation(window.Orientation.AUTO_ROTATION_LANDSCAPE);
+    } else {
+      this.setWindowOrientation(window.Orientation.AUTO_ROTATION);
+    }
+  }
+
   private displayChangeCb: (id: number) => void = (id: number): void => {
     const js: string = 'window.kcFitReflow && window.kcFitReflow();';
     this.controller.runJavaScript?.(js);
@@ -112,6 +134,7 @@ export default struct WebHost {
   private onProg  = (p: number) => { this.progress = p; }
   private onEnd   = () => {   this.progress = 100;
     this.injectAll(this.controller);
+    this.applyOrientationByMode();
     this.applyFitLock();
     this.pushFitPolicy(this.controller, this.fit);
   }
@@ -152,6 +175,8 @@ export default struct WebHost {
     } catch (e) {
       hilog.error(0x1234, 'Web', '%{public}s', `aboutToAppear error: ${e}`);
     }
+
+    this.setWindowOrientation(window.Orientation.LANDSCAPE);
   }
 
   build() {
@@ -197,6 +222,8 @@ export default struct WebHost {
       const decision = decideLayout(w, h);
       this.mode = decision.mode;
       this.fit  = decision.policy;
+
+      this.applyOrientationByMode();
       this.applyFitLock();
       this.pushFitPolicy(this.controller, this.fit);
     })

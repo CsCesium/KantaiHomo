@@ -90,12 +90,12 @@ window.__safeInject('iframeFit', function () {
   }
 
 
-  function computeOffsets(vw, vh, scale) {
-    var cw = W * scale, ch = H * scale;
-    var x = 0, y = -TOP_GAP;               //Key: 16px for fix the ifr error（transform aftrt scale）
-    x = (vw - cw) / 2;
-    return { x: x, y: y };
-  }
+   function computeOffsets(basisW, scale) {
+      var cw = W * scale;
+      var x = (basisW - cw) / 2;
+      var y = -TOP_GAP;            //Key: 16px for fix the ifr error（transform aftrt scale）
+      return { x: x, y: y };
+    }
 
   function snap(v){ var d = window.devicePixelRatio || 1; return Math.round(v * d) / d; }
 
@@ -121,7 +121,7 @@ window.__safeInject('iframeFit', function () {
 
   function mountOrReflow() {
     var ifr = findGameIframe(); if (!ifr) return false;
-    updateRootSizePx();                          // ← JS 设根尺寸（修复 htmlH/bodyH < innerH）
+    updateRootSizePx();                          //  htmlH/bodyH < innerH
     //var vw = window.innerWidth, vh = window.innerHeight;
     var vw = vvWidth(), vh = vvHeight();
 
@@ -136,7 +136,7 @@ window.__safeInject('iframeFit', function () {
       var effH = LOCK ? Math.min(vw, vh) : vh;
 
       sc  = computeScale(effW, effH);
-      off = computeOffsets(vw, vh, sc);
+      off = computeOffsets(LOCK ? effW : vw, sc);
       if (LOCK && !CACHE) CACHE = { scale: sc, x: off.x, y: off.y };
     }
 
