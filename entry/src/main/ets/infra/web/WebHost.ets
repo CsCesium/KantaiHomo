@@ -12,6 +12,7 @@ import common from "@ohos.app.ability.common";
 import { decideLayout, FitPolicy, HostMode } from "./responsive";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
+import { ingestDump } from "../../features/router/ingest";
 
 interface iPayload {
   op: string;
@@ -68,11 +69,15 @@ export default struct WebHost {
         // console.info('[FPS]', msg.value);
         break;
       case 'API_DUMP':
-      default:
-      // TODO: 在这里把 {url, requestBody, responseText} 交给 parsers → DAO
-      //注意DUMP类型
-        console.info('[API_DUMP]', (msg.url || '').slice(0, 120));
-        break;
+      default: {
+        // const deps = getPersistDeps?.() ;
+        // if (!deps) {
+        //   console.warn('[ingest] PersistDeps not set');
+        //   break;
+        // }
+        // ingestDump(msg, deps).catch(e => console.error('[ingestDump]', e));
+        // break;
+      }
     }
   }
 
