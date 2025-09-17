@@ -72,7 +72,6 @@ export function parseExpedition(
   // 3) 舰队状态（含远征计时）/api_get_member/deck 或 /api_port/port
   if (url.includes('/api_get_member/deck') || url.includes('/api_port/port')) {
     const js = parseSvdata<any>(responseText);
-    // 注意：有的返回结构里是 api_deck，有的是 api_deck_port
     const decks = js?.api_data?.api_deck ?? js?.api_data?.api_deck_port;
     if (!Array.isArray(decks)) return null;
 
@@ -94,7 +93,6 @@ export function parseExpedition(
     return [evt];
   }
 
-  // 4) 远征 master 目录（用于前置检查/列表）/api_start2 或 /api_start2/getData
   if (url.includes('/api_start2')) {
     const js = parseSvdata<any>(responseText);
     const arr = js?.api_data?.api_mst_mission as any[];
@@ -112,6 +110,5 @@ export function parseExpedition(
     };
     return [evt];
   }
-
   return null;
 }

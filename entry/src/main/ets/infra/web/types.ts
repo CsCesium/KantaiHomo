@@ -61,6 +61,16 @@ export interface WebResourceResponse {
   headers?: Record<string, string>;
 }
 
+export interface ApiPacket {
+  ts: number;
+  url: string;
+  path: string;
+  method: string;           // GET/POST...
+  status: number;           // 200/403...
+  reqBody: string;
+  bodyText: string;
+  bodyJSON: any;
+}
 /* ===================== 注入配置（Builder） ===================== */
 
 export interface InjectOptions {
@@ -72,7 +82,7 @@ export interface InjectOptions {
   apiFilter?: string;                     // 默认 '/kcsapi/'
 
   enableXHRHook?: boolean;                // 默认 true
-  enableFetchHook?: boolean;              // 默认 false
+  enableFetchHook?: boolean;              // 默认 true
   enableFPS?: boolean;                    // 默认 false
   enableTouchPatch?: boolean;             // 默认 false
   enableTickerRAF?: boolean;              // 默认 true
@@ -88,7 +98,7 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   postMethod: 'post',
   apiFilter: '/kcsapi/',
   enableXHRHook: true,
-  enableFetchHook: false,
+  enableFetchHook: true,
   enableFPS: false,
   enableTouchPatch: false,
   enableTickerRAF: true,

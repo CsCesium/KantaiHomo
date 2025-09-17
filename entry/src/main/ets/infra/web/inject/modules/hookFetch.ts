@@ -10,13 +10,21 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
         try {
           const url = (typeof input === 'string') ? input : (input && input.url) || '';
           const body = init && (init.body || init.data);
-          const shouldLog = (!(${filterExp}).test ? (url.indexOf(${filterExp}) !== -1) : (${filterExp}).test(url));
-          if (shouldLog) {
+          const method = ((init && init.method) || (typeof input !== 'string' && input && input.method) || 'GET').toUpperCase();
+          const ok = (!(${filterExp}).test ? (url.indexOf(${filterExp}) !== -1) : (${filterExp}).test(url));
+          if (ok) {
             return _fetch(input, init).then(function(res){
               try {
                 const clone = res.clone();
                 return clone.text().then(function(text){
-                  const payload = JSON.stringify({ url, requestBody: body ? String(body) : '', responseText: text });
+                  const payload = JSON.stringify({
+                    ts: Date.now(),
+                    url,
+                    method,
+                    status: Number(res.status) || 0,
+                    requestBody: body ? String(body) : '',
+                    responseText: text
+                  });
                   try { window['${channelName}']['${postMethod}'](payload); } catch(e){}
                   return res;
                 }).catch(function(){ return res; });
