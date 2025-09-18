@@ -12,7 +12,7 @@ import common from "@ohos.app.ability.common";
 import { decideLayout, FitPolicy, HostMode } from "./responsive";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
-import { ingestDump } from "../../features/router/ingest";
+import { ingestDump } from "../../features/router/persist/ingest/webDump";
 
 interface iPayload {
   op: string;
