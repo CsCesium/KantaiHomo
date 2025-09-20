@@ -200,6 +200,7 @@ export default struct WebHost {
           .width(this.mode === HostMode.COMPACT ? 56 : 0)
           .visibility(this.mode === HostMode.COMPACT ? Visibility.Visible : Visibility.None)
           .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+          .align(Alignment.BottomStart)
 
         Stack() {
           GameWeb({
@@ -216,6 +217,11 @@ export default struct WebHost {
       .height('100%').width('100%').backgroundColor('#000')
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
+          .width(56)
+          .height('100%')
+          .align(Alignment.TopStart)
+          .padding({ left: 8 });
+
         Blank().layoutWeight(1)   //TODO:Reserved for future dashboard
       }
       .height(this.showBottomTools ? 96 : 0)
@@ -225,7 +231,7 @@ export default struct WebHost {
 
     }
     .height('100%').width('100%').backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END])
     .onAreaChange((_, area) => {
       const w = lengthToNumber(area.width);
       const h = lengthToNumber(area.height);

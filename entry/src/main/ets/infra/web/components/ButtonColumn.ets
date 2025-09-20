@@ -15,6 +15,7 @@ export default struct LeftButtonColumn {
   build() {
     Column({ space: 8 }) {
       this.IconBtn('⟳',  () => this.onRefresh?.())
+      this.IconBtn('⟳',  () => this.onRefresh?.())
       // TODO：Other Buttons
     }
     .width(56).padding({ left: 4, right: 4, top: 8, bottom: 8 })
