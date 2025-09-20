@@ -26,15 +26,16 @@ interface iPayload {
 export default struct WebHost {
   private controller: WebCtrl = new webview.WebviewController();
   private readonly HOME = HOME_URL;
-
   @State private progress: number = 0;
   @State private mode: HostMode = HostMode.COMPACT;
+  @State private lastMode: HostMode | null = null;
   @State private fit: FitPolicy = 'height';
-
   private currentOri: window.Orientation = window.Orientation.AUTO_ROTATION;
 
   private async setWindowOrientation(ori: window.Orientation) {
-    if (this.currentOri === ori) return;
+    if (this.currentOri === ori) {
+      return;
+    }
     try {
       const ctx = getContext(this) as common.UIAbilityContext;
       const win = await window.getLastWindow(ctx);
@@ -78,7 +79,7 @@ export default struct WebHost {
       default: {
         const deps = getPersistDeps();
         if (deps) {
-          ingestDump(msg, deps).catch((e:Error) => console.error('[ingestDump]', e));
+          ingestDump(msg, deps).catch((e: Error) => console.error('[ingestDump]', e));
         } else {
           console.warn('[ingest] PersistDeps not set');
         }
@@ -86,7 +87,6 @@ export default struct WebHost {
       }
     }
   }
-
 
   private async handleJsRequest(msg: string): Promise<string> {
     try {
@@ -122,6 +122,7 @@ export default struct WebHost {
     };
     this.controller.registerJavaScriptProxy(bridgeObj, 'hmos', ['post'], ['postAsync'], PERMISSION_JSON);
   }
+
   private onWebAttached = () => {
     try {
       webview.WebviewController.setWebDebuggingAccess(true);
@@ -139,10 +140,15 @@ export default struct WebHost {
       }
     }
   }
-
-  private onBegin = () => { this.progress = 5; this.injectAll(this.controller); }
-  private onProg  = (p: number) => { this.progress = p; }
-  private onEnd   = () => {   this.progress = 100;
+  private onBegin = () => {
+    this.progress = 5;
+    this.injectAll(this.controller);
+  }
+  private onProg = (p: number) => {
+    this.progress = p;
+  }
+  private onEnd = () => {
+    this.progress = 100;
     this.injectAll(this.controller);
     this.applyOrientationByMode();
     this.applyFitLock();
@@ -167,7 +173,10 @@ export default struct WebHost {
     const script = buildInjectionBundle(defaultInjectOptions);
     controller.runJavaScript?.(script);
   }
-  private get showBottomTools(): boolean { return this.mode === HostMode.EXPANDED; }
+
+  private get showBottomTools(): boolean {
+    return this.mode === HostMode.EXPANDED;
+  }
 
   aboutToAppear() {
     try {
@@ -199,7 +208,12 @@ export default struct WebHost {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
           .width(this.mode === HostMode.COMPACT ? 56 : 0)
           .visibility(this.mode === HostMode.COMPACT ? Visibility.Visible : Visibility.None)
-          .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+          .padding({
+            left: 4,
+            right: 4,
+            top: 8,
+            bottom: 8
+          })
           .align(Alignment.BottomStart)
 
         Stack() {
@@ -214,7 +228,9 @@ export default struct WebHost {
         }
         .layoutWeight(1).height('100%')
       }
-      .height('100%').width('100%').backgroundColor('#000')
+      .layoutWeight(1)
+      .width('100%').backgroundColor('#000')
+
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
           .width(56)
@@ -222,7 +238,7 @@ export default struct WebHost {
           .align(Alignment.TopStart)
           .padding({ left: 8 });
 
-        Blank().layoutWeight(1)   //TODO:Reserved for future dashboard
+        Blank().layoutWeight(1) //TODO:Reserved for future dashboard
       }
       .height(this.showBottomTools ? 96 : 0)
       .visibility(this.showBottomTools ? Visibility.Visible : Visibility.None)
@@ -230,21 +246,27 @@ export default struct WebHost {
       .backgroundColor('#0b0b0b')
 
     }
-    .height('100%').width('100%').backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END])
+    .height('100%')
+    .width('100%')
+    .backgroundColor('#000')
+    .expandSafeArea([SafeAreaType.SYSTEM],
+      [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END])
     .onAreaChange((_, area) => {
       const w = lengthToNumber(area.width);
       const h = lengthToNumber(area.height);
       const decision = decideLayout(w, h);
+      const modeChanged = this.lastMode !== decision.mode;
       this.mode = decision.mode;
       this.fit  = decision.policy;
 
       this.applyOrientationByMode();
       this.applyFitLock();
-      this.resetFitCache();
+      if (modeChanged) this.resetFitCache();
       this.pushFitPolicy(this.controller, this.fit);
+      this.lastMode = this.mode;
     })
   }
+
   aboutToDisappear() {
     display.off('change', this.displayChangeCb);
   }
