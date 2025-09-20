@@ -235,13 +235,15 @@ export default struct WebHost {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
           .width(56)
           .height('100%')
-          .align(Alignment.TopStart)
+          .zIndex(2)
           .padding({ left: 8 });
 
         Blank().layoutWeight(1) //TODO:Reserved for future dashboard
       }
       .height(this.showBottomTools ? 96 : 0)
       .visibility(this.showBottomTools ? Visibility.Visible : Visibility.None)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Start)
       .width('100%')
       .backgroundColor('#0b0b0b')
 
