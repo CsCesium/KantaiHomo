@@ -181,7 +181,8 @@ window.__safeInject('iframeFit', function () {
     var on = !!b;
     if (on !== LOCK) {
       LOCK = on;
-      if (!LOCK) CACHE = null; // 退出锁定时清缓存
+      //if (!LOCK) CACHE = null; // 退出锁定时清缓存
+      CACHE = null; // always clean cache
       mountOrReflow();
     }
   };
@@ -189,6 +190,7 @@ window.__safeInject('iframeFit', function () {
   window.kcFitReflow = function(){ mountOrReflow(); };
   window.kcFitSetPolicy = function(p){ if (p==='height'||p==='width'||p==='auto'){ policy=p; mountOrReflow(); } };
   window.kcSetTopGap = function(px){ TOP_GAP = (+px|0); mountOrReflow(); };
+  window.kcFitReset = function () { CACHE = null; };
 });
 //# sourceURL=hm-inject://iframeFit.js
 `;

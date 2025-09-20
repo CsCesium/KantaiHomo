@@ -4,7 +4,7 @@ import { HmosBridge, WebCtrl, AppChannelMessage, defaultInjectOptions } from './
 import { parseAppChannelMessage as parseMsg } from './types'
 import { PERMISSION_JSON, HOME_URL, USER_AGENT } from './config';
 import { kvDelete, kvGetString, kvSet } from "../store/kv";
-import hilog from '@ohos.hilog'; //for debug
+import hilog from '@ohos.hilog';
 import { lengthToNumber } from "../utils/TransUtil";
 import display from '@ohos.display';
 import window from "@ohos.window";
@@ -13,6 +13,7 @@ import { decideLayout, FitPolicy, HostMode } from "./responsive";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import { ingestDump } from "../../features/router/persist/ingest/webDump";
+import { getPersistDeps } from "../../dev/deps";
 
 interface iPayload {
   op: string;
@@ -57,6 +58,11 @@ export default struct WebHost {
     this.controller.runJavaScript?.(js);
   };
 
+  private resetFitCache() {
+    const js = `window.kcFitReset && window.kcFitReset();`;
+    this.controller.runJavaScript?.(js);
+  }
+
   private handleJsMessage(raw: string) {
     const msg: AppChannelMessage | null = parseMsg(raw);
     if (!msg) {
@@ -70,13 +76,13 @@ export default struct WebHost {
         break;
       case 'API_DUMP':
       default: {
-        // const deps = getPersistDeps?.() ;
-        // if (!deps) {
-        //   console.warn('[ingest] PersistDeps not set');
-        //   break;
-        // }
-        // ingestDump(msg, deps).catch(e => console.error('[ingestDump]', e));
-        // break;
+        const deps = getPersistDeps();
+        if (deps) {
+          ingestDump(msg, deps).catch((e:Error) => console.error('[ingestDump]', e));
+        } else {
+          console.warn('[ingest] PersistDeps not set');
+        }
+        break;
       }
     }
   }
@@ -91,7 +97,7 @@ export default struct WebHost {
           return JSON.stringify({ ok: true, value: v });
         }
         case 'kv.set': {
-          // 统一存为 string；（网页侧可自己序列化 JSON）
+          // save as string
           await kvSet(payload.key ?? '', String(payload.value ?? ''));
           return JSON.stringify({ ok: true });
         }
@@ -229,6 +235,7 @@ export default struct WebHost {
 
       this.applyOrientationByMode();
       this.applyFitLock();
+      this.resetFitCache();
       this.pushFitPolicy(this.controller, this.fit);
     })
   }
