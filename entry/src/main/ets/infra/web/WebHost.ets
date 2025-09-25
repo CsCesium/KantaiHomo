@@ -228,6 +228,7 @@ export default struct WebHost {
         }
         .layoutWeight(1).height('100%')
       }
+      .clip(true)
       .layoutWeight(1)
       .width('100%').backgroundColor('#000')
 
@@ -235,9 +236,10 @@ export default struct WebHost {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
           .width(56)
           .height('100%')
+          .opacity(1)                     // debug
           .zIndex(2)
           .padding({ left: 8 });
-
+        Rect().width(40).height(40).backgroundColor('#31D0AA').margin({ left: 8 })
         Blank().layoutWeight(1) //TODO:Reserved for future dashboard
       }
       .height(this.showBottomTools ? 96 : 0)
