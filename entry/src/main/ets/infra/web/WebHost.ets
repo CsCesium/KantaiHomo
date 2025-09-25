@@ -30,6 +30,8 @@ export default struct WebHost {
   @State private mode: HostMode = HostMode.COMPACT;
   @State private lastMode: HostMode | null = null;
   @State private fit: FitPolicy = 'height';
+  @State private showBottomTools: boolean = false;
+  @State private gameBoxHeightVp: number = 0;
   private currentOri: window.Orientation = window.Orientation.AUTO_ROTATION;
 
   private async setWindowOrientation(ori: window.Orientation) {
@@ -174,10 +176,6 @@ export default struct WebHost {
     controller.runJavaScript?.(script);
   }
 
-  private get showBottomTools(): boolean {
-    return this.mode === HostMode.EXPANDED;
-  }
-
   aboutToAppear() {
     try {
       const context = getContext(this) as common.UIAbilityContext;
@@ -225,12 +223,16 @@ export default struct WebHost {
             onWebProgress: this.onProg,
             onWebPageEnd: this.onEnd
           })
+
         }
-        .layoutWeight(1).height('100%')
+        .layoutWeight(1)
+        .clip(true)
+        .border({ width: 1, color: '#FFF000' })//debug
       }
-      .clip(true)
       .layoutWeight(1)
-      .width('100%').backgroundColor('#000')
+      .width('100%')
+      .backgroundColor('#000')
+      .border({ width: 1, color: '#FF0000' })//debug
 
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
@@ -239,7 +241,6 @@ export default struct WebHost {
           .opacity(1)                     // debug
           .zIndex(2)
           .padding({ left: 8 });
-        Rect().width(40).height(40).backgroundColor('#31D0AA').margin({ left: 8 })
         Blank().layoutWeight(1) //TODO:Reserved for future dashboard
       }
       .height(this.showBottomTools ? 96 : 0)
@@ -248,7 +249,7 @@ export default struct WebHost {
       .justifyContent(FlexAlign.Start)
       .width('100%')
       .backgroundColor('#0b0b0b')
-
+      .border({ width: 1, color: '#1FAFA0' })//debug
     }
     .height('100%')
     .width('100%')
@@ -262,6 +263,9 @@ export default struct WebHost {
       const modeChanged = this.lastMode !== decision.mode;
       this.mode = decision.mode;
       this.fit  = decision.policy;
+
+      this.showBottomTools = (this.mode === HostMode.EXPANDED);
+
 
       this.applyOrientationByMode();
       this.applyFitLock();

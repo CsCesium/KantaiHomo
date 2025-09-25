@@ -22,6 +22,7 @@ export default struct GameWeb {
       .onProgressChange(e => { this.onWebProgress?.(e?.newProgress ?? 0); })
       .onPageEnd(() => { this.onWebPageEnd?.(); })
       .width('100%').height('100%')
+      .clip(true)
       .backgroundColor('#000');
   }
 }
