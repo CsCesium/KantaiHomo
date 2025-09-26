@@ -31,7 +31,7 @@ export default struct WebHost {
   @State private lastMode: HostMode | null = null;
   @State private fit: FitPolicy = 'height';
   @State private showBottomTools: boolean = false;
-  @State private gameBoxHeightVp: number = 0;
+  @State private gameHeightVp: number = 0;
   private currentOri: window.Orientation = window.Orientation.AUTO_ROTATION;
 
   private async setWindowOrientation(ori: window.Orientation) {
@@ -165,6 +165,19 @@ export default struct WebHost {
     controller.runJavaScript?.(js);
   }
 
+  private pushCompactReflowBurst() {
+    const js =
+      `(function(){` +
+        `if (window.kcFitReset) window.kcFitReset();` +
+        `if (window.kcFitLock)  window.kcFitLock(true);` +
+        `if (window.kcFitSetPolicy) window.kcFitSetPolicy('height');` +
+        `if (window.kcFitReflow) window.kcFitReflow();` +
+        `setTimeout(function(){ if (window.kcFitReflow) window.kcFitReflow(); }, 90);` +
+        `setTimeout(function(){ if (window.kcFitReflow) window.kcFitReflow(); }, 180);` +
+        `})();`;
+    this.controller.runJavaScript?.(js);
+  }
+
   private applyFitLock() {
     const lock = this.mode === HostMode.COMPACT; // 小屏锁定“横屏画面”
     const js = `window.kcFitLock && window.kcFitLock(${lock ? 'true' : 'false'});`;
@@ -214,7 +227,7 @@ export default struct WebHost {
           })
           .align(Alignment.BottomStart)
 
-        Stack() {
+        Stack({ alignContent: Alignment.TopStart }) {
           GameWeb({
             src: this.HOME,
             controller: this.controller,
@@ -223,16 +236,19 @@ export default struct WebHost {
             onWebProgress: this.onProg,
             onWebPageEnd: this.onEnd
           })
-
         }
-        .layoutWeight(1)
+        .width("100%")
+        .height("100%")
         .clip(true)
         .border({ width: 1, color: '#FFF000' })//debug
       }
-      .layoutWeight(1)
+      .height(this.showBottomTools? this.gameHeightVp : "auto")
+      .constraintSize(this.showBottomTools?{ minHeight: this.gameHeightVp, maxHeight: this.gameHeightVp }:{})
+      .layoutWeight(this.showBottomTools ? 0:1)
       .width('100%')
       .backgroundColor('#000')
       .border({ width: 1, color: '#FF0000' })//debug
+
 
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
@@ -243,8 +259,9 @@ export default struct WebHost {
           .padding({ left: 8 });
         Blank().layoutWeight(1) //TODO:Reserved for future dashboard
       }
-      .height(this.showBottomTools ? 96 : 0)
+      .height(this.showBottomTools ? "auto" : 0)
       .visibility(this.showBottomTools ? Visibility.Visible : Visibility.None)
+      .layoutWeight(this.showBottomTools? 1:0)
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.Start)
       .width('100%')
@@ -265,12 +282,22 @@ export default struct WebHost {
       this.fit  = decision.policy;
 
       this.showBottomTools = (this.mode === HostMode.EXPANDED);
+      const AR = 720/1200; // H/W
+      const contentH = Math.min(h,w*AR);
 
+      //dynamic calculate height of the gameWeb when expended
+      this.gameHeightVp = this.showBottomTools ? Math.floor(contentH):h;
 
       this.applyOrientationByMode();
       this.applyFitLock();
-      if (modeChanged) this.resetFitCache();
-      this.pushFitPolicy(this.controller, this.fit);
+
+      if (modeChanged && this.mode === HostMode.COMPACT) {
+        this.pushCompactReflowBurst();
+      } else {
+        if (modeChanged) this.resetFitCache();      // 展开<->折叠其他切换仍清缓存
+        this.pushFitPolicy(this.controller, this.fit);
+      }
+
       this.lastMode = this.mode;
     })
   }
