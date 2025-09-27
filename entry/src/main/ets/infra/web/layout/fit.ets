@@ -12,7 +12,9 @@ export class FitAndDisplay {
   }
 
   applyFitLock(locked: boolean): void {
-    this.run(`window.kcFitLock && window.kcFitLock(${locked ? 'true' : 'false'});`);
+    const leftGap = locked? 0:90;
+    this.run(`window.kcSetLeftGap && window.kcSetLeftGap(${leftGap});`+
+      `window.kcFitLock && window.kcFitLock(${locked ? 'true' : 'false'});`);
   }
 
   pushFitPolicy(policy: string): void {

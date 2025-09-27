@@ -6,6 +6,7 @@ window.__safeInject('iframeFit', function () {
   var policy = 'auto';
   var lastPolicy = 'auto';
   var TOP_GAP = 16;
+  var LEFT_GAP = 0;
   var LOCK = false;     // small screen LOCK
   var CACHE = null; // { scale, x, y, lw, lh, policy }
   var __KC_DEBUG__ = false;
@@ -152,7 +153,12 @@ function ensureNoZoomMeta() {
 
   function computeOffsets(logicalWidth, scale) {
     var cw = W * scale;
-    var x = (logicalWidth - cw) / 2;
+    var x;
+    if (LOCK) {
+      x = (LEFT_GAP / scale);
+    } else {
+      x = (logicalWidth - cw) / 2;
+    }
     var y = -TOP_GAP; // Fix the CSS error
     return { x: x, y: y };
   }
@@ -248,7 +254,7 @@ function ensureNoZoomMeta() {
 
   // —— ArkTS Bridge ——
   window.kcFitReset = function () { CACHE = null; dbg('RESET cache'); };
-
+  window.kcSetLeftGap = function(px){ LEFT_GAP = (+px | 0); mountOrReflow(); };
   window.kcFitLock = function (b) {
     var on = !!b;
     if (on !== LOCK) {
