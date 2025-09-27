@@ -1,5 +1,6 @@
 import { webview } from "@kit.ArkWeb";
 import { HOME_URL } from "../config";
+import { createEmptyResp, shouldBlock } from "../interceptors/Interceptor";
 
 @ComponentV2
 export default struct GameWeb {
@@ -17,7 +18,12 @@ export default struct GameWeb {
       .fileAccess(true)
       .onControllerAttached(() => { this.onWebAttached?.(); })
       .onLoadIntercept(() => false)
-      .onInterceptRequest((ev) => {return undefined})
+      .onInterceptRequest((ev) => {
+        const url:string = ev&&ev.request? (ev.request.getRequestUrl()||''):'';
+        if(!url) return undefined;
+        if(!shouldBlock(url))return undefined;
+        return createEmptyResp();
+      })
       .onPageBegin(() => { this.onWebPageBegin?.(); })
       .onProgressChange(e => { this.onWebProgress?.(e?.newProgress ?? 0); })
       .onPageEnd(() => { this.onWebPageEnd?.(); })

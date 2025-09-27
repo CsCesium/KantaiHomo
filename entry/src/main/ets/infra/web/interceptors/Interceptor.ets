@@ -1,4 +1,5 @@
-import { util } from '@kit.ArkTS';
+import { url,util } from '@kit.ArkTS';
+
 //reserved for future
 function shouldWrap(url: string): boolean {
   if (url.length === 0) return false;
@@ -108,4 +109,72 @@ export function kancolleInnerHtmlInterceptor(event: OnInterceptRequestEvent): We
   if (method !== 'GET') return null;
   if (!shouldWrap(url)) return null;
   return buildHtmlResponse(buildWrapperHtml(url));
+}
+
+function extractHost(url: string): string {
+  const m = url.match(/^https?:\/\/([^\/?#:]+)/i);
+  return m ? m[1].toLowerCase() : '';
+}
+
+export function shouldBlock(Url: string): boolean {
+  let u:url.URL;
+  try {
+    u = url.URL.parseURL(Url);
+  }catch (_){
+    return false;
+  }
+
+  const host:string = u.hostname.toLowerCase();
+  const path:string = (u.pathname+u.search).toLowerCase();
+
+  const allowHosts:string[] = [
+    'dmm.com', 'www.dmm.com', 'osapi.dmm.com', 'www.dmm.co.jp',
+    //shall allow host or proxy
+  ];
+
+  for (let i = 0; i<allowHosts.length;i++){ if (host.endsWith(allowHosts[i])) return false}
+
+  const blockHosts:string[] = [
+    'googlesyndication.com',
+    'google-analytics.com',
+    'doubleclick.net',
+    'pagead2.googlesyndication.com',
+    'analytics.twitter.com',
+    'ads-twitter.com',
+    't.co',
+    'bat.bing.com',
+    'connect.facebook.net',
+    'criteo.com',
+    'taboola.com',
+    'scorecardresearch.com',
+    'snapads.com',
+    'hotjar.com',
+    'sentry.io',
+    'newrelic.com'
+  ];
+  for (let i = 0; i<blockHosts.length;i++){if (host.endsWith(blockHosts[i])) return true;}
+
+  if(path.indexOf('/pagead/') >= 0 ||
+      path.indexOf('/adsct') >= 0 ||
+      path.indexOf('gtm.js') >= 0 ||
+      path.indexOf('analytics.js') >= 0 ||
+      path.indexOf('collect?') >= 0 ||
+      path.indexOf('pixel.gif') >= 0){
+    return true;
+  }
+  return false;
+}
+
+export function createEmptyResp():WebResourceResponse{
+  const resp = new WebResourceResponse();
+  resp.setResponseCode(204);
+  resp.setReasonMessage('No Content');
+  resp.setResponseEncoding('utf-8');
+  resp.setResponseMimeType('text/plain');
+  resp.setResponseData(new Uint8Array(0));
+
+  const headers= new Array<Header>();
+  headers.push({ headerKey: 'Content-Type', headerValue: 'text/plain; charset=utf-8' });
+  resp.setResponseHeader(headers);
+  return resp;
 }
