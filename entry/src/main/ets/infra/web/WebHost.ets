@@ -234,33 +234,33 @@ export default struct WebHost {
         .width("100%")
         .height("100%")
         .clip(true)
-        .border({ width: 1, color: '#FFF000' })//debug
+        .border({ width: 1, color: '#FFF000' }) //debug
       }
-      .height(this.showBottomTools? this.gameHeightVp : "auto")
-      .constraintSize(this.showBottomTools?{ minHeight: this.gameHeightVp, maxHeight: this.gameHeightVp }:{})
-      .layoutWeight(this.showBottomTools ? 0:1)
+      .height(this.showBottomTools ? this.gameHeightVp : "auto")
+      .constraintSize(this.showBottomTools ? { minHeight: this.gameHeightVp, maxHeight: this.gameHeightVp } : {})
+      .layoutWeight(this.showBottomTools ? 0 : 1)
       .width('100%')
       .backgroundColor('#000')
-      .border({ width: 1, color: '#FF0000' })//debug
+      .border({ width: 1, color: '#FF0000' }) //debug
 
 
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
           .width(56)
           .height('100%')
-          .opacity(1)                     // debug
+          .opacity(1)// debug
           .zIndex(2)
           .padding({ left: 8 });
         Blank().layoutWeight(1) //TODO:Reserved for future dashboard
       }
       .height(this.showBottomTools ? "auto" : 0)
       .visibility(this.showBottomTools ? Visibility.Visible : Visibility.None)
-      .layoutWeight(this.showBottomTools? 1:0)
+      .layoutWeight(this.showBottomTools ? 1 : 0)
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.Start)
       .width('100%')
       .backgroundColor('#0b0b0b')
-      .border({ width: 1, color: '#1FAFA0' })//debug
+      .border({ width: 1, color: '#1FAFA0' }) //debug
     }
     .height('100%')
     .width('100%')
@@ -273,17 +273,19 @@ export default struct WebHost {
       const decision = decideLayout(w, h);
       const modeChanged = this.lastMode !== decision.mode;
       this.mode = decision.mode;
-      this.fit  = decision.policy;
+      this.fit = decision.policy;
 
       this.showBottomTools = (this.mode === HostMode.EXPANDED);
-      const AR = 720/1200; // H/W
-      const contentH = Math.min(h,w*AR);
+      const AR = 720 / 1200; // H/W
+      const contentH = Math.min(h, w * AR);
 
       //dynamic calculate height of the gameWeb when expended
-      this.gameHeightVp = this.showBottomTools ? Math.floor(contentH):h;
+      this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
 
       this.applyOrientationByMode();
-      if (modeChanged) this.resetFitCache();
+      if (modeChanged) {
+        this.resetFitCache();
+      }
       this.applyFitLock();
       this.pushFitPolicy(this.controller, this.fit);
       this.lastMode = this.mode;
