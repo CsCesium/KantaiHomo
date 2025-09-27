@@ -4,9 +4,36 @@ window.__safeInject('iframeFit', function () {
   var STYLE_ALIGN_ID = 'kc-align';
   var STYLE_FIT_ID   = 'kc-fit';
   var policy = 'auto';
+  var lastPolicy = 'auto';
   var TOP_GAP = 16;
-  var LOCK = false;
-  var CACHE = null;
+  var LOCK = false;     // small screen LOCK
+  var CACHE = null; // { scale, x, y, lw, lh, policy }
+  var __KC_DEBUG__ = false;
+
+  function dbg() {
+  if (!__KC_DEBUG__) return;
+  var ts = (performance.now() / 1000).toFixed(3);
+  try { console.log('[kc][' + ts + ']', ...arguments); } catch (e) {}
+  try { if (window.hmos && typeof hmos.post === 'function') hmos.post('[kc] ' + [].join.call(arguments, ' ')); } catch(e){}
+  }
+
+  function stateSnapshot() {
+    var vw = vvWidth(), vh = vvHeight();
+    var lw = Math.max(vw, vh), lh = Math.min(vw, vh);
+    return {
+      policy: policy,
+      LOCK: LOCK,
+      CACHE: !!CACHE,
+      vw: vw, vh: vh, lw: lw, lh: lh,  // 三个坐标维度
+      TOP_GAP: TOP_GAP
+    };
+  }
+
+  window.kcFitDump = function() {
+    var o = stateSnapshot();
+    dbg('DUMP', JSON.stringify(o));
+    return o;
+  };
 
   function ensureStyle(id) {
     var el = document.getElementById(id);
@@ -26,7 +53,6 @@ window.__safeInject('iframeFit', function () {
     return null;
   }
 
-  // only reserve iframe
   function isolateIframePath(ifr) {
     var node = ifr;
     while (node && node !== document.body) {
@@ -72,34 +98,39 @@ window.__safeInject('iframeFit', function () {
     bd.style.setProperty('overflow','hidden','important');
   }
 
-  function computeScale(vw, vh) {
-    // if (policy === 'height') return vh / H; // 横屏：按高铺满
-    // if (policy === 'width')  return vw / W; // 竖屏：按宽铺满
-    // return (vw >= vh) ? (vh / H) : (vw / W);
-   if (policy === 'height') {
-      var s = vh / H;
-      if (W * s > vw) s = vw / W;
+
+  function logicalSize() {
+    var vw = vvWidth(), vh = vvHeight();
+    var lw = Math.max(vw, vh); // logical width
+    var lh = Math.min(vw, vh); // logical height
+    return { vw: vw, vh: vh, lw: lw, lh: lh };
+  }
+
+  function computeScale(lw, lh) {
+    if (policy === 'height') {
+      var s = lh / H;
+      if (W * s > lw) s = lw / W;
       return s;
     }
     if (policy === 'width')  {
-      var s = vw / W;
-      if (H * s > vh) s = vh / H;
+      var s = lw / W;
+      if (H * s > lh) s = lh / H;
       return s;
     }
-    return Math.min(vw / W, vh / H);
+    // auto：minimize the size
+    return Math.min(lw / W, lh / H);
   }
 
-
-   function computeOffsets(basisW, scale) {
-      var cw = W * scale;
-      var x = (basisW - cw) / 2;
-      var y = -TOP_GAP;            //Key: 16px for fix the ifr error（transform aftrt scale）
-      return { x: x, y: y };
-    }
+  function computeOffsets(logicalWidth, scale) {
+    var cw = W * scale;
+    var x = (logicalWidth - cw) / 2;
+    var y = -TOP_GAP; // Fix the CSS error
+    return { x: x, y: y };
+  }
 
   function snap(v){ var d = window.devicePixelRatio || 1; return Math.round(v * d) / d; }
 
-  function writeFitCSS(vw, vh, scale, off) {
+  function writeFitCSS(scale, off) {
     var s = ensureStyle(STYLE_FIT_ID);
     var ox = snap(off.x), oy = snap(off.y);
     s.textContent =
@@ -120,34 +151,42 @@ window.__safeInject('iframeFit', function () {
   }
 
   function mountOrReflow() {
-    var ifr = findGameIframe(); if (!ifr) return false;
-    updateRootSizePx();                          //  htmlH/bodyH < innerH
-    //var vw = window.innerWidth, vh = window.innerHeight;
-    var vw = vvWidth(), vh = vvHeight();
+    var ifr = findGameIframe(); if (!ifr) { dbg('NO IFRAME'); return false; }
+    updateRootSizePx();
 
-    // var sc = computeScale(vw, vh);
-    // var off = computeOffsets(vw, vh, sc);
+    var s  = logicalSize();
+    var lw = LOCK ? s.lw : s.vw;
+    var lh = LOCK ? s.lh : s.vh;
+
     var sc, off;
-    if (LOCK && CACHE) {
+
+    var hit = !!(LOCK && CACHE &&
+                 CACHE.lock   === LOCK &&
+                 CACHE.policy === policy &&
+                 CACHE.lw     === lw &&
+                 CACHE.lh     === lh /* && CACHE.topGap === TOP_GAP */);
+
+    if (hit) {
       sc  = CACHE.scale;
       off = { x: CACHE.x, y: CACHE.y };
+      dbg('REFLOW cache-hit', 'LOCK=', LOCK, 'policy=', policy, 'scale=', sc.toFixed(4), 'off=', off.x.toFixed(1), off.y.toFixed(1), 'lw/lh=', lw, lh);
     } else {
-      var effW = LOCK ? Math.max(vw, vh) : vw;
-      var effH = LOCK ? Math.min(vw, vh) : vh;
+      sc  = computeScale(lw, lh);
+      off = computeOffsets(lw, sc);
+      dbg('REFLOW recompute', 'LOCK=', LOCK, 'policy=', policy, 'scale=', sc.toFixed(4), 'off=', off.x.toFixed(1), off.y.toFixed(1), 'lw/lh=', lw, lh);
 
-      sc  = computeScale(effW, effH);
-      off = computeOffsets(LOCK ? effW : vw, sc);
-      if (LOCK && !CACHE) CACHE = { scale: sc, x: off.x, y: off.y };
+      if (LOCK) {
+        CACHE = { scale: sc, x: off.x, y: off.y, lw: lw, lh: lh, policy: policy, lock: LOCK /*, topGap: TOP_GAP*/ };
+      } else {
+        CACHE = null;
+      }
     }
 
-
-
-    writeFitCSS(vw, vh, sc, off);
+    writeFitCSS(sc, off);
     applyInline(ifr, sc, off);
 
-    // help reflow
     try { ifr.style.width = (W + 1) + 'px'; void ifr.offsetWidth; ifr.style.width = W + 'px'; } catch (e) {}
-    setTimeout(updateRootSizePx, 0);            // 再同步根尺寸（某些机型旋转后需要两次）
+    setTimeout(updateRootSizePx, 0);
     return true;
   }
 
@@ -177,20 +216,35 @@ window.__safeInject('iframeFit', function () {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
   else run();
 
+  // —— ArkTS Bridge ——
+  window.kcFitReset = function () { CACHE = null; dbg('RESET cache'); };
+
   window.kcFitLock = function (b) {
     var on = !!b;
     if (on !== LOCK) {
       LOCK = on;
-      //if (!LOCK) CACHE = null; // 退出锁定时清缓存
-      CACHE = null; // always clean cache
+      CACHE = null;
+      dbg('LOCK ->', LOCK, '(CACHE cleared)');
+      mountOrReflow();
+    }else {
+    dbg('LOCK unchanged:', LOCK);
+    }
+  };
+
+  window.kcFitSetPolicy = function(p){
+    if (p==='height'||p==='width'||p==='auto'){
+      if (p !== lastPolicy) {
+        lastPolicy = p;
+        try { window.kcFitReset && window.kcFitReset(); } catch(e){}
+      }
+      policy = p;
+      dbg('POLICY ->', policy);
       mountOrReflow();
     }
   };
-  // for ArkTS
+
   window.kcFitReflow = function(){ mountOrReflow(); };
-  window.kcFitSetPolicy = function(p){ if (p==='height'||p==='width'||p==='auto'){ policy=p; mountOrReflow(); } };
   window.kcSetTopGap = function(px){ TOP_GAP = (+px|0); mountOrReflow(); };
-  window.kcFitReset = function () { CACHE = null; };
 });
 //# sourceURL=hm-inject://iframeFit.js
 `;
