@@ -29,6 +29,35 @@ window.__safeInject('iframeFit', function () {
     };
   }
 
+function ensureNoZoomMeta() {
+  var m = document.querySelector('meta[name="viewport"]');
+  if (!m) { m = document.createElement('meta'); m.name = 'viewport'; document.head.appendChild(m); }
+  // 禁止缩放：双击/捏合都无效
+  m.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+}
+
+  function installNoZoomGuards() {
+    ensureNoZoomMeta();
+
+    // CSS 禁用手势缩放
+    var s = ensureStyle('kc-nozoom');
+    s.textContent =
+      'html,body{touch-action:none;-ms-touch-action:none;overscroll-behavior:none}' +
+      '#game_frame{touch-action:none}';
+
+
+    var prevent = function(e){ try{ e.preventDefault(); }catch(_){} };
+    ['dblclick','gesturestart','gesturechange','gestureend'].forEach(function(t){
+      document.addEventListener(t, prevent, { passive: false, capture: true });
+    });
+    document.addEventListener('wheel', function(e){
+      if (e.ctrlKey) prevent(e);
+    }, { passive: false, capture: true });
+    document.addEventListener('touchmove', function(e){
+      if (e.touches && e.touches.length > 1) prevent(e);
+    }, { passive: false, capture: true });
+  }
+
   window.kcFitDump = function() {
     var o = stateSnapshot();
     dbg('DUMP', JSON.stringify(o));
@@ -199,6 +228,7 @@ window.__safeInject('iframeFit', function () {
   }
 
   function run() {
+    installNoZoomGuards();
     if (mountOnce()) {
       var rf = function(){ mountOrReflow(); };
       window.addEventListener('resize', rf);
