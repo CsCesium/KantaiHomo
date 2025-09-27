@@ -56,8 +56,14 @@ export default struct WebHost {
     }
   }
 
-  private displayChangeCb: (id: number) => void = (id: number): void => {
-    const js: string = 'window.kcFitReflow && window.kcFitReflow();';
+  private displayChangeCb: (id: number) => void = (_id: number): void => {
+    const lock = (this.mode === HostMode.COMPACT) ? 'true' : 'false';
+    const policy = this.fit;
+    const js =
+      `window.kcFitLock && window.kcFitLock(${lock});` +
+        `window.kcFitSetPolicy && window.kcFitSetPolicy("${policy}");` +
+        `window.kcFitReflow && window.kcFitReflow();` +
+        `setTimeout(()=>{window.kcFitReflow && window.kcFitReflow();}, 60);`;
     this.controller.runJavaScript?.(js);
   };
 
@@ -153,6 +159,7 @@ export default struct WebHost {
     this.progress = 100;
     this.injectAll(this.controller);
     this.applyOrientationByMode();
+    this.resetFitCache();
     this.applyFitLock();
     this.pushFitPolicy(this.controller, this.fit);
   }
@@ -163,19 +170,6 @@ export default struct WebHost {
         `window.kcFitReflow && window.kcFitReflow();` +
         `setTimeout(()=>{window.kcFitReflow && window.kcFitReflow();},60);`;
     controller.runJavaScript?.(js);
-  }
-
-  private pushCompactReflowBurst() {
-    const js =
-      `(function(){` +
-        `if (window.kcFitReset) window.kcFitReset();` +
-        `if (window.kcFitLock)  window.kcFitLock(true);` +
-        `if (window.kcFitSetPolicy) window.kcFitSetPolicy('height');` +
-        `if (window.kcFitReflow) window.kcFitReflow();` +
-        `setTimeout(function(){ if (window.kcFitReflow) window.kcFitReflow(); }, 90);` +
-        `setTimeout(function(){ if (window.kcFitReflow) window.kcFitReflow(); }, 180);` +
-        `})();`;
-    this.controller.runJavaScript?.(js);
   }
 
   private applyFitLock() {
@@ -289,15 +283,9 @@ export default struct WebHost {
       this.gameHeightVp = this.showBottomTools ? Math.floor(contentH):h;
 
       this.applyOrientationByMode();
+      if (modeChanged) this.resetFitCache();
       this.applyFitLock();
-
-      if (modeChanged && this.mode === HostMode.COMPACT) {
-        this.pushCompactReflowBurst();
-      } else {
-        if (modeChanged) this.resetFitCache();      // 展开<->折叠其他切换仍清缓存
-        this.pushFitPolicy(this.controller, this.fit);
-      }
-
+      this.pushFitPolicy(this.controller, this.fit);
       this.lastMode = this.mode;
     })
   }
