@@ -24,6 +24,7 @@ export default struct WebHost {
   private host!: WebHostController;
 
   private readonly HOME: string = HOME_URL;
+  private readonly COMPACT_GUTTER = 30;
   @State private progress: number = 0;
   @State private mode: HostMode = HostMode.COMPACT;
   @State private lastMode: HostMode | null = null;
@@ -129,6 +130,7 @@ export default struct WebHost {
             // 若你在 GameWeb 中暴露 onMessage，可在此转给 host.onPostMessage(raw)
           })
         }
+        .margin({left:(this.showBottomTools?0:this.COMPACT_GUTTER)})
         .width("100%")
         .height("100%")
         .clip(true)
