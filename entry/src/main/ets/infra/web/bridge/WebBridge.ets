@@ -68,6 +68,10 @@ export class WebBridge {
       [WebBridge.POST_ASYNC],
       permissionJson
     );
+    //debug
+    this.ctl.runJavaScript?.(
+      "try{ console.log('[bridge] handshake from ArkTS'); if(typeof window.__hm_flush==='function'){ window.__hm_flush(); } }catch(e){ console.warn('[bridge] handshake failed', e); }"
+    );
   }
 
   handleOnMessage(raw: string): void {

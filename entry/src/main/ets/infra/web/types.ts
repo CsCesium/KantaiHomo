@@ -96,7 +96,7 @@ export interface InjectOptions {
 export const defaultInjectOptions: Required<InjectOptions> = {
   channelName: 'hmos',
   postMethod: 'post',
-  apiFilter: '/kcsapi/',
+  apiFilter: '/\\/kcsapi\\//',
   enableXHRHook: true,
   enableFetchHook: true,
   enableFPS: false,

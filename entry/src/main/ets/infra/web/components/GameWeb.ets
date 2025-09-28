@@ -2,6 +2,10 @@ import { webview } from "@kit.ArkWeb";
 import { HOME_URL } from "../config";
 import { createEmptyResp, shouldBlock } from "../interceptors/Interceptor";
 
+interface messages {
+  message?: string;
+}
+
 @ComponentV2
 export default struct GameWeb {
   @Param src: string = HOME_URL;

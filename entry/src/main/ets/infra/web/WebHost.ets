@@ -36,7 +36,8 @@ export default struct WebHost {
     return {
       channelName: 'hmos',
       postMethod: 'post',
-      apiFilter: '/\\/kcsapi\\//',
+      //apiFilter: '/\\/kcsapi\\//',
+      apiFilter: '/.*/',//debug
 
       enableXHRHook: true,
       enableFetchHook: true,
@@ -91,6 +92,8 @@ export default struct WebHost {
       void win.setWindowLayoutFullScreen(true);
       void win.setWindowSystemBarEnable([]);
     });
+
+    webview.WebviewController.setWebDebuggingAccess(true);//debug
   }
 
   aboutToDisappear() {
