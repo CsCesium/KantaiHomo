@@ -82,6 +82,12 @@ export class WebHostController {
     if (USER_AGENT) {
       this.ctl.setCustomUserAgent(USER_AGENT);
     }
+
+    this.ctl.runJavaScript?.(
+      "try{ if(typeof window.__hm_flush==='function'){ window.__hm_flush(); } }catch(e){}"
+    );
+    const f0: FitGetter = this.getFit();
+    this.pushFitStrong(f0.policy, f0.locked);
   }
 
   onPageBegin(): void {
@@ -92,14 +98,14 @@ export class WebHostController {
     this.injectAll();
     const f: FitGetter = this.getFit();
     this.layout.resetFitCache();
-    this.layout.applyFitLock(f.locked);
-    this.layout.pushFitPolicy(f.policy);
+    this.pushFitStrong(f.policy, f.locked);
   }
 
   bindDisplay(): void {
     const cb = (_id: number): void => {
       const f: FitGetter = this.getFit();
       this.layout.onDisplayChangeDebounced(f.policy, f.locked);
+      this.pushFitStrong(f.policy, f.locked);
     };
     display.on('change', cb);
     this.boundDisplayCb = cb;
@@ -138,5 +144,20 @@ export class WebHostController {
         void ingestDump(dump, deps);
       }
     }
+  }
+
+  private pushFitStrong(policy: string, locked: boolean): void {
+    const js: string =
+      "try{"
+        + "console.log('[fit] pushStrong start'," + JSON.stringify(policy) + "," + (locked ? "true" : "false") + ");"
+        + "if (window.kcFitSetPolicy) window.kcFitSetPolicy(" + JSON.stringify(policy) + ");"
+        + "if (window.kcFitLock)      window.kcFitLock(" + (locked ? "true" : "false") + ");"
+        + "if (window.kcFitReflow)    window.kcFitReflow();"
+        + "if (window.requestAnimationFrame){"
+        + "  requestAnimationFrame(function(){ try{ if (window.kcFitReflow) window.kcFitReflow(); }catch(e){} });"
+        + "}"
+        + "setTimeout(function(){ try{ if (window.kcFitReflow) window.kcFitReflow(); }catch(e){} }, 120);"
+        + "}catch(e){ console.warn('[fit] pushStrong error', e); }";
+    this.ctl.runJavaScript?.(js);
   }
 }

@@ -9,6 +9,7 @@ import { tickerRafSnippet } from './modules/tickerRaf';
 import { pixiPatchSnippet } from './modules/pixiPatch';
 import { iframeFitSnippet } from './modules/ifrFit';
 import { sessionSnippet } from './modules/session';
+import { promoteGameFrameSnippet } from './modules/promoteGameFrame';
 
 function asEvalChunk(name: string, code: string): string {
   const escaped = code
@@ -23,6 +24,7 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   const out: string[] = [];
   out.push(GUARDS);
   out.push(asEvalChunk('hm-inject://bridge.js', bridgeSnippet(o.channelName, o.postMethod)));
+  out.push(asEvalChunk('hm-inject://promote.js', promoteGameFrameSnippet));
 
   if (o.enableSessionPersist) out.push(asEvalChunk('hm-inject://session.js',   sessionSnippet));
   if (o.enableIframeFit)      {

@@ -36,8 +36,8 @@ export default struct WebHost {
     return {
       channelName: 'hmos',
       postMethod: 'post',
-      //apiFilter: '/\\/kcsapi\\//',
-      apiFilter: '/.*/',//debug
+      apiFilter: '/\\/kcsapi\\//',
+      //apiFilter: '/.*/',//debug
 
       enableXHRHook: true,
       enableFetchHook: true,
