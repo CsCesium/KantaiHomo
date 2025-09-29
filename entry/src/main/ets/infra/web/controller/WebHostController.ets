@@ -10,6 +10,9 @@ import { ingestDump } from '../../../features/router/persist/ingest/webDump';
 import { getPersistDeps } from '../../../dev/deps';
 import { PERMISSION_JSON, USER_AGENT } from '../config';
 import { Orientation } from '../layout/orientation';
+import hilog from '@ohos.hilog';
+
+const HILOG_DOM: number = 0x1357;
 
 export interface FitGetter {
   policy: string;
@@ -79,6 +82,11 @@ export class WebHostController {
     this.ori = new Orientation(this.ctx);
   }
 
+  private extractTraceId(raw: string): string {
+    const m = /"trace"\s*:\s*"([^"]+)"/.exec(raw);
+    return m ? m[1] : '';
+  }
+
   attach(): void {
     this.bridge.registerProxy(PERMISSION_JSON);
     if (USER_AGENT) {
@@ -136,6 +144,15 @@ export class WebHostController {
   }
 
   private onHookPayload(raw: string): void {
+
+    const traceId: string = this.extractTraceId(raw);
+    hilog.info(HILOG_DOM, 'Bridge', '[RX] trace=%{public}s bytes=%{public}d', traceId, raw.length);
+    if (traceId.length > 0) {
+      const jsAck: string =
+        "try{ if(typeof window.__hm_ack==='function'){ window.__hm_ack(" + JSON.stringify(traceId) + "); } }catch(e){}";
+      this.ctl.runJavaScript?.(jsAck);
+    }
+
     const msg: AppChannelMessage | null = parseMsg(raw);
     if (msg === null) { return; }
 

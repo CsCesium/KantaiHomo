@@ -20,21 +20,28 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
           if (!body) return { raw: '' };
           if (typeof body === 'string') {
             var raw = body, t = raw.trim();
-            try { return { raw: raw, form: Object.fromEntries(new URLSearchParams(raw).entries()) }; } catch {}
-            if (t.startsWith('{') || t.startsWith('[')) { try { return { raw: raw, json: JSON.parse(raw) }; } catch {} }
+            try { return { raw: raw, form: Object.fromEntries(new URLSearchParams(raw).entries()) }; } catch(_){}
+            if (t.startsWith('{') || t.startsWith('[')) { try { return { raw: raw, json: JSON.parse(raw) }; } catch(_){}
             return { raw: raw };
           }
           if (body instanceof URLSearchParams) return { raw: body.toString(), form: Object.fromEntries(body.entries()) };
           if (body instanceof FormData)      return { raw: '[FormData]',        form: Object.fromEntries([].slice.call(body.entries())) };
-        } catch(_) {}
+        } catch(_){}
         return { raw: '' };
       }
       function __parseSvdata(text){
         try {
           var raw = String(text == null ? '' : text);
           var trimmed = raw.trim().replace(/^svdata=/, '');
-          try { return { json: JSON.parse(trimmed), raw: raw }; } catch { return { raw: raw }; }
-        } catch(_) { return { raw: String(text == null ? '' : text) }; }
+          try { return { json: JSON.parse(trimmed), raw: raw }; } catch(_){ return { raw: raw }; }
+        } catch(_){ return { raw: String(text == null ? '' : text) }; }
+      }
+      function __mkTrace(){
+        try{
+          var t = Date.now().toString(36);
+          var r = Math.floor(Math.random()*1e9).toString(36);
+          return t + '-' + r;
+        }catch(_){ return String(Date.now()); }
       }
 
       var _fetch = window.fetch;
@@ -54,12 +61,13 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
                 var req = __parseReqBody(body);
                 var parsed = __parseSvdata(text);
 
-                // debug
-                console.debug('[hook-fetch]', method, res.status, url);
+                var trace = __mkTrace();
+                console.debug('[TX][fetch]', trace, method, Number(res.status)||0, url);
 
-                // （requestBody/responseText）+（request/response）
                 var payload = JSON.stringify({
+                  type: 'API_DUMP',
                   ts: Date.now(),
+                  trace: trace,
                   kind: 'fetch',
                   url: url,
                   method: method,
@@ -70,7 +78,6 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
                   response: parsed
                 });
 
-                // 发送：优先 JSProxy，否则入队
                 try {
                   if (window['${channelName}'] && window['${channelName}']['${postMethod}']) {
                     window['${channelName}']['${postMethod}'](payload);
@@ -79,13 +86,13 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
                   } else {
                     (window.__hm_q = window.__hm_q || []).push(payload);
                   }
-                } catch(e){}
+                } catch(_){}
 
                 return res;
               }).catch(function(){ return res; });
-            } catch(_) { return res; }
+            } catch(_){ return res; }
           });
-        } catch(_) {}
+        } catch(_){}
         return _fetch(input, init);
       };
       console.log('[hook-fetch] ready');
