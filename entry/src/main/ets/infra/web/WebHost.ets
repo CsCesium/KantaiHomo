@@ -31,6 +31,7 @@ export default struct WebHost {
   @State private fit: FitPolicy = 'height';
   @State private showBottomTools: boolean = false;
   @State private gameHeightVp: number = 0;
+  @State private gameWidthVp: number = 0;
 
   private getInjectOptions = (): Required<InjectOptions> => {
     return {
@@ -53,7 +54,9 @@ export default struct WebHost {
 
   private getFit = (): FitGetter => ({
     policy: this.fit,
-    locked: this.mode === HostMode.COMPACT
+    locked: this.mode === HostMode.COMPACT,
+    viewportW: this.gameWidthVp,
+    viewportH: this.gameHeightVp
   });
 
   private async rpcHandler(raw: string): Promise<string> {
@@ -177,6 +180,7 @@ export default struct WebHost {
 
       const AR: number = 720 / 1200; // H/W
       const contentH: number = Math.min(h, w * AR);
+      this.gameWidthVp = w;
       this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
 
       void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);

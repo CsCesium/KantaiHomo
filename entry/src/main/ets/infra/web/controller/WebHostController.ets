@@ -14,6 +14,8 @@ import { Orientation } from '../layout/orientation';
 export interface FitGetter {
   policy: string;
   locked: boolean;
+  viewportW: number;
+  viewportH: number;
 }
 export interface RpcHandler {
   handle(raw: string): Promise<string>;
@@ -44,13 +46,13 @@ export class FunctionRpcHandler implements RpcHandler {
 export class WebHostController {
   private ctl: webview.WebviewController;
   private ctx: common.UIAbilityContext;
-  private getFit: () => FitGetter;
   private getOpts: () => InjectOptions;
   private rpc: RpcHandler;
   private bridge: WebBridge;
   private layout: FitAndDisplay;
   private ori: Orientation;
   private boundDisplayCb: ((id: number) => void) | null = null;
+  private getFit: () => FitGetter;
 
   constructor(
     ctl: webview.WebviewController,
@@ -87,7 +89,7 @@ export class WebHostController {
       "try{ if(typeof window.__hm_flush==='function'){ window.__hm_flush(); } }catch(e){}"
     );
     const f0: FitGetter = this.getFit();
-    this.pushFitStrong(f0.policy, f0.locked);
+    this.pushFitStrong(f0.policy, f0.locked,f0.viewportW,f0.viewportH);
   }
 
   onPageBegin(): void {
@@ -98,14 +100,14 @@ export class WebHostController {
     this.injectAll();
     const f: FitGetter = this.getFit();
     this.layout.resetFitCache();
-    this.pushFitStrong(f.policy, f.locked);
+    this.pushFitStrong(f.policy, f.locked,f.viewportW,f.viewportH);
   }
 
   bindDisplay(): void {
     const cb = (_id: number): void => {
       const f: FitGetter = this.getFit();
       this.layout.onDisplayChangeDebounced(f.policy, f.locked);
-      this.pushFitStrong(f.policy, f.locked);
+      this.pushFitStrong(f.policy, f.locked,f.viewportW,f.viewportH);
     };
     display.on('change', cb);
     this.boundDisplayCb = cb;
@@ -146,17 +148,17 @@ export class WebHostController {
     }
   }
 
-  private pushFitStrong(policy: string, locked: boolean): void {
+  private pushFitStrong(policy: string, locked: boolean, vw: number, vh: number): void {
     const js: string =
       "try{"
-        + "console.log('[fit] pushStrong start'," + JSON.stringify(policy) + "," + (locked ? "true" : "false") + ");"
+        + "console.log('[fit] pushStrong', " + JSON.stringify(policy) + "," + (locked ? "true" : "false") + ", 'vw/vh='," + vw + "," + vh + ");"
+        + "if (typeof window.kcFitSetViewport==='function'){ window.kcFitSetViewport(" + vw + "," + vh + "); }"
+        + "else { window.__kc_host_viewport={w:"+vw+",h:"+vh+"}; }"
         + "if (window.kcFitSetPolicy) window.kcFitSetPolicy(" + JSON.stringify(policy) + ");"
         + "if (window.kcFitLock)      window.kcFitLock(" + (locked ? "true" : "false") + ");"
         + "if (window.kcFitReflow)    window.kcFitReflow();"
-        + "if (window.requestAnimationFrame){"
-        + "  requestAnimationFrame(function(){ try{ if (window.kcFitReflow) window.kcFitReflow(); }catch(e){} });"
-        + "}"
-        + "setTimeout(function(){ try{ if (window.kcFitReflow) window.kcFitReflow(); }catch(e){} }, 120);"
+        + "if (window.requestAnimationFrame){ requestAnimationFrame(function(){ try{ if (window.kcFitReflow) window.kcFitReflow(); }catch(e){} }); }"
+        + "setTimeout(function(){ try{ if (window.kcFitReflow) window.kcFitReflow(); }catch(e){} }, 200);"
         + "}catch(e){ console.warn('[fit] pushStrong error', e); }";
     this.ctl.runJavaScript?.(js);
   }
