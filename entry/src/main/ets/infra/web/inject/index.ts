@@ -10,6 +10,7 @@ import { pixiPatchSnippet } from './modules/pixiPatch';
 import { iframeFitSnippet } from './modules/ifrFit';
 import { sessionSnippet } from './modules/session';
 import { promoteGameFrameSnippet } from './modules/promoteGameFrame';
+import { postMessageGuardSnippet } from './modules/postMessageGuard';
 
 function asEvalChunk(name: string, code: string): string {
   const escaped = code
@@ -23,6 +24,7 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   const o = { ...defaultInjectOptions, ...(opts || {}) };
   const out: string[] = [];
   out.push(GUARDS);
+  out.push(asEvalChunk('hm-inject://postMessageGuard.js', postMessageGuardSnippet));
   out.push(asEvalChunk('hm-inject://bridge.js', bridgeSnippet(o.channelName, o.postMethod)));
   out.push(asEvalChunk('hm-inject://promote.js', promoteGameFrameSnippet));
 
