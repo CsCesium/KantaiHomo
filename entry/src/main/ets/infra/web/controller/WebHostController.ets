@@ -56,6 +56,7 @@ export class WebHostController {
   private ori: Orientation;
   private boundDisplayCb: ((id: number) => void) | null = null;
   private getFit: () => FitGetter;
+  private proxyRefreshStage: number = 0;
 
   constructor(
     ctl: webview.WebviewController,
@@ -88,9 +89,20 @@ export class WebHostController {
   }
 
   attach(): void {
-    this.bridge.registerProxy(PERMISSION_JSON);
+    //this.bridge.registerProxy(PERMISSION_JSON);
+    this.bridge.registerProxy('');
+    hilog.info(0x1357, 'Bridge', 'registerProxy@attach');
+
     if (USER_AGENT) {
       this.ctl.setCustomUserAgent(USER_AGENT);
+    }
+
+    if (this.proxyRefreshStage === 0) {
+      this.proxyRefreshStage = 1;
+      hilog.info(0x1357, 'Bridge', 'refresh() after attach');
+      this.ctl.runJavaScript?.("try{ console.log('[proxy] refresh after attach'); }catch(e){}");
+      this.ctl.refresh();
+      return;
     }
 
     this.ctl.runJavaScript?.(
@@ -121,12 +133,31 @@ export class WebHostController {
   }
 
   onPageEnd(): void {
+    //this.bridge.registerProxy(PERMISSION_JSON);
+    this.bridge.registerProxy('');
+    hilog.info(0x1357, 'Bridge', 'registerProxy@onPageEnd');
+
+    if (this.proxyRefreshStage === 1) {
+      this.proxyRefreshStage = 2;
+      hilog.info(0x1357, 'Bridge', 'refresh() after navigation');
+      this.ctl.runJavaScript?.("try{ console.log('[proxy] refresh after navigation'); }catch(e){}");
+      this.ctl.refresh();
+      return;
+    }
+
     this.injectAll();
     const f: FitGetter = this.getFit();
     this.layout.resetFitCache();
-    this.pushFitStrong(f.policy, f.locked,f.viewportW,f.viewportH);
-  }
+    this.pushFitStrong(f.policy, f.locked, f.viewportW, f.viewportH);
 
+    this.ctl.runJavaScript?.("try{ if(typeof window.__hm_flush==='function'){ window.__hm_flush(); } }catch(e){}");
+
+    this.ctl.runJavaScript?.(
+      "try{ console.log('[diag] origin=', location.origin, 'hmos=', typeof window.hmos," +
+        "' post=', (window.hmos&&typeof window.hmos.post)," +
+        "' postAsync=', (window.hmos&&typeof window.hmos.postAsync)); }catch(e){}"
+    );
+  }
   bindDisplay(): void {
     const cb = (_id: number): void => {
       const f: FitGetter = this.getFit();
