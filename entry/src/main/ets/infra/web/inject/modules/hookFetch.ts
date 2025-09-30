@@ -37,6 +37,13 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
           try { return { json: JSON.parse(trimmed), raw: raw }; } catch(e){ return { raw: raw }; }
         } catch(e){ return { raw: String(text == null ? '' : text) }; }
       }
+      function __mkTrace(){
+        try{
+          var t = Date.now().toString(36);
+          var r = Math.floor(Math.random()*1e9).toString(36);
+          return t + '-' + r;
+        }catch(e){ return String(Date.now()); }
+      }
 
       var _fetch = window.fetch;
       window.fetch = function(input, init){
@@ -55,12 +62,13 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
                 var req = __parseReqBody(body);
                 var parsed = __parseSvdata(text);
 
-                // debug
-                console.debug('[hook-fetch]', method, res.status, url);
+                var trace = __mkTrace();
+                console.debug('[TX][fetch]', trace, method, Number(res.status)||0, url);
 
-                // （requestBody/responseText）+（request/response）
                 var payload = JSON.stringify({
+                  type: 'API_DUMP',
                   ts: Date.now(),
+                  trace: trace,
                   kind: 'fetch',
                   url: url,
                   method: method,
@@ -71,16 +79,24 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
                   response: parsed
                 });
 
-                // 发送：优先 JSProxy，否则入队
                 try {
-                  if (window['${channelName}'] && window['${channelName}']['${postMethod}']) {
+                  if (window['${channelName}'] && typeof window['${channelName}']['postAsync'] === 'function') {
+                    window['${channelName}']['postAsync'](payload)
+                      .then(function(){ console.debug('[bridge][postAsync] ok', trace); })
+                      .catch(function(e){ console.warn('[bridge][postAsync] fail', trace, e); });
+                  } else if (window['${channelName}'] && typeof window['${channelName}']['${postMethod}'] === 'function') {
                     window['${channelName}']['${postMethod}'](payload);
+                    console.debug('[bridge][post] ok', trace);
                   } else if (typeof window.__hm_send === 'function') {
+                    console.debug('[bridge][queue] enqueue', trace);
                     window.__hm_send(payload);
                   } else {
                     (window.__hm_q = window.__hm_q || []).push(payload);
+                    console.debug('[bridge][queue] stash', trace, 'qsize=', window.__hm_q.length);
                   }
-                } catch(e){}
+                } catch(e){
+                  console.warn('[bridge] send error', e);
+                }
 
                 return res;
               }).catch(function(){ return res; });

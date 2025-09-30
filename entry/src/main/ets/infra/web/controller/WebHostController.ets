@@ -94,10 +94,26 @@ export class WebHostController {
     }
 
     this.ctl.runJavaScript?.(
-      "try{ if(typeof window.__hm_flush==='function'){ window.__hm_flush(); } }catch(e){}"
+      "try{ " +
+        "console.log('[diag] hmos=', typeof window.hmos," +
+        "' post=', (window.hmos&&typeof window.hmos.post)," +
+        "' postAsync=', (window.hmos&&typeof window.hmos.postAsync));" +
+        "if(window.hmos&&typeof window.hmos.post==='function'){" +
+        "console.log('[diag] call post PING');" +
+        "window.hmos.post(JSON.stringify({type:'PING', ts:Date.now()}));" +
+        "}" +
+        "if(window.hmos&&typeof window.hmos.postAsync==='function'){" +
+        "console.log('[diag] call postAsync PINGA');" +
+        "window.hmos.postAsync(JSON.stringify({type:'PINGA', ts:Date.now()})).then(function(){console.log('[diag] postAsync ok');}).catch(function(e){console.warn('[diag] postAsync fail', e);});" +
+        "}" +
+        "if(typeof window.__hm_flush==='function'){ window.__hm_flush(); }" +
+        "}catch(e){ console.warn('[diag] error', e); }"
     );
+
     const f0: FitGetter = this.getFit();
     this.pushFitStrong(f0.policy, f0.locked,f0.viewportW,f0.viewportH);
+
+
   }
 
   onPageBegin(): void {
