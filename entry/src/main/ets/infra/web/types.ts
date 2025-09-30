@@ -101,7 +101,7 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   enableFetchHook: true,
   enableFPS: false,
   enableTouchPatch: false,
-  enableTickerRAF: true,
+  enableTickerRAF: false,
   enablePixiPatch: false,
   enableSessionPersist: true,
   enableIframeFit: true,

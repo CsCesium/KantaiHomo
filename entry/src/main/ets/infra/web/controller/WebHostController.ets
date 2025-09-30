@@ -46,6 +46,12 @@ export class FunctionRpcHandler implements RpcHandler {
   handle(raw: string): Promise<string> { return this.fn(raw); }
 }
 
+enum ProxyStage {
+  INIT = 0,
+  AFTER_ATTACH = 1,
+  STABLE = 2
+}
+
 export class WebHostController {
   private ctl: webview.WebviewController;
   private ctx: common.UIAbilityContext;
@@ -56,7 +62,7 @@ export class WebHostController {
   private ori: Orientation;
   private boundDisplayCb: ((id: number) => void) | null = null;
   private getFit: () => FitGetter;
-  private proxyRefreshStage: number = 0;
+  private proxyStage: ProxyStage = ProxyStage.INIT;
 
   constructor(
     ctl: webview.WebviewController,
@@ -69,11 +75,9 @@ export class WebHostController {
     this.ctx = ctx;
     this.getFit = getFit;
     this.getOpts = getInjectOptions;
-    if (typeof rpcHandler === 'function') {
-      this.rpc = new FunctionRpcHandler(rpcHandler as (raw: string) => Promise<string>);
-    } else {
-      this.rpc = rpcHandler as RpcHandler;
-    }
+    this.rpc = (typeof rpcHandler === 'function')
+      ? new FunctionRpcHandler(rpcHandler as (raw: string) => Promise<string>)
+      : (rpcHandler as RpcHandler);
 
     this.bridge = new WebBridge(this.ctl, {
       onMessagePayload: (payload: string): void => this.onHookPayload(payload),
@@ -84,48 +88,33 @@ export class WebHostController {
   }
 
   private extractTraceId(raw: string): string {
-    const m = /"trace"\s*:\s*"([^"]+)"/.exec(raw);
+    const re = /"trace"\s*:\s*"([^"]+)"/;
+    const m = re.exec(raw);
     return m ? m[1] : '';
   }
 
   attach(): void {
-    //this.bridge.registerProxy(PERMISSION_JSON);
-    this.bridge.registerProxy('');
-    hilog.info(0x1357, 'Bridge', 'registerProxy@attach');
+
+    this.bridge.registerProxy(PERMISSION_JSON);
+    hilog.info(HILOG_DOM, 'Bridge', 'registerProxy@attach');
 
     if (USER_AGENT) {
       this.ctl.setCustomUserAgent(USER_AGENT);
     }
 
-    if (this.proxyRefreshStage === 0) {
-      this.proxyRefreshStage = 1;
-      hilog.info(0x1357, 'Bridge', 'refresh() after attach');
+    if (this.proxyStage === ProxyStage.INIT) {
+      this.proxyStage = ProxyStage.AFTER_ATTACH;
       this.ctl.runJavaScript?.("try{ console.log('[proxy] refresh after attach'); }catch(e){}");
       this.ctl.refresh();
       return;
     }
 
     this.ctl.runJavaScript?.(
-      "try{ " +
-        "console.log('[diag] hmos=', typeof window.hmos," +
-        "' post=', (window.hmos&&typeof window.hmos.post)," +
-        "' postAsync=', (window.hmos&&typeof window.hmos.postAsync));" +
-        "if(window.hmos&&typeof window.hmos.post==='function'){" +
-        "console.log('[diag] call post PING');" +
-        "window.hmos.post(JSON.stringify({type:'PING', ts:Date.now()}));" +
-        "}" +
-        "if(window.hmos&&typeof window.hmos.postAsync==='function'){" +
-        "console.log('[diag] call postAsync PINGA');" +
-        "window.hmos.postAsync(JSON.stringify({type:'PINGA', ts:Date.now()})).then(function(){console.log('[diag] postAsync ok');}).catch(function(e){console.warn('[diag] postAsync fail', e);});" +
-        "}" +
-        "if(typeof window.__hm_flush==='function'){ window.__hm_flush(); }" +
-        "}catch(e){ console.warn('[diag] error', e); }"
+      "try{ console.log('[bridge] handshake from ArkTS'); if(typeof window.__hm_flush==='function'){ window.__hm_flush(); } }catch(e){}"
     );
 
     const f0: FitGetter = this.getFit();
-    this.pushFitStrong(f0.policy, f0.locked,f0.viewportW,f0.viewportH);
-
-
+    this.pushFitStrong(f0.policy, f0.locked, f0.viewportW, f0.viewportH);
   }
 
   onPageBegin(): void {
@@ -133,36 +122,34 @@ export class WebHostController {
   }
 
   onPageEnd(): void {
-    //this.bridge.registerProxy(PERMISSION_JSON);
-    this.bridge.registerProxy('');
-    hilog.info(0x1357, 'Bridge', 'registerProxy@onPageEnd');
-
-    if (this.proxyRefreshStage === 1) {
-      this.proxyRefreshStage = 2;
-      hilog.info(0x1357, 'Bridge', 'refresh() after navigation');
+    if (this.proxyStage === ProxyStage.AFTER_ATTACH) {
+      this.bridge.registerProxy(PERMISSION_JSON);
+      hilog.info(HILOG_DOM, 'Bridge', 'registerProxy@onPageEnd');
+      this.proxyStage = ProxyStage.STABLE;
       this.ctl.runJavaScript?.("try{ console.log('[proxy] refresh after navigation'); }catch(e){}");
       this.ctl.refresh();
       return;
     }
 
     this.injectAll();
+
     const f: FitGetter = this.getFit();
     this.layout.resetFitCache();
     this.pushFitStrong(f.policy, f.locked, f.viewportW, f.viewportH);
 
     this.ctl.runJavaScript?.("try{ if(typeof window.__hm_flush==='function'){ window.__hm_flush(); } }catch(e){}");
-
     this.ctl.runJavaScript?.(
       "try{ console.log('[diag] origin=', location.origin, 'hmos=', typeof window.hmos," +
         "' post=', (window.hmos&&typeof window.hmos.post)," +
         "' postAsync=', (window.hmos&&typeof window.hmos.postAsync)); }catch(e){}"
     );
   }
+
   bindDisplay(): void {
     const cb = (_id: number): void => {
       const f: FitGetter = this.getFit();
       this.layout.onDisplayChangeDebounced(f.policy, f.locked);
-      this.pushFitStrong(f.policy, f.locked,f.viewportW,f.viewportH);
+      this.pushFitStrong(f.policy, f.locked, f.viewportW, f.viewportH);
     };
     display.on('change', cb);
     this.boundDisplayCb = cb;
@@ -191,9 +178,9 @@ export class WebHostController {
   }
 
   private onHookPayload(raw: string): void {
-
     const traceId: string = this.extractTraceId(raw);
     hilog.info(HILOG_DOM, 'Bridge', '[RX] trace=%{public}s bytes=%{public}d', traceId, raw.length);
+
     if (traceId.length > 0) {
       const jsAck: string =
         "try{ if(typeof window.__hm_ack==='function'){ window.__hm_ack(" + JSON.stringify(traceId) + "); } }catch(e){}";
@@ -217,7 +204,7 @@ export class WebHostController {
       "try{"
         + "console.log('[fit] pushStrong', " + JSON.stringify(policy) + "," + (locked ? "true" : "false") + ", 'vw/vh='," + vw + "," + vh + ");"
         + "if (typeof window.kcFitSetViewport==='function'){ window.kcFitSetViewport(" + vw + "," + vh + "); }"
-        + "else { window.__kc_host_viewport={w:"+vw+",h:"+vh+"}; }"
+        + "else { window.__kc_host_viewport={w:" + vw + ",h:" + vh + "}; }"
         + "if (window.kcFitSetPolicy) window.kcFitSetPolicy(" + JSON.stringify(policy) + ");"
         + "if (window.kcFitLock)      window.kcFitLock(" + (locked ? "true" : "false") + ");"
         + "if (window.kcFitReflow)    window.kcFitReflow();"

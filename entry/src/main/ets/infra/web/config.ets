@@ -11,6 +11,7 @@ export const USER_AGENT: string | undefined =
 
 //NOTE:可能需要根据情况调整
 /** JSProxy 权限 JSON */
-export const PERMISSION_JSON: string = buildProxyPermissionJson([]);
+//export const PERMISSION_JSON: string = buildProxyPermissionJson([]);
+export const PERMISSION_JSON: string = '';
 
 
