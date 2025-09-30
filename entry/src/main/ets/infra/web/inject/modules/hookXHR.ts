@@ -29,12 +29,32 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
           try { return { json: JSON.parse(trimmed), raw: raw }; } catch(e){ return { raw: raw }; }
         } catch(e){ return { raw: String(text == null ? '' : text) }; }
       }
-      function __mkTrace(){
+      // === 统一发送函数（不假设返回 Promise）===
+      function __sendToHost(payload){
         try{
-          var t = Date.now().toString(36);
-          var r = Math.floor(Math.random()*1e9).toString(36);
-          return t + '-' + r;
-        }catch(e){ return String(Date.now()); }
+          var NAME='${channelName}', M='${postMethod}', host=window[NAME];
+          if (host && typeof host[M] === 'function') {
+            try { host[M](payload); console.debug('[bridge][post] ok'); return true; } catch(e){ console.warn('[bridge][post] error', e); }
+          }
+          if (host && typeof host.postAsync === 'function') {
+            try {
+              var r = host.postAsync(payload);
+              if (r && typeof r.then === 'function') {
+                r.then(function(){ console.debug('[bridge][postAsync] ok'); })
+                 .catch(function(e){ console.warn('[bridge][postAsync] fail', e); });
+              } else {
+                console.debug('[bridge][postAsync] called (non-promise)');
+              }
+              return true;
+            } catch(e){ console.warn('[bridge][postAsync] error', e); }
+          }
+          if (typeof window.__hm_send === 'function') {
+            try { window.__hm_send(payload); console.debug('[bridge][queue] enqueue'); return true; } catch(e){ console.warn('[bridge][queue] error', e); }
+          }
+          (window.__hm_q = window.__hm_q || []).push(payload);
+          console.debug('[bridge][queue] stash qsize=', window.__hm_q.length);
+          return false;
+        }catch(e){ console.warn('[bridge] send fatal', e); return false; }
       }
 
       var open = XMLHttpRequest.prototype.open;
@@ -59,13 +79,10 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
             var text = (typeof xhr.responseText === 'string') ? xhr.responseText : '';
             var parsed = __parseSvdata(text);
 
-            var trace = __mkTrace();
-            console.debug('[TX][xhr]', trace, (xhr.__kc && xhr.__kc.m) || 'GET', Number(xhr.status)||0, url);
+            console.debug('[hook-xhr]', (xhr.__kc && xhr.__kc.m) || 'GET', xhr.status, url);
 
             var payload = JSON.stringify({
-              type: 'API_DUMP',
               ts: Date.now(),
-              trace: trace,
               kind: 'xhr',
               url: url,
               method: (xhr.__kc && xhr.__kc.m) || 'GET',
@@ -76,24 +93,7 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
               response: parsed
             });
 
-            try {
-              if (window['${channelName}'] && typeof window['${channelName}']['postAsync'] === 'function') {
-                window['${channelName}']['postAsync'](payload)
-                  .then(function(){ console.debug('[bridge][postAsync] ok', trace); })
-                  .catch(function(e){ console.warn('[bridge][postAsync] fail', trace, e); });
-              } else if (window['${channelName}'] && typeof window['${channelName}']['${postMethod}'] === 'function') {
-                window['${channelName}']['${postMethod}'](payload);
-                console.debug('[bridge][post] ok', trace);
-              } else if (typeof window.__hm_send === 'function') {
-                console.debug('[bridge][queue] enqueue', trace);
-                window.__hm_send(payload);
-              } else {
-                (window.__hm_q = window.__hm_q || []).push(payload);
-                console.debug('[bridge][queue] stash', trace, 'qsize=', window.__hm_q.length);
-              }
-            } catch(e){
-              console.warn('[bridge] send error', e);
-            }
+            __sendToHost(payload);
           } catch(e){}
         });
 
