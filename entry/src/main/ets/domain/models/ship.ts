@@ -65,7 +65,7 @@ export interface ApiShipRaw {
   api_lucky: [number, number]; // 运 [当前(含装), 最大]
   api_locked: 0 | 1; // 舰锁
   api_locked_equip: 0 | 1; // 是否装备了“锁定的装备”
-  api_sally_area?: number; // 出撃海域（活动期存在）
+  api_sally_area?: number; // 出撃海域（贴条）
 }
 
 export interface Ship {
