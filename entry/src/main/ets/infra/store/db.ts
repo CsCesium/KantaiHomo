@@ -1,5 +1,5 @@
+//src/main/ets/infra/store/db.ts
 import relationalStore from '@ohos.data.relationalStore';
-import common from '@ohos.app.ability.common';
 import {getAppContext}from '../appContext'
 import { migrations, type Migration } from './migrations';
 

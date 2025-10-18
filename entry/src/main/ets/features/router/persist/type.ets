@@ -58,14 +58,17 @@ export interface RecentIdCache {
   add(id: string): void;
 }
 
-export interface PersistDaos {
-  EXPEDITION?: ExpeditionsDAO;
-  // 将来在这里继续扩展其它 DAO：PORT?: PortDAO; 等
+export interface PersistDeps {
+  daos: DaoRegistry;
+  recentIdCache: RecentIdCache;
+  // 可选扩展能力（现在先留空实现，未来接入通知/存储）
+  kvSet?: (key: string, value: string) => Promise<void>;
+  publish?: (topic: string, data: object) => void;
 }
 
-export interface PersistDeps {
-  daos: PersistDaos;
-  recentIdCache?: RecentIdCache;
+export interface DaoRegistry {
+  EXPEDITION?: ExpeditionsDAO;
+  // TODO：BATTLE?: BattlesDAO; QUEST?: QuestsDAO; ...
 }
 
 /** Handler 契约 */

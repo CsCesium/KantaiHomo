@@ -1,6 +1,6 @@
-//@/features/router/persist/deps/container.ets
-import { expeditionRdbDAO } from "../adaptors/rdb/expedition";
-import { PersistDeps, RecentIdCache } from "../type";
+//@src/main/ets/features/deps/container.ets
+import { expeditionRdbDAO } from "../../features/router/persist/adaptors/rdb/expedition";
+import { PersistDeps, RecentIdCache } from "../../features/router/persist/type";
 
 let _deps: PersistDeps | null = null;
 

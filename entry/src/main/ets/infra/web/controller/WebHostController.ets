@@ -7,7 +7,7 @@ import { buildInjectionBundle } from '../../web/inject';
 import { defaultInjectOptions, InjectOptions, AppChannelMessage, ApiDump } from '../types';
 import { parseAppChannelMessage as parseMsg } from '../types';
 import { ingestDump } from '../../../features/router/persist/ingest/webDump';
-import { getPersistDeps } from '../../../dev/deps';
+import { getPersistDeps } from '../../deps/index';
 import { PERMISSION_JSON, USER_AGENT } from '../config';
 import { Orientation } from '../layout/orientation';
 import hilog from '@ohos.hilog';
@@ -197,6 +197,8 @@ export class WebHostController {
         void ingestDump(dump, deps);
       }
     }
+
+
   }
 
   private pushFitStrong(policy: string, locked: boolean, vw: number, vh: number): void {
