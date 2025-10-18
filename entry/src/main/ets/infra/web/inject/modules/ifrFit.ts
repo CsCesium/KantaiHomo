@@ -208,6 +208,11 @@ window.__safeInject('iframeFit', function () {
     return true;
   }
 
+  function inKcs2Top(){
+    try { return /\\/kcs2\\//i.test(String(location.href||'')) && (window===window.top); }
+    catch(e){ return false; }
+  }
+
   function mountOnce(){
     if (TARGET_SCALE) return mountOrReflow();
     var host = findGameHost(); if (!host) { dbg('MOUNT no host yet'); return false; }
@@ -239,6 +244,7 @@ window.__safeInject('iframeFit', function () {
 
   // —— 启动：立即尝试 + 监听 + 轮询 —— //
   function run(){
+    if (!inKcs2Top()) { console.log('[fit] skip: not in kcs2 top'); return; }
     installNoZoomGuards();
     if (mountOnce()) {
       var rf = function(){ mountOrReflow(); };
