@@ -1,5 +1,4 @@
 //@src/main/ets/features/deps/container.ets
-import { expeditionRdbDAO } from "../../features/router/persist/adaptors/rdb/expedition";
 import { PersistDeps, RecentIdCache } from "../../features/router/persist/type";
 
 let _deps: PersistDeps | null = null;
@@ -47,11 +46,4 @@ export function makeRecentIdCache(limit: number = 4000): RecentIdCache {
   return new RecentIdCacheImpl(limit);
 }
 
-/** PROD：real RDB DAO；WS(WIP) */
-export function initPersistDepsProd(): void {
-  if (_deps !== null) return;
-  _deps = {
-    daos: { EXPEDITION: expeditionRdbDAO },
-    recentIdCache: makeRecentIdCache(4000),
-  } as PersistDeps;
-}
+

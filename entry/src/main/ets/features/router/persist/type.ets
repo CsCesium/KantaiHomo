@@ -6,6 +6,7 @@ import type {
   MissionCatalogItem,
 } from '../../../domain/models/expedition';
 import type { AnyMsg, Channel } from '../../../infra/net/wsClient/types';
+import { RepositoryHub } from '../../../infra/store/repo/types';
 
 export interface PersistEventBase extends EventBase {
   type: EventType;
@@ -59,9 +60,8 @@ export interface RecentIdCache {
 }
 
 export interface PersistDeps {
-  daos: DaoRegistry;
+  repos: RepositoryHub;
   recentIdCache: RecentIdCache;
-  // 可选扩展能力（现在先留空实现，未来接入通知/存储）
   kvSet?: (key: string, value: string) => Promise<void>;
   publish?: (topic: string, data: object) => void;
 }

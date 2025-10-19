@@ -1,5 +1,5 @@
-import { createRepositoryHub } from "../store/repo";
-import { RepositoryHub } from "../store/repo/types";
+import type { RepositoryHub } from '../../infra/store/repo/types';
+import { createRepositoryHub } from '../../infra/store/repo/index';
 
 export interface RecentIdCache {
   has(id: string): boolean;
@@ -19,7 +19,6 @@ class MemRecent implements RecentIdCache {
   }
 }
 
-// v2：统一上下文
 export interface PersistDeps {
   repos: RepositoryHub;
   recentIdCache: RecentIdCache;
