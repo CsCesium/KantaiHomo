@@ -9,6 +9,7 @@ import { window } from "@kit.ArkUI";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/TransUtil";
+import { initPersistDeps } from "../deps";
 
 interface RpcPayload {
   op: string;
@@ -97,6 +98,8 @@ export default struct WebHost {
     });
 
     webview.WebviewController.setWebDebuggingAccess(true);//debug
+    initPersistDeps();
+
   }
 
   aboutToDisappear() {
