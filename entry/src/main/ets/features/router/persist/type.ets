@@ -5,7 +5,6 @@ import type {
   MissionResult,
   MissionCatalogItem,
 } from '../../../domain/models/expedition';
-import { PersistDeps } from '../../../infra/deps';
 import type { AnyMsg, Channel } from '../../../infra/net/wsClient/types';
 import { RepositoryHub } from '../../../infra/store/repo/types';
 
@@ -58,6 +57,13 @@ export interface ExpeditionsDAO {
 export interface RecentIdCache {
   has(id: string): boolean;
   add(id: string): void;
+}
+
+export interface PersistDeps {
+  repos: RepositoryHub;
+  recentIdCache: RecentIdCache;
+  publish?: (topic: string, data: object) => void;
+  kvSet?: (key: string, value: string) => Promise<void>;
 }
 
 export interface DaoRegistry {
