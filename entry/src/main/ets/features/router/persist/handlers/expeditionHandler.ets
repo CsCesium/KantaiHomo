@@ -12,16 +12,12 @@ import {
   type ExpeditionSlotState,
   type MissionResult,
 } from '../../../../domain/models/expedition';
+
 import type { ExpeditionRowWrite as RepoRowWrite } from '../../../../infra/store/repo/types';
 
-export interface ExpeditionPersistEvent {
-  id: string;
+// 让本文件里的事件具备更严格的名义类型
+export interface ExpeditionPersistEvent extends PersistEvent {
   type: 'EXPEDITION';
-  timestamp: number;
-  source: 'web' | 'vpn' | 'companion';
-  raw?: string;
-  schemaVersion?: number;
-  endpoint?: string;
   payload: ExpeditionEventPayload;
 }
 
@@ -37,7 +33,10 @@ export interface ExpeditionRowLite {
   updatedAt: number;  // 事件时间戳（或 finishedAt）
 }
 
-function mapFromSlotState(data: ExpeditionSlotState | ExpeditionSlotState[], fallbackTs: number): ExpeditionRowLite[] {
+function mapFromSlotState(
+  data: ExpeditionSlotState | ExpeditionSlotState[],
+  fallbackTs: number
+): ExpeditionRowLite[] {
   const rows: ExpeditionRowLite[] = [];
   if (Array.isArray(data)) {
     for (let i = 0; i < data.length; i++) {
@@ -82,55 +81,55 @@ function mapFromResult(data: MissionResult, fallbackTs: number): ExpeditionRowLi
   }];
 }
 
-const handler: PersistHandler = async (ev: PersistEvent, deps: PersistDeps): Promise<void> => {
-  if (!isExpeditionEvent(ev)) return;
-  const e: ExpeditionPersistEvent = ev as ExpeditionPersistEvent;
+class ExpeditionPersistHandler implements PersistHandler {
+  async handle(ev: PersistEvent, deps: PersistDeps): Promise<void> {
+    if (!isExpeditionEvent(ev)) return;
+    const e: ExpeditionPersistEvent = ev as ExpeditionPersistEvent;
 
-  if (!deps.repos || !deps.repos.expedition) {
-    console.warn('[persist][EXPEDITION] repository not provided');
-    return;
-  }
-
-  const ts: number = (e.timestamp != null ? e.timestamp : Date.now());
-  const p: ExpeditionEventPayload = e.payload;
-
-  // 1) mapping
-  let rowsLite: ExpeditionRowLite[] = [];
-  if (p.kind === 'slotState') {
-    rowsLite = mapFromSlotState(p.data as ExpeditionSlotState | ExpeditionSlotState[], ts);
-  } else if (p.kind === 'start') {
-    rowsLite = mapFromStart(p.data as MissionStart, ts);
-  } else if (p.kind === 'result') {
-    rowsLite = mapFromResult(p.data as MissionResult, ts);
-  } else {
-    rowsLite = []; // catalog 不写 expeditions 表
-  }
-  if (rowsLite.length === 0) return;
-
-  // 2) Lite 行转换为仓储模型：
-  //    - start/slotState：写 eta = returnTime
-  //    - result：写 finishedAt = updatedAt
-  const rowsRepo: RepoRowWrite[] = [];
-  for (let i = 0; i < rowsLite.length; i++) {
-    const r: ExpeditionRowLite = rowsLite[i];
-    if (p.kind === 'result') {
-      rowsRepo.push({
-        deckId: r.deckId,
-        missionId: r.missionId,
-        finishedAt: r.updatedAt,
-        updatedAt: r.updatedAt
-      });
-    } else {
-      rowsRepo.push({
-        deckId: r.deckId,
-        missionId: r.missionId,
-        eta: r.returnTime,
-        updatedAt: r.updatedAt
-      });
+    if (!deps.repos || !deps.repos.expedition) {
+      console.warn('[persist][EXPEDITION] repository not provided');
+      return;
     }
+
+    const ts: number = (e.timestamp != null ? e.timestamp : Date.now());
+    const p: ExpeditionEventPayload = e.payload;
+
+    // 1) mapping -> Lite
+    let rowsLite: ExpeditionRowLite[] = [];
+    if (p.kind === 'slotState') {
+      rowsLite = mapFromSlotState(p.data as ExpeditionSlotState | ExpeditionSlotState[], ts);
+    } else if (p.kind === 'start') {
+      rowsLite = mapFromStart(p.data as MissionStart, ts);
+    } else if (p.kind === 'result') {
+      rowsLite = mapFromResult(p.data as MissionResult, ts);
+    } else {
+      rowsLite = []; // catalog 不写 expeditions 表
+    }
+    if (rowsLite.length === 0) return;
+
+    // 2) Lite -> 仓储模型
+    const rowsRepo: RepoRowWrite[] = [];
+    for (let i = 0; i < rowsLite.length; i++) {
+      const r: ExpeditionRowLite = rowsLite[i];
+      if (p.kind === 'result') {
+        rowsRepo.push({
+          deckId: r.deckId,
+          missionId: r.missionId,
+          finishedAt: r.updatedAt,
+          updatedAt: r.updatedAt
+        });
+      } else {
+        rowsRepo.push({
+          deckId: r.deckId,
+          missionId: r.missionId,
+          eta: r.returnTime,
+          updatedAt: r.updatedAt
+        });
+      }
+    }
+
+    await deps.repos.expedition.upsertBatch(rowsRepo);
   }
+}
 
-  await deps.repos.expedition.upsertBatch(rowsRepo);
-};
-
-registerPersistHandler('EXPEDITION', handler);
+registerPersistHandler('EXPEDITION', new ExpeditionPersistHandler());

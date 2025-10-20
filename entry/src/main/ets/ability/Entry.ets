@@ -3,6 +3,11 @@ import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 import Want from '@ohos.app.ability.Want';
 import window from '@ohos.window';
 import { setAppContext } from '../infra/appContext'
+import { initPersistDeps } from '../infra/deps';
+import { initPersistRegistry } from '../features/router/persist/registry';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+const HILOG_DOM: number = 0x1357;
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
@@ -10,6 +15,13 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
+    try {
+      initPersistDeps();
+      initPersistRegistry();
+      hilog.info(HILOG_DOM, 'App', 'deps+registry initialized (stageCreate)');
+    } catch (e) {
+      hilog.error(HILOG_DOM, 'App', 'init failed: %{public}s', String(e));
+    }
     windowStage.loadContent('ui/WebRoot', (err) => {
       if (err?.code) {
         console.error(`loadContent failed: ${JSON.stringify(err)}`)
