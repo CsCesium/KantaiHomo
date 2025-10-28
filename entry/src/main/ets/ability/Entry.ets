@@ -12,6 +12,7 @@ const HILOG_DOM: number = 0x1357;
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     setAppContext(this.context);
+
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
