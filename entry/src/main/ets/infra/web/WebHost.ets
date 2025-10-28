@@ -96,7 +96,7 @@ export default struct WebHost {
       void win.setWindowSystemBarEnable([]);
     });
 
-    webview.WebviewController.setWebDebuggingAccess(true);//debug
+    webview.WebviewController.setWebDebuggingAccess(true);//Chrome DevTool debug
   }
 
   aboutToDisappear() {
@@ -133,7 +133,6 @@ export default struct WebHost {
             onWebPageBegin: this.onBegin,
             onWebProgress: this.onProg,
             onWebPageEnd: this.onEnd
-            // 若你在 GameWeb 中暴露 onMessage，可在此转给 host.onPostMessage(raw)
           })
         }
         .margin({left:(this.showBottomTools?0:this.COMPACT_GUTTER)})
@@ -167,7 +166,10 @@ export default struct WebHost {
     .height('100%')
     .width('100%')
     .backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END])
+    .expandSafeArea([SafeAreaType.SYSTEM],this.mode === HostMode.COMPACT
+      ? [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
+      : [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END]
+    )
     .onAreaChange((_, area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);

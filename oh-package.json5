@@ -2,9 +2,11 @@
   "modelVersion": "5.0.5",
   "description": "Please describe the basic information.",
   "dependencies": {
+    "@hadss/debug-db": "^1.0.0-rc.11"
   },
   "devDependencies": {
     "@ohos/hypium": "1.0.21",
     "@ohos/hamock": "1.0.0"
-  }
+  },
+  "dynamicDependencies": {}
 }
