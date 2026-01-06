@@ -49,6 +49,7 @@ export default struct WebHost {
       enableSessionPersist: defaultInjectOptions.enableSessionPersist,
       enableIframeFit: defaultInjectOptions.enableIframeFit,
       enableYasenDetect: defaultInjectOptions.enableYasenDetect,
+      enableDebug:defaultInjectOptions.enableDebug,
     };
   };
 

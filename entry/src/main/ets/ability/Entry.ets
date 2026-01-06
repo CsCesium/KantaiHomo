@@ -6,12 +6,16 @@ import { setAppContext } from '../infra/appContext'
 import { initPersistDeps } from '../infra/deps';
 import { initPersistRegistry } from '../features/router/persist/registry';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
 const HILOG_DOM: number = 0x1357;
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     setAppContext(this.context);
+
+    webview.WebCookieManager.putAcceptCookieEnabled(true);
+    webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true);
 
   }
 

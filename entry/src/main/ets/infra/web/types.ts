@@ -91,6 +91,7 @@ export interface InjectOptions {
   enableSessionPersist?: boolean; // 默认 true
   enableIframeFit?: boolean;      // 默认 true
   enableYasenDetect?:boolean;
+  enableDebug?:boolean;
 }
 
 export const defaultInjectOptions: Required<InjectOptions> = {
@@ -106,4 +107,5 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   enableSessionPersist: true,
   enableIframeFit: true,
   enableYasenDetect:false,
+  enableDebug:true,
 };

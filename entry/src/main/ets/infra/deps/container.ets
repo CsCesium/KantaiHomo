@@ -1,5 +1,6 @@
 //@src/main/ets/features/deps/container.ets
-import { PersistDeps, RecentIdCache } from "../../features/router/persist/type";
+import { RecentIdCache } from ".";
+import { PersistDeps } from "../../features/router/persist/type";
 
 let _deps: PersistDeps | null = null;
 

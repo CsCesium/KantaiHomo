@@ -173,7 +173,7 @@ export class WebHostController {
   private injectAll(): void {
     const script: string = buildInjectionBundle(this.getOpts());
     if (typeof this.ctl.runJavaScript === 'function') {
-      //this.ctl.runJavaScript(script);
+      this.ctl.runJavaScript(script);
     }
   }
 

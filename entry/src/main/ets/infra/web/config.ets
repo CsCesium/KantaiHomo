@@ -8,7 +8,7 @@ export const HOME_URL: string =
 
 export const USER_AGENT: string | undefined =
   //undefined ;                                 // 默认 UA
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119 Safari/537.36'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)  Chrome/132.0.0.0 Safari/537.36'
 
 //NOTE:可能需要根据情况调整
 /** JSProxy 权限 JSON */

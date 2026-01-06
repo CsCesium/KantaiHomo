@@ -9,8 +9,10 @@ import { tickerRafSnippet } from './modules/tickerRaf';
 import { pixiPatchSnippet } from './modules/pixiPatch';
 import { iframeFitSnippet } from './modules/ifrFit';
 import { sessionSnippet } from './modules/session';
+import {kcDebugSnippet} from './modules/debug'
 import { promoteGameFrameSnippet } from './modules/promoteGameFrame';
 import { postMessageGuardSnippet } from './modules/postMessageGuard';
+
 
 function asEvalChunk(name: string, code: string): string {
   const escaped = code
@@ -27,14 +29,15 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   out.push(asEvalChunk('hm-inject://postMessageGuard.js', postMessageGuardSnippet));
   out.push(asEvalChunk('hm-inject://bridge.js', bridgeSnippet(o.channelName, o.postMethod)));
   out.push(asEvalChunk('hm-inject://promote.js', promoteGameFrameSnippet));
+  //debug
+  if (o.enableDebug) out.push(asEvalChunk('hm-inject://debug.js',kcDebugSnippet))
 
   if (o.enableSessionPersist) out.push(asEvalChunk('hm-inject://session.js',   sessionSnippet));
-  if (o.enableIframeFit)      {
-    out.push(asEvalChunk('hm-inject://iframeFit.js', iframeFitSnippet));
-  }
+  if (o.enableIframeFit)  out.push(asEvalChunk('hm-inject://iframeFit.js', iframeFitSnippet));
 
-  if (o.enableXHRHook)    out.push(asEvalChunk('hm-inject://hookXHR.js',   hookXhrSnippet(o.channelName, o.postMethod, o.apiFilter)));
-  if (o.enableFetchHook)  out.push(asEvalChunk('hm-inject://hookFetch.js', hookFetchSnippet(o.channelName, o.postMethod, o.apiFilter)));
+
+  //if (o.enableXHRHook)    out.push(asEvalChunk('hm-inject://hookXHR.js',   hookXhrSnippet(o.channelName, o.postMethod, o.apiFilter)));
+  //if (o.enableFetchHook)  out.push(asEvalChunk('hm-inject://hookFetch.js', hookFetchSnippet(o.channelName, o.postMethod, o.apiFilter)));
   if (o.enableFPS)        out.push(asEvalChunk('hm-inject://fps.js',       fpsSnippet(o.channelName, o.postMethod)));
   if (o.enableTouchPatch) out.push(asEvalChunk('hm-inject://touchPatch.js',touchPatchSnippet));
   if (o.enableTickerRAF)  out.push(asEvalChunk('hm-inject://tickerRaf.js', tickerRafSnippet));
