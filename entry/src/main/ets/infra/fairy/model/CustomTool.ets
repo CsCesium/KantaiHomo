@@ -1,11 +1,12 @@
 import { AttributeSet } from "./AttributeSet";
+import { NumOffset } from "./NumOffset";
 import { ToolInterface } from "./ToolInterface";
 
 export class CustomTool {
   constructor(
     builder: WrappedBuilder<[ToolInterface]>,
-    offset: Offset,
-    cornerOffset: Offset,
+    offset: NumOffset,
+    cornerOffset: NumOffset,
     attributeSet: AttributeSet
   ) {
     this._builder = builder;
@@ -20,15 +21,15 @@ export class CustomTool {
     return this._builder;
   }
 
-  private _offset: Offset;
+  private _offset: NumOffset;
 
-  public get offset(): Offset {
+  public get offset(): NumOffset {
     return this._offset;
   }
 
-  private _cornerOffset: Offset;
+  private _cornerOffset: NumOffset;
 
-  public get cornerOffset(): Offset {
+  public get cornerOffset(): NumOffset {
     return this._cornerOffset;
   }
 
