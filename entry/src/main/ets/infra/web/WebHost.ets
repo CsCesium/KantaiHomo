@@ -98,7 +98,6 @@ export default struct WebHost {
     });
 
     webview.WebviewController.setWebDebuggingAccess(true);//Chrome DevTool debug
-    //webview.WebviewController.setActiveWebEngineVersion(ArkWebEngineVersion::M114)
   }
 
   aboutToDisappear() {

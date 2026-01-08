@@ -2,7 +2,6 @@
 import { buildProxyPermissionJson } from "./inject/perm";
 
 export const HOME_URL: string =
-
    //'http://www.dmm.com/netgame/social/-/gadgets/=/app_id=854854/' //expired
   'https://play.games.dmm.com/game/kancolle'
 
