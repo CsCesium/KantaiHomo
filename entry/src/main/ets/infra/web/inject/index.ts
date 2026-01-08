@@ -36,8 +36,8 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   if (o.enableIframeFit)  out.push(asEvalChunk('hm-inject://iframeFit.js', iframeFitSnippet));
 
 
-  //if (o.enableXHRHook)    out.push(asEvalChunk('hm-inject://hookXHR.js',   hookXhrSnippet(o.channelName, o.postMethod, o.apiFilter)));
-  //if (o.enableFetchHook)  out.push(asEvalChunk('hm-inject://hookFetch.js', hookFetchSnippet(o.channelName, o.postMethod, o.apiFilter)));
+  if (o.enableXHRHook)    out.push(asEvalChunk('hm-inject://hookXHR.js',   hookXhrSnippet(o.channelName, o.postMethod, o.apiFilter)));
+  if (o.enableFetchHook)  out.push(asEvalChunk('hm-inject://hookFetch.js', hookFetchSnippet(o.channelName, o.postMethod, o.apiFilter)));
   if (o.enableFPS)        out.push(asEvalChunk('hm-inject://fps.js',       fpsSnippet(o.channelName, o.postMethod)));
   if (o.enableTouchPatch) out.push(asEvalChunk('hm-inject://touchPatch.js',touchPatchSnippet));
   if (o.enableTickerRAF)  out.push(asEvalChunk('hm-inject://tickerRaf.js', tickerRafSnippet));
