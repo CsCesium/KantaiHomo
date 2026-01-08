@@ -1,5 +1,5 @@
 import type { ApiDump } from '../../infra/web/types';
-import { parseExpedition } from './expedition';
+import { parseExpedition } from './module/expedition';
 import type {
   ExpeditionStartEvent,
   ExpeditionUpdateEvent,

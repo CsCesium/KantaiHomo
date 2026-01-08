@@ -1,5 +1,4 @@
-
-
+//src/main/ets/domain/events/type.ts
 export type EventType =
     | 'PORT'            //回港
     | 'EXPEDITION'      //远征
@@ -13,8 +12,12 @@ export interface EventBase {
   id: string;                          // 去重用
   timestamp: number;                   // 时间戳
   source: 'web' | 'vpn' | 'companion'; // 来源
-  raw?: string;                        // 原始svdata
   schemaVersion?: number;              // reserved for future
   endpoint?: string;                   // /kcsapi/...
+}
+
+export interface PayloadEvent<TType extends string, TPayload> extends EventBase {
+  type: TType
+  payload: TPayload
 }
 

@@ -1,23 +1,23 @@
 //entry/src/main/ets/features/parsers/expedition.ts
-import type { ApiDump } from '../../infra/web/types';
-import { parseSvdata, parseFormBody, makeEventId} from './common'
+import type { ApiDump } from '../../../infra/web/types';
+import { parseSvdata, parseFormBody, makeEventId} from "../utils/common"
 import {
   normalizeMissionStart,
   normalizeDeckMission,
   normalizeMissionResult,
   normalizeMissionCatalog
-} from '../../domain/models/expedition'
+} from '../../../domain/models/expedition'
 import type {
   ApiMissionStartRespRaw,
   ApiMissionResultRespRaw,
   ApiDeckMissionTuple
-} from '../../domain/models/expedition'
+} from '../../../domain/models/expedition'
 import type {
   ExpeditionStartEvent,
   ExpeditionUpdateEvent,
   ExpeditionResultEvent,
   ExpeditionCatalogEvent
-} from '../../domain/events/expedition'
+} from '../../../domain/events/expedition'
 
 
 export function parseExpedition(
@@ -41,7 +41,6 @@ export function parseExpedition(
       payload,
       timestamp: Date.now(),
       source: 'web',
-      raw: responseText,
       endpoint: '/api_req_mission/start',
     };
     return [evt];
@@ -64,7 +63,6 @@ export function parseExpedition(
       payload,
       timestamp: Date.now(),
       source: 'web',
-      raw: responseText,
       endpoint: '/api_req_mission/result',
     };
     return [evt];
@@ -88,7 +86,6 @@ export function parseExpedition(
       payload: states,
       timestamp: Date.now(),
       source: 'web',
-      raw: responseText,
       endpoint: url.includes('/api_port/port') ? '/api_port/port' : '/api_get_member/deck',
     };
     return [evt];
@@ -106,7 +103,6 @@ export function parseExpedition(
       payload: list,
       timestamp: Date.now(),
       source: 'web',
-      raw: responseText,
       endpoint: '/api_start2',
     };
     return [evt];

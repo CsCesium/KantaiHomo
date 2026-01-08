@@ -1,22 +1,14 @@
-import { EventBase } from './type'
+import { PayloadEvent } from './type'
 import type { MissionStart, ExpeditionSlotState, MissionResult, MissionCatalogItem } from '../models/expedition'
 
-export interface ExpeditionStartEvent extends EventBase {
-  type: 'EXPEDITION_START';
-  payload: MissionStart;
-}
+export type ExpeditionStartEvent =
+  PayloadEvent<'EXPEDITION_START', MissionStart>
 
-export interface ExpeditionUpdateEvent extends EventBase {
-  type: 'EXPEDITION_UPDATE';
-  payload: ExpeditionSlotState[];
-}
+export type ExpeditionUpdateEvent =
+  PayloadEvent<'EXPEDITION_UPDATE', ExpeditionSlotState[]>
 
-export interface ExpeditionResultEvent extends EventBase {
-  type: 'EXPEDITION_RESULT';
-  payload: MissionResult;
-}
+export type ExpeditionResultEvent =
+  PayloadEvent<'EXPEDITION_RESULT', MissionResult>
 
-export interface ExpeditionCatalogEvent extends EventBase {
-  type: 'EXPEDITION_CATALOG';
-  payload: MissionCatalogItem[];
-}
+export type ExpeditionCatalogEvent =
+  PayloadEvent<'EXPEDITION_CATALOG', MissionCatalogItem[]>

@@ -63,6 +63,9 @@ export class WebHostController {
   private boundDisplayCb: ((id: number) => void) | null = null;
   private getFit: () => FitGetter;
   private proxyStage: ProxyStage = ProxyStage.INIT;
+  private persistQ: string[] = [];
+  private persistDraining: boolean = false;
+  private readonly MAX_PERSIST_Q: number = 60;
 
   constructor(
     ctl: webview.WebviewController,
@@ -187,18 +190,7 @@ export class WebHostController {
       this.ctl.runJavaScript?.(jsAck);
     }
 
-    const msg: AppChannelMessage | null = parseMsg(raw);
-    if (msg === null) { return; }
-
-    const deps = getPersistDeps();
-    if (deps !== null) {
-      const dump: ApiDump | null = asApiDump(msg);
-      if (dump !== null) {
-        void ingestDump(dump, deps);
-      }
-    }
-
-
+    this.enqueuePersist(raw);
   }
 
   private pushFitStrong(policy: string, locked: boolean, vw: number, vh: number): void {
@@ -214,5 +206,47 @@ export class WebHostController {
         + "setTimeout(function(){ try{ if (window.kcFitReflow) window.kcFitReflow(); }catch(e){} }, 200);"
         + "}catch(e){ console.warn('[fit] pushStrong error', e); }";
     this.ctl.runJavaScript?.(js);
+  }
+
+  private enqueuePersist(raw: string): void {
+    if (this.persistQ.length >= this.MAX_PERSIST_Q) {
+      this.persistQ.shift();
+      hilog.warn(HILOG_DOM, 'Bridge', '[persist] queue overflow, drop oldest');
+    }
+    this.persistQ.push(raw);
+
+    if (!this.persistDraining) {
+      this.persistDraining = true;
+      setTimeout(() => { void this.drainPersistQueue(); }, 0);
+    }
+  }
+
+  private async drainPersistQueue(): Promise<void> {
+    try {
+      while (this.persistQ.length > 0) {
+        const raw = this.persistQ.shift()!;
+
+        try {
+          const msg: AppChannelMessage | null = parseMsg(raw);
+          if (msg === null) continue;
+
+          const dump: ApiDump | null = asApiDump(msg);
+          if (dump === null) continue;
+
+          const deps = getPersistDeps();
+          if (deps === null) continue;
+
+          await ingestDump(dump, deps);
+        } catch (e) {
+          hilog.error(HILOG_DOM, 'Bridge', '[persist] ingest failed: %{public}s', String(e));
+        }
+      }
+    } finally {
+      this.persistDraining = false;
+      if (this.persistQ.length > 0) {
+        this.persistDraining = true;
+        setTimeout(() => { void this.drainPersistQueue(); }, 0);
+      }
+    }
   }
 }

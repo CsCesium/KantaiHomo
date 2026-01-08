@@ -12,8 +12,11 @@ let store: RdbStore | null = null;
 
 
 export async function getDB(): Promise<RdbStore> {
-  if (store) {
-    return store;
+  if (store) return store;
+
+  const ctx = getAppContext();
+  if (!ctx) {
+    throw new Error('[DB] AppContext is not initialized (getAppContext() returned null/undefined).');
   }
 
   const config: relationalStore.StoreConfig = {
@@ -21,11 +24,10 @@ export async function getDB(): Promise<RdbStore> {
     securityLevel: relationalStore.SecurityLevel.S1,
   };
 
-  store = await relationalStore.getRdbStore(getAppContext(), config);
+  store = await relationalStore.getRdbStore(ctx, config);
   await runMigrations(store);
   return store;
 }
-
 async function runMigrations(db: RdbStore): Promise<void> {
   await db.executeSql(`
     CREATE TABLE IF NOT EXISTS schema_migrations (

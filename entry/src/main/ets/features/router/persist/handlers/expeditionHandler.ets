@@ -5,6 +5,7 @@ import type {
   PersistHandler,
   ExpeditionEventPayload,
 } from '../type';
+import {PersistEventExpedition} from '../type'
 
 import {
   ExpeditionProgress,
@@ -14,12 +15,6 @@ import {
 } from '../../../../domain/models/expedition';
 
 import type { ExpeditionRowWrite as RepoRowWrite } from '../../../../infra/store/repo/types';
-
-// 让本文件里的事件具备更严格的名义类型
-export interface ExpeditionPersistEvent extends PersistEvent {
-  type: 'EXPEDITION';
-  payload: ExpeditionEventPayload;
-}
 
 function isExpeditionEvent(ev: PersistEvent): boolean {
   return ev.type === 'EXPEDITION';
@@ -84,7 +79,7 @@ function mapFromResult(data: MissionResult, fallbackTs: number): ExpeditionRowLi
 class ExpeditionPersistHandler implements PersistHandler {
   async handle(ev: PersistEvent, deps: PersistDeps): Promise<void> {
     if (!isExpeditionEvent(ev)) return;
-    const e: ExpeditionPersistEvent = ev as ExpeditionPersistEvent;
+    const e: PersistEventExpedition = ev as PersistEventExpedition;
 
     if (!deps.repos || !deps.repos.expedition) {
       console.warn('[persist][EXPEDITION] repository not provided');
