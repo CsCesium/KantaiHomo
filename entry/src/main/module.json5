@@ -17,7 +17,7 @@
         "label": "$string:EntryAbility_label",
         "description": "$string:EntryAbility_desc",
         "icon": "$media:layered_image",
-        "startWindowIcon": "$media:startIcon",
+        "startWindowIcon": "$media:foreground",
         "startWindowBackground": "$color:start_window_background",
         "orientation": "auto_rotation",
         "exported": true,
@@ -26,7 +26,7 @@
             "entities": ["entity.system.home"],
             "actions": ["action.system.home"]
           }
-        ],
+        ]
 
       }
     ],
@@ -38,8 +38,8 @@
       { "name": "ohos.permission.GET_NETWORK_INFO" },
       { "name": "ohos.permission.KEEP_BACKGROUND_RUNNING" },
       { "name": "ohos.permission.VIBRATE" },
-      {"name": "ohos.permission.SYSTEM_FLOAT_WINDOW"},
-      {"name": "ohos.permission.USE_FLOAT_BALL"}
+      //{"name": "ohos.permission.SYSTEM_FLOAT_WINDOW"},
+      //{"name": "ohos.permission.USE_FLOAT_BALL"}
     ],
 
   }
