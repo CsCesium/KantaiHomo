@@ -1,15 +1,16 @@
+//entry/src/main/ets/features/alerts/expeditionReturn.ets
 import type { Clock, Cancelable, Notifier, ExpeditionDaoLike, ExpeditionNext ,TimeoutId } from './type';
 
 class TimeoutHandle implements Cancelable {
   private id: TimeoutId;
   constructor(id: TimeoutId) { this.id = id; }
-  cancel(): void { globalThis.clearTimeout(this.id); }
+  cancel(): void { clearTimeout(this.id); }
 }
 
 export class SystemClock implements Clock {
   now(): number { return Date.now(); }
   setTimeout(cb: () => void, ms: number): Cancelable {
-    const id: TimeoutId = globalThis.setTimeout(cb, ms);
+    const id: TimeoutId = setTimeout(cb, ms);
     return new TimeoutHandle(id);
   }
   clearTimeout(handle: Cancelable): void { handle.cancel(); }
