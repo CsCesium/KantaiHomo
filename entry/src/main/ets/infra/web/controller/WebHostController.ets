@@ -63,6 +63,7 @@ export class WebHostController {
   private boundDisplayCb: ((id: number) => void) | null = null;
   private getFit: () => FitGetter;
   private proxyStage: ProxyStage = ProxyStage.INIT;
+
   private persistQ: string[] = [];
   private persistDraining: boolean = false;
   private readonly MAX_PERSIST_Q: number = 60;
