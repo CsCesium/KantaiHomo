@@ -1,5 +1,5 @@
 //@/features/router/persist/adapters/rdb/expedition.ts
-import {  upsertBatch as rdbUpsert } from "../../../../../infra/store/dao/ExpeditionsDao";
+import {  upsertBatch as rdbUpsert } from "../../../../../infra/storage/dao/ExpeditionsDao";
 import { ExpeditionRowWrite, ExpeditionsDAO } from "../../type";
 
 export class ExpeditionRdbDAO implements ExpeditionsDAO {

@@ -1,6 +1,6 @@
 //src/main/ets/infra/deps/index.ets
-import type { RepositoryHub } from '../../infra/store/repo/types';
-import { createRepositoryHub } from '../../infra/store/repo/index';
+import type { RepositoryHub } from '../storage/repo/types';
+import { createRepositoryHub } from '../storage/repo/index';
 
 export interface RecentIdCache {
   has(id: string): boolean;

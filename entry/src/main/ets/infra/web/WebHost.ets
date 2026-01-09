@@ -1,5 +1,5 @@
 import { webview } from "@kit.ArkWeb";
-import { kvDelete, kvGetString, kvSet } from "../store/kv";
+import { kvDelete, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
 import { decideLayout, FitPolicy, HostMode } from "./layout/responsive";

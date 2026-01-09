@@ -14,7 +14,7 @@ import {
   type MissionResult,
 } from '../../../../domain/models/expedition';
 
-import type { ExpeditionRowWrite as RepoRowWrite } from '../../../../infra/store/repo/types';
+import type { ExpeditionRowWrite as RepoRowWrite } from '../../../../infra/storage/repo/types';
 
 function isExpeditionEvent(ev: PersistEvent): boolean {
   return ev.type === 'EXPEDITION';
