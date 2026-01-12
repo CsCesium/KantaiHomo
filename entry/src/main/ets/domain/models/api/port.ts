@@ -1,45 +1,28 @@
 import type { ApiShipRaw } from './ship';
-import type { ApiNdockRespRaw } from './nyukyo';
-import { ApiDeckMissionTuple } from './mission';
+import type { ApiNdockRaw } from './n_dock';
+import { ApiBasicRaw } from './basic';
+import { ApiMaterialItemRaw } from './materials';
+import { ApiDeckPortRaw } from './deck';
 
-export interface ApiMaterialItemRaw {
-  api_id: number;
-  api_value: number;
+export interface ApiPortLogRaw {
+  api_no: number;
+  api_type: string;
+  api_state: string | number;
+  api_message: string;
+  [k: string]: unknown;
 }
 
-export interface ApiDeckPortRaw {
-  api_id: number;
-  api_name: string;
-  api_mission: ApiDeckMissionTuple;
-  api_ship: number[]; // ship instance ids, -1=空位
-}
-
-export interface ApiBasicRaw {
-  api_member_id: number;
-  api_nickname: string;
-  api_level: number;
-  api_experience: number;
-
-  api_max_chara: number;
-  api_max_slotitem: number;
-
-  api_large_dock?: number;
-}
-
-export interface ApiPortDataRaw {
+export interface ApiPortRespRaw {
+  api_basic: ApiBasicRaw;
   api_material: ApiMaterialItemRaw[];
   api_deck_port: ApiDeckPortRaw[];
-  api_ndock: ApiNdockRespRaw[];
+  api_ndock: ApiNdockRaw[];
   api_ship: ApiShipRaw[];
-  api_basic: ApiBasicRaw;
 
+  api_log?: ApiPortLogRaw[];
   api_combined_flag?: number;
   api_p_bgm_id?: number;
-
   api_parallel_quest_count?: number;
-  api_dest_ship_slot?: number;
 
-  api_event_object?: unknown;
-  api_plane_info?: unknown;
-  api_log?: unknown;
+  [k: string]: unknown;
 }

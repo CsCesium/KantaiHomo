@@ -1,13 +1,13 @@
 import { ApiDeckMissionTuple,
   ApiMissionCatalogRaw,
-  ApiMissionResultRespRaw, ApiMissionStartRespRaw } from '../models/api/mission';
+  ApiMissionResultRespRaw, ApiMissionStartRespRaw } from '../api/mission';
 import {
   ExpeditionProgress,
   type ExpeditionSlotState,
   type MissionCatalogItem,
   type MissionResult,
   type MissionStart,
-} from '../models/expedition';
+} from '../struct/expedition';
 
 function toProgress(state: number): ExpeditionProgress {
   switch (state) {

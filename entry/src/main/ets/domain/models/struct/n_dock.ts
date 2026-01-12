@@ -4,11 +4,12 @@
 // 开始入渠修船 调api_req_nyukyo/start和api_get_member/ndock
 // 在入渠界面倒计时结束时，自动调api_get_member/ndock
 
-export interface NdockSlotState {
+export interface Ndock {
   dockId: number;
-  state: number;          // -1/0/1
-  shipId: number;         // 实例id
-  completeTime: number;   // 原样保留（你后面可统一成 epoch）
+  state: number;
+  shipUid: number;
+  completeTime: number;
+  completeTimeStr?: string;
   cost: { fuel: number; steel: number };
   updatedAt: number;
 }

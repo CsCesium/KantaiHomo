@@ -1,43 +1,29 @@
+import { Admiral } from './admiral';
+import { Deck } from './deck';
+import { Materials } from './material';
+import { Ndock } from './n_dock';
 import type { Ship } from './ship';
-import type { NdockSlotState } from './nyukyo';
 
-export interface AdmiralState {
-  id: number;
-  name: string;
-  level: number;
-  experience: number;
-  maxShips: number;
-  maxItems: number;
-  largeDockEnabled: boolean;
-}
-
-export interface ResourceState {
-  byId: Record<number, number>; // api_id -> value
-}
-
-export interface FleetPortState {
-  deckId: number;
-  name: string;
-  shipIds: number[]; // 过滤掉 -1
-  mission: {
-    state: number;
-    missionId: number;
-    returnTimeMs: number;
-    reserved: number;
-  };
+export interface PortLog {
+  no: number;
+  type: string;
+  message: string;
   updatedAt: number;
+  extras?: Record<string, unknown>;
 }
 
 export interface PortSnapshot {
-  admiral: AdmiralState;
-  resources: ResourceState;
-  fleets: FleetPortState[];
-  ndocks: NdockSlotState[];
-
-  ships: Record<number, Ship>; // uid -> Ship
+  admiral: Admiral;
+  materials: Materials;
+  decks: Deck[];
+  ndocks: Ndock[];
+  ships: Ship[];
+  logs: PortLog[];
 
   combinedFlag?: number;
-  portBgmId?: number;
+  bgmId?: number;
+  parallelQuestCount?: number;
 
   updatedAt: number;
+  extras?: Record<string, unknown>;
 }

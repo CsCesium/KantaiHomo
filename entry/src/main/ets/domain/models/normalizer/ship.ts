@@ -1,6 +1,6 @@
-import type { StatPair } from '../models/common';
-import type { ApiShipRaw } from '../models/api/ship';
-import type { Ship } from '../models/ship';
+import type { StatPair } from '../common';
+import type { ApiShipRaw } from '../api/ship';
+import type { Ship } from '../struct//ship';
 
 export function normalizeShip(raw: ApiShipRaw, now: number = Date.now()): Ship {
   const [expTotal, expToNext, expGauge] = raw.api_exp;
