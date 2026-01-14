@@ -8,5 +8,5 @@ export function parseDumpInWorker(
   requestBody: string,
   responseText: string
 ): PersistEvent[] {
-  return parseDumpToPersist({ url, requestBody, responseText })
-}   
+  return parseDumpToPersist({ url: url, requestBody: requestBody, responseText: responseText })
+}

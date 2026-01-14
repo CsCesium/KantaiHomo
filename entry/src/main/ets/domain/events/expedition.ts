@@ -1,5 +1,5 @@
+import { MissionStart, ExpeditionSlotState, MissionResult, MissionCatalogItem } from '../models'
 import { PayloadEvent } from './type'
-import type { MissionStart, ExpeditionSlotState, MissionResult, MissionCatalogItem } from '../models/expedition'
 
 export type ExpeditionStartEvent =
   PayloadEvent<'EXPEDITION_START', MissionStart>

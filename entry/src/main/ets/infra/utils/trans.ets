@@ -28,3 +28,4 @@ export function lengthToNumber(len: Length): number {
   // 如需精确解析 Resource 的数值，可再接入 resourceManager 取 dimen。
   return 0;
 }
+

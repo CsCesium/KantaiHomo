@@ -1,23 +1,22 @@
 //entry/src/main/ets/features/parsers/expedition.ts
 import type { ApiDump } from '../../../infra/web/types';
 import { parseSvdata, parseFormBody, makeEventId} from "../utils/common"
-import {
-  normalizeMissionStart,
-  normalizeDeckMission,
-  normalizeMissionResult,
-  normalizeMissionCatalog
-} from '../../../domain/models/expedition'
-import type {
-  ApiMissionStartRespRaw,
-  ApiMissionResultRespRaw,
-  ApiDeckMissionTuple
-} from '../../../domain/models/expedition'
+
 import type {
   ExpeditionStartEvent,
   ExpeditionUpdateEvent,
   ExpeditionResultEvent,
   ExpeditionCatalogEvent
 } from '../../../domain/events/expedition'
+import {
+  ApiMissionStartRespRaw,
+  normalizeMissionStart,
+  ApiMissionResultRespRaw,
+  normalizeMissionResult,
+  ApiDeckMissionTuple,
+  normalizeDeckMission,
+  normalizeMissionCatalog
+} from '../../../domain/models';
 
 
 export function parseExpedition(

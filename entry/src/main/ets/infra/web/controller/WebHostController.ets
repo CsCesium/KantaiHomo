@@ -68,6 +68,12 @@ export class WebHostController {
   private persistDraining: boolean = false;
   private readonly MAX_PERSIST_Q: number = 60;
 
+  private ackQ: string[] = [];
+  private ackDraining: boolean = false;
+  private readonly MAX_ACK_Q: number = 200;
+  private readonly ACK_BATCH: number = 30;
+
+
   constructor(
     ctl: webview.WebviewController,
     ctx: common.UIAbilityContext,
@@ -182,16 +188,14 @@ export class WebHostController {
   }
 
   private onHookPayload(raw: string): void {
-    const traceId: string = this.extractTraceId(raw);
-    hilog.info(HILOG_DOM, 'Bridge', '[RX] trace=%{public}s bytes=%{public}d', traceId, raw.length);
+    const traceId: string = this.extractTraceId(raw)
+    hilog.info(HILOG_DOM, 'Bridge', '[RX] trace=%{public}s bytes=%{public}d', traceId, raw.length)
 
     if (traceId.length > 0) {
-      const jsAck: string =
-        "try{ if(typeof window.__hm_ack==='function'){ window.__hm_ack(" + JSON.stringify(traceId) + "); } }catch(e){}";
-      this.ctl.runJavaScript?.(jsAck);
+      this.enqueueAck(traceId)
     }
 
-    this.enqueuePersist(raw);
+    this.enqueuePersist(raw)
   }
 
   private pushFitStrong(policy: string, locked: boolean, vw: number, vh: number): void {
@@ -247,6 +251,47 @@ export class WebHostController {
       if (this.persistQ.length > 0) {
         this.persistDraining = true;
         setTimeout(() => { void this.drainPersistQueue(); }, 0);
+      }
+    }
+  }
+
+  private enqueueAck(traceId: string): void {
+    if (this.ackQ.length >= this.MAX_ACK_Q) {
+      this.ackQ.shift()
+      hilog.warn(HILOG_DOM, 'Bridge', '[ack] queue overflow, drop oldest')
+    }
+    this.ackQ.push(traceId)
+
+    if (!this.ackDraining) {
+      this.ackDraining = true
+      setTimeout(() => { this.drainAckQueue() }, 0)
+    }
+  }
+
+  private drainAckQueue(): void {
+    try {
+      if (!this.ackQ.length) return
+
+      const batch: string[] = []
+      while (batch.length < this.ACK_BATCH && this.ackQ.length > 0) {
+        batch.push(this.ackQ.shift()!)
+      }
+
+      // 一次 runJavaScript 批量 ack，避免高频 Promise/回调
+      const js: string =
+        "try{"
+          + "var a=" + JSON.stringify(batch) + ";"
+          + "for(var i=0;i<a.length;i++){"
+          + "  if(typeof window.__hm_ack==='function'){ window.__hm_ack(a[i]); }"
+          + "}"
+          + "}catch(e){}"
+
+      this.ctl.runJavaScript?.(js)
+    } finally {
+      this.ackDraining = false
+      if (this.ackQ.length > 0) {
+        this.ackDraining = true
+        setTimeout(() => { this.drainAckQueue() }, 0)
       }
     }
   }

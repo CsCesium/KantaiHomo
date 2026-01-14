@@ -1,4 +1,4 @@
-import type { EquipSlots, ExSlot, RarityCode, ShipRange, ShipSpeed, ShipStatBlock } from './api/ship';
+import { ShipSpeed, ShipRange, EquipSlots, ExSlot, RarityCode, ShipStatBlock } from "../api/ship";
 
 export interface Ship {
   uid: number;

@@ -1,11 +1,7 @@
 // src/main/ets/features/router/persist/type.ets
 import type { EventType, EventBase } from '../../../domain/events/type';
-import type {
-  MissionStart,
-  ExpeditionSlotState,
-  MissionResult,
-  MissionCatalogItem,
-} from '../../../domain/models/expedition';
+import { ExpeditionSlotState, MissionStart, MissionResult, MissionCatalogItem } from '../../../domain/models';
+
 import { PersistDeps } from '../../../infra/deps/index';
 
 export type { PersistDeps } from '../../../infra/deps/index';

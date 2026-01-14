@@ -7,54 +7,59 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
       try { if (typeof window.__safeInject === 'function') return window.__safeInject(tag, fn); } catch(e){}
       try { fn(); } catch(e){}
     }
+
     __kc_tryInject('hook-xhr', function(){
-      function __parseReqBody(body){
-        try {
-          if (!body) return { raw: '' };
-          if (typeof body === 'string') {
-            var raw = body, t = raw.trim();
-            try { return { raw: raw, form: Object.fromEntries(new URLSearchParams(raw).entries()) }; } catch(e){}
-            if (t.startsWith('{') || t.startsWith('[')) { try { return { raw: raw, json: JSON.parse(raw) }; } catch(e){} }
-            return { raw: raw };
-          }
-          if (body instanceof URLSearchParams) return { raw: body.toString(), form: Object.fromEntries(body.entries()) };
-          if (body instanceof FormData)      return { raw: '[FormData]',        form: Object.fromEntries([].slice.call(body.entries())) };
-        } catch(e){}
-        return { raw: '' };
+
+      var MAX_RES_LEN = 400 * 1024; // 400KB
+      var MAX_REQ_LEN = 50 * 1024;
+
+      var SKIP = [
+        '/kcsapi/api_start2/getData',
+      ];
+
+      function __shouldSkip(url){
+        for (var i=0;i<SKIP.length;i++){
+          if (url.indexOf(SKIP[i]) >= 0) return true;
+        }
+        return false;
       }
-      function __parseSvdata(text){
-        try {
+
+      function __stripSvdata(text){
+        try{
           var raw = String(text == null ? '' : text);
-          var trimmed = raw.trim().replace(/^svdata=/, '');
-          try { return { json: JSON.parse(trimmed), raw: raw }; } catch(e){ return { raw: raw }; }
-        } catch(e){ return { raw: String(text == null ? '' : text) }; }
+          if (raw.indexOf('svdata=') === 0) return raw.slice(7);
+          return raw;
+        } catch(e){
+          return '';
+        }
       }
-      // === 统一发送函数（不假设返回 Promise）===
+
+      function __parseReqRaw(body){
+        try {
+          if (!body) return '';
+          if (typeof body === 'string') return body;
+          if (body instanceof URLSearchParams) return body.toString();
+          return '';
+        } catch(e){
+          return '';
+        }
+      }
+
       function __sendToHost(payload){
         try{
           var NAME='${channelName}', M='${postMethod}', host=window[NAME];
           if (host && typeof host[M] === 'function') {
-            try { host[M](payload); console.debug('[bridge][post] ok'); return true; } catch(e){ console.warn('[bridge][post] error', e); }
+            try { host[M](payload); console.debug('[bridge][post] ok'); return true; }
+            catch(e){ console.warn('[bridge][post] error', e); return false; }
           }
-          if (host && typeof host.postAsync === 'function') {
-            try {
-              var r = host.postAsync(payload);
-              if (r && typeof r.then === 'function') {
-                r.then(function(){ console.debug('[bridge][postAsync] ok'); })
-                 .catch(function(e){ console.warn('[bridge][postAsync] fail', e); });
-              } else {
-                console.debug('[bridge][postAsync] called (non-promise)');
-              }
-              return true;
-            } catch(e){ console.warn('[bridge][postAsync] error', e); }
-          }
-          if (typeof window.__hm_send === 'function') {
-            try { window.__hm_send(payload); console.debug('[bridge][queue] enqueue'); return true; } catch(e){ console.warn('[bridge][queue] error', e); }
-          }
+          // fallback：stash queue
           (window.__hm_q = window.__hm_q || []).push(payload);
           console.debug('[bridge][queue] stash qsize=', window.__hm_q.length);
           return false;
-        }catch(e){ console.warn('[bridge] send fatal', e); return false; }
+        }catch(e){
+          console.warn('[bridge] send fatal', e);
+          return false;
+        }
       }
 
       var open = XMLHttpRequest.prototype.open;
@@ -67,38 +72,50 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
 
       XMLHttpRequest.prototype.send = function(body){
         var xhr = this;
-        try { if (xhr.__kc) xhr.__kc.req = __parseReqBody(body); } catch(e){}
+        try { if (xhr.__kc) xhr.__kc.reqRaw = __parseReqRaw(body); } catch(e){}
 
         xhr.addEventListener('readystatechange', function(){
           try {
             if (xhr.readyState !== 4) return;
+
             var url = xhr.responseURL || (xhr.__kc && xhr.__kc.u) || '';
+            if (!url) return;
+
             var ok = (!(${filterExp}).test ? (url.indexOf(${filterExp}) !== -1) : (${filterExp}).test(url));
             if (!ok) return;
 
+            if (__shouldSkip(url)) return;
+
+            var reqRaw = (xhr.__kc && xhr.__kc.reqRaw) ? xhr.__kc.reqRaw : '';
+            if (reqRaw.length > MAX_REQ_LEN) reqRaw = ''; // 太大也不传
+
             var text = (typeof xhr.responseText === 'string') ? xhr.responseText : '';
-            var parsed = __parseSvdata(text);
+            var resLen = text.length;
+
+            if (resLen > MAX_RES_LEN) {
+              console.debug('[hook-xhr] skip large', resLen, url);
+              return;
+            }
+
+            var resp = __stripSvdata(text);
 
             console.debug('[hook-xhr]', (xhr.__kc && xhr.__kc.m) || 'GET', xhr.status, url);
 
-            var payload = JSON.stringify({
-              ts: Date.now(),
-              kind: 'xhr',
+            var dump = JSON.stringify({
+              type: 'API_DUMP',
               url: url,
-              method: (xhr.__kc && xhr.__kc.m) || 'GET',
-              status: Number(xhr.status) || 0,
-              requestBody: (xhr.__kc && xhr.__kc.req && xhr.__kc.req.raw) ? xhr.__kc.req.raw : '',
-              responseText: parsed.raw,
-              request:  (xhr.__kc && xhr.__kc.req) || { raw: '' },
-              response: parsed
+              requestBody: reqRaw,
+              responseText: resp
             });
 
-            __sendToHost(payload);
-          } catch(e){}
+            setTimeout(function(){ __sendToHost(dump); }, 0);
+
+          } catch(e) {}
         });
 
         return send.apply(this, arguments);
       };
+
       console.log('[hook-xhr] ready');
     });
   })();`;

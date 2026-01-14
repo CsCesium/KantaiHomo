@@ -8,7 +8,7 @@ import { common } from "@kit.AbilityKit";
 import { window } from "@kit.ArkUI";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
-import { lengthToNumber } from "../utils/TransUtil";
+import { lengthToNumber } from "../utils/trans";
 
 interface RpcPayload {
   op: string;
