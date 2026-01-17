@@ -4,7 +4,7 @@ import common from '@ohos.app.ability.common';
 import { WebBridge } from '../bridge/WebBridge';
 import { FitAndDisplay } from '../layout/fit';
 import { buildInjectionBundle } from '../../web/inject';
-import { defaultInjectOptions, InjectOptions, AppChannelMessage, ApiDump } from '../types';
+import {  InjectOptions, AppChannelMessage, ApiDump } from '../types';
 import { parseAppChannelMessage as parseMsg } from '../types';
 import { ingestDump } from '../../../features/router/persist/ingest/webDump';
 import { getPersistDeps } from '../../deps/index';

@@ -1,5 +1,5 @@
 import { ApiSlotItemRaw, ApiUnsetSlotRaw } from "../api/slotitem";
-import { SlotItem, UnsetSlot } from "../struct/slotItem";
+import { SlotItem, UnsetSlot } from "../struct/slotitem";
 
 export function normalizeSlotItem(raw: ApiSlotItemRaw, now: number = Date.now()): SlotItem {
   return {

@@ -6,28 +6,89 @@ import { migrations, type Migration } from './migrations';
 type RdbStore = relationalStore.RdbStore;
 type ResultSet = relationalStore.ResultSet;
 
-const DB_NAME = 'KantaiHomo.db';
+const DB_PREFIX = 'KantaiHomo';
 let store: RdbStore | null = null;
+let activeUserKey: string = 'default';
+let openedDbName: string | null = null;
 
+function sanitizeUserKey(userKey: string): string {
+  const s = (userKey ?? '').trim().replace(/[^0-9a-zA-Z_-]/g, '_');
+  return s.length > 0 ? s.slice(0, 64) : 'default';
+}
 
+function dbNameForUser(userKey: string): string {
+  const k = sanitizeUserKey(userKey);
+  return `${DB_PREFIX}_${k}.db`;
+}
+
+export async function setActiveUser(userKey: string): Promise<void> {
+  const nextKey = sanitizeUserKey(userKey);
+  if (nextKey === activeUserKey && store) return;
+
+  await closeDB();
+
+  activeUserKey = nextKey;
+}
+
+export async function resetToDefaultUser(): Promise<void> {
+  await setActiveUser('default');
+}
 
 export async function getDB(): Promise<RdbStore> {
-  if (store) return store;
-
   const ctx = getAppContext();
   if (!ctx) {
     throw new Error('[DB] AppContext is not initialized (getAppContext() returned null/undefined).');
   }
 
+  const dbName = dbNameForUser(activeUserKey);
+
+  if (store && openedDbName === dbName) return store;
+
+  // 若 store 不为空但名字不对，关掉
+  if (store) {
+    await closeDB();
+  }
+
   const config: relationalStore.StoreConfig = {
-    name: DB_NAME,
+    name: dbName,
     securityLevel: relationalStore.SecurityLevel.S1,
   };
 
   store = await relationalStore.getRdbStore(ctx, config);
+  openedDbName = dbName;
   await runMigrations(store);
   return store;
 }
+
+export async function closeDB(): Promise<void> {
+  if (!store) return;
+  try {
+    await store.close(); //close() :contentReference[oaicite:3]{index=3}
+  } finally {
+    store = null;
+    openedDbName = null;
+  }
+}
+
+export async function deleteUserDB(userKey: string): Promise<void> {
+  const ctx = getAppContext();
+  if (!ctx) throw new Error('[DB] AppContext is not initialized.');
+
+  const dbName = dbNameForUser(userKey);
+
+  // 如果正在用这个库，先关
+  if (openedDbName === dbName) {
+    await closeDB();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    relationalStore.deleteRdbStore(ctx, dbName, (err) => { // deleteRdbStore 示例见文档 :contentReference[oaicite:4]{index=4}
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 async function runMigrations(db: RdbStore): Promise<void> {
   await db.executeSql(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -68,6 +129,7 @@ async function runMigrations(db: RdbStore): Promise<void> {
   }
 }
 
+/**     tools       */
 export function col(rs: ResultSet, name: string): number {
   const idx = rs.getColumnIndex(name);
   if (idx < 0) {

@@ -1,4 +1,5 @@
-import { MissionStart, ExpeditionSlotState, MissionResult, MissionCatalogItem } from '../models'
+//entry/src/main/ets/domain/events/expedition.ts
+import { MissionStart, ExpeditionSlotState, MissionResult, MissionCatalogItem } from '../models/struct/expedition'
 import { PayloadEvent } from './type'
 
 export type ExpeditionStartEvent =

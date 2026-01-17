@@ -1,3 +1,4 @@
+//entry/src/main/ets/features/router/persist/handlers/expeditionHandler.ets
 import { registerPersistHandler } from '..';
 import type {
   PersistDeps,
@@ -11,7 +12,7 @@ import {PersistEventExpedition} from '../type'
 
 import type { ExpeditionRowWrite as RepoRowWrite } from '../../../../infra/storage/repo/types';
 import { ExpeditionSlotState, MissionStart, ExpeditionProgress, MissionResult } from '../../../../domain/models';
-import { toInt64 } from '../../../../infra/utils/num';
+import {  i64,i32 } from '../../../../infra/utils/num';
 
 function isExpeditionEvent(ev: PersistEvent): boolean {
   return ev.type === 'EXPEDITION';
@@ -34,20 +35,20 @@ function mapFromSlotState(
     for (let i = 0; i < data.length; i++) {
       const s: ExpeditionSlotState = data[i]
       rows.push({
-        deckId: toInt32(s.deckId, 0),
-        missionId: toInt32(s.missionId, 0),
-        progress: toInt32(s.progress, 0),
-        returnTime: toInt64(s.returnTime, 0), // ✅ 不要 |0
-        updatedAt: toInt64((s.updatedAt != null ? s.updatedAt : fallbackTs), fallbackTs),
+        deckId: i32(s.deckId, 0),
+        missionId: i32(s.missionId, 0),
+        progress: i32(s.progress, 0),
+        returnTime: i64(s.returnTime, 0), // ✅ 不要 |0
+        updatedAt: i64((s.updatedAt != null ? s.updatedAt : fallbackTs), fallbackTs),
       })
     }
   } else {
     rows.push({
-      deckId: toInt32(data.deckId, 0),
-      missionId: toInt32(data.missionId, 0),
-      progress: toInt32(data.progress, 0),
-      returnTime: toInt64(data.returnTime, 0),
-      updatedAt: toInt64((data.updatedAt != null ? data.updatedAt : fallbackTs), fallbackTs),
+      deckId: i32(data.deckId, 0),
+      missionId: i32(data.missionId, 0),
+      progress: i32(data.progress, 0),
+      returnTime: i64(data.returnTime, 0),
+      updatedAt: i64((data.updatedAt != null ? data.updatedAt : fallbackTs), fallbackTs),
     })
   }
   return rows
@@ -55,21 +56,21 @@ function mapFromSlotState(
 
 function mapFromStart(data: MissionStart, fallbackTs: number): ExpeditionRowLite[] {
   return [{
-    deckId: toInt32(data.deckId, 0),
-    missionId: toInt32(data.missionId, 0),
+    deckId: i32(data.deckId, 0),
+    missionId: i32(data.missionId, 0),
     progress: ExpeditionProgress.RUNNING,
-    returnTime: toInt64(data.complTime, 0), // ✅
-    updatedAt: toInt64((data.updatedAt != null ? data.updatedAt : fallbackTs), fallbackTs),
+    returnTime: i64(data.complTime, 0), // ✅
+    updatedAt: i64((data.updatedAt != null ? data.updatedAt : fallbackTs), fallbackTs),
   }]
 }
 
 function mapFromResult(data: MissionResult, fallbackTs: number): ExpeditionRowLite[] {
   return [{
-    deckId: toInt32(data.deckId, 0),
-    missionId: toInt32(data.missionId, 0),
+    deckId: i32(data.deckId, 0),
+    missionId: i32(data.missionId, 0),
     progress: ExpeditionProgress.IDLE,
     returnTime: 0,
-    updatedAt: toInt64((data.finishedAt != null ? data.finishedAt : fallbackTs), fallbackTs),
+    updatedAt: i64((data.finishedAt != null ? data.finishedAt : fallbackTs), fallbackTs),
   }]
 }
 
@@ -125,7 +126,3 @@ class ExpeditionPersistHandler implements PersistHandler {
 }
 
 registerPersistHandler('EXPEDITION', new ExpeditionPersistHandler());
-
-function toInt32(deckId: number, arg1: number): number {
-  throw new Error('Function not implemented.');
-}

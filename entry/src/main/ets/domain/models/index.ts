@@ -15,10 +15,7 @@ export * from './api/port';
 export * from './api/require_info';
 export * from './api/master';
 export * from './api/battle'
-//domain structures
-export * from './struct/ship'
-export * from './struct/port'
-export * from './struct/expedition'
+
 //normalizer
 export * from './normalizer/ship'
 export * from './normalizer/port'

@@ -1,5 +1,6 @@
-import { normalizeShip, PortLog, PortSnapshot } from "..";
+import { normalizeShip } from "..";
 import { ApiPortLogRaw, ApiPortRespRaw } from "../api/port";
+import { PortLog, PortSnapshot } from "../struct/port";
 import { normalizeAdmiral } from "./admiral";
 import { normalizeDecks } from "./deck";
 import { normalizeMaterials } from "./material";
