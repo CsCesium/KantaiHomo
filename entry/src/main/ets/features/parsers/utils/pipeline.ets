@@ -10,6 +10,7 @@ export interface DumpPipeline {
 
 //General function
 export const DUMP_PIPELINES: DumpPipeline[] = [
+  //portPipeline,
   expeditionPipeline
   // battlePipeline,
   // repairPipeline,

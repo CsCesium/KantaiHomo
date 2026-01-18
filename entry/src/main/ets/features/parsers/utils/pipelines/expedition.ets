@@ -55,7 +55,6 @@ export const expeditionPipeline: DumpPipeline = {
   match: (url: string) => {
     return url.indexOf('/api_req_mission/') >= 0
       || url.indexOf('/api_get_member/deck') >= 0
-      || url.indexOf('/api_port/port') >= 0
   },
   parse: (dump: ApiDump) => {
     const evts = parseExpedition(dump) ?? []

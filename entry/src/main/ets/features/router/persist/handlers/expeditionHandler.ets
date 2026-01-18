@@ -11,8 +11,8 @@ import {PersistEventExpedition} from '../type'
 
 
 import type { ExpeditionRowWrite as RepoRowWrite } from '../../../../infra/storage/repo/types';
-import { ExpeditionSlotState, MissionStart, ExpeditionProgress, MissionResult } from '../../../../domain/models';
 import {  i64,i32 } from '../../../../infra/utils/num';
+import { ExpeditionSlotState, MissionStart, ExpeditionProgress, MissionResult } from '../../../../domain/models/struct';
 
 function isExpeditionEvent(ev: PersistEvent): boolean {
   return ev.type === 'EXPEDITION';

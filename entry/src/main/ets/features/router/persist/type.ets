@@ -1,6 +1,6 @@
 // src/main/ets/features/router/persist/type.ets
 import type { EventType, EventBase } from '../../../domain/events/type';
-import { ExpeditionSlotState, MissionStart, MissionResult, MissionCatalogItem } from '../../../domain/models';
+import { ExpeditionSlotState, MissionStart, MissionResult, MissionCatalogItem } from '../../../domain/models/struct';
 
 import { PersistDeps } from '../../../infra/deps/index';
 
@@ -10,6 +10,15 @@ export interface PersistEventBase extends EventBase {
   type: EventType
 }
 
+/* ---------------- session ---------------- */
+export interface SessionBindPayload {
+  memberId: string;
+}
+
+export interface PersistSessionBindEvent extends PersistEventBase {
+  kind: 'SESSION_BIND';
+  payload: SessionBindPayload;
+}
 
 /* ---------------- Expedition ---------------- */
 
@@ -36,7 +45,6 @@ export type ExpeditionEventPayload =
     | ExpeditionEventPayloadCatalog;
 
 
-
 export interface PersistEventExpedition extends PersistEventBase {
   type: 'EXPEDITION'
   payload: ExpeditionEventPayload
@@ -54,7 +62,9 @@ export interface PersistEventBattle extends PersistEventBase {
 
 //TODO:OTHER EVENT
 
-export type PersistEvent = PersistEventExpedition
+export type PersistEvent =
+  PersistSessionBindEvent
+  | PersistEventExpedition
   | PersistEventBattle;
 
 export interface PersistHandler {

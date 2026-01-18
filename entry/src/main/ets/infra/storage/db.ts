@@ -2,15 +2,22 @@
 import relationalStore from '@ohos.data.relationalStore';
 import {getAppContext}from '../appContext'
 import { migrations, type Migration } from './migrations';
+import { kvGetString, kvSet, kvDelete } from '../storage/kv';
 
 type RdbStore = relationalStore.RdbStore;
 type ResultSet = relationalStore.ResultSet;
 
 const DB_PREFIX = 'KantaiHomo';
+const KV_ACTIVE_USER_KEY = 'db.activeUserKey.v1';
+const DEFAULT_USER_KEY = 'default';
+
 let store: RdbStore | null = null;
-let activeUserKey: string = 'default';
+let activeUserKey: string = DEFAULT_USER_KEY;
 let openedDbName: string | null = null;
 
+let activeKeyLoaded = false;
+
+//helpers
 function sanitizeUserKey(userKey: string): string {
   const s = (userKey ?? '').trim().replace(/[^0-9a-zA-Z_-]/g, '_');
   return s.length > 0 ? s.slice(0, 64) : 'default';
@@ -21,20 +28,72 @@ function dbNameForUser(userKey: string): string {
   return `${DB_PREFIX}_${k}.db`;
 }
 
+async function ensureActiveKeyLoaded(): Promise<void> {
+  if (activeKeyLoaded) return;
+
+  const ctx = getAppContext();
+  if (!ctx) {
+    throw new Error('[DB] AppContext is not initialized (getAppContext() returned null/undefined).');
+  }
+
+  try {
+    const fromKv = await kvGetString(KV_ACTIVE_USER_KEY, DEFAULT_USER_KEY);
+    activeUserKey = sanitizeUserKey(fromKv);
+  } catch (e) {
+    activeUserKey = DEFAULT_USER_KEY;
+    console.warn(`[DB] load activeUserKey failed, fallback to default: ${e}`);
+  } finally {
+    activeKeyLoaded = true;
+  }
+}
+
+export function getActiveUserKey(): string {
+  return activeUserKey;
+}
+export function getActiveDbName(): string {
+  return dbNameForUser(activeUserKey);
+}
+
+//key-related
 export async function setActiveUser(userKey: string): Promise<void> {
+  await ensureActiveKeyLoaded();
+
   const nextKey = sanitizeUserKey(userKey);
   if (nextKey === activeUserKey && store) return;
 
   await closeDB();
 
   activeUserKey = nextKey;
+  //clear
+  try {
+    await kvSet(KV_ACTIVE_USER_KEY, activeUserKey);
+  } catch (e) {
+    console.warn(`[DB] persist activeUserKey failed: ${e}`);
+  }
 }
 
 export async function resetToDefaultUser(): Promise<void> {
-  await setActiveUser('default');
+  await ensureActiveKeyLoaded();
+  await closeDB();
+  activeUserKey = DEFAULT_USER_KEY;
+  try {
+    await kvDelete(KV_ACTIVE_USER_KEY);
+  } catch (e) {
+    console.warn(`[DB] delete activeUserKey KV failed: ${e}`);
+  }
+}
+
+export async function bindUserIfDefault(userKey: string): Promise<boolean> {
+  await ensureActiveKeyLoaded();
+  const next = sanitizeUserKey(userKey);
+  if (!next || next === DEFAULT_USER_KEY) return false;
+  if (activeUserKey !== DEFAULT_USER_KEY) return false;
+  await setActiveUser(next);
+  return true;
 }
 
 export async function getDB(): Promise<RdbStore> {
+  await ensureActiveKeyLoaded();
   const ctx = getAppContext();
   if (!ctx) {
     throw new Error('[DB] AppContext is not initialized (getAppContext() returned null/undefined).');
@@ -74,7 +133,8 @@ export async function deleteUserDB(userKey: string): Promise<void> {
   const ctx = getAppContext();
   if (!ctx) throw new Error('[DB] AppContext is not initialized.');
 
-  const dbName = dbNameForUser(userKey);
+  const safeKey = sanitizeUserKey(userKey);
+  const dbName = dbNameForUser(safeKey);
 
   // 如果正在用这个库，先关
   if (openedDbName === dbName) {

@@ -1,6 +1,6 @@
+//src/main/ets/infra/storage/kv.ts
 import preferences from '@ohos.data.preferences';
 import { getAppContext } from '../appContext';
-
 
 let pref: preferences.Preferences | null = null;
 const PREF_FILE = 'kchomo_prefs';
