@@ -1,6 +1,15 @@
 // src/main/ets/features/router/persist/type.ets
+import { SessionBind } from '../../../domain/events';
 import type { EventType, EventBase } from '../../../domain/events/type';
-import { ExpeditionSlotState, MissionStart, MissionResult, MissionCatalogItem } from '../../../domain/models/struct';
+import { ExpeditionSlotState, MissionStart, MissionResult, MissionCatalogItem,
+  Admiral,
+  Deck,
+  Kdock,
+  Materials,
+  Ndock,
+  PortSnapshot,
+  Ship,
+  SlotItem } from '../../../domain/models/struct';
 
 import { PersistDeps } from '../../../infra/deps/index';
 
@@ -12,14 +21,62 @@ export interface PersistEventBase extends EventBase {
 
 /* ---------------- session ---------------- */
 export interface SessionBindPayload {
-  memberId: string;
+  kind:'session'
+  data: SessionBind
 }
 
 export interface PersistSessionBindEvent extends PersistEventBase {
-  kind: 'SESSION_BIND';
+  type: 'PORT';
   payload: SessionBindPayload;
 }
+/* ---------------- Port ---------------- */
+export interface PortEventPayloadSnapshot {
+  kind:'snapshot'
+  data:PortSnapshot;
+}
+export interface PortEventPayloadBasic {
+  kind:'admiral'
+  data:Admiral;
+}
+export interface PortEventPayloadResources {
+  kind:'material'
+  data:Materials;
+}
+export interface PortEventPayloadFleets {
+  kind:'fleet'
+  data:Deck[];
+}
+export interface PortEventPayloadNdock {
+  kind:'ndock'
+  data:Ndock[];
+}
+export interface PortEventPayloadKdock {
+  kind:'kdock'
+  data:Kdock[];
+}
+export interface PortEventPayloadShips {
+  kind:'ship'
+  data:Ship[];
+}
+export interface PortEventPayloadSlotItems {
+  kind:'slotitem'
+  data:SlotItem[];
+}
 
+export type PortEventPayloads =
+  PortEventPayloadSnapshot
+  |PortEventPayloadBasic
+  |PortEventPayloadResources
+  |PortEventPayloadFleets
+  |PortEventPayloadNdock
+  |PortEventPayloadKdock
+  |PortEventPayloadShips
+  |PortEventPayloadSlotItems;
+
+export interface PersistEventPort extends PersistEventBase {
+  type:'PORT';
+  payload:PortEventPayloads;
+}
 /* ---------------- Expedition ---------------- */
 
 export interface ExpeditionEventPayloadSlotState {
@@ -64,6 +121,7 @@ export interface PersistEventBattle extends PersistEventBase {
 
 export type PersistEvent =
   PersistSessionBindEvent
+  | PersistEventPort
   | PersistEventExpedition
   | PersistEventBattle;
 

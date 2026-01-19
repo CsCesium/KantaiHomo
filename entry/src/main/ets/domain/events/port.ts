@@ -1,4 +1,11 @@
-import { Admiral, Deck, Kdock, Materials, Ndock, PortSnapshot, Ship, SlotItem } from "../models/struct"
+import { Admiral } from "../models/struct/admiral"
+import { Deck } from "../models/struct/deck"
+import { Kdock } from "../models/struct/k_dock"
+import { Materials } from "../models/struct/material"
+import { Ndock } from "../models/struct/n_dock"
+import { PortSnapshot } from "../models/struct/port"
+import { Ship } from "../models/struct/ship"
+import { SlotItem } from "../models/struct/slotitem"
 import { PayloadEvent } from "./type"
 
 

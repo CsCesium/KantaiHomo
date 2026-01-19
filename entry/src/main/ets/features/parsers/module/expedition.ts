@@ -6,7 +6,8 @@ import type {
   ExpeditionStartEvent,
   ExpeditionUpdateEvent,
   ExpeditionResultEvent,
-  ExpeditionCatalogEvent
+  ExpeditionCatalogEvent,
+  AnyExpEvt
 } from '../../../domain/events/expedition'
 import {
   ApiMissionStartRespRaw,
@@ -17,94 +18,86 @@ import {
   normalizeDeckMission,
   normalizeMissionCatalog
 } from '../../../domain/models';
+import { EndpointRule, ParserCtx, mkEvt, detectEndpoint } from './common';
 
 
-export function parseExpedition(
-  dump: ApiDump
-): (ExpeditionStartEvent | ExpeditionUpdateEvent | ExpeditionResultEvent | ExpeditionCatalogEvent)[] | null {
-  const { url, requestBody, responseText } = dump;
+const RULES: EndpointRule[] = [
+  { endpoint: '/api_req_mission/start', match: (url: string) => url.includes('/api_req_mission/start') },
+  { endpoint: '/api_req_mission/result', match: (url: string) => url.includes('/api_req_mission/result') },
+  { endpoint: '/api_get_member/deck', match: (url: string) => url.includes('/api_get_member/deck') },
+  { endpoint: '/api_start2', match: (url: string) => url.includes('/api_start2') },
+]
 
-  if (url.includes('/api_req_mission/start')) {
-    const params = parseFormBody(requestBody);
-    const deckId = Number(params.get('api_deck_id') ?? 0);
-    const missionId = Number(params.get('api_mission_id') ?? 0);
+function parseStart(ctx: ParserCtx): ExpeditionStartEvent[] | null {
+  const params = parseFormBody(ctx.requestBody)
+  const deckId = Number(params.get('api_deck_id') ?? 0)
+  const missionId = Number(params.get('api_mission_id') ?? 0)
 
-    const js = parseSvdata<any>(responseText);
-    const raw = js?.api_data as ApiMissionStartRespRaw | undefined;
-    if (!raw) return null;
+  const js = parseSvdata<any>(ctx.responseText)
+  const raw = js?.api_data as ApiMissionStartRespRaw | undefined
+  if (!raw) return null
 
-    const payload = normalizeMissionStart(deckId, missionId, raw);
-    const evt: ExpeditionStartEvent = {
-      id: makeEventId(['ex-start', deckId, missionId, payload.complTime]),
-      type: 'EXPEDITION_START',
-      payload,
-      timestamp: Date.now(),
-      source: 'web',
-      endpoint: '/api_req_mission/start',
-    };
-    return [evt];
+  const payload = normalizeMissionStart(deckId, missionId, raw)
+  const evt = mkEvt(ctx, 'EXPEDITION_START', ['ex-start', deckId, missionId, payload.complTime], payload) as ExpeditionStartEvent
+  return [evt]
+}
+
+function parseResult(ctx: ParserCtx): ExpeditionResultEvent[] | null {
+  const params = parseFormBody(ctx.requestBody)
+  const deckId = Number(params.get('api_deck_id') ?? 0)
+  const missionId = Number(params.get('api_mission_id') ?? 0)
+
+  const js = parseSvdata<any>(ctx.responseText)
+  const raw = js?.api_data as ApiMissionResultRespRaw | undefined
+  if (!raw) return null
+
+  const payload = normalizeMissionResult(deckId, missionId, raw)
+  const evt = mkEvt(ctx, 'EXPEDITION_RESULT', ['ex-result', deckId, missionId, payload.finishedAt], payload) as ExpeditionResultEvent
+  return [evt]
+}
+
+function parseDeckState(ctx: ParserCtx): ExpeditionUpdateEvent[] | null {
+  const js = parseSvdata<any>(ctx.responseText)
+  const data = js?.api_data
+  const decks = data?.api_deck ?? data?.api_deck_port
+  if (!Array.isArray(decks)) return null
+
+  const states = decks.map((d: any, idx: number) => {
+    const deckId = d.api_id ?? (idx + 1)
+    const tuple = d.api_mission as ApiDeckMissionTuple
+    return normalizeDeckMission(deckId, tuple)
+  })
+
+  const evt = mkEvt(ctx, 'EXPEDITION_UPDATE', ['ex-update', ctx.ts], states) as ExpeditionUpdateEvent
+  return [evt]
+}
+
+function parseCatalog(ctx: ParserCtx): ExpeditionCatalogEvent[] | null {
+  const js = parseSvdata<any>(ctx.responseText)
+  const arr = js?.api_data?.api_mst_mission as any[]
+  if (!Array.isArray(arr)) return null
+
+  const list = arr.map(normalizeMissionCatalog)
+  const evt = mkEvt(ctx, 'EXPEDITION_CATALOG', ['ex-catalog', list.length, ctx.ts], list) as ExpeditionCatalogEvent
+  return [evt]
+}
+
+export function parseExpedition(dump: ApiDump): AnyExpEvt[] | null {
+  const endpoint = detectEndpoint(dump.url, RULES)
+  if (!endpoint) return null
+
+  const ctx: ParserCtx = {
+    ts: Date.now(),
+    url: dump.url,
+    endpoint,
+    requestBody: dump.requestBody,
+    responseText: dump.responseText,
   }
 
-  // 2) 远征结果 /api_req_mission/result
-  if (url.includes('/api_req_mission/result')) {
-    const params = parseFormBody(requestBody);
-    const deckId = Number(params.get('api_deck_id') ?? 0);
-    const missionId = Number(params.get('api_mission_id') ?? 0);
+  if (endpoint === '/api_req_mission/start') return parseStart(ctx)
+  if (endpoint === '/api_req_mission/result') return parseResult(ctx)
+  if (endpoint === '/api_get_member/deck') return parseDeckState(ctx)
+  if (endpoint === '/api_start2') return parseCatalog(ctx)
 
-    const js = parseSvdata<any>(responseText);
-    const raw = js?.api_data as ApiMissionResultRespRaw | undefined;
-    if (!raw) return null;
-
-    const payload = normalizeMissionResult(deckId, missionId, raw);
-    const evt: ExpeditionResultEvent = {
-      id: makeEventId(['ex-result', deckId, missionId, payload.finishedAt]),
-      type: 'EXPEDITION_RESULT',
-      payload,
-      timestamp: Date.now(),
-      source: 'web',
-      endpoint: '/api_req_mission/result',
-    };
-    return [evt];
-  }
-
-  // 3) 舰队状态（含远征计时）/api_get_member/deck 或 /api_port/port
-  if (url.includes('/api_get_member/deck') || url.includes('/api_port/port')) {
-    const js = parseSvdata<any>(responseText);
-    const decks = js?.api_data?.api_deck ?? js?.api_data?.api_deck_port;
-    if (!Array.isArray(decks)) return null;
-
-    const states = decks.map((d: any, idx: number) => {
-      const deckId = d.api_id ?? (idx + 1);
-      const tuple = d.api_mission as ApiDeckMissionTuple;
-      return normalizeDeckMission(deckId, tuple);
-    });
-
-    const evt: ExpeditionUpdateEvent = {
-      id: makeEventId(['ex-update', Date.now()]),
-      type: 'EXPEDITION_UPDATE',
-      payload: states,
-      timestamp: Date.now(),
-      source: 'web',
-      endpoint: url.includes('/api_port/port') ? '/api_port/port' : '/api_get_member/deck',
-    };
-    return [evt];
-  }
-
-  if (url.includes('/api_start2')) {
-    const js = parseSvdata<any>(responseText);
-    const arr = js?.api_data?.api_mst_mission as any[];
-    if (!Array.isArray(arr)) return null;
-
-    const list = arr.map(normalizeMissionCatalog);
-    const evt: ExpeditionCatalogEvent = {
-      id: makeEventId(['ex-catalog', list.length, Date.now()]),
-      type: 'EXPEDITION_CATALOG',
-      payload: list,
-      timestamp: Date.now(),
-      source: 'web',
-      endpoint: '/api_start2',
-    };
-    return [evt];
-  }
-  return null;
+  return null
 }

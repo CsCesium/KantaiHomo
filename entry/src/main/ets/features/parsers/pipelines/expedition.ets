@@ -1,16 +1,11 @@
-import { ExpeditionStartEvent, ExpeditionUpdateEvent, ExpeditionResultEvent } from '../../../../domain/events'
-import { ApiDump } from '../../../../infra/web/types'
-import { PersistEvent } from '../../../router/persist/type'
-import { parseExpedition } from '../../module/expedition'
+import { ExpeditionStartEvent, ExpeditionUpdateEvent, ExpeditionResultEvent,
+  AnyExpEvt } from '../../../domain/events'
+import { ApiDump } from '../../../infra/web/types'
+import { PersistEvent, PersistEventExpedition } from '../../router/persist/type'
+import { parseExpedition } from '../module'
 import { DumpPipeline } from '../pipeline'
 
-type AnyExpEvt =
-  | ExpeditionStartEvent
-  | ExpeditionUpdateEvent
-  | ExpeditionResultEvent
-
-
-function toPersistFromExpedition(e: AnyExpEvt): PersistEvent | null {
+function toPersistFromExpedition(e: AnyExpEvt): PersistEventExpedition | null {
   if (e.type === 'EXPEDITION_START') {
     return {
       id: e.id,
@@ -20,7 +15,7 @@ function toPersistFromExpedition(e: AnyExpEvt): PersistEvent | null {
       endpoint: e.endpoint,
       schemaVersion: e.schemaVersion,
       payload: { kind: 'start', data: e.payload }
-    } as PersistEvent
+    } as PersistEventExpedition
   }
 
   if (e.type === 'EXPEDITION_UPDATE') {
@@ -32,7 +27,7 @@ function toPersistFromExpedition(e: AnyExpEvt): PersistEvent | null {
       endpoint: e.endpoint,
       schemaVersion: e.schemaVersion,
       payload: { kind: 'slotState', data: e.payload }
-    } as PersistEvent
+    } as PersistEventExpedition
   }
 
   if (e.type === 'EXPEDITION_RESULT') {
@@ -44,7 +39,7 @@ function toPersistFromExpedition(e: AnyExpEvt): PersistEvent | null {
       endpoint: e.endpoint,
       schemaVersion: e.schemaVersion,
       payload: { kind: 'result', data: e.payload }
-    } as PersistEvent
+    } as PersistEventExpedition
   }
 
   return null

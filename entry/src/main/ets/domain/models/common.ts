@@ -19,3 +19,4 @@ export interface ApiFormationRaw {
   api_formation: number[];
 }
 export const nowMs = (): number => Date.now();
+

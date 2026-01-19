@@ -1,5 +1,5 @@
-import { ApiDump } from "../../../infra/web/types"
-import { PersistEvent } from "../../router/persist/type"
+import { ApiDump } from "../../infra/web/types"
+import { PersistEvent } from "../router/persist/type"
 import { expeditionPipeline } from "./pipelines/expedition"
 
 export interface DumpPipeline {

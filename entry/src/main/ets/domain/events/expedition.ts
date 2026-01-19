@@ -13,3 +13,9 @@ export type ExpeditionResultEvent =
 
 export type ExpeditionCatalogEvent =
   PayloadEvent<'EXPEDITION_CATALOG', MissionCatalogItem[]>
+
+export type AnyExpEvt =
+  | ExpeditionStartEvent
+    | ExpeditionUpdateEvent
+    | ExpeditionResultEvent
+    | ExpeditionCatalogEvent;
