@@ -1,7 +1,6 @@
 import { ApiDump } from "../../infra/web/types"
 import { PersistEvent } from "../router/persist/type"
-import { expeditionPipeline } from "./pipelines/expedition"
-
+import { expeditionPipeline, portPipeline } from "./pipelines"
 export interface DumpPipeline {
   name: string
   match: (url: string) => boolean
@@ -10,7 +9,7 @@ export interface DumpPipeline {
 
 //General function
 export const DUMP_PIPELINES: DumpPipeline[] = [
-  //portPipeline,
+  portPipeline,
   expeditionPipeline
   // battlePipeline,
   // repairPipeline,

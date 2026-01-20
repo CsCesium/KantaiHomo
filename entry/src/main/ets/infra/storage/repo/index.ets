@@ -1,4 +1,4 @@
-import { ExpeditionRepositoryDb } from './ExpeditionRepo';
+import { ExpeditionRepositoryDb } from './expedition';
 import type { RepositoryHub } from './types';
 
 export function createRepositoryHub(): RepositoryHub {

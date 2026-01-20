@@ -1,5 +1,6 @@
 //src/main/ets/domain/events/type.ts
 export type EventType =
+      'SESSION_BIND'    //切库
     | 'PORT'            //回港
     | 'EXPEDITION'      //远征
     | 'QUEST'           //任务

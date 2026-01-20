@@ -26,7 +26,7 @@ export async function upsertBatch(rows: ExpeditionRow[]): Promise<void> {
         `INSERT OR REPLACE INTO expeditions
          (deckId, missionId, progress, returnTime, updatedAt)
          VALUES (?, ?, ?, ?, ?)`,
-        [r.deckId, r.missionId, r.progress, r.returnTime, r.updatedAt ?? null]
+        [r.deckId, r.missionId, r.progress, r.returnTime, r.updatedAt]
       );
     }
   });

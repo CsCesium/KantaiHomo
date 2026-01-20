@@ -26,7 +26,7 @@ export interface SessionBindPayload {
 }
 
 export interface PersistSessionBindEvent extends PersistEventBase {
-  type: 'PORT';
+  type: 'SESSION_BIND';
   payload: SessionBindPayload;
 }
 /* ---------------- Port ---------------- */

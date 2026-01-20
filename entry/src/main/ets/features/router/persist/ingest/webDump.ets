@@ -5,7 +5,7 @@ import { parseExpedition } from "../../../parsers/module/expedition";
 import { persistEvent } from "./..";
 import type { PersistDeps, PersistEvent } from '../type';
 
-import '../handlers/expeditionHandler.ets';
+import '../handlers/expedition.ets';
 import { parseDumpToPersist } from '../../../parsers/utils/pipeline';
 
 // import '../handlers/battleResultHandler.ets';

@@ -1,10 +1,14 @@
+//src/main/ets/infra/storage/repo/expedition.ts
 import type { ExpeditionRepository, ExpeditionRowWrite, ExpeditionRow } from './types';
 
-type DaoModule = typeof import('../dao/ExpeditionsDao');
-type DbRow = import('../dao/ExpeditionsDao').ExpeditionRow;
+type DaoModule = typeof import('../dao/expeditions');
+type DbRow = import('../dao/expeditions').ExpeditionRow;
 
+let _dao: DaoModule | null = null;
 async function loadDao(): Promise<DaoModule> {
-  return await import('../dao/ExpeditionsDao');
+  if (_dao) return _dao;
+  _dao = await import('../dao/expeditions');
+  return _dao;
 }
 
 export class ExpeditionRepositoryDb implements ExpeditionRepository {

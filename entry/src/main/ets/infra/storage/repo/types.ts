@@ -8,7 +8,49 @@ export interface UnitOfWork {
   run<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
 }
 
-// Expedition
+/*---------------- admiral -------------------*/
+export interface AdmiralRow {
+  memberId: number;
+  nickname: string;
+  level: number;
+  experience: number;
+  maxShips: number;
+  maxSlotItems: number;
+  rank?: number;
+  largeDockEnabled?: boolean;
+  updatedAt: number;
+}
+
+export type AdmiralRowWrite = Omit<AdmiralRow, never>;
+
+export interface AdmiralRepository {
+  upsert(row: AdmiralRowWrite): Promise<void>;
+  get(memberId: number): Promise<AdmiralRow | null>;
+  getLatest(): Promise<AdmiralRow | null>;
+}
+/*---------------- materials -------------------*/
+export interface MaterialsRow {
+  memberId: number;
+  fuel: number;
+  ammo: number;
+  steel: number;
+  bauxite: number;
+  instantBuild: number;
+  instantRepair: number;
+  devMaterial: number;
+  screw: number;
+  updatedAt: number;
+}
+
+export type MaterialsRowWrite = Omit<MaterialsRow, 'memberId'>;
+
+export interface MaterialsRepository {
+  upsert(row: MaterialsRowWrite, memberId?: number): Promise<void>;
+  get(memberId?: number): Promise<MaterialsRow | null>;
+  getLatest(): Promise<MaterialsRow | null>;
+}
+/*---------------- expedition -------------------*/
+
 export interface ExpeditionRowWrite {
   deckId: number;
   missionId: number;
@@ -33,4 +75,6 @@ export interface ExpeditionRepository {
 
 export interface RepositoryHub {
   expedition: ExpeditionRepository;
+  admiral:AdmiralRepository;
+
 }
