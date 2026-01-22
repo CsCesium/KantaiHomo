@@ -1,7 +1,7 @@
 import { AdmiralRepository, AdmiralRow, AdmiralRowWrite } from './types';
 
 type DaoModule = typeof import('../dao/admiral');
-type DbRow = import('../dao/admiral').AdmiralRow;
+type DbRow = import('./types').AdmiralRow;
 
 let _dao: DaoModule | null = null;
 async function loadDao(): Promise<DaoModule> {
@@ -24,7 +24,7 @@ export class AdmiralRepositoryDb implements AdmiralRepository {
       maxSlotItems: row.maxSlotItems,
       rank: typeof row.rank === 'number' ? row.rank : null,
       largeDockEnabled:
-      typeof row.largeDockEnabled === 'boolean' ? (row.largeDockEnabled ? 1 : 0) : null,
+      typeof row.largeDockEnabled === 'boolean' ? (row.largeDockEnabled ? true : false) : null,
       updatedAt: row.updatedAt ?? now,
     };
 

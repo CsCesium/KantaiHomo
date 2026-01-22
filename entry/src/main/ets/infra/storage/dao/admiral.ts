@@ -1,17 +1,12 @@
 import { int, query, readOne, str, withTransaction } from "../db";
 import { relationalStore } from "@kit.ArkData";
+import type { AdmiralRow as RepoAdmiralRow } from '../../storage/repo/types';
 
-export interface AdmiralRow {
-  memberId: number;
-  nickname: string;
-  level: number;
-  experience: number;
-  maxShips: number;
-  maxSlotItems: number;
-  rank: number | null;
-  largeDockEnabled: number | null;
-  updatedAt: number;
-}
+export type AdmiralRow =
+  Omit<RepoAdmiralRow, 'rank' | 'largeDockEnabled' | 'extras'> & {
+    rank: number | null;
+    largeDockEnabled: number | null;
+  };
 
 const mapAdmiral = (rs: relationalStore.ResultSet): AdmiralRow => ({
   memberId: int(rs, 'memberId') ?? 0,

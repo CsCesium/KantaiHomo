@@ -1,21 +1,11 @@
-import { int, withTransaction, query, readOne } from "../db";
+import { int, withTransaction, query, readOne, readRows } from "../db";
 import { relationalStore } from "@kit.ArkData";
+import type { MaterialsRow as RepoMaterialsRow } from '../../storage/repo/types';
+export type MaterialsRow = RepoMaterialsRow;
+export type MaterialsRowWrite = Omit<MaterialsRow, 'id'>;
 
-export interface MaterialsRow {
-  memberId: number;
-  fuel: number;
-  ammo: number;
-  steel: number;
-  bauxite: number;
-  instantBuild: number;
-  instantRepair: number;
-  devMaterial: number;
-  screw: number;
-  updatedAt: number;
-}
-
-const mapMaterials = (rs: relationalStore.ResultSet): MaterialsRow => ({
-  memberId: int(rs, 'memberId') ?? 0,
+const mapRow = (rs: relationalStore.ResultSet): MaterialsRow => ({
+  id: int(rs, 'id') ?? 0,
   fuel: int(rs, 'fuel') ?? 0,
   ammo: int(rs, 'ammo') ?? 0,
   steel: int(rs, 'steel') ?? 0,
@@ -27,14 +17,13 @@ const mapMaterials = (rs: relationalStore.ResultSet): MaterialsRow => ({
   updatedAt: int(rs, 'updatedAt') ?? 0,
 });
 
-export async function upsert(row: MaterialsRow): Promise<void> {
+export async function insert(row: MaterialsRowWrite): Promise<void> {
   await withTransaction(async (db) => {
     await db.executeSql(
-      `INSERT OR REPLACE INTO materials
-       (memberId, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO materials_history
+       (fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        row.memberId,
         row.fuel,
         row.ammo,
         row.steel,
@@ -49,24 +38,36 @@ export async function upsert(row: MaterialsRow): Promise<void> {
   });
 }
 
-export async function getMaterials(memberId: number): Promise<MaterialsRow | null> {
+export async function getLatest(): Promise<MaterialsRow | null> {
   const rs = await query(
-    `SELECT memberId, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt
-     FROM materials
-     WHERE memberId = ?
-     LIMIT 1`,
-    [memberId]
-  );
-  return readOne(rs, mapMaterials);
-}
-
-export async function getLatestMaterials(): Promise<MaterialsRow | null> {
-  const rs = await query(
-    `SELECT memberId, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt
-     FROM materials
-     ORDER BY updatedAt DESC
+    `SELECT id, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt
+     FROM materials_history
+     ORDER BY updatedAt DESC, id DESC
      LIMIT 1`,
     []
   );
-  return readOne(rs, mapMaterials);
+  return readOne(rs, mapRow);
+}
+
+export async function listLatest(limit: number): Promise<MaterialsRow[]> {
+  const rs = await query(
+    `SELECT id, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt
+     FROM materials_history
+     ORDER BY updatedAt DESC, id DESC
+     LIMIT ?`,
+    [limit]
+  );
+  return readRows(rs, mapRow);
+}
+
+export async function listBetween(startMs: number, endMs: number, limit: number): Promise<MaterialsRow[]> {
+  const rs = await query(
+    `SELECT id, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt
+     FROM materials_history
+     WHERE updatedAt >= ? AND updatedAt <= ?
+     ORDER BY updatedAt ASC, id ASC
+     LIMIT ?`,
+    [startMs, endMs, limit]
+  );
+  return readRows(rs, mapRow);
 }

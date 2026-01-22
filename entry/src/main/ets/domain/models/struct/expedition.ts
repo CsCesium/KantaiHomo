@@ -1,7 +1,7 @@
 export enum ExpeditionProgress {
   IDLE = 0,
   RUNNING = 1,
-  RETURNABLE = 2,
+  RETURNED  = 2,
   FORCED_RETURN = 3,
 }
 

@@ -1,5 +1,6 @@
+import { ApiMstSlotItemRaw } from "./mst_slotitem";
+
 export interface ApiMstShipRaw { api_id: number; api_name: string; api_stype: number; [k: string]: unknown; }
-export interface ApiMstSlotItemRaw { api_id: number; api_name: string; api_type?: number[]; [k: string]: unknown; }
 export interface ApiMstMissionRaw { api_id: number; api_name: string; api_details: string; api_time: number; api_deck_num: number; [k: string]: unknown; }
 
 export interface ApiStart2RespRaw {

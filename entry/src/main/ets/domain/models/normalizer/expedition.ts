@@ -13,7 +13,7 @@ function toProgress(state: number): ExpeditionProgress {
   switch (state) {
     case 0: return ExpeditionProgress.IDLE;
     case 1: return ExpeditionProgress.RUNNING;
-    case 2: return ExpeditionProgress.RETURNABLE;
+    case 2: return ExpeditionProgress.RETURNED;
     case 3: return ExpeditionProgress.FORCED_RETURN;
     default:
       return state > 0 ? ExpeditionProgress.RUNNING : ExpeditionProgress.IDLE;

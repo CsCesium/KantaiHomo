@@ -2,7 +2,7 @@
 import type { ExpeditionRepository, ExpeditionRowWrite, ExpeditionRow } from './types';
 
 type DaoModule = typeof import('../dao/expeditions');
-type DbRow = import('../dao/expeditions').ExpeditionRow;
+type DbRow = import('./types').ExpeditionRow;
 
 let _dao: DaoModule | null = null;
 async function loadDao(): Promise<DaoModule> {

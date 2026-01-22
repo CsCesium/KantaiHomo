@@ -1,14 +1,8 @@
 //src/main/ets/infra/store/dao/ExpeditionsDao.ts
 import { query, withTransaction, readRows, readOne, int } from '../db';
 import type relationalStore from '@ohos.data.relationalStore';
+import { ExpeditionRow } from '../repo/types';
 
-export interface ExpeditionRow {
-  deckId: number;
-  missionId: number;
-  progress: number;
-  returnTime: number;
-  updatedAt: number;
-}
 
 const mapExpedition = (rs: relationalStore.ResultSet): ExpeditionRow => ({
   deckId: int(rs, 'deckId') ?? 0,
