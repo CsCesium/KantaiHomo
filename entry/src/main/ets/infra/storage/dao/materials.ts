@@ -1,8 +1,6 @@
 import { int, withTransaction, query, readOne, readRows } from "../db";
+import { MaterialsRow, MaterialsRowWrite } from "../types";
 import { relationalStore } from "@kit.ArkData";
-import type { MaterialsRow as RepoMaterialsRow } from '../../storage/repo/types';
-export type MaterialsRow = RepoMaterialsRow;
-export type MaterialsRowWrite = Omit<MaterialsRow, 'id'>;
 
 const mapRow = (rs: relationalStore.ResultSet): MaterialsRow => ({
   id: int(rs, 'id') ?? 0,
@@ -24,14 +22,8 @@ export async function insert(row: MaterialsRowWrite): Promise<void> {
        (fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        row.fuel,
-        row.ammo,
-        row.steel,
-        row.bauxite,
-        row.instantBuild,
-        row.instantRepair,
-        row.devMaterial,
-        row.screw,
+        row.fuel, row.ammo, row.steel, row.bauxite,
+        row.instantBuild, row.instantRepair, row.devMaterial, row.screw,
         row.updatedAt,
       ]
     );
@@ -40,10 +32,7 @@ export async function insert(row: MaterialsRowWrite): Promise<void> {
 
 export async function getLatest(): Promise<MaterialsRow | null> {
   const rs = await query(
-    `SELECT id, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt
-     FROM materials_history
-     ORDER BY updatedAt DESC, id DESC
-     LIMIT 1`,
+    `SELECT * FROM materials_history ORDER BY updatedAt DESC, id DESC LIMIT 1`,
     []
   );
   return readOne(rs, mapRow);
@@ -51,10 +40,7 @@ export async function getLatest(): Promise<MaterialsRow | null> {
 
 export async function listLatest(limit: number): Promise<MaterialsRow[]> {
   const rs = await query(
-    `SELECT id, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt
-     FROM materials_history
-     ORDER BY updatedAt DESC, id DESC
-     LIMIT ?`,
+    `SELECT * FROM materials_history ORDER BY updatedAt DESC, id DESC LIMIT ?`,
     [limit]
   );
   return readRows(rs, mapRow);
@@ -62,11 +48,7 @@ export async function listLatest(limit: number): Promise<MaterialsRow[]> {
 
 export async function listBetween(startMs: number, endMs: number, limit: number): Promise<MaterialsRow[]> {
   const rs = await query(
-    `SELECT id, fuel, ammo, steel, bauxite, instantBuild, instantRepair, devMaterial, screw, updatedAt
-     FROM materials_history
-     WHERE updatedAt >= ? AND updatedAt <= ?
-     ORDER BY updatedAt ASC, id ASC
-     LIMIT ?`,
+    `SELECT * FROM materials_history WHERE updatedAt >= ? AND updatedAt <= ? ORDER BY updatedAt ASC, id ASC LIMIT ?`,
     [startMs, endMs, limit]
   );
   return readRows(rs, mapRow);

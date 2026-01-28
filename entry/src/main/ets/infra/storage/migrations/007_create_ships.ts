@@ -2,7 +2,7 @@ import type relationalStore from '@ohos.data.relationalStore';
 import { Migration } from '.';
 
 const m007: Migration = {
-  version: 1,
+  version: 7,
   name: 'create_ships',
   async up(db: relationalStore.RdbStore): Promise<void> {
     await db.executeSql(`

@@ -216,6 +216,16 @@ export function int(rs: ResultSet, name: string): number | null {
   return Number(rs.getLong(col(rs, name)));
 }
 
+export function bool(rs: ResultSet, name: string): boolean {
+  if (isNull(rs, name)) {
+    throw new Error(`Column ${name} is NULL but declared NOT NULL`);
+  }
+  const v = Number(rs.getLong(col(rs, name)));
+  if (v === 0) return false;
+  if (v === 1) return true;
+  throw new Error(`Column ${name} expected 0/1 but got ${v}`);
+}
+
 export function dbl(rs: ResultSet, name: string): number | null {
   if (isNull(rs, name)) {
     return null;

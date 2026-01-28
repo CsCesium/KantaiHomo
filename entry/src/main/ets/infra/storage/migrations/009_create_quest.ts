@@ -2,7 +2,7 @@ import { Migration } from ".";
 import { relationalStore } from "@kit.ArkData";
 
 const m009: Migration = {
-  version: 1,
+  version: 9,
   name: 'create_quests',
   async up(db: relationalStore.RdbStore): Promise<void> {
     await db.executeSql(`

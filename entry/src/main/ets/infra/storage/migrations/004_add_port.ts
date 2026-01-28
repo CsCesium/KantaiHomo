@@ -2,7 +2,7 @@ import { Migration } from '.'
 import { relationalStore } from '@kit.ArkData';
 
 const m004: Migration = {
-  version: 1,
+  version: 4,
   name: 'create_admirals',
   async up(db: relationalStore.RdbStore): Promise<void> {
     await db.executeSql(`
@@ -22,3 +22,5 @@ const m004: Migration = {
     await db.executeSql(`CREATE INDEX IF NOT EXISTS idx_admirals_updatedAt ON admirals(updatedAt);`);
   },
 };
+
+export default m004;

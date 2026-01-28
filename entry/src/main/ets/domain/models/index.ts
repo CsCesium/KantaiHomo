@@ -1,23 +1,32 @@
-export * from './common'
-//api
-export * from './api/basic';
-export * from './api/materials';
-export * from './api/mission';
-export * from './api/deck';
-export * from './api/ship';
-export * from './api/n_dock';
-export * from './api/k_dock';
-export * from './api/slotitem';
-export * from './api/useitem';
-export * from './api/quest';
-export * from './api/map';
-export * from './api/port';
-export * from './api/require_info';
-export * from './api/master';
-export * from './api/battle'
+/**
+ * Domain Models 统一导出
+ *
+ * 结构:
+ * - common: 通用类型
+ * - enums: 枚举定义
+ * - api: API 原始类型
+ * - struct: 业务层结构体
+ * - normalizer: API -> Struct 转换
+ * - mapper: Struct <-> Row 转换
+ */
 
-//normalizer
-export * from './normalizer/ship'
-export * from './normalizer/port'
-export * from './normalizer/expedition'
+// ===== Common types =====
+export * from './common';
 
+// ===== Enums =====
+export * from './enums';
+
+// ===== API types =====
+export * from './api'
+
+// ===== Struct types  =====
+export * from './struct'
+
+// ===== Normalizers (API -> Struct ) =====
+export * from './normalizer'
+
+// ===== Mappers (Struct <-> Row ) =====
+export * from './mapper';
+
+// ===== JSON utilities =====
+export * from './json';

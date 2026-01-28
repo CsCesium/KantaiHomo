@@ -2,7 +2,7 @@ import type relationalStore from '@ohos.data.relationalStore';
 import type { Migration } from './index';
 
 const m002: Migration = {
-  version: 1,
+  version: 2,
   name: 'add_missions_table',
   async up(db: relationalStore.RdbStore): Promise<void> {
     await db.executeSql(`

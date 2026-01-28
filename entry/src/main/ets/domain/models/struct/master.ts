@@ -1,4 +1,4 @@
-import { ApiMstShipRaw, ApiMstSlotItemRaw, ApiMstMissionRaw } from "../api/master";
+import { ApiMstMissionRaw, ApiMstShipRaw, ApiMstSlotItemRaw } from "..";
 
 export interface MasterData {
   shipsById: Record<number, ApiMstShipRaw>;

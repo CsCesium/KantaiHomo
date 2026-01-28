@@ -12,5 +12,7 @@ export * from './quest';
 export * from './map';
 export * from './port';
 export * from './require_info';
-export * from './master';
 export * from './battle'
+export * from './battle_record'
+export * from './master'
+export * from './sortie'
