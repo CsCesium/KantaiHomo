@@ -1,7 +1,5 @@
-import { UseItemStack } from "../normalizer/useitem";
-import { Admiral } from "./admiral";
-import { Kdock } from "./k_dock";
-import { SlotItem, UnsetSlot } from "./slotitem";
+import { Admiral, SlotItem, UnsetSlot, Kdock, UseItemStack } from ".";
+
 
 export interface RequireInfoSnapshot {
   admiral: Admiral;

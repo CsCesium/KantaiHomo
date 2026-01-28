@@ -3,7 +3,7 @@
  * 来源: api_port/port, api_get_member/require_info
  */
 export interface ApiBasicRaw {
-  api_member_id: string | number;
+  api_member_id: number;
   api_nickname: string;
   api_nickname_id?: string;
   api_active_flag?: number;
