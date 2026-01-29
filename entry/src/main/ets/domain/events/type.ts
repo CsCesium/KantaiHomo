@@ -1,10 +1,12 @@
 //src/main/ets/domain/events/type.ts
 export type EventType =
-      'SESSION_BIND'    //切库
+  'SESSION_BIND'    //切库
     | 'PORT'            //回港
     | 'EXPEDITION'      //远征
     | 'QUEST'           //任务
-    | 'BATTLE_START'    //战斗开始
+    | 'SORTIE_START'    //出击开始
+    | 'SORTIE_NEXT'     //进入下一节点
+    | 'BATTLE_START'    //战斗开始 (昼战/夜战)
     | 'BATTLE_RESULT'   //战斗结束
     | 'DOCK_REPAIR'     //维修
     | 'GET_MEMBER';     //待拓展
