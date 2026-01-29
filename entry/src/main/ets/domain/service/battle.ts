@@ -9,12 +9,20 @@ import {
   createBattleContext,
   mergeBattleSegments,
   BattleRecord,
+  normalizeBattleResult,
   generateBattleId,
+  NormalizedBattleResult,
   BattleType,
   EnemyFleetInfo,
-  BattleSegment
+  BattleSegment,
+  ApiBattleResultRaw
 } from "../models";
-import { ApiBattleResultRaw } from "../models/api/battle_result";
+/**
+ * Battle Service - 战斗处理服务
+ * 处理战斗 API 数据，生成预测和记录
+ */
+
+// ==================== 战斗处理 ====================
 
 /**
  * 处理昼战 API
@@ -112,7 +120,7 @@ export function processNightBattle(
  */
 export function processBattleResult(
   context: SortieContext,
-  resultData: ApiBattleResultRaw
+  rawData: ApiMaybeEnvelope<ApiBattleResultRaw>
 ): BattleRecord | null {
   const battleContext = context.pendingBattle;
   if (!battleContext || !battleContext.merged) {
@@ -121,7 +129,10 @@ export function processBattleResult(
 
   const now = Date.now();
   const segment = battleContext.merged;
-
+  
+  // 使用 normalizer 处理结果数据
+  const result = normalizeBattleResult(rawData, now);
+  
   const record: BattleRecord = {
     id: generateBattleId(),
     sortieId: context.sortieId,
@@ -164,26 +175,46 @@ export function processBattleResult(
     // HP
     hpStart: segment.start,
     hpEnd: segment.end,
-
+    
     // 结果
-    rank: resultData.api_win_rank,
-    mvp: resultData.api_mvp,
-    mvpCombined: resultData.api_mvp_combined,
-
+    rank: result.rank,
+    mvp: result.mvp.main,
+    mvpCombined: result.mvp.combined,
+    
     // 掉落
-    dropShipId: resultData.api_get_ship?.api_ship_id,
-    dropShipName: resultData.api_get_ship?.api_ship_name,
-    dropItemId: resultData.api_get_useitem?.api_useitem_id,
-
+    dropShipId: result.drop?.shipId,
+    dropShipName: result.drop?.shipName,
+    dropItemId: result.drop?.itemId,
+    
     // 经验
-    baseExp: resultData.api_get_base_exp,
-
+    baseExp: result.exp.base,
+    
     // 时间
     startedAt: battleContext.startedAt,
     endedAt: now,
   };
-
+  
   return record;
+}
+
+/**
+ * 处理战斗结果并返回标准化数据（用于需要更多信息的场景）
+ */
+export function processBattleResultFull(
+  context: SortieContext,
+  rawData: ApiMaybeEnvelope<ApiBattleResultRaw>
+): { record: BattleRecord; result: NormalizedBattleResult } | null {
+  const battleContext = context.pendingBattle;
+  if (!battleContext || !battleContext.merged) {
+    return null;
+  }
+  
+  const result = normalizeBattleResult(rawData);
+  const record = processBattleResult(context, rawData);
+  
+  if (!record) return null;
+  
+  return { record, result };
 }
 
 // ==================== 舰队状态预计算 ====================

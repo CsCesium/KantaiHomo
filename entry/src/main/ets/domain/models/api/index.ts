@@ -1,6 +1,7 @@
 // API types index
 export * from './basic';
 export * from './battle';
+export * from './battle_result'
 export * from './charge';
 export * from './deck';
 export * from './k_dock';

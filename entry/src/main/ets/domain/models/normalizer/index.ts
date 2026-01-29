@@ -13,4 +13,4 @@ export * from './mst_slotitem';
 export * from './supply';
 export * from './useitem';
 export * from './battle';
-//export * from './battle_result'
+export * from './battle_result'
