@@ -1,6 +1,6 @@
 //src/main/ets/infra/deps/index.ets
-import type { RepositoryHub } from '../storage/repo/types';
-import { createRepositoryHub } from '../storage/repo/index';
+import { getRepositoryHub } from "../storage/repo";
+import { RepositoryHub } from "../storage/types";
 
 export interface RecentIdCache {
   has(id: string): boolean;
@@ -38,7 +38,7 @@ export interface InitDepsOptions {
 
 export function initPersistDeps(opts?: InitDepsOptions): void {
   if (_deps !== null) return;
-  const repos: RepositoryHub = opts && opts.repos ? opts.repos : createRepositoryHub();
+  const repos: RepositoryHub = opts && opts.repos ? opts.repos : getRepositoryHub();
   const recent: RecentIdCache = opts && opts.recent ? opts.recent : new MemRecent(2000);
   _deps = { repos, recentIdCache: recent, publish: opts?.publish, kvSet: opts?.kvSet };
 }
