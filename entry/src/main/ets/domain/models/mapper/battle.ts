@@ -1,6 +1,7 @@
 /**
  * Battle Mapper - BattleRecord/SortieRecord ↔ Row 转换
  */
+import { safeParseJson } from "..";
 import { BattleRecordRow, SortieRecordRow } from "../../../infra/storage/types";
 import {
   BattleRecord,
@@ -179,15 +180,6 @@ export function rowsToSortieRecords(rows: readonly SortieRecordRow[]): SortieRec
 }
 
 // ==================== Helpers ====================
-
-function safeParseJson<T>(json: string | null | undefined, defaultValue: T): T {
-  if (!json) return defaultValue;
-  try {
-    return JSON.parse(json) as T;
-  } catch {
-    return defaultValue;
-  }
-}
 
 function defaultFleetSnapshot(): FleetSnapshot {
   return {

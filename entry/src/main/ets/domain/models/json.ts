@@ -50,3 +50,13 @@ export  function unwrapApiData(root: JsonObject): JsonObject {
   }
   return root
 }
+
+
+export function safeParseJson<T>(json: string | null | undefined, defaultValue: T): T {
+  if (!json) return defaultValue;
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    return defaultValue;
+  }
+}
