@@ -1,3 +1,5 @@
+import { QuestState } from "../enums/quest";
+
 export interface QuestSelectableReward {
   no: number;
   kind: number;
@@ -9,7 +11,7 @@ export interface Quest {
   questId: number;
   category: number;
   type: number;
-  state: 'inactive'|'active'|'complete';
+  state: QuestState;
   title: string;
   detail: string;
   progress?: number;

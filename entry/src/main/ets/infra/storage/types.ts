@@ -293,7 +293,7 @@ export interface DeckRepository {
 
 // ==================== Quest ====================
 
-export type QuestStateDb = 0 | 1 | 2;  // 0=inactive, 1=active, 2=complete
+export type QuestStateDb = 1 | 2 | 3;  // 1=inactive, 2=active, 3=complete
 
 export interface QuestRow {
   questId: number;
