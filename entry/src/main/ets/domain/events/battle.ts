@@ -1,130 +1,194 @@
 /**
  * Battle Events - 战斗相关事件
+ *
+ * 1. Parser 产出事件 ( API) -  PayloadEvent 形式
+ * 2. Handler 发布事件 ( UI) -  interface 形式
  */
 
-import type { BattlePrediction, BattleRecord } from '../models/struct/battle_record';
+import type { PayloadEvent } from './type';
+import type { BattleSegment } from '../models/struct/battle';
+import type { BattlePrediction, BattleRecord, FleetSnapshot } from '../models/struct/battle_record';
 import type { SortieCell } from '../models/struct/map';
-import type { SortieContext, SortieResult } from '../models/struct/sortie';
+import { NormalizedBattleResult, SortieContext, SortieResult } from '../models';
 
-// ==================== 出击事件 ====================
+// ============================================================
+// Parser 产出事件 (来自 API 响应，与 Port 模式一致)
+// ============================================================
 
-/** 出击开始 */
-export interface SortieStartedEvent {
+// -------------------- Sortie Events --------------------
+
+/** 出击开始 payload */
+export interface SortieStartPayload {
+  mapAreaId: number;
+  mapInfoNo: number;
+  cellId: number;
+  deckId: number;
+  combinedType: number;
+  fleetSnapshot: FleetSnapshot;
+  fleetSnapshotEscort?: FleetSnapshot;
+}
+
+/** 出击下一节点 payload */
+export interface SortieNextPayload {
+  cell: SortieCell;
+}
+
+/** Parser ：出击开始 */
+export type SortieStartEvent = PayloadEvent<'SORTIE_START', SortieStartPayload>;
+
+/** Parser ：移动到下一节点 */
+export type SortieNextEvent = PayloadEvent<'SORTIE_NEXT', SortieNextPayload>;
+
+// -------------------- Battle Events --------------------
+
+/** 昼战 payload */
+export interface BattleDayPayload {
+  apiPath: string;
+  segment: BattleSegment;
+  prediction: BattlePrediction;
+  isPractice: boolean;
+}
+
+/** 夜战 payload */
+export interface BattleNightPayload {
+  apiPath: string;
+  segment: BattleSegment;
+  prediction: BattlePrediction;
+  isPractice: boolean;
+}
+
+/** 战斗结果 payload */
+export interface BattleResultPayload {
+  apiPath: string;
+  isPractice: boolean;
+  result: NormalizedBattleResult;
+}
+
+/** Parser 事件：昼战 */
+export type BattleDayEvent = PayloadEvent<'BATTLE_DAY', BattleDayPayload>;
+
+/** Parser 事件：夜战 */
+export type BattleNightEvent = PayloadEvent<'BATTLE_NIGHT', BattleNightPayload>;
+
+/** Parser 事件：战斗结果 */
+export type BattleResultEvent = PayloadEvent<'BATTLE_RESULT', BattleResultPayload>;
+
+// -------------------- Parser 事件联合类型 --------------------
+
+export type AnySortieEvt = SortieStartEvent | SortieNextEvent;
+
+export type AnyBattleEvt = BattleDayEvent | BattleNightEvent | BattleResultEvent;
+
+export type AnyBattleModuleEvt = AnySortieEvt | AnyBattleEvt;
+
+// ============================================================
+// Handler 发布事件 (给 UI/其他模块订阅)
+// ============================================================
+
+/** 出击开始通知 */
+export interface SortieStartedNotification {
   type: 'sortie:started';
   context: SortieContext;
 }
 
-/** 移动到新点位 */
-export interface SortieCellMovedEvent {
+/** 移动到新点位通知 */
+export interface SortieCellMovedNotification {
   type: 'sortie:cell_moved';
   cell: SortieCell;
   cellIndex: number;
 }
 
-/** 出击结束 */
-export interface SortieEndedEvent {
+/** 出击结束通知 */
+export interface SortieEndedNotification {
   type: 'sortie:ended';
   context: SortieContext;
   result: SortieResult;
 }
 
-// ==================== 战斗事件 ====================
-
-/** 战斗开始 (收到 battle API) */
-export interface BattleStartedEvent {
-  type: 'battle:started';
-  cell: SortieCell;
-  apiPath: string;
-  isDayBattle: boolean;
-  isNightBattle: boolean;
-  isPractice: boolean;
-}
-
-/** 战斗预测完成 */
-export interface BattlePredictedEvent {
+/** 战斗预测通知 */
+export interface BattlePredictedNotification {
   type: 'battle:predicted';
   prediction: BattlePrediction;
+  apiPath: string;
+  kind: 'day' | 'night';
+  hasTaiha: boolean;
+  taihaShips: Array<{ uid: number; name: string; hpPercent: number; position: number }>;
 }
 
-/** 战斗结束 (收到 battleresult API) */
-export interface BattleEndedEvent {
+/** 战斗结束通知 */
+export interface BattleEndedNotification {
   type: 'battle:ended';
   record: BattleRecord;
 }
 
-// ==================== 警告事件 ====================
-
-/** 大破警告 */
-export interface TaihaWarningEvent {
+/** 大破警告通知 */
+export interface TaihaWarningNotification {
   type: 'battle:taiha_warning';
-  ships: {
+  ships: Array<{
     uid: number;
     name: string;
     hpPercent: number;
-    position: number;  // 舰队位置 (0-based)
-  }[];
-}
-
-/** 击沉警告 (理论上不应该发生) */
-export interface SunkWarningEvent {
-  type: 'battle:sunk_warning';
-  ships: {
-    uid: number;
-    name: string;
     position: number;
-  }[];
+  }>;
 }
 
-// ==================== 联合类型 ====================
+/** Boss 到达通知 */
+export interface BossReachedNotification {
+  type: 'sortie:boss_reached';
+  cell: SortieCell;
+}
 
-export type SortieEvent =
-  | SortieStartedEvent
-    | SortieCellMovedEvent
-    | SortieEndedEvent;
+// -------------------- UI 通知联合类型 --------------------
 
-export type BattleEvent =
-  | BattleStartedEvent
-    | BattlePredictedEvent
-    | BattleEndedEvent
-    | TaihaWarningEvent
-    | SunkWarningEvent;
+export type SortieNotification =
+  | SortieStartedNotification
+    | SortieCellMovedNotification
+    | SortieEndedNotification
+    | BossReachedNotification;
 
-export type BattleModuleEvent = SortieEvent | BattleEvent;
+export type BattleNotification =
+  | BattlePredictedNotification
+    | BattleEndedNotification
+    | TaihaWarningNotification;
 
-// ==================== 事件创建辅助函数 ====================
+export type BattleModuleNotification = SortieNotification | BattleNotification;
 
-export function createSortieStartedEvent(context: SortieContext): SortieStartedEvent {
+// ============================================================
+// 事件创建辅助函数
+// ============================================================
+
+export function createSortieStartedEvent(context: SortieContext): SortieStartedNotification {
   return { type: 'sortie:started', context };
 }
 
-export function createSortieCellMovedEvent(cell: SortieCell, cellIndex: number): SortieCellMovedEvent {
+export function createSortieCellMovedEvent(cell: SortieCell, cellIndex: number): SortieCellMovedNotification {
   return { type: 'sortie:cell_moved', cell, cellIndex };
 }
 
-export function createSortieEndedEvent(context: SortieContext, result: SortieResult): SortieEndedEvent {
+export function createSortieEndedEvent(context: SortieContext, result: SortieResult): SortieEndedNotification {
   return { type: 'sortie:ended', context, result };
 }
 
-export function createBattleStartedEvent(
-  cell: SortieCell,
+export function createBattlePredictedEvent(
+  prediction: BattlePrediction,
   apiPath: string,
-  isDayBattle: boolean,
-  isNightBattle: boolean,
-  isPractice: boolean
-): BattleStartedEvent {
-  return { type: 'battle:started', cell, apiPath, isDayBattle, isNightBattle, isPractice };
+  kind: 'day' | 'night',
+  hasTaiha: boolean,
+  taihaShips: Array<{ uid: number; name: string; hpPercent: number; position: number }>
+): BattlePredictedNotification {
+  return { type: 'battle:predicted', prediction, apiPath, kind, hasTaiha, taihaShips };
 }
 
-export function createBattlePredictedEvent(prediction: BattlePrediction): BattlePredictedEvent {
-  return { type: 'battle:predicted', prediction };
-}
-
-export function createBattleEndedEvent(record: BattleRecord): BattleEndedEvent {
+export function createBattleEndedEvent(record: BattleRecord): BattleEndedNotification {
   return { type: 'battle:ended', record };
 }
 
 export function createTaihaWarningEvent(
-  ships: { uid: number; name: string; hpPercent: number; position: number }[]
-): TaihaWarningEvent {
+  ships: Array<{ uid: number; name: string; hpPercent: number; position: number }>
+): TaihaWarningNotification {
   return { type: 'battle:taiha_warning', ships };
+}
+
+export function createBossReachedEvent(cell: SortieCell): BossReachedNotification {
+  return { type: 'sortie:boss_reached', cell };
 }

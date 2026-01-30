@@ -1,6 +1,7 @@
 // src/main/ets/features/router/persist/type.ets
 import { SessionBind } from '../../../domain/events';
 import type { EventType, EventBase } from '../../../domain/events/type';
+import { NormalizedBattleResult } from '../../../domain/models';
 import { ExpeditionSlotState, MissionStart, MissionResult, MissionCatalogItem,
   Admiral,
   Deck,
@@ -9,7 +10,12 @@ import { ExpeditionSlotState, MissionStart, MissionResult, MissionCatalogItem,
   Ndock,
   PortSnapshot,
   Ship,
-  SlotItem } from '../../../domain/models/struct';
+  SlotItem,
+  BattleSegment,
+  BattlePrediction,
+  BattleRecord,
+  FleetSnapshot,
+  SortieCell} from '../../../domain/models/struct';
 
 import { PersistDeps } from '../../../infra/deps/index';
 
@@ -65,13 +71,13 @@ export interface PortEventPayloadSlotItems {
 
 export type PortEventPayloads =
   PortEventPayloadSnapshot
-  |PortEventPayloadBasic
-  |PortEventPayloadResources
-  |PortEventPayloadFleets
-  |PortEventPayloadNdock
-  |PortEventPayloadKdock
-  |PortEventPayloadShips
-  |PortEventPayloadSlotItems;
+    |PortEventPayloadBasic
+    |PortEventPayloadResources
+    |PortEventPayloadFleets
+    |PortEventPayloadNdock
+    |PortEventPayloadKdock
+    |PortEventPayloadShips
+    |PortEventPayloadSlotItems;
 
 export interface PersistEventPort extends PersistEventBase {
   type:'PORT';
@@ -106,24 +112,83 @@ export interface PersistEventExpedition extends PersistEventBase {
   type: 'EXPEDITION'
   payload: ExpeditionEventPayload
 }
-/* ---------------- Battle (WIP)----------------*/
-export interface BattleEventPayload {
-  kind: 'result'
-  //data:
+/* ---------------- Battle ---------------- */
+
+interface BattlePayLoadData {
+  apiPath: string;
+  segment: BattleSegment;
+  prediction: BattlePrediction;
 }
 
+export interface BattleDayPayload {
+  kind: 'day';
+  data: BattlePayLoadData;
+}
+
+
+
+export interface BattleNightPayload {
+  kind: 'night';
+  data: BattlePayLoadData;
+}
+
+interface BattleResultData {
+  record: BattleRecord;
+  normalizedResult: NormalizedBattleResult;
+}
+
+export interface BattleResultPayload {
+  kind: 'result';
+  data: BattleResultData;
+}
+
+export type BattleEventPayload = BattleDayPayload | BattleNightPayload | BattleResultPayload;
+
 export interface PersistEventBattle extends PersistEventBase {
-  type: 'BATTLE_RESULT'
-  payload: BattleEventPayload
+  type: 'BATTLE_START' | 'BATTLE_RESULT';
+  payload: BattleEventPayload;
+}
+
+/* ---------------- Sortie ---------------- */
+interface SortieStartData {
+  mapAreaId: number;
+  mapInfoNo: number;
+  deckId: number;
+  cellId: number;
+  combinedType: number;
+  fleetSnapshot: FleetSnapshot;
+  fleetSnapshotEscort?: FleetSnapshot;
+}
+
+export interface SortieStartPayload {
+  kind: 'start';
+  data: SortieStartData;
+}
+
+interface SortieNextData {
+  cell: SortieCell;
+}
+
+export interface SortieNextPayload {
+  kind: 'next';
+  data: SortieNextData;
+}
+
+export type SortieEventPayload = SortieStartPayload | SortieNextPayload;
+
+export interface PersistEventSortie extends PersistEventBase {
+  type: 'SORTIE_START' | 'SORTIE_NEXT';
+  payload: SortieEventPayload;
 }
 
 //TODO:OTHER EVENT
 
 export type PersistEvent =
   PersistSessionBindEvent
-  | PersistEventPort
-  | PersistEventExpedition
-  | PersistEventBattle;
+    | PersistEventPort
+    | PersistEventExpedition
+    | PersistEventBattle
+    | PersistEventSortie;
 
 export interface PersistHandler {
   handle(ev: PersistEvent, deps: PersistDeps): Promise<void>;
