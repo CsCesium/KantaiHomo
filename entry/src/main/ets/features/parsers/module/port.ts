@@ -9,7 +9,7 @@ import { AnyPortEvt,
 import { ApiPortRespRaw, normalizePort } from '../../../domain/models';
 import { JsonObject, getObj, getStr, unwrapApiData } from '../../../domain/models/json';
 import { ApiDump } from '../../../infra/web/types';
-import { parseSvdata } from '../utils/common';
+import { parseSvdata } from '../../utils/common';
 import { detectEndpoint, EndpointRule, mkEvt, ParserCtx } from './common';
 
 const RULES: EndpointRule[] = [

@@ -1,6 +1,6 @@
 import type { AnyMsg, BaseMsg } from '../../../../../infra/net/wsClient/types';
 import type { ExpeditionReady } from '../../../../../infra/net/wsClient/types';
-import type { PersistEvent ,MsgAdapter, PersistEventIdMaker,ExpeditionEventPayload  } from '../../../persist/type';
+import type { PersistEvent ,MsgAdapter, PersistEventIdMaker,ExpeditionEventPayload  } from '../../type';
 import { ExpeditionProgress, type ExpeditionSlotState } from '../../../../../domain/models';
 
 //guard

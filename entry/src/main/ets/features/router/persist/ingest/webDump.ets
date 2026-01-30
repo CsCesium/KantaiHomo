@@ -6,11 +6,11 @@ import { persistEvent } from "./..";
 import type { PersistDeps, PersistEvent } from '../type';
 
 import '../handlers/expedition.ets';
-import { parseDumpToPersist } from '../../../parsers/utils/pipeline';
 
 // import '../handlers/battleResultHandler.ets';
 // import '../handlers/repairHandler.ets';
 import { parseDumpInWorker } from './webDumpTask'
+import { parseDumpToPersist } from '../../../parsers/pipeline';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
 const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB

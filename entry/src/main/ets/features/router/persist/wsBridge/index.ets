@@ -1,6 +1,6 @@
 import { EventBus } from '../../../../infra/net/wsClient/bus';
 import type { AnyMsg, Channel } from '../../../../infra/net/wsClient/types';
-import type { PersistDeps, PersistEvent,MsgAdapter, PersistEventIdMaker, WsBridgeOptions  } from '../../persist/type';
+import type { PersistDeps, PersistEvent,MsgAdapter, PersistEventIdMaker, WsBridgeOptions  } from '../type';
 import { persistEvent } from '../../persist';
 
 class DefaultIdMaker implements PersistEventIdMaker {
