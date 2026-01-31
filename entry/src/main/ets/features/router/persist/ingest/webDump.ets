@@ -2,7 +2,7 @@
 import taskpool from '@ohos.taskpool'
 import { ApiDump } from "../../../../infra/web/types";
 import { parseExpedition } from "../../../parsers/module/expedition";
-import { persistEvent } from "./..";
+import { persistEvent } from "..";
 import type { PersistDeps, HandlerEvent } from '../type';
 
 import '../handlers/expedition.ets';
