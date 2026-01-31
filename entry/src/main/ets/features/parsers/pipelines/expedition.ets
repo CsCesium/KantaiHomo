@@ -1,7 +1,7 @@
 import { ExpeditionStartEvent, ExpeditionUpdateEvent, ExpeditionResultEvent,
   AnyExpEvt } from '../../../domain/events'
 import { ApiDump } from '../../../infra/web/types'
-import { PersistEvent, PersistEventExpedition } from '../../router/persist/type'
+import { HandlerEvent, PersistEventExpedition } from '../../router/persist/type'
 import { parseExpedition } from '../module'
 import { DumpPipeline } from '../pipeline'
 
@@ -55,7 +55,7 @@ export const expeditionPipeline: DumpPipeline = {
     const evts = parseExpedition(dump) ?? []
     if (!evts.length) return []
 
-    const out: PersistEvent[] = []
+    const out: HandlerEvent[] = []
     for (const e of evts as AnyExpEvt[]) {
       if (e.type !== 'EXPEDITION_START' && e.type !== 'EXPEDITION_UPDATE' && e.type !== 'EXPEDITION_RESULT') {
         continue

@@ -3,14 +3,14 @@ import { ExpeditionSlotState, MissionStart, ExpeditionProgress, MissionResult } 
 import { i32, i64 } from "../../../infra/utils/num";
 import { registerPersistHandler } from "../persist";
 import {
-  PersistEvent,
+  HandlerEvent,
   PersistHandler,
   PersistDeps,
   PersistEventExpedition,
   ExpeditionEventPayload
 } from "../persist/type";
 
-function isExpeditionEvent(ev: PersistEvent): boolean {
+function isExpeditionEvent(ev: HandlerEvent): boolean {
   return ev.type === 'EXPEDITION';
 }
 
@@ -71,7 +71,7 @@ function mapFromResult(data: MissionResult, fallbackTs: number): ExpeditionRowLi
 }
 
 class ExpeditionPersistHandler implements PersistHandler {
-  async handle(ev: PersistEvent, deps: PersistDeps): Promise<void> {
+  async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     if (!isExpeditionEvent(ev)) return;
     const e: PersistEventExpedition = ev as PersistEventExpedition;
 

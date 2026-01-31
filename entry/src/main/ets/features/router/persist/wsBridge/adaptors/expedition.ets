@@ -1,6 +1,6 @@
 import type { AnyMsg, BaseMsg } from '../../../../../infra/net/wsClient/types';
 import type { ExpeditionReady } from '../../../../../infra/net/wsClient/types';
-import type { PersistEvent ,MsgAdapter, PersistEventIdMaker,ExpeditionEventPayload  } from '../../type';
+import type { HandlerEvent ,MsgAdapter, PersistEventIdMaker,ExpeditionEventPayload  } from '../../type';
 import { ExpeditionProgress, type ExpeditionSlotState } from '../../../../../domain/models';
 
 //guard
@@ -41,7 +41,7 @@ export class ExpeditionAdapter implements MsgAdapter {
     return checkExpeditionReady(msg);
   }
 
-  toPersistEvents(msg: AnyMsg, idMaker: PersistEventIdMaker): PersistEvent[] {
+  toPersistEvents(msg: AnyMsg, idMaker: PersistEventIdMaker): HandlerEvent[] {
     const m: ExpeditionReadyMsg = msg as ExpeditionReadyMsg;
     const slot: ExpeditionSlotState = toSlotState(m);
     const ts: number = m.ts != null ? m.ts : Date.now();
@@ -49,7 +49,7 @@ export class ExpeditionAdapter implements MsgAdapter {
 
     const payload: ExpeditionEventPayload = { kind: 'slotState', data: slot };
 
-    const ev: PersistEvent = {
+    const ev: HandlerEvent = {
       id: id,
       type: 'EXPEDITION',
       timestamp: ts,

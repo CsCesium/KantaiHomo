@@ -1,4 +1,4 @@
-import type { PersistDeps, PersistEvent, PersistHandler } from './type';
+import type { PersistDeps, HandlerEvent, PersistHandler } from './type';
 
 const REGISTRY: Map<string, PersistHandler> = new Map<string, PersistHandler>();
 
@@ -24,7 +24,7 @@ export function initPersistRegistry(): void {
   _inited = true;
 }
 
-export async function dispatchPersistEvent(ev: PersistEvent, deps: PersistDeps): Promise<void> {
+export async function dispatchPersistEvent(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
   const handler: PersistHandler | undefined = REGISTRY.get(ev.type);
   if (handler === undefined) return;
   await handler.handle(ev, deps);

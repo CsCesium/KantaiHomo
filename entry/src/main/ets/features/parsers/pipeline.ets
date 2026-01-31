@@ -1,13 +1,13 @@
 import { ApiDump } from "../../infra/web/types"
-import { PersistEvent } from "../router/persist/type"
+import { HandlerEvent } from "../router/persist/type"
 
 export interface ParseResult {
   /** 必须先执行 */
-  preEvents: PersistEvent[];
+  preEvents: HandlerEvent[];
   /** 可并发 */
-  mainEvents: PersistEvent[];
+  mainEvents: HandlerEvent[];
   /** 最后串行 (可选) */
-  postEvents?: PersistEvent[];
+  postEvents?: HandlerEvent[];
 }
 
 export interface DumpPipeline {

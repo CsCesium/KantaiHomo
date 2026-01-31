@@ -1,5 +1,5 @@
 import { ApiDump } from "../../../infra/web/types"
-import { PersistEvent, PersistEventPort, PersistSessionBindEvent, PortEventPayloads } from "../../router/persist/type"
+import { HandlerEvent } from "../../router/persist/type"
 import { parsePort } from "../module"
 import { DumpPipeline, ParseResult, registerPipeline } from "../pipeline"
 
@@ -12,8 +12,8 @@ export const portPipeline: DumpPipeline = {
     const evts = parsePort(dump);
     if (!evts?.length) return null;
 
-    const preEvents: PersistEvent[] = [];
-    const mainEvents: PersistEvent[] = [];
+    const preEvents: HandlerEvent[] = [];
+    const mainEvents: HandlerEvent[] = [];
 
     for (const e of evts) {
       if (e.type === 'SESSION_BIND') {

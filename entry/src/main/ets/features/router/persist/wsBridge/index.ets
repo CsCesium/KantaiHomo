@@ -1,6 +1,6 @@
 import { EventBus } from '../../../../infra/net/wsClient/bus';
 import type { AnyMsg, Channel } from '../../../../infra/net/wsClient/types';
-import type { PersistDeps, PersistEvent,MsgAdapter, PersistEventIdMaker, WsBridgeOptions  } from '../type';
+import type { PersistDeps, HandlerEvent,MsgAdapter, PersistEventIdMaker, WsBridgeOptions  } from '../type';
 import { persistEvent } from '../../persist';
 
 class DefaultIdMaker implements PersistEventIdMaker {
@@ -44,7 +44,7 @@ export class WsPersistBridge {
           if (ad.channel !== ch) continue;
           if (!ad.canHandle(msg)) continue;
 
-          const events: PersistEvent[] = ad.toPersistEvents(msg, this.idMaker);
+          const events: HandlerEvent[] = ad.toPersistEvents(msg, this.idMaker);
           for (let k = 0; k < events.length; k++) {
             // 单条投递到持久化层
             // 不 await，保证订阅回调非阻塞；失败在 persistEvent 内部自行处理
