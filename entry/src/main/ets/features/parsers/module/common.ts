@@ -1,5 +1,5 @@
-import { PayloadEvent } from "../../../domain/events"
-import { makeEventId } from "../utils/common"
+import { EventType, PayloadEvent } from "../../../domain/events"
+import { makeEventId } from "../../utils/common"
 
 export interface ParserCtx {
   ts: number
@@ -23,7 +23,7 @@ export function detectEndpoint(url: string, rules: EndpointRule[]): string | nul
 }
 
 
-export function mkEvt<TType extends string, TPayload>(
+export function mkEvt<TType extends EventType, TPayload>(
   ctx: ParserCtx,
   type: TType,
   idParts: (string | number)[],

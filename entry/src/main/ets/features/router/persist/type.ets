@@ -30,6 +30,6 @@ export type HandlerEvent =
     | AnyBattleEvt;
   ;
 
-export interface PersistHandler {
+export interface Handler {
   handle(ev: HandlerEvent, deps: PersistDeps): Promise<void>;
 }

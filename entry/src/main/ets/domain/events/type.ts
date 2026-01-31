@@ -1,26 +1,38 @@
 //src/main/ets/domain/events/type.ts
 export type EventType =
-  'SESSION_BIND'    //切库
-    | 'PORT'            //回港
-    | 'EXPEDITION'      //远征
-    | 'QUEST'           //任务
-    | 'SORTIE_START'    //出击开始
-    | 'SORTIE_NEXT'     //进入下一节点
-    | 'BATTLE_START'    //战斗开始 (昼战/夜战)
-    | 'BATTLE_RESULT'   //战斗结束
-    | 'DOCK_REPAIR'     //维修
-    | 'GET_MEMBER';     //待拓展
+  // Session
+  | 'SESSION_BIND'
+  // Port
+    | 'PORT_SNAPSHOT'
+    | 'PORT_BASIC'
+    | 'PORT_RESOURCES'
+    | 'PORT_FLEETS'
+    | 'PORT_NDOCK'
+    | 'PORT_KDOCK'
+    | 'PORT_SHIPS'
+    | 'PORT_SLOTITEMS'
+  // Expedition
+    | 'EXPEDITION_START'
+    | 'EXPEDITION_UPDATE'
+    | 'EXPEDITION_RESULT'
+    | 'EXPEDITION_CATALOG'
+  // Sortie
+    | 'SORTIE_START'
+    | 'SORTIE_NEXT'
+  // Battle
+    | 'BATTLE_DAY'
+    | 'BATTLE_NIGHT'
+    | 'BATTLE_RESULT';
 
 export interface EventBase {
-  id: string;                          // 去重用
-  timestamp: number;                   // 时间戳
-  source: 'web' | 'vpn' | 'companion'; // 来源
-  schemaVersion?: number;              // reserved for future
-  endpoint?: string;                   // /kcsapi/...
+  id: string;
+  timestamp: number;
+  source: 'web' | 'vpn' | 'companion';
+  endpoint: string;
+  schemaVersion?: number;
 }
 
-export interface PayloadEvent<TType extends string, TPayload> extends EventBase {
-  type: TType
-  payload: TPayload
-}
-
+export type PayloadEvent<T extends EventType, P> = EventBase & {
+  type: T;
+  payload: P;
+};

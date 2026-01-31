@@ -4,10 +4,8 @@ import { i32, i64 } from "../../../infra/utils/num";
 import { registerPersistHandler } from "../persist";
 import {
   HandlerEvent,
-  PersistHandler,
+  Handler,
   PersistDeps,
-  PersistEventExpedition,
-  ExpeditionEventPayload
 } from "../persist/type";
 
 function isExpeditionEvent(ev: HandlerEvent): boolean {
@@ -70,7 +68,7 @@ function mapFromResult(data: MissionResult, fallbackTs: number): ExpeditionRowLi
   }]
 }
 
-class ExpeditionPersistHandler implements PersistHandler {
+class ExpeditionPersistHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     if (!isExpeditionEvent(ev)) return;
     const e: PersistEventExpedition = ev as PersistEventExpedition;

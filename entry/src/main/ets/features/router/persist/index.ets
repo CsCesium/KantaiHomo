@@ -1,9 +1,9 @@
 import type { EventType } from '../../../domain/events';
-import type { PersistDeps, HandlerEvent, PersistHandler } from './type';
+import type { PersistDeps, HandlerEvent, Handler } from './type';
 
-const registry: Map<EventType, PersistHandler> = new Map<EventType, PersistHandler>();
+const registry: Map<EventType, Handler> = new Map<EventType, Handler>();
 
-export function registerPersistHandler(type: EventType, handler: PersistHandler): void {
+export function registerPersistHandler(type: EventType, handler: Handler): void {
   registry.set(type, handler);
 }
 
@@ -12,7 +12,7 @@ export async function persistEvent(ev: HandlerEvent, deps: PersistDeps): Promise
 
   if (deps.recentIdCache && deps.recentIdCache.has(ev.id)) return;
 
-  const h: PersistHandler | undefined = registry.get(ev.type);
+  const h: Handler | undefined = registry.get(ev.type);
   if (h == null) return;
 
   try {
