@@ -4,7 +4,7 @@ import Want from '@ohos.app.ability.Want';
 import window from '@ohos.window';
 import { setAppContext } from '../infra/appContext'
 import { initPersistDeps } from '../infra/deps';
-import { initPersistRegistry } from '../features/router/persist/registry';
+import { initHandlerRegistry } from '../features/router/persist/registry';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
@@ -22,7 +22,7 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     try {
       initPersistDeps();
-      initPersistRegistry();
+      initHandlerRegistry();
       hilog.info(HILOG_DOM, 'App', 'deps+registry initialized (stageCreate)');
     } catch (e) {
       hilog.error(HILOG_DOM, 'App', 'init failed: %{public}s', String(e));
