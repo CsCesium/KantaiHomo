@@ -1,25 +1,48 @@
 import { ApiDump } from "../../infra/web/types"
 import { PersistEvent } from "../router/persist/type"
-import { expeditionPipeline, portPipeline } from "./pipelines"
-export interface DumpPipeline {
-  name: string
-  match: (url: string) => boolean
-  parse: (dump: ApiDump) => PersistEvent[]
+
+export interface ParseResult {
+  /** 必须先执行 */
+  preEvents: PersistEvent[];
+  /** 可并发 */
+  mainEvents: PersistEvent[];
+  /** 最后串行 (可选) */
+  postEvents?: PersistEvent[];
 }
 
-//General function
-export const DUMP_PIPELINES: DumpPipeline[] = [
-  portPipeline,
-  expeditionPipeline
-  // battlePipeline,
-  // repairPipeline,
-]
+export interface DumpPipeline {
+  name: string;
+  match: (url: string) => boolean;
+  parse: (dump: ApiDump) => ParseResult | null;
+}
 
-export function parseDumpToPersist(dump: ApiDump): PersistEvent[] {
+
+//General function
+export const DUMP_PIPELINES: DumpPipeline[] = [];
+
+export function registerPipeline(pipeline: DumpPipeline): void {
+  DUMP_PIPELINES.push(pipeline);
+}
+
+export function parseDump(dump: ApiDump): ParseResult {
   const url = dump.url;
-  const out: PersistEvent[] = [];
+  const merged: ParseResult = {
+    preEvents: [],
+    mainEvents: [],
+    postEvents: [],
+  };
+
   for (const p of DUMP_PIPELINES) {
-    if (p.match(url)) out.push(...p.parse(dump));
+    if (p.match(url)) {
+      const result = p.parse(dump);
+      if (result) {
+        merged.preEvents.push(...result.preEvents);
+        merged.mainEvents.push(...result.mainEvents);
+        if (result.postEvents) {
+          merged.postEvents!.push(...result.postEvents);
+        }
+      }
+    }
   }
-  return out;
+  return merged;
 }

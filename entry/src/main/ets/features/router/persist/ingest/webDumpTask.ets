@@ -1,12 +1,13 @@
 //src/main/ets/features/router/persist/ingest/webDumpTask.ets
-import { parseDumpToPersist } from "../../../parsers/utils/pipeline";
-import { PersistEvent } from "../type";
+import { ApiDump } from "../../../../infra/web/types";
+import { ParseResult, parseDump } from "../../../parsers/pipeline";
 
 @Concurrent
 export function parseDumpInWorker(
   url: string,
   requestBody: string,
   responseText: string
-): PersistEvent[] {
-  return parseDumpToPersist({ url: url, requestBody: requestBody, responseText: responseText })
+): ParseResult {
+  const dump: ApiDump = { url, requestBody, responseText };
+  return parseDump(dump);
 }

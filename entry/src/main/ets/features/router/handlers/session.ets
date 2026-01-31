@@ -1,7 +1,7 @@
-import { registerPersistHandler } from '..'
-import type { PersistDeps, PersistEvent, PersistHandler, PersistSessionBindEvent } from '../type'
-import { kvSet } from '../../../../infra/storage/kv'
-import { bindUserIfDefault } from '../../../../infra/storage/db'
+import { bindUserIfDefault } from '../../../infra/storage/db'
+import { kvSet } from '../../../infra/storage/kv'
+import { registerPersistHandler } from '../persist'
+import { PersistEvent, PersistHandler, PersistDeps, PersistSessionBindEvent } from '../persist/type'
 
 const KV_COOKIE_DISABLE: string = 'dmm.cookie.disable.v1'
 
