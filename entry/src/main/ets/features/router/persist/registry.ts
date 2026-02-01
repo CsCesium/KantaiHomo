@@ -1,21 +1,22 @@
+import { EventType } from '../../../domain/events';
 import type { PersistDeps, HandlerEvent, Handler } from './type';
 
-const REGISTRY: Map<string, Handler> = new Map<string, Handler>();
+const handlers: Map<EventType, Handler> = new Map<EventType, Handler>();
 
-export function registerHandler(type: string, h: Handler): void {
-  REGISTRY.set(type, h);
+export function registerHandler(type: EventType, handler: Handler): void {
+  handlers.set(type, handler);
 }
 
-export function getHandler(type: string): Handler | undefined {
-  return REGISTRY.get(type);
+export function getHandler(eventType: EventType): Handler | undefined {
+  return handlers.get(eventType);
 }
 
 export function clearHandlers(): void {
-  REGISTRY.clear();
+  handlers.clear();
 }
 
 export function sizeHandlers(): number {
-  return REGISTRY.size;
+  return handlers.size;
 }
 
 let _inited = false;
@@ -25,7 +26,7 @@ export function initHandlerRegistry(): void {
 }
 
 export async function dispatchEvent(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
-  const handler: Handler | undefined = REGISTRY.get(ev.type);
+  const handler: Handler | undefined = handlers.get(ev.type);
   if (handler === undefined) return;
   await handler.handle(ev, deps);
 }
