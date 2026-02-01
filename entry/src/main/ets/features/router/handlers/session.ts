@@ -1,7 +1,7 @@
 import { SessionBindEvent } from '../../../domain/events/session'
 import { bindUserIfDefault } from '../../../infra/storage/db'
 import { kvSet } from '../../../infra/storage/kv'
-import { registerPersistHandler } from '../persist'
+import { registerHandler } from '../persist/registry'
 import { HandlerEvent, Handler, PersistDeps } from '../persist/type'
 
 const KV_COOKIE_DISABLE: string = 'dmm.cookie.disable.v1'
@@ -24,4 +24,4 @@ class SessionPersistHandler implements Handler {
   }
 }
 
-registerPersistHandler('SESSION_BIND', new SessionPersistHandler())
+registerHandler('SESSION_BIND', new SessionPersistHandler())
