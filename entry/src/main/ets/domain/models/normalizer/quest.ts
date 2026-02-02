@@ -1,10 +1,11 @@
 import { ApiQuestListItemRaw, ApiQuestListRespRaw } from "../api/quest";
+import { QuestState } from "../enums/quest";
 import { Quest, QuestListPage } from "../struct/quest";
 
 export function normalizeQuest(raw: ApiQuestListItemRaw, now: number = Date.now()): Quest {
   const state =
-    raw.api_state === 2 ? 'active' :
-      raw.api_state === 3 ? 'complete' : 'inactive';
+    raw.api_state === 2 ? QuestState.ACTIVE :
+      raw.api_state === 3 ? QuestState.COMPLETE : QuestState.LOCKED;
 
   return {
     questId: raw.api_no,

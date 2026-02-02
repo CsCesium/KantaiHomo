@@ -4,3 +4,6 @@ export * from './slotitem';
 export * from './quest';
 export * from './materials';
 export * from './battle'
+export * from './admiral'
+export * from './ndock'
+export * from './kdock'

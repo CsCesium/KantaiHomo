@@ -2,18 +2,19 @@
  * Deck Mapper - 统一数据层转换
  */
 
+import { safeParseJsonArray } from '..';
+import { DeckRow } from '../../../infra/storage/types';
 import { Deck } from '../struct/deck';
 import { ExpeditionProgress } from '../struct/expedition';
-import type { DeckRow, DeckRowWrite } from '../../../infra/storage/repo/types';
 
 /**
  * 将 Deck struct 转换为 DeckRowWrite
  */
-export function deckToRow(deck: Deck): DeckRowWrite {
+export function deckToRow(deck: Deck): DeckRow {
   return {
     deckId: deck.deckId,
     name: deck.name,
-    shipUids: deck.shipUids,
+    shipUidsJson:JSON.stringify(deck.shipUids),
 
     expeditionProgress: deck.expedition.progress,
     expeditionMissionId: deck.expedition.missionId,
@@ -31,7 +32,7 @@ export function rowToDeck(row: DeckRow): Deck {
   return {
     deckId: row.deckId,
     name: row.name,
-    shipUids: Array.isArray(row.shipUids) ? row.shipUids : [],
+    shipUids: safeParseJsonArray(row.shipUidsJson),
 
     expedition: {
       deckId: row.deckId,
@@ -48,7 +49,7 @@ export function rowToDeck(row: DeckRow): Deck {
 /**
  * 批量转换 Decks
  */
-export function decksToRows(decks: readonly Deck[]): DeckRowWrite[] {
+export function decksToRows(decks: readonly Deck[]): DeckRow[] {
   return decks.map(deckToRow);
 }
 

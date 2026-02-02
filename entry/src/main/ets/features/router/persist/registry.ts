@@ -25,8 +25,3 @@ export function initHandlerRegistry(): void {
   _inited = true;
 }
 
-export async function dispatchEvent(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
-  const handler: Handler | undefined = handlers.get(ev.type);
-  if (handler === undefined) return;
-  await handler.handle(ev, deps);
-}

@@ -60,3 +60,13 @@ export function safeParseJson<T>(json: string | null | undefined, defaultValue: 
     return defaultValue;
   }
 }
+
+export function safeParseJsonArray(json: string | null | undefined): number[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}

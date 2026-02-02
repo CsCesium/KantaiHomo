@@ -3,8 +3,8 @@
  * Struct (业务层) <-> Row (存储层) 双向映射
  */
 
+import { MaterialsRow, MaterialsRowWrite } from '../../../infra/storage/types';
 import { Materials } from '../struct/material';
-import type { MaterialsRow, MaterialsRowWrite } from '../../../infra/storage/repo/types';
 
 /**
  * 将 Materials struct 转换为 MaterialsRowWrite（用于存储）

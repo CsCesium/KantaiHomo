@@ -1,3 +1,4 @@
+import { safeParseJsonArray } from '..';
 import { ShipRow } from '../../../infra/storage/types';
 import { Ship } from '../struct/ship';
 
@@ -146,14 +147,3 @@ export function rowsToShips(rows: readonly ShipRow[]): Ship[] {
   return rows.map(rowToShip);
 }
 
-// ==================== Helper ====================
-
-function safeParseJsonArray(json: string | null | undefined): number[] {
-  if (!json) return [];
-  try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}

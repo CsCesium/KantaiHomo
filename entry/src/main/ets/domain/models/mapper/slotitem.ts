@@ -1,3 +1,5 @@
+// ==================== SlotItem Instance ====================
+import { SlotItemRow, SlotItemMasterRow, SlotItemJoinedRow } from "../../../infra/storage/types";
 import {
   SlotItem,
   SlotItemMaster,
@@ -6,49 +8,31 @@ import {
   SlotItemEquipType,
   SlotItemIconId,
   SlotItemAircraftCategory
-} from '../struct/slotitem';
-import type {
-  SlotItemRow,
-  SlotItemRowWrite,
-  SlotItemMasterRow,
-  SlotItemMasterRowWrite,
-  SlotItemWithMaster
-} from '../../../infra/storage/repo/types';
+} from "../struct";
 
-// ==================== SlotItem Instance ====================
-
-/**
- * 将 SlotItem struct 转换为 SlotItemRowWrite（用于存储）
- */
-export function slotItemToRow(item: SlotItem): SlotItemRowWrite {
+export function slotItemToRow(item: SlotItem): SlotItemRow {
   return {
     uid: item.uid,
     masterId: item.masterId,
-    locked: item.locked,
-    level: item.level,
-    alv: item.alv,
+    locked: item.locked ? 1 : 0,  // boolean → number
+    level: item.level ?? null,
+    alv: item.alv ?? null,
     updatedAt: item.updatedAt,
   };
 }
 
-/**
- * 将 SlotItemRow 转换为 SlotItem struct（用于业务层）
- */
 export function rowToSlotItem(row: SlotItemRow): SlotItem {
   return {
     uid: row.uid,
     masterId: row.masterId,
-    locked: row.locked,
-    level: row.level,
-    alv: row.alv,
+    locked: row.locked === 1,  // number → boolean
+    level: row.level ?? undefined,
+    alv: row.alv ?? undefined,
     updatedAt: row.updatedAt,
   };
 }
 
-/**
- * 批量转换
- */
-export function slotItemsToRows(items: readonly SlotItem[]): SlotItemRowWrite[] {
+export function slotItemsToRows(items: readonly SlotItem[]): SlotItemRow[] {
   return items.map(slotItemToRow);
 }
 
@@ -58,10 +42,7 @@ export function rowsToSlotItems(rows: readonly SlotItemRow[]): SlotItem[] {
 
 // ==================== SlotItem Master ====================
 
-/**
- * 将 SlotItemMaster struct 转换为 SlotItemMasterRowWrite（用于存储）
- */
-export function slotItemMasterToRow(master: SlotItemMaster): SlotItemMasterRowWrite {
+export function slotItemMasterToRow(master: SlotItemMaster): SlotItemMasterRow {
   return {
     id: master.id,
     sortNo: master.sortNo,
@@ -94,18 +75,15 @@ export function slotItemMasterToRow(master: SlotItemMaster): SlotItemMasterRowWr
     broken_steel: master.broken[2] ?? 0,
     broken_bauxite: master.broken[3] ?? 0,
 
-    cost: master.cost,
-    distance: master.distance,
-    useBull: master.useBull,
-    gfxVersion: master.gfxVersion,
+    cost: master.cost ?? null,
+    distance: master.distance ?? null,
+    useBull: master.useBull ?? null,
+    gfxVersion: master.gfxVersion ?? null,
 
     updatedAt: master.updatedAt,
   };
 }
 
-/**
- * 将 SlotItemMasterRow 转换为 SlotItemMaster struct（用于业务层）
- */
 export function rowToSlotItemMaster(row: SlotItemMasterRow): SlotItemMaster {
   return {
     id: row.id,
@@ -140,19 +118,16 @@ export function rowToSlotItemMaster(row: SlotItemMasterRow): SlotItemMaster {
 
     broken: [row.broken_fuel, row.broken_ammo, row.broken_steel, row.broken_bauxite],
 
-    cost: row.cost,
-    distance: row.distance,
-    useBull: row.useBull,
-    gfxVersion: row.gfxVersion,
+    cost: row.cost ?? undefined,
+    distance: row.distance ?? undefined,
+    useBull: row.useBull ?? undefined,
+    gfxVersion: row.gfxVersion ?? undefined,
 
     updatedAt: row.updatedAt,
   };
 }
 
-/**
- * 批量转换 Masters
- */
-export function slotItemMastersToRows(masters: readonly SlotItemMaster[]): SlotItemMasterRowWrite[] {
+export function slotItemMastersToRows(masters: readonly SlotItemMaster[]): SlotItemMasterRow[] {
   return masters.map(slotItemMasterToRow);
 }
 
@@ -167,12 +142,48 @@ export interface SlotItemWithMasterStruct {
   master: SlotItemMaster | null;
 }
 
-/**
- * 转换带 Master 的 SlotItem
- */
-export function rowWithMasterToStruct(row: SlotItemWithMaster): SlotItemWithMasterStruct {
-  return {
-    item: rowToSlotItem(row.item),
-    master: row.master ? rowToSlotItemMaster(row.master) : null,
-  };
+export function joinedRowToStruct(row: SlotItemJoinedRow): SlotItemWithMasterStruct {
+  const item = rowToSlotItem(row);
+
+  const master: SlotItemMaster | null = row.mst_id != null ? {
+    id: row.mst_id,
+    sortNo: row.mst_sortNo ?? 0,
+    name: row.mst_name ?? '',
+    type: {
+      major: (row.mst_typeMajor ?? 0) as SlotItemMajorType,
+      book: (row.mst_typeBook ?? 0) as SlotItemBookCategory,
+      equipType: (row.mst_typeEquipType ?? 0) as SlotItemEquipType,
+      iconId: (row.mst_typeIconId ?? 0) as SlotItemIconId,
+      aircraft: (row.mst_typeAircraft ?? 0) as SlotItemAircraftCategory,
+    },
+    rarity: row.mst_rarity ?? 0,
+    range: row.mst_range ?? 0,
+    stats: {
+      hp: row.mst_stat_hp ?? 0,
+      armor: row.mst_stat_armor ?? 0,
+      firepower: row.mst_stat_firepower ?? 0,
+      torpedo: row.mst_stat_torpedo ?? 0,
+      speed: row.mst_stat_speed ?? 0,
+      bomb: row.mst_stat_bomb ?? 0,
+      aa: row.mst_stat_aa ?? 0,
+      asw: row.mst_stat_asw ?? 0,
+      hit: row.mst_stat_hit ?? 0,
+      evasion: row.mst_stat_evasion ?? 0,
+      los: row.mst_stat_los ?? 0,
+      luck: row.mst_stat_luck ?? 0,
+    },
+    broken: [
+      row.mst_broken_fuel ?? 0,
+      row.mst_broken_ammo ?? 0,
+      row.mst_broken_steel ?? 0,
+      row.mst_broken_bauxite ?? 0,
+    ],
+    cost: row.mst_cost ?? undefined,
+    distance: row.mst_distance ?? undefined,
+    useBull: row.mst_useBull ?? undefined,
+    gfxVersion: row.mst_gfxVersion ?? undefined,
+    updatedAt: row.mst_updatedAt ?? 0,
+  } : null;
+
+  return { item, master };
 }

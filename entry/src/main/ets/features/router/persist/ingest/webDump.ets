@@ -1,16 +1,10 @@
 //src/main/ets/features/router/persist/ingest/webDump.ets
 import taskpool from '@ohos.taskpool'
 import { ApiDump } from "../../../../infra/web/types";
-import { parseExpedition } from "../../../parsers/module/expedition";
-import { persistEvent } from "..";
-import type { PersistDeps, HandlerEvent } from '../type';
-
-import '../handlers/expedition.ets';
-
-// import '../handlers/battleResultHandler.ets';
-// import '../handlers/repairHandler.ets';
+import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';
+import { dispatchEvent } from '../executor';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
 const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB
@@ -25,7 +19,7 @@ async function executeParseResult(result: ParseResult, deps: PersistDeps): Promi
   // 1. 串行执行 preEvents
   for (const ev of result.preEvents) {
     try {
-      await persistEvent(ev, deps);
+      await dispatchEvent(ev, deps);
     } catch (e) {
       console.error('[persist] preEvent failed:', ev.type, String(e));
     }
@@ -33,7 +27,7 @@ async function executeParseResult(result: ParseResult, deps: PersistDeps): Promi
 
   // 2. 并发执行 mainEvents
   if (result.mainEvents.length > 0) {
-    const tasks = result.mainEvents.map(ev => persistEvent(ev, deps));
+    const tasks = result.mainEvents.map(ev => dispatchEvent(ev, deps));
     await Promise.all(tasks);
   }
 
@@ -41,7 +35,7 @@ async function executeParseResult(result: ParseResult, deps: PersistDeps): Promi
   if (result.postEvents) {
     for (const ev of result.postEvents) {
       try {
-        await persistEvent(ev, deps);
+        await dispatchEvent(ev, deps);
       } catch (e) {
         console.error('[persist] postEvent failed:', ev.type, String(e));
       }

@@ -26,7 +26,7 @@ export async function executeParseResult(
   }
 }
 
-async function dispatchEvent(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
+export async function dispatchEvent(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
   const handler = getHandler(ev.type);
   if (handler) {
     try {

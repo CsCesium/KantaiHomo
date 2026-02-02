@@ -3,34 +3,24 @@
  * Struct (业务层) <-> Row (存储层) 双向映射
  */
 
+import { safeParseJsonArray } from '..';
+import { QuestRow } from '../../../infra/storage/types';
 import { Quest } from '../struct/quest';
-import type { QuestRow, QuestRowWrite, QuestState as QuestStateRow } from '../../../infra/storage/repo/types';
-
-// 状态映射
-type QuestStateStruct = 'inactive' | 'active' | 'complete';
-
-function stateToRow(state: QuestStateStruct): QuestStateRow {
-  return state;
-}
-
-function rowToState(state: QuestStateRow): QuestStateStruct {
-  return state;
-}
 
 /**
  * 将 Quest struct 转换为 QuestRowWrite（用于存储）
  */
-export function questToRow(quest: Quest): QuestRowWrite {
+export function questToRow(quest: Quest): QuestRow {
   return {
     questId: quest.questId,
     category: quest.category,
     type: quest.type,
-    state: stateToRow(quest.state),
+    state: quest.state,
     title: quest.title,
     detail: quest.detail,
-    progress: quest.progress,
-    bonusFlag: quest.bonusFlag,
-    materials: quest.materials,
+    progress: quest.progress?? null,
+    bonusFlag: quest.bonusFlag ?? null,
+    materialsJson: quest.materials ? JSON.stringify(quest.materials) : null,
     updatedAt: quest.updatedAt,
   };
 }
@@ -43,12 +33,12 @@ export function rowToQuest(row: QuestRow): Quest {
     questId: row.questId,
     category: row.category,
     type: row.type,
-    state: rowToState(row.state),
+    state: row.state,
     title: row.title,
     detail: row.detail,
-    progress: row.progress,
-    bonusFlag: row.bonusFlag,
-    materials: row.materials,
+    progress: row.progress ?? undefined,
+    bonusFlag: row.bonusFlag ?? undefined,
+    materials: row.materialsJson ? safeParseJsonArray(row.materialsJson) : undefined,
     updatedAt: row.updatedAt,
   };
 }
@@ -56,7 +46,7 @@ export function rowToQuest(row: QuestRow): Quest {
 /**
  * 批量转换
  */
-export function questsToRows(quests: readonly Quest[]): QuestRowWrite[] {
+export function questsToRows(quests: readonly Quest[]): QuestRow[] {
   return quests.map(questToRow);
 }
 
