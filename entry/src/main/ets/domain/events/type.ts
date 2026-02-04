@@ -22,7 +22,10 @@ export type EventType =
   // Battle
     | 'BATTLE_DAY'
     | 'BATTLE_NIGHT'
-    | 'BATTLE_RESULT';
+    | 'BATTLE_RESULT'
+  // UI
+    | 'YASEN_DETECTED'
+    | 'TAIHA_WARNING';
 
 export interface EventBase {
   id: string;

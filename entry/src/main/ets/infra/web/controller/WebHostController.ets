@@ -4,13 +4,18 @@ import common from '@ohos.app.ability.common';
 import { WebBridge } from '../bridge/WebBridge';
 import { FitAndDisplay } from '../layout/fit';
 import { buildInjectionBundle } from '../../web/inject';
-import {  InjectOptions, AppChannelMessage, ApiDump } from '../types';
+import {  InjectOptions, AppChannelMessage, ApiDump,
+  isApiDump,
+  isYasenUiEvent,
+  parseBridgeMessage,
+  YasenUiEvent } from '../types';
 import { parseAppChannelMessage as parseMsg } from '../types';
 import { ingestDump } from '../../../features/router/persist/ingest/webDump';
 import { getPersistDeps } from '../../deps/index';
 import { PERMISSION_JSON, USER_AGENT } from '../config';
 import { Orientation } from '../layout/orientation';
 import hilog from '@ohos.hilog';
+import { YasenPromptAlert, publishAlert } from '../../../features/alerts';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -23,23 +28,6 @@ export interface FitGetter {
 export interface RpcHandler {
   handle(raw: string): Promise<string>;
 }
-interface ApiDumpFields {
-  url?: string;
-  requestBody?: string;
-  responseText?: string;
-}
-
-function asApiDump(m: AppChannelMessage): ApiDump | null {
-  const x = m as ApiDump;
-  const f = x as ApiDumpFields;
-  if (typeof f.url === 'string' &&
-    typeof f.requestBody === 'string' &&
-    typeof f.responseText === 'string') {
-    return x;
-  }
-  return null;
-}
-
 export class FunctionRpcHandler implements RpcHandler {
   private fn: (raw: string) => Promise<string>;
   constructor(fn: (raw: string) => Promise<string>) { this.fn = fn; }
@@ -64,7 +52,7 @@ export class WebHostController {
   private getFit: () => FitGetter;
   private proxyStage: ProxyStage = ProxyStage.INIT;
 
-  private persistQ: string[] = [];
+  private persistQ: ApiDump[] = [];
   private persistDraining: boolean = false;
   private readonly MAX_PERSIST_Q: number = 60;
 
@@ -188,14 +176,45 @@ export class WebHostController {
   }
 
   private onHookPayload(raw: string): void {
-    const traceId: string = this.extractTraceId(raw)
-    hilog.info(HILOG_DOM, 'Bridge', '[RX] trace=%{public}s bytes=%{public}d', traceId, raw.length)
-
-    if (traceId.length > 0) {
-      this.enqueueAck(traceId)
+    const msg = parseBridgeMessage(raw);
+    if (!msg) {
+      hilog.warn(HILOG_DOM, 'Bridge', '[RX] unrecognized message');
+      return;
     }
 
-    this.enqueuePersist(raw)
+    // 处理夜战
+    if (isYasenUiEvent(msg)) {
+      this.handleYasenMessage(msg);
+      return;
+    }
+
+    // 处理 API Dump
+    if (isApiDump(msg)) {
+      const traceId = this.extractTraceId(raw);
+      hilog.info(HILOG_DOM, 'Bridge', '[RX] trace=%{public}s bytes=%{public}d', traceId, raw.length);
+
+      if (traceId.length > 0) {
+        this.enqueueAck(traceId);
+      }
+
+      this.enqueuePersist(msg);
+    }
+
+    // FPS/PING 等其他消息暂不处理
+  }
+
+  private handleYasenMessage(msg: YasenUiEvent): void {
+    hilog.info(HILOG_DOM, 'Bridge', '[YASEN] detected: yes=%{public}s no=%{public}s', msg.yesId, msg.noId);
+
+    const alert: YasenPromptAlert = {
+      type: 'yasen_prompt',
+      timestamp: msg.ts,
+      yesTex: msg.yesId,
+      noTex: msg.noId,
+      containerName: msg.containerName,
+    };
+
+    publishAlert(alert);
   }
 
   private pushFitStrong(policy: string, locked: boolean, vw: number, vh: number): void {
@@ -213,12 +232,12 @@ export class WebHostController {
     this.ctl.runJavaScript?.(js);
   }
 
-  private enqueuePersist(raw: string): void {
+  private enqueuePersist(dump: ApiDump): void {
     if (this.persistQ.length >= this.MAX_PERSIST_Q) {
       this.persistQ.shift();
       hilog.warn(HILOG_DOM, 'Bridge', '[persist] queue overflow, drop oldest');
     }
-    this.persistQ.push(raw);
+    this.persistQ.push(dump);
 
     if (!this.persistDraining) {
       this.persistDraining = true;
@@ -229,15 +248,9 @@ export class WebHostController {
   private async drainPersistQueue(): Promise<void> {
     try {
       while (this.persistQ.length > 0) {
-        const raw = this.persistQ.shift()!;
+        const dump = this.persistQ.shift()!;
 
         try {
-          const msg: AppChannelMessage | null = parseMsg(raw);
-          if (msg === null) continue;
-
-          const dump: ApiDump | null = asApiDump(msg);
-          if (dump === null) continue;
-
           const deps = getPersistDeps();
           if (deps === null) continue;
 
