@@ -1,10 +1,18 @@
-import { ApiMstShipRaw, ApiMstMissionRaw } from "..";
-import { ApiMstSlotItemRaw } from "../api/mst_slotitem";
+import { MasterData } from "..";
+import { ApiStart2RespRaw } from "../api/master";
 
-export interface MasterData {
-  shipsById: Record<number, ApiMstShipRaw>;
-  slotItemsById: Record<number, ApiMstSlotItemRaw>;
-  missionsById: Record<number, ApiMstMissionRaw>;
-  updatedAt: number;
-  extras?: Record<string, unknown>;
+function indexById<T extends { api_id: number }>(arr: T[] | undefined): Record<number, T> {
+  const out: Record<number, T> = {};
+  for (const it of arr ?? []) out[it.api_id] = it;
+  return out;
+}
+
+export function normalizeMaster(raw: ApiStart2RespRaw, now: number = Date.now()): MasterData {
+  return {
+    shipsById: indexById(raw.api_mst_ship),
+    slotItemsById: indexById(raw.api_mst_slotitem),
+    missionsById: indexById(raw.api_mst_mission),
+    updatedAt: now,
+    extras: raw,
+  };
 }

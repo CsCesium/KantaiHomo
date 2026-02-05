@@ -1,5 +1,8 @@
+import settings from '@ohos.settings';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
+
+
 
 export class Orientation {
   private ctx: common.UIAbilityContext;
@@ -18,6 +21,14 @@ export class Orientation {
     const ori: window.Orientation = isCompact
       ? window.Orientation.AUTO_ROTATION_LANDSCAPE
       : window.Orientation.AUTO_ROTATION;
+    if (!this.isSystemRotationUnlocked()) {
+      return;
+    }
     await this.setPreferred(ori);
+  }
+
+  isSystemRotationUnlocked(): boolean {
+    const val = settings.getValueSync(this.ctx,settings.general.ACCELEROMETER_ROTATION_STATUS, "1");
+    return (val === "1");
   }
 }

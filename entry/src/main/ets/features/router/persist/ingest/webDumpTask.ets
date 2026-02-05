@@ -8,6 +8,6 @@ export function parseDumpInWorker(
   requestBody: string,
   responseText: string
 ): ParseResult {
-  const dump: ApiDump = { url, requestBody, responseText };
+  const dump: ApiDump = { url, type:'API_DUMP',requestBody, responseText };
   return parseDump(dump);
 }
