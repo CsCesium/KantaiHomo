@@ -1,18 +1,27 @@
-import { getAlertBus } from "./bus";
-import { ExpeditionReturnAlert, YasenPromptAlert, TaihaWarningAlert, AnyAlert } from "./type";
-import { promptAction } from "@kit.ArkUI";
-import { notificationManager } from "@kit.NotificationKit";
-import { vibrator } from "@kit.SensorServiceKit";
 /**
- * Alert Executor
+ * Alert Executor - 执行具体的通知动作
  *
- * subscribe AlertBus，doing Toast / vibration/ inform
+ * 订阅 AlertBus，根据配置执行 Toast / 震动 / 系统通知
  */
-// ==========  ID  ==========
+
+import promptAction from '@ohos.promptAction';
+import vibrator from '@ohos.vibrator';
+import notificationManager from '@ohos.notificationManager';
+
+import type {
+  AnyAlert,
+  ExpeditionReturnAlert,
+  YasenPromptAlert,
+  TaihaWarningAlert,
+  SortieNextAlert
+} from './type';
+import { getAlertBus } from '.';
+
+// ========== 通知 ID 常量 ==========
 const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
 const NOTIFICATION_ID_YASEN = 2000;
 const NOTIFICATION_ID_TAIHA = 2001;
-
+const NOTIFICATION_ID_SORTIE_NEXT = 2002;
 // ========== 执行函数 ==========
 
 async function executeToast(message: string, duration: number = 2000): Promise<void> {
@@ -34,7 +43,12 @@ async function executeVibrate(durationMs: number): Promise<void> {
   }
 }
 
-async function executeNotification(id: number, title: string, text: string, additionalText?: string): Promise<void> {
+async function executeNotification(
+  id: number,
+  title: string,
+  text: string,
+  additionalText?: string
+): Promise<void> {
   try {
     await notificationManager.publish({
       id,
@@ -81,7 +95,7 @@ async function handleYasenPrompt(alert: YasenPromptAlert): Promise<void> {
   console.info(`[AlertExecutor] yasen prompt: yes=${alert.yesTex}, no=${alert.noTex}`);
 
   if (config.enableToast) {
-    await executeToast('夜战!');
+    await executeToast('夜战选择');
   }
 
   if (config.enableVibrate) {
@@ -111,7 +125,9 @@ async function handleTaihaWarning(alert: TaihaWarningAlert): Promise<void> {
   if (config.enableVibrate) {
     // 大破警告：震动两次
     await executeVibrate(config.vibrateDurationMs);
-    setTimeout(() => executeVibrate(config.vibrateDurationMs), config.vibrateDurationMs + 100);
+    setTimeout(() => {
+      void executeVibrate(config.vibrateDurationMs);
+    }, config.vibrateDurationMs + 100);
   }
 
   if (config.enableNotification) {
@@ -119,6 +135,38 @@ async function handleTaihaWarning(alert: TaihaWarningAlert): Promise<void> {
       NOTIFICATION_ID_TAIHA,
       '⚠️ 大破警告',
       `${names} 已大破，请注意！`
+    );
+  }
+}
+
+async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  const mapAreaId = alert.mapAreaId;
+  const mapInfoNo = alert.mapInfoNo;
+  const cellId = alert.cellId;
+  const eventDesc = alert.eventDesc;
+  const isBoss = alert.isBoss;
+  
+  const mapStr = `${mapAreaId}-${mapInfoNo}`;
+  const bossStr = isBoss ? ' [BOSS]' : '';
+  const message = `${mapStr} → ${cellId}${bossStr}: ${eventDesc}`;
+
+  console.info(`[AlertExecutor] sortie next: ${message}`);
+
+  if (config.enableToast) {
+    await executeToast(message, isBoss ? 3000 : 2000);
+  }
+
+  // Boss 点额外震动
+  if (config.enableVibrate && isBoss) {
+    await executeVibrate(config.vibrateDurationMs * 2);
+  }
+
+  if (config.enableNotification) {
+    await executeNotification(
+      NOTIFICATION_ID_SORTIE_NEXT,
+      isBoss ? '🎯 到达 BOSS 点' : '进击中',
+      message
     );
   }
 }
@@ -135,6 +183,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'taiha_warning':
       await handleTaihaWarning(alert);
+      break;
+    case 'sortie_next':
+      await handleSortieNext(alert);
       break;
   }
 }

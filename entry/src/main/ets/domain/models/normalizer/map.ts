@@ -15,3 +15,13 @@ export function normalizeSortieCell(raw: ApiMapStartRespRaw | ApiMapNextRespRaw,
     extras: raw,
   };
 }
+
+/** 解析出击开始 (api_req_map/start) */
+export function normalizeMapStart(raw: ApiMapStartRespRaw, now: number = Date.now()): SortieCell {
+  return normalizeSortieCell(raw, now);
+}
+
+/** 解析进入下一节点 (api_req_map/next) */
+export function normalizeMapNext(raw: ApiMapNextRespRaw, now: number = Date.now()): SortieCell {
+  return normalizeSortieCell(raw, now);
+}

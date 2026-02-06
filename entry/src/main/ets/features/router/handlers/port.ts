@@ -26,6 +26,7 @@ class PortPersistHandler implements Handler {
 
     switch (e.type) {
       case 'PORT_SNAPSHOT':
+
         await this.handleSnapshot(e.payload, ts, deps);
         break;
       case 'PORT_BASIC':

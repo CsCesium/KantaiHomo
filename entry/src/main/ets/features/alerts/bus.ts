@@ -1,4 +1,14 @@
-import { AnyAlert, AlertType, AlertConfig, DEFAULT_ALERT_CONFIG } from "./type";
+/**
+ * Alert Bus - 统一的警报事件总线
+ *
+ * 功能：
+ * - 事件发布/订阅
+ * - 内置去抖（同类型事件在 debounceMs 内不重复触发）
+ * - 支持多订阅者
+ */
+
+import type { AnyAlert, AlertType, AlertConfig } from './type';
+import { DEFAULT_ALERT_CONFIG } from './type';
 
 type AlertHandler<T extends AnyAlert = AnyAlert> = (alert: T) => void | Promise<void>;
 
@@ -98,6 +108,8 @@ class AlertBusImpl {
         return `yasen:${alert.yesTex}:${alert.noTex}`;
       case 'taiha_warning':
         return `taiha:${alert.shipUids.slice().sort((a, b) => a - b).join(',')}`;
+      case 'sortie_next':
+        return `sortie:${alert.mapAreaId}-${alert.mapInfoNo}:${alert.cellId}`;
       default:
         return `unknown`;
     }

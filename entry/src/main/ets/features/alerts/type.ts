@@ -17,8 +17,9 @@ export interface Clock {
 
 export type AlertType =
   | 'expedition_return'
-    | 'yasen_prompt'
-    | 'taiha_warning';
+  | 'yasen_prompt'
+  | 'taiha_warning'
+  | 'sortie_next';
 
 export interface BaseAlert {
   type: AlertType;
@@ -47,10 +48,24 @@ export interface TaihaWarningAlert extends BaseAlert {
   shipNames?: string[];
 }
 
+/** 出击下一节点提醒 */
+export interface SortieNextAlert extends BaseAlert {
+  type: 'sortie_next';
+  mapAreaId: number;
+  mapInfoNo: number;
+  cellId: number;
+  eventId: number;
+  eventKind: number;
+  isBoss: boolean;
+  /** 事件描述 (例如: "战斗", "资源", "漩涡" 等) */
+  eventDesc: string;
+}
+
 export type AnyAlert =
   | ExpeditionReturnAlert
-    | YasenPromptAlert
-    | TaihaWarningAlert;
+  | YasenPromptAlert
+  | TaihaWarningAlert
+  | SortieNextAlert;
 
 // ========== Alert Config ==========
 

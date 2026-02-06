@@ -43,6 +43,13 @@ export { initAlertExecutor } from './executor';
 
 // ========== ExpeditionScheduler ==========
 
+export {
+  ExpeditionReturnScheduler,
+  SystemClock,
+  getExpeditionScheduler,
+  initExpeditionScheduler,
+  type ExpeditionSchedulerOptions,
+} from './module/expedition';
 
 // ========== 统一初始化 ==========
 
