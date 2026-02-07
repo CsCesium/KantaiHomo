@@ -59,3 +59,7 @@ export function normalizeShip(raw: ApiShipRaw, now: number = Date.now()): Ship {
     updatedAt: now,
   };
 }
+
+export function normalizeShips(raw:ApiShipRaw[],now: number = Date.now()):Ship[]{
+  return (raw??[]).map((x)=> normalizeShip(x,now));
+}

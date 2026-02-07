@@ -53,10 +53,20 @@ class PortPersistHandler implements Handler {
     }
   }
   private async handleSnapshot(payload: PortSnapshot, ts: number, deps: PersistDeps): Promise<void> {
-    // PORT_SNAPSHOT 不单独处理，由其他细分事件分别落库
+    const snapshot = payload;
+    updateFromPort({
+      admiral: snapshot.admiral,
+      materials: snapshot.materials,
+      decks: snapshot.decks,
+      ships: snapshot.ships,
+    });
+    console.info('[port] snapshot updated to GameState');
+    return;
   }
 
   private async handleBasic(payload: Admiral, ts: number, deps: PersistDeps): Promise<void> {
+    updateAdmiral(payload);
+
     if (!deps.repos?.admiral) {
       console.warn('[persist][PORT_BASIC] repository not provided');
       return;
