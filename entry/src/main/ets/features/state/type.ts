@@ -23,7 +23,7 @@ export interface MaterialsSnapshot {
   capturedAt: number;
 }
 
-/** 舰队快照（简化版，用于状态显示） */
+/** 舰队快照 */
 export interface DeckSnapshot {
   deckId: number;
   name: string;
@@ -35,7 +35,25 @@ export interface DeckSnapshot {
   capturedAt: number;
 }
 
-/** 舰船状态（仅保存关键信息） */
+/** 修理渠快照 */
+export interface NDockSnapShot{
+  dockId:number;
+  state:number;
+  shipUid:number;
+  completeTime:number;
+  capturedAt: number;
+}
+
+/** 建造渠快照 */
+export interface KDockSnapShot{
+  dockId:number;
+  state:number;
+  createdShipMasterId:number;
+  completeTime:number;
+  capturedAt: number;
+}
+
+/** 舰船状态 */
 export interface ShipState {
   uid: number;
   masterId: number;
@@ -61,6 +79,10 @@ export interface GameState {
   materials: MaterialsSnapshot | null;
   /** 四个舰队 */
   decks: DeckSnapshot[];
+  /** 修理渠状态 */
+  Ndocks:NDockSnapShot[];
+  /** 修理渠状态 */
+  Kdocks:KDockSnapShot[];
   /** 舰船状态 Map (uid -> ShipState) */
   ships: Map<number, ShipState>;
   /** 上次更新时间 */
@@ -72,6 +94,7 @@ export type StateChangeType =
   | 'admiral'
     | 'materials'
     | 'decks'
+    | 'ndocks'
     | 'ships'
     | 'all';
 

@@ -14,6 +14,7 @@ export type {
   StateChangeListener,
   ExpChange,
   SenkaInfo,
+  NDockSnapShot
 } from './type';
 
 // ========== GameState 导出 ==========
@@ -25,6 +26,7 @@ export {
   // 更新方法
   updateAdmiral,
   updateMaterials,
+  updateNdocks,
   updateDecks,
   updateShips,
   updateFromPort,
@@ -32,6 +34,7 @@ export {
   // 查询方法
   getAdmiral,
   getMaterials,
+  getNDocks,
   getDecks,
   getDeck,
   getShip,

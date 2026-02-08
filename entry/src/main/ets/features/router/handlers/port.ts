@@ -16,6 +16,7 @@ import {
   SlotItem,
   slotItemToRow
 } from '../../../domain/models';
+import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks } from '../../state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -26,7 +27,6 @@ class PortPersistHandler implements Handler {
 
     switch (e.type) {
       case 'PORT_SNAPSHOT':
-
         await this.handleSnapshot(e.payload, ts, deps);
         break;
       case 'PORT_BASIC':
@@ -76,6 +76,7 @@ class PortPersistHandler implements Handler {
   }
 
   private async handleResources(payload: Materials, ts: number, deps: PersistDeps): Promise<void> {
+    updateMaterials(payload);
     if (!deps.repos?.material) {
       console.warn('[persist][PORT_RESOURCES] repository not provided');
       return;
@@ -85,6 +86,8 @@ class PortPersistHandler implements Handler {
   }
 
   private async handleFleets(payload: Deck[], ts: number, deps: PersistDeps): Promise<void> {
+    updateDecks(payload);
+
     if (!deps.repos?.deck) {
       console.warn('[persist][PORT_FLEETS] repository not provided');
       return;
@@ -94,6 +97,8 @@ class PortPersistHandler implements Handler {
   }
 
   private async handleNdock(payload: Ndock[], ts: number, deps: PersistDeps): Promise<void> {
+    updateNdocks(payload);
+
     if (!deps.repos?.repair) {
       console.warn('[persist][PORT_NDOCK] repository not provided');
       return;
