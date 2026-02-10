@@ -14,7 +14,8 @@ export type {
   StateChangeListener,
   ExpChange,
   SenkaInfo,
-  NDockSnapShot
+  NDockSnapShot,
+  KDockSnapShot
 } from './type';
 
 // ========== GameState 导出 ==========
@@ -27,6 +28,7 @@ export {
   updateAdmiral,
   updateMaterials,
   updateNdocks,
+  updateKdocks,
   updateDecks,
   updateShips,
   updateFromPort,
@@ -35,6 +37,7 @@ export {
   getAdmiral,
   getMaterials,
   getNDocks,
+  getKDocks,
   getDecks,
   getDeck,
   getShip,

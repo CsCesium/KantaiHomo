@@ -1,6 +1,6 @@
 
 // ==================== 状态管理类 ====================
-import { Admiral, Materials, Deck, Ship, Ndock } from "../../domain/models";
+import { Admiral, Materials, Deck, Ship, Ndock, Kdock } from "../../domain/models";
 import {
   GameState,
   StateChangeListener,
@@ -11,7 +11,8 @@ import {
   ShipState,
   SenkaInfo,
   StateChangeType,
-  NDockSnapShot
+  NDockSnapShot,
+  KDockSnapShot
 } from "./type";
 
 class GameStateManager {
@@ -97,6 +98,20 @@ class GameStateManager {
     }));
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('ndocks');
+  }
+  /**
+   * 更新建造渠
+   */
+  updateKDocks(kdocks:Kdock[]):void{
+    this.state.Kdocks = kdocks.map(dock=>({
+      dockId:dock.dockId,
+      state:dock.state,
+      createdShipMasterId:dock.createdShipMasterId,
+      completeTime:dock.completeTime,
+      capturedAt:Date.now()
+    }));
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('kdocks');
   }
   /**
    * 更新舰队
@@ -260,6 +275,14 @@ class GameStateManager {
   }
 
   /**
+   * 获取修理渠
+   */
+  getKDocks(): readonly KDockSnapShot[] {
+    return this.state.Kdocks;
+  }
+
+
+  /**
    * 获取舰队
    */
   getDecks(): readonly DeckSnapshot[] {
@@ -402,6 +425,7 @@ class GameStateManager {
       materials: null,
       decks: [],
       Ndocks:[],
+      Kdocks:[],
       ships: new Map(),
       lastUpdatedAt: 0,
     };
@@ -419,6 +443,7 @@ class GameStateManager {
       materials: this.state.materials,
       decks: this.state.decks,
       Ndocks: this.state.Ndocks,
+      Kdocks: this.state.Kdocks,
       ships: Array.from(this.state.ships.values()),
       lastUpdatedAt: this.state.lastUpdatedAt,
       expHistory: this.expHistory,
@@ -439,6 +464,7 @@ export function getGameState(): GameStateManager {
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);
 export const updateNdocks = (ndocks:Ndock[]) => gameStateManager.updateNDocks(ndocks);
+export const updateKdocks = (kdocks:Kdock[]) => gameStateManager.updateKDocks(kdocks);
 export const updateDecks = (decks: Deck[]) => gameStateManager.updateDecks(decks);
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>
@@ -447,6 +473,7 @@ gameStateManager.updateFromPort(data);
 export const getAdmiral = () => gameStateManager.getAdmiral();
 export const getMaterials = () => gameStateManager.getMaterials();
 export const getNDocks = ()=> gameStateManager.getNDocks();
+export const getKDocks = ()=> gameStateManager.getKDocks();
 export const getDecks = () => gameStateManager.getDecks();
 export const getDeck = (deckId: number) => gameStateManager.getDeck(deckId);
 export const getShip = (uid: number) => gameStateManager.getShip(uid);

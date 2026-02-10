@@ -95,6 +95,7 @@ export type StateChangeType =
     | 'materials'
     | 'decks'
     | 'ndocks'
+    | 'kdocks'
     | 'ships'
     | 'all';
 
