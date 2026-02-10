@@ -16,7 +16,8 @@ import {
   SlotItem,
   slotItemToRow
 } from '../../../domain/models';
-import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks } from '../../state';
+import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks, updateKdocks,
+  updateShips } from '../../state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -108,6 +109,8 @@ class PortPersistHandler implements Handler {
   }
 
   private async handleKdock(payload: Kdock[], ts: number, deps: PersistDeps): Promise<void> {
+    updateKdocks(payload)
+
     if (!deps.repos?.build) {
       console.warn('[persist][PORT_KDOCK] repository not provided');
       return;
@@ -117,6 +120,8 @@ class PortPersistHandler implements Handler {
   }
 
   private async handleShips(payload: Ship[], ts: number, deps: PersistDeps): Promise<void> {
+    updateShips(payload);
+
     if (!deps.repos?.ship) {
       console.warn('[persist][PORT_SHIPS] repository not provided');
       return;
