@@ -2,6 +2,7 @@
  * 通用工具函数
  *
  */
+import { ApiResponse, ApiStateFields, unwrapEnvelope } from "../../domain/models";
 
 // ==================== Response 解析 ====================
 
@@ -19,6 +20,12 @@ export function parseSvdata<T = any>(text: string | null | undefined): T | null 
   } catch {
     return null;
   }
+}
+
+export function parseSvdataAndUnwrap<T = ApiStateFields>(text: string | null | undefined): T | null {
+  const envelope = parseSvdata<ApiResponse<T>>(text);
+  if (!envelope) return null;
+  return unwrapEnvelope<T>(envelope);
 }
 
 /**
@@ -57,7 +64,7 @@ export function extractKcsApiObject(dump: any): any | null {
   // 常见结构：{ api_result, api_result_msg, api_data }
   if (obj.api_data != null) return obj;
 
-  // 有些封装可能是 { data: { api_result... } }
+  // 有些封装 { data: { api_result... } }
   if (obj.data && obj.data.api_data != null) return obj.data;
 
   return obj;

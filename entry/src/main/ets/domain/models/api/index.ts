@@ -1,4 +1,5 @@
 // API types index
+export * from './response'
 export * from './basic';
 export * from './battle';
 export * from './battle_result'
@@ -19,3 +20,4 @@ export * from './useitem';
 export * from './start2';
 export * from './member';
 export * from './request';
+

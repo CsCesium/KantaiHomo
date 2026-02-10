@@ -156,7 +156,7 @@ class SortieHandler implements Handler {
       console.info('[sortie] battle context created');
     }
 
-    // 5. 更新数据库中的路由
+    // 5. 更新路由
     if (PersistDeps.repos?.sortie) {
       try {
         const existing = await PersistDeps.repos.sortie.get(context.sortieId);
@@ -175,7 +175,7 @@ class SortieHandler implements Handler {
       }
     }
 
-    // 6. 发布事件 (旧的 PersistDeps.publish 方式，保持兼容)
+    // 6. 发布事件
     if (PersistDeps.publish) {
       PersistDeps.publish('sortie:cell_moved', {
         cell,

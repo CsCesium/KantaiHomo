@@ -5,6 +5,9 @@ import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';
 import { dispatchEvent } from '../executor';
+import { parseSvdata, parseSvdataAndUnwrap } from '../../../utils/common';
+import { ApiStateFields, detectStateFields } from '../../../../domain/models/api/response';
+import { extractAndUpdateState } from '../../../state';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
 const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB
@@ -56,6 +59,19 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
   const size: number = totalSize(dump)
 
   let result: ParseResult = { preEvents: [], mainEvents: [] };
+  // 提取状态
+  try {
+  const apiData = parseSvdataAndUnwrap<ApiStateFields>(dump.responseText);
+  if(apiData) {
+      const fields = detectStateFields(apiData);
+      if(fields.any){
+      const isPort = dump.url?.includes('./api_port/port');
+      extractAndUpdateState(apiData,{batchUpdate: isPort});
+      }
+  }
+  }catch (e) {
+    console.debug('[ingest] state extract skipped:', String(e));
+  }
 
   // 过大：不进 worker, 仍然允许主线程尝试解析；
   if (size > WORKER_MAX_INPUT) {
