@@ -85,6 +85,8 @@ export interface GameState {
   Kdocks:KDockSnapShot[];
   /** 舰船状态 Map (uid -> ShipState) */
   ships: Map<number, ShipState>;
+  /** 当前战斗状态 (暂态) */
+  currentBattle: CurrentBattleState;
   /** 上次更新时间 */
   lastUpdatedAt: number;
 }
@@ -97,6 +99,7 @@ export type StateChangeType =
     | 'ndocks'
     | 'kdocks'
     | 'ships'
+    | 'battle'
     | 'all';
 
 /** 状态变更监听器 */
@@ -127,4 +130,174 @@ export interface SenkaInfo {
   startTime: number;
   /** 记录开始时的经验 */
   startExp: number;
+}
+
+// ==================== 战斗状态快照 ====================
+
+/** 单舰战斗状态 */
+export interface ShipBattleStatus {
+  /** 舰船UID */
+  uid: number;
+  /** 舰船名称 */
+  name: string;
+  /** 战斗前HP */
+  hpBefore: number;
+  /** 战斗后HP (预测) */
+  hpAfter: number;
+  /** 最大HP */
+  hpMax: number;
+  /** 受到的伤害 */
+  damageReceived: number;
+  /** HP百分比 (战后) */
+  hpPercent: number;
+  /** 是否击沉 */
+  isSunk: boolean;
+  /** 是否大破 (≤25%) */
+  isTaiha: boolean;
+  /** 是否中破 (≤50%) */
+  isChuuha: boolean;
+  /** 是否小破 (≤75%) */
+  isShouha: boolean;
+}
+
+/** 舰队战斗状态 */
+export interface FleetBattleStatus {
+  /** 舰队ID */
+  deckId: number;
+  /** 舰队名称 */
+  name: string;
+  /** 各舰状态 */
+  ships: ShipBattleStatus[];
+  /** 大破舰数量 */
+  taihaCount: number;
+  /** 击沉舰数量 */
+  sunkCount: number;
+}
+
+/** 敌方舰队战斗状态 */
+export interface EnemyBattleStatus {
+  /** 舰船ID列表 (master id) */
+  shipIds: number[];
+  /** 各舰当前HP */
+  hpNow: number[];
+  /** 各舰最大HP */
+  hpMax: number[];
+  /** 击沉数量 */
+  sunkCount: number;
+}
+
+/** 当前战斗状态快照 (用于前端展示) */
+export interface BattleStatusSnapshot {
+  /** 战斗ID */
+  battleId: string;
+  /** 出击ID */
+  sortieId: string;
+
+  // 地图信息
+  /** 海域ID */
+  mapAreaId: number;
+  /** 地图编号 */
+  mapInfoNo: number;
+  /** 格子ID */
+  cellId: number;
+  /** 是否Boss点 */
+  isBoss: boolean;
+
+  // 战斗类型
+  /** 战斗种类: day昼战, night夜战, day_to_night昼夜战 */
+  battlePhase: 'day' | 'night' | 'day_to_night';
+  /** 是否演习 */
+  isPractice: boolean;
+  /** 联合舰队类型 (0=非联合) */
+  combinedType: number;
+
+  // 阵型与交战形态
+  /** 我方阵型 */
+  friendFormation?: number;
+  /** 敌方阵型 */
+  enemyFormation?: number;
+  /** 交战形态 */
+  engagement?: number;
+
+  // 友方舰队状态 (预测)
+  /** 主力舰队 */
+  friendMain: FleetBattleStatus;
+  /** 护卫舰队 (联合舰队时) */
+  friendEscort?: FleetBattleStatus;
+
+  // 敌方舰队状态 (预测)
+  /** 敌主力舰队 */
+  enemyMain: EnemyBattleStatus;
+  /** 敌护卫舰队 */
+  enemyEscort?: EnemyBattleStatus;
+
+  // 预测结果
+  /** 预测等级 S/A/B/C/D/E */
+  predictedRank: string;
+  /** 友方有大破 */
+  hasTaihaRisk: boolean;
+  /** 友方大破舰列表 */
+  taihaShips: { uid: number; name: string; hpPercent: number }[];
+  /** 友方有击沉风险 (旗舰以外) */
+  hasSunkRisk: boolean;
+
+  // 时间戳
+  /** 战斗开始时间 */
+  startedAt: number;
+  /** 预测计算时间 */
+  calculatedAt: number;
+}
+
+/** 战斗结果快照 (战斗结束后) */
+export interface BattleResultSnapshot {
+  /** 战斗ID */
+  battleId: string;
+  /** 出击ID */
+  sortieId: string;
+
+  // 地图信息
+  mapAreaId: number;
+  mapInfoNo: number;
+  cellId: number;
+  isBoss: boolean;
+
+  // 战斗结果
+  /** 实际等级 */
+  rank: string;
+  /** MVP位置 (1-based) */
+  mvp?: number;
+  /** 联合第二舰队MVP */
+  mvpCombined?: number;
+
+  // 掉落
+  /** 掉落舰船ID */
+  dropShipId?: number;
+  /** 掉落舰船名 */
+  dropShipName?: string;
+  /** 掉落道具ID */
+  dropItemId?: number;
+
+  // 经验
+  /** 基础经验 */
+  baseExp?: number;
+
+  // 舰队最终状态
+  friendMain: FleetBattleStatus;
+  friendEscort?: FleetBattleStatus;
+  enemyMain: EnemyBattleStatus;
+  enemyEscort?: EnemyBattleStatus;
+
+  // 时间戳
+  startedAt: number;
+  endedAt: number;
+}
+
+/** 当前战斗暂态 */
+export interface CurrentBattleState {
+  /** 当前战斗状态快照 (战斗进行中) */
+  status: BattleStatusSnapshot | null;
+  /** 战斗结果快照 (战斗结束后) */
+  result: BattleResultSnapshot | null;
+  /** 最后更新时间 */
+  lastUpdatedAt: number;
 }

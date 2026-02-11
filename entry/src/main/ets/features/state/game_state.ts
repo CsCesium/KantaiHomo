@@ -12,7 +12,13 @@ import {
   SenkaInfo,
   StateChangeType,
   NDockSnapShot,
-  KDockSnapShot
+  KDockSnapShot,
+  CurrentBattleState,
+  BattleStatusSnapshot,
+  BattleResultSnapshot,
+  FleetBattleStatus,
+  EnemyBattleStatus,
+  ShipBattleStatus
 } from "./type";
 
 class GameStateManager {
@@ -23,6 +29,11 @@ class GameStateManager {
     Ndocks:[],
     Kdocks:[],
     ships: new Map(),
+    currentBattle: {
+      status: null,
+      result: null,
+      lastUpdatedAt: 0,
+    },
     lastUpdatedAt: 0,
   };
 
@@ -427,11 +438,94 @@ class GameStateManager {
       Ndocks:[],
       Kdocks:[],
       ships: new Map(),
+      currentBattle: {
+        status: null,
+        result: null,
+        lastUpdatedAt: 0,
+      },
       lastUpdatedAt: 0,
     };
     this.expHistory = [];
     this.dailySenkaStart = null;
     this.notifyListeners('all');
+  }
+
+  // ==================== 战斗状态管理 ====================
+
+  /**
+   * 更新战斗状态快照 (战斗进行中)
+   */
+  updateBattleStatus(status: BattleStatusSnapshot): void {
+    this.state.currentBattle = {
+      ...this.state.currentBattle,
+      status,
+      result: null, // 清空之前的结果
+      lastUpdatedAt: Date.now(),
+    };
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('battle');
+  }
+
+  /**
+   * 更新战斗结果快照 (战斗结束后)
+   */
+  updateBattleResult(result: BattleResultSnapshot): void {
+    this.state.currentBattle = {
+      ...this.state.currentBattle,
+      result,
+      lastUpdatedAt: Date.now(),
+    };
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('battle');
+  }
+
+  /**
+   * 清空当前战斗状态
+   */
+  clearBattleState(): void {
+    this.state.currentBattle = {
+      status: null,
+      result: null,
+      lastUpdatedAt: Date.now(),
+    };
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('battle');
+  }
+
+  /**
+   * 获取当前战斗状态
+   */
+  getCurrentBattle(): CurrentBattleState {
+    return this.state.currentBattle;
+  }
+
+  /**
+   * 获取战斗状态快照
+   */
+  getBattleStatus(): BattleStatusSnapshot | null {
+    return this.state.currentBattle.status;
+  }
+
+  /**
+   * 获取战斗结果快照
+   */
+  getBattleResult(): BattleResultSnapshot | null {
+    return this.state.currentBattle.result;
+  }
+
+  /**
+   * 检查是否在战斗中
+   */
+  isInBattle(): boolean {
+    return this.state.currentBattle.status !== null &&
+      this.state.currentBattle.result === null;
+  }
+
+  /**
+   * 检查是否有战斗结果待显示
+   */
+  hasBattleResult(): boolean {
+    return this.state.currentBattle.result !== null;
   }
 
   /**
@@ -445,6 +539,7 @@ class GameStateManager {
       Ndocks: this.state.Ndocks,
       Kdocks: this.state.Kdocks,
       ships: Array.from(this.state.ships.values()),
+      currentBattle: this.state.currentBattle,
       lastUpdatedAt: this.state.lastUpdatedAt,
       expHistory: this.expHistory,
       dailySenkaStart: this.dailySenkaStart,
@@ -486,3 +581,13 @@ export const resetDailySenka = () => gameStateManager.resetDailySenka();
 export const clearGameState = () => gameStateManager.clear();
 export const subscribeGameState = (listener: StateChangeListener) => gameStateManager.subscribe(listener);
 export const exportGameStateSnapshot = () => gameStateManager.exportSnapshot();
+
+// 战斗状态便捷函数
+export const updateBattleStatus = (status: BattleStatusSnapshot) => gameStateManager.updateBattleStatus(status);
+export const updateBattleResult = (result: BattleResultSnapshot) => gameStateManager.updateBattleResult(result);
+export const clearBattleState = () => gameStateManager.clearBattleState();
+export const getCurrentBattle = () => gameStateManager.getCurrentBattle();
+export const getBattleStatus = () => gameStateManager.getBattleStatus();
+export const getBattleResult = () => gameStateManager.getBattleResult();
+export const isInBattle = () => gameStateManager.isInBattle();
+export const hasBattleResult = () => gameStateManager.hasBattleResult();
