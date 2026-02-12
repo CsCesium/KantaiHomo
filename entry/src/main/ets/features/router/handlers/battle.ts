@@ -7,8 +7,11 @@ import {
   battleRecordToRow
 } from '../../../domain/models';
 import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
+import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
+import { updateBattleStatus, updateBattleResult } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
+
 
 class BattleHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
@@ -55,6 +58,10 @@ class BattleHandler implements Handler {
         context.pendingBattle.merged = segment;
         context.pendingBattle.prediction = prediction;
         context.pendingBattle.isPractice = isPractice;
+
+        // 更新战斗状态快照 (供前端显示)
+        const battleStatus = buildDayBattleStatus(context, context.pendingBattle, prediction);
+        updateBattleStatus(battleStatus);
       }
     }
 
@@ -115,6 +122,10 @@ class BattleHandler implements Handler {
         context.pendingBattle.merged = merged;
         context.pendingBattle.prediction = prediction;
         context.pendingBattle.isPractice = isPractice;
+
+        // 更新战斗状态快照 (供前端显示)
+        const battleStatus = buildNightBattleStatus(context, context.pendingBattle, prediction);
+        updateBattleStatus(battleStatus);
       }
     }
 
@@ -155,8 +166,9 @@ class BattleHandler implements Handler {
 
     // 2. 构建战斗记录
     const now = Date.now();
+    const battleId = generateBattleId();
     const record: BattleRecord = {
-      id: generateBattleId(),
+      id: battleId,
       sortieId: context?.sortieId ?? '',
 
       // 点位信息
@@ -208,7 +220,25 @@ class BattleHandler implements Handler {
       endedAt: now,
     };
 
-    // 3. 持久化（非演习才存储）
+    // 3. 更新战斗结果状态快照 (供前端显示)
+    if (context && context.pendingBattle && context.pendingBattle.prediction) {
+      const resultSnapshot = buildBattleResultSnapshot({
+        battleId,
+        sortieContext: context,
+        battleContext: context.pendingBattle,
+        prediction: context.pendingBattle.prediction,
+        rank: normalizedResult.rank,
+        mvp: normalizedResult.mvp.main,
+        mvpCombined: normalizedResult.mvp.combined,
+        dropShipId: normalizedResult.drop?.shipId,
+        dropShipName: normalizedResult.drop?.shipName,
+        dropItemId: normalizedResult.drop?.itemId,
+        baseExp: normalizedResult.exp.base,
+      });
+      updateBattleResult(resultSnapshot);
+    }
+
+    // 4. 持久化（非演习才存储）
     if (!isPractice && deps.repos?.battle) {
       try {
         const row = battleRecordToRow(record);
@@ -219,7 +249,7 @@ class BattleHandler implements Handler {
       }
     }
 
-    // 4. 发布事件
+    // 5. 发布事件
     if (deps.publish) {
       deps.publish('battle:ended', {
         record,
@@ -227,7 +257,7 @@ class BattleHandler implements Handler {
       });
     }
 
-    // 5. 清理战斗上下文
+    // 6. 清理战斗上下文
     if (context) {
       context.pendingBattle = null;
     }
