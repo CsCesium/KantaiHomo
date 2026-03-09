@@ -1,58 +1,41 @@
 import settings from '@ohos.settings';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
-
+import display from '@ohos.display';
 
 export class Orientation {
   private ctx: common.UIAbilityContext;
+
   private current: window.Orientation = window.Orientation.AUTO_ROTATION;
   private currentIsCompact: boolean = false;
   private rotationUnlocked: boolean = true;
   private lockedOrientation: window.Orientation | null = null;
 
+  // 新增：折叠态与窗口模式缓存
+  private foldStatus: display.FoldStatus = display.FoldStatus.FOLD_STATUS_UNKNOWN;
+  private windowStatus: window.WindowStatusType = window.WindowStatusType.FULL_SCREEN;
+
+  // 回调引用，便于反注册
+  private readonly onFoldStatusChange = (status: display.FoldStatus): void => {
+    this.foldStatus = status;
+    console.debug('[Orientation] foldStatus changed:', status);
+    void this.applyByMode(this.currentIsCompact);
+  };
+
+  private readonly onWindowStatusChange = (status: window.WindowStatusType): void => {
+    this.windowStatus = status;
+    console.debug('[Orientation] windowStatus changed:', status);
+    void this.applyByMode(this.currentIsCompact);
+  };
+
   constructor(ctx: common.UIAbilityContext) {
     this.ctx = ctx;
     this.rotationUnlocked = this.readSystemRotationStatus();
+    this.foldStatus = this.readFoldStatus();
     this.registerRotationObserver();
+    this.registerFoldObserver();
+    void this.registerWindowStatusObserver();
   }
-
-
-  private registerRotationObserver(): void {
-    try {
-      settings.registerKeyObserver(
-        this.ctx,
-        settings.general.ACCELEROMETER_ROTATION_STATUS,
-        settings.domainName.DEVICE_SHARED,
-        () => {
-          let value = settings.getValueSync(this.ctx, settings.general.ACCELEROMETER_ROTATION_STATUS, "1");
-          const unlocked = (value === "1" );
-          console.debug('[Orientation] observer triggered, value:', value, 'unlocked:', unlocked);
-          if (this.rotationUnlocked !== unlocked) {
-            this.rotationUnlocked = unlocked;
-            console.debug('[Orientation] system rotation changed:', unlocked ? 'unlocked' : 'locked');
-            this.onRotationLockChanged(unlocked);
-          }
-        }
-      );
-      console.debug('[Orientation] observer registered');
-    } catch (e) {
-      console.error('[Orientation] registerObserver failed:', e);
-    }
-  }
-
-
-  private async onRotationLockChanged(unlocked: boolean): Promise<void> {
-    if (unlocked) {
-      this.lockedOrientation = null;
-      await this.applyByMode(this.currentIsCompact);
-    } else {
-      const currentOri = await this.getCurrentLockedOrientation();
-      this.lockedOrientation = currentOri;
-      console.debug('[Orientation] locking to:', currentOri);
-      await this.forceSetOrientation(currentOri);
-    }
-  }
-
 
   destroy(): void {
     try {
@@ -62,13 +45,194 @@ export class Orientation {
         settings.domainName.DEVICE_SHARED
       );
     } catch (e) {
-      console.error('[Orientation] unregisterObserver failed:', e);
+      console.error('[Orientation] unregister rotation observer failed:', e);
+    }
+
+    try {
+      if (display.isFoldable()) {
+        display.off('foldStatusChange');
+      }
+    } catch (e) {
+      console.error('[Orientation] unregister fold observer failed:', e);
+    }
+
+    void this.unregisterWindowStatusObserver();
+  }
+
+  private registerRotationObserver(): void {
+    try {
+      settings.registerKeyObserver(
+        this.ctx,
+        settings.general.ACCELEROMETER_ROTATION_STATUS,
+        settings.domainName.DEVICE_SHARED,
+        () => {
+          const value = settings.getValueSync(
+            this.ctx,
+            settings.general.ACCELEROMETER_ROTATION_STATUS,
+            '1'
+          );
+          const unlocked = (value === '1');
+          console.debug('[Orientation] rotation observer triggered, value:', value, 'unlocked:', unlocked);
+
+          if (this.rotationUnlocked !== unlocked) {
+            this.rotationUnlocked = unlocked;
+            void this.onRotationLockChanged(unlocked);
+          }
+        }
+      );
+      console.debug('[Orientation] rotation observer registered');
+    } catch (e) {
+      console.error('[Orientation] register rotation observer failed:', e);
     }
   }
 
+  private registerFoldObserver(): void {
+    try {
+      if (!display.isFoldable()) {
+        console.debug('[Orientation] current device is not foldable');
+        return;
+      }
+      display.on('foldStatusChange', this.onFoldStatusChange);
+      console.debug('[Orientation] fold observer registered');
+    } catch (e) {
+      console.error('[Orientation] register fold observer failed:', e);
+    }
+  }
+
+  private async registerWindowStatusObserver(): Promise<void> {
+    try {
+      const win = await window.getLastWindow(this.ctx);
+      this.windowStatus = this.safeGetWindowStatus(win);
+      win.on('windowStatusChange', this.onWindowStatusChange);
+      console.debug('[Orientation] windowStatus observer registered, initial:', this.windowStatus);
+    } catch (e) {
+      console.error('[Orientation] register windowStatus observer failed:', e);
+    }
+  }
+
+  private async unregisterWindowStatusObserver(): Promise<void> {
+    try {
+      const win = await window.getLastWindow(this.ctx);
+      win.off('windowStatusChange');
+    } catch (e) {
+      console.error('[Orientation] unregister windowStatus observer failed:', e);
+    }
+  }
+
+  private async onRotationLockChanged(unlocked: boolean): Promise<void> {
+    console.debug('[Orientation] system rotation changed:', unlocked ? 'unlocked' : 'locked');
+
+    if (unlocked) {
+      this.lockedOrientation = null;
+      await this.applyByMode(this.currentIsCompact);
+      return;
+    }
+
+    // 如果当前场景就是“折叠态 + 全屏 + compact”，即使系统锁定，也仍然保持横屏
+    await this.refreshWindowStatus();
+    if (this.shouldForceLandscape()) {
+      this.lockedOrientation = window.Orientation.LANDSCAPE;
+      await this.forceSetOrientation(window.Orientation.LANDSCAPE);
+      return;
+    }
+
+    const currentOri = await this.getCurrentLockedOrientation();
+    this.lockedOrientation = currentOri;
+    await this.forceSetOrientation(currentOri);
+  }
+
+  async applyByMode(isCompact: boolean): Promise<void> {
+    this.currentIsCompact = isCompact;
+    await this.refreshWindowStatus();
+
+    console.debug(
+      '[Orientation] applyByMode:',
+      'isCompact=', isCompact,
+      'rotationUnlocked=', this.rotationUnlocked,
+      'foldStatus=', this.foldStatus,
+      'windowStatus=', this.windowStatus
+    );
+
+    // 1) 只有 “compact + 折叠态 + 全屏” 才强制横屏
+    if (this.shouldForceLandscape()) {
+      this.lockedOrientation = window.Orientation.LANDSCAPE;
+      await this.forceSetOrientation(window.Orientation.LANDSCAPE);
+      return;
+    }
+
+    // 2) 分屏 / 悬浮窗 / 非全屏：不要强制横屏，退回普通策略
+    if (!this.isFullscreenWindow()) {
+      await this.applyNormalPolicy();
+      return;
+    }
+
+    // 3) 其他全屏场景：走普通策略
+    await this.applyNormalPolicy();
+  }
+
+  private async applyNormalPolicy(): Promise<void> {
+    if (!this.rotationUnlocked) {
+      const lockedOri = await this.getCurrentLockedOrientation();
+      this.lockedOrientation = lockedOri;
+      await this.forceSetOrientation(lockedOri);
+      return;
+    }
+
+    this.lockedOrientation = null;
+    await this.setPreferred(window.Orientation.AUTO_ROTATION);
+  }
+
+  private shouldForceLandscape(): boolean {
+    return this.currentIsCompact && this.isFolded() && this.isFullscreenWindow();
+  }
+
+  private isFolded(): boolean {
+    if (!display.isFoldable()) {
+      return false;
+    }
+    return this.foldStatus === display.FoldStatus.FOLD_STATUS_FOLDED;
+  }
+
+  private isFullscreenWindow(): boolean {
+    // 手机/折叠屏主窗口通常判断 FULL_SCREEN 就够用
+    return this.windowStatus === window.WindowStatusType.FULL_SCREEN;
+  }
+
+  private async refreshWindowStatus(): Promise<void> {
+    try {
+      const win = await window.getLastWindow(this.ctx);
+      this.windowStatus = this.safeGetWindowStatus(win);
+    } catch (e) {
+      console.error('[Orientation] refreshWindowStatus failed:', e);
+    }
+  }
+
+  private safeGetWindowStatus(win: window.Window): window.WindowStatusType {
+    try {
+      return win.getWindowStatus();
+    } catch (e) {
+      console.error('[Orientation] getWindowStatus failed, fallback FULL_SCREEN:', e);
+      return window.WindowStatusType.FULL_SCREEN;
+    }
+  }
+
+  private readFoldStatus(): display.FoldStatus {
+    try {
+      if (!display.isFoldable()) {
+        return display.FoldStatus.FOLD_STATUS_UNKNOWN;
+      }
+      return display.getFoldStatus();
+    } catch (e) {
+      console.error('[Orientation] readFoldStatus failed:', e);
+      return display.FoldStatus.FOLD_STATUS_UNKNOWN;
+    }
+  }
 
   private async forceSetOrientation(ori: window.Orientation): Promise<void> {
     try {
+      if (this.current === ori) {
+        return;
+      }
       const win = await window.getLastWindow(this.ctx);
       await win.setPreferredOrientation(ori);
       this.current = ori;
@@ -79,74 +243,50 @@ export class Orientation {
   }
 
   async setPreferred(ori: window.Orientation): Promise<void> {
-    if (!this.rotationUnlocked && this.isAutoRotationType(ori)) {
-      return;
-    }
-
-    if (this.current === ori) { return; }
-    const win = await window.getLastWindow(this.ctx);
-    await win.setPreferredOrientation(ori);
-    this.current = ori;
-    console.debug('[Orientation] setPreferred:', ori);
-  }
-
-  async applyByMode(isCompact: boolean): Promise<void> {
-    this.currentIsCompact = isCompact;
-    console.debug('[Orientation] applyByMode, isCompact:', isCompact, 'rotationUnlocked:', this.rotationUnlocked);
-
-    if (!this.rotationUnlocked) {
-      if (this.lockedOrientation !== null) {
-        await this.forceSetOrientation(this.lockedOrientation);
-      } else {
-        const lockedOri = await this.getCurrentLockedOrientation();
-        this.lockedOrientation = lockedOri;
-        await this.forceSetOrientation(lockedOri);
+    try {
+      if (this.current === ori) {
+        return;
       }
-      return;
+      const win = await window.getLastWindow(this.ctx);
+      await win.setPreferredOrientation(ori);
+      this.current = ori;
+      console.debug('[Orientation] setPreferred:', ori);
+    } catch (e) {
+      console.error('[Orientation] setPreferred failed:', e);
     }
-
-    const ori: window.Orientation = isCompact
-      ? window.Orientation.AUTO_ROTATION_LANDSCAPE
-      : window.Orientation.AUTO_ROTATION;
-    await this.setPreferred(ori);
   }
 
-  /**
-   * 判断是否是自动旋转类型
-   */
-  private isAutoRotationType(ori: window.Orientation): boolean {
-    return ori === window.Orientation.AUTO_ROTATION ||
-      ori === window.Orientation.AUTO_ROTATION_LANDSCAPE ||
-      ori === window.Orientation.AUTO_ROTATION_PORTRAIT;
-  }
-
-  /**
-   * 获取当前窗口方向，转换为锁定方向
-   */
   private async getCurrentLockedOrientation(): Promise<window.Orientation> {
     try {
       const win = await window.getLastWindow(this.ctx);
       const props = win.getWindowProperties();
       const rect = props.windowRect;
-      // 根据宽高判断当前是横屏还是竖屏
+
       const isLandscape = rect.width > rect.height;
       const ori = isLandscape
         ? window.Orientation.LANDSCAPE
         : window.Orientation.PORTRAIT;
-      console.debug('[Orientation] getCurrentLocked, rect:', rect.width, 'x', rect.height, '-> ', ori);
+
+      console.debug(
+        '[Orientation] getCurrentLockedOrientation:',
+        rect.width, 'x', rect.height, '->', ori
+      );
       return ori;
     } catch (e) {
       console.error('[Orientation] getCurrentLockedOrientation failed:', e);
-      return window.Orientation.LANDSCAPE;
+      return window.Orientation.PORTRAIT;
     }
   }
 
-
   private readSystemRotationStatus(): boolean {
     try {
-      const val = settings.getValueSync(this.ctx, settings.general.ACCELEROMETER_ROTATION_STATUS, "1");
+      const val = settings.getValueSync(
+        this.ctx,
+        settings.general.ACCELEROMETER_ROTATION_STATUS,
+        '1'
+      );
       console.debug('[Orientation] readSystemRotationStatus:', val);
-      return (val === "1");
+      return val === '1';
     } catch (e) {
       console.error('[Orientation] readSystemRotationStatus failed:', e);
       return true;
