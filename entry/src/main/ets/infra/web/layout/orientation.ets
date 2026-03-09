@@ -11,11 +11,9 @@ export class Orientation {
   private rotationUnlocked: boolean = true;
   private lockedOrientation: window.Orientation | null = null;
 
-  // 新增：折叠态与窗口模式缓存
   private foldStatus: display.FoldStatus = display.FoldStatus.FOLD_STATUS_UNKNOWN;
   private windowStatus: window.WindowStatusType = window.WindowStatusType.FULL_SCREEN;
 
-  // 回调引用，便于反注册
   private readonly onFoldStatusChange = (status: display.FoldStatus): void => {
     this.foldStatus = status;
     console.debug('[Orientation] foldStatus changed:', status);
@@ -128,11 +126,15 @@ export class Orientation {
       return;
     }
 
-    // 如果当前场景就是“折叠态 + 全屏 + compact”，即使系统锁定，也仍然保持横屏
     await this.refreshWindowStatus();
     if (this.shouldForceLandscape()) {
-      this.lockedOrientation = window.Orientation.LANDSCAPE;
-      await this.forceSetOrientation(window.Orientation.LANDSCAPE);
+      if (unlocked) {
+        this.lockedOrientation = null;
+        await this.setPreferred(window.Orientation.AUTO_ROTATION_LANDSCAPE);
+      } else {
+        this.lockedOrientation = window.Orientation.LANDSCAPE;
+        await this.forceSetOrientation(window.Orientation.LANDSCAPE);
+      }
       return;
     }
 
@@ -155,18 +157,21 @@ export class Orientation {
 
     // 1) 只有 “compact + 折叠态 + 全屏” 才强制横屏
     if (this.shouldForceLandscape()) {
-      this.lockedOrientation = window.Orientation.LANDSCAPE;
-      await this.forceSetOrientation(window.Orientation.LANDSCAPE);
+      if (this.rotationUnlocked) {
+        this.lockedOrientation = null;
+        await this.setPreferred(window.Orientation.AUTO_ROTATION_LANDSCAPE);
+      } else {
+        this.lockedOrientation = window.Orientation.LANDSCAPE;
+        await this.forceSetOrientation(window.Orientation.LANDSCAPE);
+      }
       return;
     }
 
-    // 2) 分屏 / 悬浮窗 / 非全屏：不要强制横屏，退回普通策略
     if (!this.isFullscreenWindow()) {
       await this.applyNormalPolicy();
       return;
     }
 
-    // 3) 其他全屏场景：走普通策略
     await this.applyNormalPolicy();
   }
 
