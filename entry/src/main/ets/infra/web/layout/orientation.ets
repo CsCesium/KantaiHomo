@@ -8,19 +8,15 @@ export class Orientation {
   private current: window.Orientation = window.Orientation.AUTO_ROTATION;
   private currentIsCompact: boolean = false;
   private rotationUnlocked: boolean = true;
-  // 记录锁定时的方向
   private lockedOrientation: window.Orientation | null = null;
 
   constructor(ctx: common.UIAbilityContext) {
     this.ctx = ctx;
     this.rotationUnlocked = this.readSystemRotationStatus();
     this.registerRotationObserver();
-    console.debug('[Orientation] init, rotationUnlocked:', this.rotationUnlocked);
   }
 
-  /**
-   * 注册系统旋转设置监听
-   */
+
   private registerRotationObserver(): void {
     try {
       settings.registerKeyObserver(
@@ -44,16 +40,12 @@ export class Orientation {
     }
   }
 
-  /**
-   * 旋转锁定状态变化时处理
-   */
+
   private async onRotationLockChanged(unlocked: boolean): Promise<void> {
     if (unlocked) {
-      // 解锁：清除锁定方向，恢复自动旋转
       this.lockedOrientation = null;
       await this.applyByMode(this.currentIsCompact);
     } else {
-      // 锁定：记录并锁定当前方向
       const currentOri = await this.getCurrentLockedOrientation();
       this.lockedOrientation = currentOri;
       console.debug('[Orientation] locking to:', currentOri);
@@ -61,9 +53,7 @@ export class Orientation {
     }
   }
 
-  /**
-   * 销毁时取消监听
-   */
+
   destroy(): void {
     try {
       settings.unregisterKeyObserver(
@@ -76,9 +66,7 @@ export class Orientation {
     }
   }
 
-  /**
-   * 强制设置方向（忽略缓存检查）
-   */
+
   private async forceSetOrientation(ori: window.Orientation): Promise<void> {
     try {
       const win = await window.getLastWindow(this.ctx);
@@ -91,9 +79,7 @@ export class Orientation {
   }
 
   async setPreferred(ori: window.Orientation): Promise<void> {
-    // 如果系统旋转锁定，拒绝切换到 AUTO 类型的方向
     if (!this.rotationUnlocked && this.isAutoRotationType(ori)) {
-      console.debug('[Orientation] blocked auto rotation due to system lock');
       return;
     }
 
@@ -108,12 +94,10 @@ export class Orientation {
     this.currentIsCompact = isCompact;
     console.debug('[Orientation] applyByMode, isCompact:', isCompact, 'rotationUnlocked:', this.rotationUnlocked);
 
-    // 如果系统旋转锁定，使用锁定的方向
     if (!this.rotationUnlocked) {
       if (this.lockedOrientation !== null) {
         await this.forceSetOrientation(this.lockedOrientation);
       } else {
-        // 首次锁定，获取当前方向
         const lockedOri = await this.getCurrentLockedOrientation();
         this.lockedOrientation = lockedOri;
         await this.forceSetOrientation(lockedOri);
@@ -157,9 +141,7 @@ export class Orientation {
     }
   }
 
-  /**
-   * 读取系统旋转设置
-   */
+
   private readSystemRotationStatus(): boolean {
     try {
       const val = settings.getValueSync(this.ctx, settings.general.ACCELEROMETER_ROTATION_STATUS, "1");
