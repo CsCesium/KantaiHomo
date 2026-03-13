@@ -2,7 +2,7 @@ import { webview } from "@kit.ArkWeb";
 import { kvDelete, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
-import { decideLayout, FitPolicy, HostMode } from "./layout/responsive";
+import { decideLayout, FitPolicy, HostMode, LayoutMode, ViewportFitStrategy } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { window } from "@kit.ArkUI";
@@ -30,6 +30,10 @@ export default struct WebHost {
   @State private lastMode: HostMode | null = null;
   @State private fit: FitPolicy = 'height';
   @State private showBottomTools: boolean = false;
+  @State private showFixedButtons: boolean = true;
+  @State private showDashboard: boolean = false;
+  @State private layoutMode: LayoutMode = LayoutMode.NARROW_SPLIT;
+  @State private viewportFit: ViewportFitStrategy = ViewportFitStrategy.FILL_VERTICAL;
   @State private gameHeightVp: number = 0;
   @State private gameWidthVp: number = 0;
 
@@ -121,8 +125,8 @@ export default struct WebHost {
 
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
-          .width(this.mode === HostMode.COMPACT ? 56 : 0)
-          .visibility(this.mode === HostMode.COMPACT ? Visibility.Visible : Visibility.None)
+           .width(this.showFixedButtons ? 56 : 0)
+           .visibility(this.showFixedButtons ? Visibility.Visible : Visibility.None)
           .padding({ left: 4, right: 4, top: 8, bottom: 8 })
           .align(Alignment.BottomStart)
 
@@ -174,17 +178,31 @@ export default struct WebHost {
     .onAreaChange((_, area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);
-      const decision = decideLayout(w, h);
+      const windowStatus: number = this.host.getWindowStatus();
+      const isLandscape: boolean = w >= h;
+      const decision = decideLayout({
+        widthVp: w,
+        heightVp: h,
+        isLandscape,
+        windowStatus,
+        isFullscreen: windowStatus === window.WindowStatusType.FULL_SCREEN
+      });
       const modeChanged: boolean = this.lastMode !== decision.mode;
 
       this.mode = decision.mode;
+      this.layoutMode = decision.layout;
       this.fit = decision.policy;
-      this.showBottomTools = (this.mode === HostMode.EXPANDED);
+      this.showFixedButtons = decision.showFixedButtons;
+      this.showDashboard = decision.showDashboard;
+      this.viewportFit = decision.viewportFit;
+      this.showBottomTools = this.showDashboard || (this.mode === HostMode.EXPANDED);
 
       const AR: number = 720 / 1200; // H/W
       const contentH: number = Math.min(h, w * AR);
       this.gameWidthVp = w;
-      this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
+      this.gameHeightVp = this.viewportFit === ViewportFitStrategy.FILL_HORIZONTAL
+        ? (this.showBottomTools ? Math.floor(contentH) : h)
+        : h;
 
       void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
       if (modeChanged) {

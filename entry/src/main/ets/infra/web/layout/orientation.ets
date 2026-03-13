@@ -298,6 +298,10 @@ export class Orientation {
     }
   }
 
+
+  getWindowStatus(): window.WindowStatusType {
+    return this.windowStatus;
+  }
   isSystemRotationUnlocked(): boolean {
     return this.rotationUnlocked;
   }
