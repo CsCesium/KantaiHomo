@@ -2,7 +2,7 @@ import { webview } from "@kit.ArkWeb";
 import { kvDelete, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
-import { decideLayout, FitPolicy, HostMode } from "./layout/responsive";
+import { decideLayout, FitPolicy, HostMode, LrMode } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { window } from "@kit.ArkUI";
@@ -29,9 +29,12 @@ export default struct WebHost {
   @State private mode: HostMode = HostMode.COMPACT;
   @State private lastMode: HostMode | null = null;
   @State private fit: FitPolicy = 'height';
+  @State private lrMode: LrMode = 'landscapeWithDashboard';
   @State private showBottomTools: boolean = false;
   @State private gameHeightVp: number = 0;
   @State private gameWidthVp: number = 0;
+  @State private areaWidthVp: number = 0;
+  @State private areaHeightVp: number = 0;
 
   private getInjectOptions = (): Required<InjectOptions> => {
     return {
@@ -55,7 +58,7 @@ export default struct WebHost {
 
   private getFit = (): FitGetter => ({
     policy: this.fit,
-    locked: this.mode === HostMode.COMPACT,
+    locked: this.mode === HostMode.COMPACT || this.lrMode === 'portraitFit',
     viewportW: this.gameWidthVp,
     viewportH: this.gameHeightVp
   });
@@ -90,6 +93,7 @@ export default struct WebHost {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
     this.host.bindDisplay();
+    void this.restoreLrMode();
     void this.host.applyOrientationByMode(true);
 
     window.getLastWindow(ctx).then(win => {
@@ -102,6 +106,51 @@ export default struct WebHost {
 
   aboutToDisappear() {
     this.host.unbindDisplay();
+  }
+
+
+  private readonly LR_MODE_KEY: string = 'webhost.lrMode';
+
+  private async restoreLrMode(): Promise<void> {
+    const raw = await kvGetString(this.LR_MODE_KEY, this.lrMode);
+    if (raw === 'portraitFit' || raw === 'landscapeWithDashboard') {
+      this.lrMode = raw;
+      this.recalculateLayout(this.areaWidthVp, this.areaHeightVp, true);
+    }
+  }
+
+  private async toggleLrMode(): Promise<void> {
+    this.lrMode = this.lrMode === 'portraitFit' ? 'landscapeWithDashboard' : 'portraitFit';
+    await kvSet(this.LR_MODE_KEY, this.lrMode);
+    this.recalculateLayout(this.areaWidthVp, this.areaHeightVp, true);
+  }
+
+  private recalculateLayout(w: number, h: number, forceRefit: boolean = false): void {
+    if (w <= 0 || h <= 0) {
+      return;
+    }
+
+    const decision = decideLayout(w, h, this.lrMode);
+    const modeChanged: boolean = this.lastMode !== decision.mode;
+
+    this.mode = decision.mode;
+    this.fit = decision.policy;
+    this.showBottomTools = decision.showBottomTools;
+
+    const AR: number = 720 / 1200; // H/W
+    const contentH: number = Math.min(h, w * AR);
+    this.gameWidthVp = w;
+    if (this.mode === HostMode.EXPANDED && this.lrMode === 'landscapeWithDashboard') {
+      this.gameHeightVp = Math.floor(contentH);
+    } else {
+      this.gameHeightVp = h;
+    }
+
+    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
+    if (modeChanged || forceRefit) {
+      this.host.onPageEnd();
+    }
+    this.lastMode = this.mode;
   }
 
   private onWebAttached = () => { this.host.attach(); }
@@ -120,7 +169,11 @@ export default struct WebHost {
       }
 
       Row() {
-        ButtonColumn({ onRefresh: () => this.controller.refresh() })
+        ButtonColumn({
+          onRefresh: () => this.controller.refresh(),
+          onToggleLrMode: () => { void this.toggleLrMode(); },
+          lrMode: this.lrMode
+        })
           .width(this.mode === HostMode.COMPACT ? 56 : 0)
           .visibility(this.mode === HostMode.COMPACT ? Visibility.Visible : Visibility.None)
           .padding({ left: 4, right: 4, top: 8, bottom: 8 })
@@ -148,7 +201,11 @@ export default struct WebHost {
       .backgroundColor('#000')
 
       Row() {
-        ButtonColumn({ onRefresh: () => this.controller.refresh() })
+        ButtonColumn({
+          onRefresh: () => this.controller.refresh(),
+          onToggleLrMode: () => { void this.toggleLrMode(); },
+          lrMode: this.lrMode
+        })
           .width(56)
           .height('100%')
           .opacity(1)
@@ -174,23 +231,9 @@ export default struct WebHost {
     .onAreaChange((_, area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);
-      const decision = decideLayout(w, h);
-      const modeChanged: boolean = this.lastMode !== decision.mode;
-
-      this.mode = decision.mode;
-      this.fit = decision.policy;
-      this.showBottomTools = (this.mode === HostMode.EXPANDED);
-
-      const AR: number = 720 / 1200; // H/W
-      const contentH: number = Math.min(h, w * AR);
-      this.gameWidthVp = w;
-      this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
-
-      void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
-      if (modeChanged) {
-        this.host.onPageEnd();
-      }
-      this.lastMode = this.mode;
+      this.areaWidthVp = w;
+      this.areaHeightVp = h;
+      this.recalculateLayout(w, h);
     })
   }
 }

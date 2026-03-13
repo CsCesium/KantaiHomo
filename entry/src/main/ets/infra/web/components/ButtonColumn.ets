@@ -1,6 +1,8 @@
 @ComponentV2
 export default struct LeftButtonColumn {
   @Event onRefresh: () => void;
+  @Event onToggleLrMode: () => void;
+  @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
 
   @Builder private IconBtn(txt: string, onTap: () => void) {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
@@ -15,7 +17,7 @@ export default struct LeftButtonColumn {
   build() {
     Column({ space: 8 }) {
       this.IconBtn('⟳',  () => this.onRefresh?.())
-      this.IconBtn('⟳',  () => this.onRefresh?.())
+      this.IconBtn(this.lrMode === 'portraitFit' ? '竖' : '横', () => this.onToggleLrMode?.())
       // TODO：Other Buttons
     }
     .width(56).padding({ left: 4, right: 4, top: 8, bottom: 8 })
