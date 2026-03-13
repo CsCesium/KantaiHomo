@@ -1,4 +1,4 @@
-export enum HostMode { COMPACT = 0, EXPANDED = 1 }
+export enum HostMode { COMPACT = 0, EXPANDED = 1, FLOATING = 2 }
 export type FitPolicy = 'height' | 'width'|'auto';
 
 export interface LayoutDecision { mode: HostMode; policy: FitPolicy; }

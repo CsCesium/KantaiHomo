@@ -32,6 +32,13 @@ export default struct WebHost {
   @State private showBottomTools: boolean = false;
   @State private gameHeightVp: number = 0;
   @State private gameWidthVp: number = 0;
+  @State private isFloatingWindow: boolean = false;
+  private windowStatus: window.WindowStatusType = window.WindowStatusType.FULL_SCREEN;
+
+  private readonly onWindowStatusChange = (status: window.WindowStatusType): void => {
+    this.windowStatus = status;
+    this.isFloatingWindow = this.windowStatus === window.WindowStatusType.FLOATING;
+  };
 
   private getInjectOptions = (): Required<InjectOptions> => {
     return {
@@ -59,6 +66,14 @@ export default struct WebHost {
     viewportW: this.gameWidthVp,
     viewportH: this.gameHeightVp
   });
+
+
+  private resolveMode(widthVp: number, heightVp: number): { mode: HostMode; policy: FitPolicy } {
+    if (this.isFloatingWindow) {
+      return { mode: HostMode.FLOATING, policy: 'height' };
+    }
+    return decideLayout(widthVp, heightVp);
+  }
 
   private async rpcHandler(raw: string): Promise<string> {
     try {
@@ -93,6 +108,9 @@ export default struct WebHost {
     void this.host.applyOrientationByMode(true);
 
     window.getLastWindow(ctx).then(win => {
+      this.windowStatus = win.getWindowStatus();
+      this.isFloatingWindow = this.windowStatus === window.WindowStatusType.FLOATING;
+      win.on('windowStatusChange', this.onWindowStatusChange);
       void win.setWindowLayoutFullScreen(true);
       void win.setWindowSystemBarEnable([]);
     });
@@ -102,6 +120,10 @@ export default struct WebHost {
 
   aboutToDisappear() {
     this.host.unbindDisplay();
+    const ctx = getContext(this) as common.UIAbilityContext;
+    window.getLastWindow(ctx).then(win => {
+      win.off('windowStatusChange', this.onWindowStatusChange);
+    });
   }
 
   private onWebAttached = () => { this.host.attach(); }
@@ -136,7 +158,7 @@ export default struct WebHost {
             onWebPageEnd: this.onEnd
           })
         }
-        .margin({left:(this.showBottomTools?0:this.COMPACT_GUTTER)})
+        .margin({ left: (this.mode === HostMode.COMPACT && !this.showBottomTools) ? this.COMPACT_GUTTER : 0 })
         .width("100%")
         .height("100%")
         .clip(true)
@@ -167,26 +189,34 @@ export default struct WebHost {
     .height('100%')
     .width('100%')
     .backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM],this.mode === HostMode.COMPACT
-      ? [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
-      : [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END]
+    .expandSafeArea([SafeAreaType.SYSTEM], this.mode === HostMode.FLOATING
+      ? []
+      : (this.mode === HostMode.COMPACT
+        ? [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
+        : [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END])
     )
     .onAreaChange((_, area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);
-      const decision = decideLayout(w, h);
+      const decision = this.resolveMode(w, h);
       const modeChanged: boolean = this.lastMode !== decision.mode;
 
       this.mode = decision.mode;
       this.fit = decision.policy;
       this.showBottomTools = (this.mode === HostMode.EXPANDED);
 
-      const AR: number = 720 / 1200; // H/W
-      const contentH: number = Math.min(h, w * AR);
-      this.gameWidthVp = w;
-      this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
+      if (this.mode === HostMode.FLOATING) {
+        this.gameWidthVp = w;
+        this.gameHeightVp = h;
+      } else {
+        const AR: number = 720 / 1200; // H/W
+        const contentH: number = Math.min(h, w * AR);
+        this.gameWidthVp = w;
+        this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
+      }
 
       void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
+      this.host.syncFitStrong();
       if (modeChanged) {
         this.host.onPageEnd();
       }

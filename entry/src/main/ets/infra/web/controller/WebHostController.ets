@@ -168,6 +168,11 @@ export class WebHostController {
     this.bridge.handleOnMessage(raw);
   }
 
+  syncFitStrong(): void {
+    const f: FitGetter = this.getFit();
+    this.pushFitStrong(f.policy, f.locked, f.viewportW, f.viewportH);
+  }
+
   private injectAll(): void {
     const script: string = buildInjectionBundle(this.getOpts());
     if (typeof this.ctl.runJavaScript === 'function') {
