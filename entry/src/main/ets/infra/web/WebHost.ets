@@ -25,11 +25,15 @@ export default struct WebHost {
 
   private readonly HOME: string = HOME_URL;
   private readonly COMPACT_GUTTER = 30;
+  private readonly BOTTOM_TOOL_MIN_HEIGHT = 96;
+  private readonly NARROW_SCREEN_MAX_WIDTH = 700;
   @State private progress: number = 0;
   @State private mode: HostMode = HostMode.COMPACT;
   @State private lastMode: HostMode | null = null;
   @State private fit: FitPolicy = 'height';
   @State private showBottomTools: boolean = false;
+  @State private showFixedButtons: boolean = true;
+  @State private isNarrowSplitScreen: boolean = false;
   @State private gameHeightVp: number = 0;
   @State private gameWidthVp: number = 0;
 
@@ -121,8 +125,8 @@ export default struct WebHost {
 
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
-          .width(this.mode === HostMode.COMPACT ? 56 : 0)
-          .visibility(this.mode === HostMode.COMPACT ? Visibility.Visible : Visibility.None)
+          .width(this.showFixedButtons ? 56 : 0)
+          .visibility(this.showFixedButtons ? Visibility.Visible : Visibility.None)
           .padding({ left: 4, right: 4, top: 8, bottom: 8 })
           .align(Alignment.BottomStart)
 
@@ -136,7 +140,7 @@ export default struct WebHost {
             onWebPageEnd: this.onEnd
           })
         }
-        .margin({left:(this.showBottomTools?0:this.COMPACT_GUTTER)})
+        .margin({ left: (this.showBottomTools || this.isNarrowSplitScreen) ? 0 : this.COMPACT_GUTTER })
         .width("100%")
         .height("100%")
         .clip(true)
@@ -176,15 +180,24 @@ export default struct WebHost {
       const h: number = lengthToNumber(area.height);
       const decision = decideLayout(w, h);
       const modeChanged: boolean = this.lastMode !== decision.mode;
+      const isNarrowScreen: boolean = w < this.NARROW_SCREEN_MAX_WIDTH;
+      const isVerticalSplit: boolean = h > w;
+      const narrowSplit: boolean = isNarrowScreen && isVerticalSplit;
 
       this.mode = decision.mode;
       this.fit = decision.policy;
+      this.isNarrowSplitScreen = narrowSplit;
       this.showBottomTools = (this.mode === HostMode.EXPANDED);
+      this.showFixedButtons = (this.mode === HostMode.COMPACT) && !narrowSplit;
 
       const AR: number = 720 / 1200; // H/W
       const contentH: number = Math.min(h, w * AR);
       this.gameWidthVp = w;
-      this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
+      if (this.showBottomTools && narrowSplit) {
+        this.gameHeightVp = Math.max(0, h - this.BOTTOM_TOOL_MIN_HEIGHT);
+      } else {
+        this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
+      }
 
       void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
       if (modeChanged) {
