@@ -6,7 +6,6 @@ import { decideLayout, FitPolicy, HostMode, WideSplitMode, WindowScene } from ".
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { window } from "@kit.ArkUI";
-import ohWindow from '@ohos.window';
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
@@ -97,12 +96,11 @@ export default struct WebHost {
     }
   }
 
-  private resolveSceneByStatus(status: ohWindow.WindowStatusType): WindowScene {
-    const floatValue = (ohWindow.WindowStatusType as Record<string, number>)['FLOATING'];
-    if (typeof floatValue === 'number' && status === floatValue) {
+  private resolveSceneByStatus(status: window.WindowStatusType): WindowScene {
+    if (status === window.WindowStatusType.FLOATING) {
       return WindowScene.FLOATING;
     }
-    if (status === ohWindow.WindowStatusType.FULL_SCREEN) {
+    if (status === window.WindowStatusType.FULL_SCREEN) {
       return WindowScene.FULLSCREEN;
     }
     return WindowScene.SPLIT;
@@ -164,12 +162,12 @@ export default struct WebHost {
       void win.setWindowSystemBarEnable([]);
 
       const status = win.getWindowStatus();
-      this.scene = this.resolveSceneByStatus(status as unknown as ohWindow.WindowStatusType);
+      this.scene = this.resolveSceneByStatus(status);
       this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
-        this.scene = this.resolveSceneByStatus(nextStatus as unknown as ohWindow.WindowStatusType);
+        this.scene = this.resolveSceneByStatus(nextStatus);
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
       };
       win.on('windowStatusChange', this.windowStatusCb);

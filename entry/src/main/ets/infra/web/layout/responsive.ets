@@ -45,7 +45,10 @@ function isPortraitViewport(widthVp: number, heightVp: number): boolean {
 }
 
 export function decideLayout(input: LayoutInput): LayoutDecision {
-  const { widthVp, heightVp, scene, wideSplitMode } = input;
+  const widthVp: number = input.widthVp;
+  const heightVp: number = input.heightVp;
+  const scene: WindowScene = input.scene;
+  const wideSplitMode: WideSplitMode = input.wideSplitMode;
   const narrow: boolean = isNarrowScreen(widthVp, heightVp);
   const portrait: boolean = isPortraitViewport(widthVp, heightVp);
 
