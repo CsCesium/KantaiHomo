@@ -137,20 +137,25 @@ export default struct WebHost {
   }
 
 
-  private ensureFloatingWindowRatio(win: window.Window): void {
-    // Force floating window to 1200:720 ratio so game content fully occupies the window.
+  private adjustFloatingWindowForReservedTopArea(win: window.Window): void {
+    // Keep system reserved area and increase floating window height so content area can still fit the game canvas.
     try {
-      const ratioW: number = 1200;
-      const ratioH: number = 720;
+      const props = win.getWindowProperties();
+      const rect = props.windowRect;
+      const sysArea = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      const reservedTopPx: number = Number(sysArea?.topRect?.height ?? 0);
+      if (reservedTopPx <= 0) {
+        return;
+      }
+
       const disp = display.getDefaultDisplaySync();
-      const maxW: number = Number(disp.width);
       const maxH: number = Number(disp.height);
-      const scale: number = Math.min(maxW / ratioW, maxH / ratioH);
-      const targetW: number = Math.floor(ratioW * scale);
-      const targetH: number = Math.floor(ratioH * scale);
-      win.resize(targetW, targetH);
+      const targetH: number = Math.min(maxH, rect.height + reservedTopPx);
+      if (targetH !== rect.height) {
+        win.resize(rect.width, targetH);
+      }
     } catch (e) {
-      console.error('[WebHost] ensureFloatingWindowRatio failed:', e);
+      console.error('[WebHost] adjustFloatingWindowForReservedTopArea failed:', e);
     }
   }
 
@@ -183,9 +188,9 @@ export default struct WebHost {
     let nextGameLeftMarginVp: number = decision.gameLeftMarginVp;
 
     const isSmallLandscapeWindow: boolean = (widthVp > heightVp) && (heightVp <= 650);
-    const isNonFullscreenScene: boolean = this.scene !== WindowScene.FULLSCREEN;
+    const isFloatingScene: boolean = this.scene === WindowScene.FLOATING;
     // Split/floating small windows should always be pure game canvas without fixed tool columns.
-    if (isSmallLandscapeWindow || isNonFullscreenScene) {
+    if (isSmallLandscapeWindow || isFloatingScene) {
       nextMode = HostMode.COMPACT;
       nextFit = 'height';
       nextFitLocked = true;
@@ -235,7 +240,7 @@ export default struct WebHost {
       this.scene = this.resolveSceneWithWindowRect(win, status);
       if (this.scene === WindowScene.FLOATING) {
         void win.setWindowLayoutFullScreen(false);
-        this.ensureFloatingWindowRatio(win);
+        this.adjustFloatingWindowForReservedTopArea(win);
       } else {
         void win.setWindowLayoutFullScreen(true);
       }
@@ -246,7 +251,7 @@ export default struct WebHost {
         this.scene = this.resolveSceneWithWindowRect(win, nextStatus);
         if (this.scene === WindowScene.FLOATING) {
           void win.setWindowLayoutFullScreen(false);
-          this.ensureFloatingWindowRatio(win);
+          this.adjustFloatingWindowForReservedTopArea(win);
         } else {
           void win.setWindowLayoutFullScreen(true);
         }
