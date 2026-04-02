@@ -173,17 +173,39 @@ export default struct WebHost {
       scene: this.scene,
       wideSplitMode: this.wideSplitMode,
     });
+    let nextMode: HostMode = decision.mode;
+    let nextFit: FitPolicy = decision.policy;
+    let nextFitLocked: boolean = decision.lockFit;
+    let nextShowSideButtons: boolean = decision.showSideButtons;
+    let nextShowBottomTools: boolean = decision.showBottomTools;
+    let nextGameWidthVp: number = decision.gameWidthVp;
+    let nextGameHeightVp: number = decision.gameHeightVp;
+    let nextGameLeftMarginVp: number = decision.gameLeftMarginVp;
 
-    const modeChanged: boolean = this.lastMode !== decision.mode;
+    const isSmallLandscapeWindow: boolean = (widthVp > heightVp) && (heightVp <= 650);
+    const isNonFullscreenScene: boolean = this.scene !== WindowScene.FULLSCREEN;
+    // Split/floating small windows should always be pure game canvas without fixed tool columns.
+    if (isSmallLandscapeWindow || isNonFullscreenScene) {
+      nextMode = HostMode.COMPACT;
+      nextFit = 'height';
+      nextFitLocked = true;
+      nextShowSideButtons = false;
+      nextShowBottomTools = false;
+      nextGameWidthVp = widthVp;
+      nextGameHeightVp = heightVp;
+      nextGameLeftMarginVp = 0;
+    }
 
-    this.mode = decision.mode;
-    this.fit = decision.policy;
-    this.fitLocked = decision.lockFit;
-    this.showSideButtons = decision.showSideButtons;
-    this.showBottomTools = decision.showBottomTools;
-    this.gameWidthVp = decision.gameWidthVp;
-    this.gameHeightVp = decision.gameHeightVp;
-    this.gameLeftMarginVp = decision.gameLeftMarginVp;
+    const modeChanged: boolean = this.lastMode !== nextMode;
+
+    this.mode = nextMode;
+    this.fit = nextFit;
+    this.fitLocked = nextFitLocked;
+    this.showSideButtons = nextShowSideButtons;
+    this.showBottomTools = nextShowBottomTools;
+    this.gameWidthVp = nextGameWidthVp;
+    this.gameHeightVp = nextGameHeightVp;
+    this.gameLeftMarginVp = nextGameLeftMarginVp;
 
     void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
     if (modeChanged) {
