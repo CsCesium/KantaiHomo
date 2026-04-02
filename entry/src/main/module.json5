@@ -20,6 +20,7 @@
         "startWindowIcon": "$media:icon",
         "startWindowBackground": "$color:start_window_background",
         "orientation": "auto_rotation",
+        "preferMultiWindowOrientation": "landscape_auto",
         "exported": true,
         "skills": [
           {
