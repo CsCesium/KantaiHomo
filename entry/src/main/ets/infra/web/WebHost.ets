@@ -6,6 +6,7 @@ import { decideLayout, FitPolicy, HostMode, WideSplitMode, WindowScene } from ".
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { window } from "@kit.ArkUI";
+import display from "@ohos.display";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
@@ -106,6 +107,24 @@ export default struct WebHost {
     return WindowScene.SPLIT;
   }
 
+
+  private ensureFloatingWindowRatio(win: window.Window): void {
+    // Force floating window to 1200:720 ratio so game content fully occupies the window.
+    try {
+      const ratioW: number = 1200;
+      const ratioH: number = 720;
+      const disp = display.getDefaultDisplaySync();
+      const maxW: number = Number(disp.width);
+      const maxH: number = Number(disp.height);
+      const scale: number = Math.min(maxW / ratioW, maxH / ratioH);
+      const targetW: number = Math.floor(ratioW * scale);
+      const targetH: number = Math.floor(ratioH * scale);
+      win.resize(targetW, targetH);
+    } catch (e) {
+      console.error('[WebHost] ensureFloatingWindowRatio failed:', e);
+    }
+  }
+
   private parseWideSplitMode(raw: string): WideSplitMode {
     if (raw === WideSplitMode.LANDSCAPE_WITH_DASHBOARD) {
       return WideSplitMode.LANDSCAPE_WITH_DASHBOARD;
@@ -163,11 +182,23 @@ export default struct WebHost {
 
       const status = win.getWindowStatus();
       this.scene = this.resolveSceneByStatus(status);
+      if (this.scene === WindowScene.FLOATING) {
+        void win.setWindowLayoutFullScreen(false);
+        this.ensureFloatingWindowRatio(win);
+      } else {
+        void win.setWindowLayoutFullScreen(true);
+      }
       this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveSceneByStatus(nextStatus);
+        if (this.scene === WindowScene.FLOATING) {
+          void win.setWindowLayoutFullScreen(false);
+          this.ensureFloatingWindowRatio(win);
+        } else {
+          void win.setWindowLayoutFullScreen(true);
+        }
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
       };
       win.on('windowStatusChange', this.windowStatusCb);
