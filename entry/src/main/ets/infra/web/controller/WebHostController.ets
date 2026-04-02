@@ -164,6 +164,10 @@ export class WebHostController {
     await this.ori.applyByMode(isCompact);
   }
 
+  getWindowStatus(): number {
+    return this.ori.getWindowStatus();
+  }
+
   onPostMessage(raw: string): void {
     this.bridge.handleOnMessage(raw);
   }

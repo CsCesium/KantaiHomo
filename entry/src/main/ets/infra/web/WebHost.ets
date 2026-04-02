@@ -2,7 +2,7 @@ import { webview } from "@kit.ArkWeb";
 import { kvDelete, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
-import { decideLayout, FitPolicy, HostMode } from "./layout/responsive";
+import { decideLayout, FitPolicy, HostMode, ViewScene } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { window } from "@kit.ArkUI";
@@ -25,11 +25,16 @@ export default struct WebHost {
 
   private readonly HOME: string = HOME_URL;
   private readonly COMPACT_GUTTER = 30;
+  private readonly LR_SPLIT_MODE_KEY = 'layout.wide_lr_dashboard';
   @State private progress: number = 0;
   @State private mode: HostMode = HostMode.COMPACT;
+  @State private scene: ViewScene = ViewScene.NARROW;
   @State private lastMode: HostMode | null = null;
   @State private fit: FitPolicy = 'height';
   @State private showBottomTools: boolean = false;
+  @State private showFixedButtons: boolean = false;
+  @State private allowWideSplitModeSwitch: boolean = false;
+  @State private preferWideLrDashboard: boolean = false;
   @State private gameHeightVp: number = 0;
   @State private gameWidthVp: number = 0;
 
@@ -98,6 +103,7 @@ export default struct WebHost {
     });
 
     webview.WebviewController.setWebDebuggingAccess(true);//Chrome DevTool debug
+    void this.restoreLayoutPreference();
   }
 
   aboutToDisappear() {
@@ -113,6 +119,33 @@ export default struct WebHost {
     void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
   }
 
+  private async restoreLayoutPreference(): Promise<void> {
+    const raw = await kvGetString(this.LR_SPLIT_MODE_KEY, '0');
+    this.preferWideLrDashboard = raw === '1';
+  }
+
+  private async toggleWideLrMode(): Promise<void> {
+    const next: boolean = !this.preferWideLrDashboard;
+    this.preferWideLrDashboard = next;
+    await kvSet(this.LR_SPLIT_MODE_KEY, next ? '1' : '0');
+  }
+
+  private isFloatingWindowStatus(): boolean {
+    try {
+      const dynamicWinStatus = window.WindowStatusType as Record<string, number>;
+      const floatingVal = dynamicWinStatus.FLOATING;
+      const splitVal = dynamicWinStatus.SPLIT_SCREEN;
+      if (floatingVal !== undefined) {
+        return this.host.getWindowStatus() === floatingVal;
+      }
+      if (splitVal !== undefined) {
+        return this.host.getWindowStatus() !== splitVal && this.host.getWindowStatus() !== window.WindowStatusType.FULL_SCREEN;
+      }
+    } catch (_) {
+    }
+    return false;
+  }
+
   build() {
     Column() {
       if (this.progress > 0 && this.progress < 100) {
@@ -121,8 +154,8 @@ export default struct WebHost {
 
       Row() {
         ButtonColumn({ onRefresh: () => this.controller.refresh() })
-          .width(this.mode === HostMode.COMPACT ? 56 : 0)
-          .visibility(this.mode === HostMode.COMPACT ? Visibility.Visible : Visibility.None)
+          .width(this.showFixedButtons ? 56 : 0)
+          .visibility(this.showFixedButtons ? Visibility.Visible : Visibility.None)
           .padding({ left: 4, right: 4, top: 8, bottom: 8 })
           .align(Alignment.BottomStart)
 
@@ -136,7 +169,7 @@ export default struct WebHost {
             onWebPageEnd: this.onEnd
           })
         }
-        .margin({left:(this.showBottomTools?0:this.COMPACT_GUTTER)})
+        .margin({left:(this.showFixedButtons ? this.COMPACT_GUTTER : 0)})
         .width("100%")
         .height("100%")
         .clip(true)
@@ -148,12 +181,17 @@ export default struct WebHost {
       .backgroundColor('#000')
 
       Row() {
-        ButtonColumn({ onRefresh: () => this.controller.refresh() })
-          .width(56)
-          .height('100%')
-          .opacity(1)
-          .zIndex(2)
-          .padding({ left: 8 });
+        if (this.allowWideSplitModeSwitch) {
+          Button(this.preferWideLrDashboard ? '左右分屏：横向占满+Dashboard' : '左右分屏：竖向占满') {
+            Text(this.preferWideLrDashboard ? '切换到竖向占满' : '切换到横向占满+Dashboard')
+              .fontSize(14)
+          }
+          .height(40)
+          .margin({ left: 12 })
+          .onClick(() => {
+            void this.toggleWideLrMode();
+          })
+        }
         Blank().layoutWeight(1)
       }
       .height(this.showBottomTools ? "auto" : 0)
@@ -174,17 +212,29 @@ export default struct WebHost {
     .onAreaChange((_, area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);
-      const decision = decideLayout(w, h);
+      const decision = decideLayout({
+        widthVp: w,
+        heightVp: h,
+        isFloating: this.isFloatingWindowStatus(),
+        preferWideLrDashboard: this.preferWideLrDashboard
+      });
       const modeChanged: boolean = this.lastMode !== decision.mode;
 
       this.mode = decision.mode;
       this.fit = decision.policy;
-      this.showBottomTools = (this.mode === HostMode.EXPANDED);
+      this.scene = decision.scene;
+      this.showBottomTools = decision.showBottomTools;
+      this.showFixedButtons = decision.showFixedButtons;
+      this.allowWideSplitModeSwitch = decision.allowWideSplitModeSwitch;
 
       const AR: number = 720 / 1200; // H/W
       const contentH: number = Math.min(h, w * AR);
       this.gameWidthVp = w;
-      this.gameHeightVp = this.showBottomTools ? Math.floor(contentH) : h;
+      if (this.scene === ViewScene.WIDE_LEFT_RIGHT && this.showBottomTools) {
+        this.gameHeightVp = Math.floor(contentH);
+      } else {
+        this.gameHeightVp = h;
+      }
 
       void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
       if (modeChanged) {
