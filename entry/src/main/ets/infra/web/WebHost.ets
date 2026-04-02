@@ -107,6 +107,35 @@ export default struct WebHost {
     return WindowScene.SPLIT;
   }
 
+  private resolveSceneWithWindowRect(win: window.Window, status: window.WindowStatusType): WindowScene {
+    const byStatus: WindowScene = this.resolveSceneByStatus(status);
+    if (byStatus === WindowScene.FLOATING) {
+      return WindowScene.FLOATING;
+    }
+
+    try {
+      const props = win.getWindowProperties();
+      const rect = props.windowRect;
+      const disp = display.getDefaultDisplaySync();
+      const displayW: number = Number(disp.width);
+      const displayH: number = Number(disp.height);
+      const widthRatio: number = rect.width / displayW;
+      const heightRatio: number = rect.height / displayH;
+
+      // Floating windows usually shrink on both axes.
+      if (widthRatio < 0.95 && heightRatio < 0.95) {
+        return WindowScene.FLOATING;
+      }
+      // Split-screen windows usually shrink on one axis.
+      if (widthRatio < 0.98 || heightRatio < 0.98) {
+        return WindowScene.SPLIT;
+      }
+      return WindowScene.FULLSCREEN;
+    } catch (e) {
+      return byStatus;
+    }
+  }
+
 
   private ensureFloatingWindowRatio(win: window.Window): void {
     // Force floating window to 1200:720 ratio so game content fully occupies the window.
@@ -181,7 +210,7 @@ export default struct WebHost {
       void win.setWindowSystemBarEnable([]);
 
       const status = win.getWindowStatus();
-      this.scene = this.resolveSceneByStatus(status);
+      this.scene = this.resolveSceneWithWindowRect(win, status);
       if (this.scene === WindowScene.FLOATING) {
         void win.setWindowLayoutFullScreen(false);
         this.ensureFloatingWindowRatio(win);
@@ -192,7 +221,7 @@ export default struct WebHost {
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
-        this.scene = this.resolveSceneByStatus(nextStatus);
+        this.scene = this.resolveSceneWithWindowRect(win, nextStatus);
         if (this.scene === WindowScene.FLOATING) {
           void win.setWindowLayoutFullScreen(false);
           this.ensureFloatingWindowRatio(win);
@@ -290,7 +319,12 @@ export default struct WebHost {
       const h: number = lengthToNumber(area.height);
       this.viewportWidthVp = w;
       this.viewportHeightVp = h;
-      this.recalcLayout(w, h);
+      const ctx = getContext(this) as common.UIAbilityContext;
+      window.getLastWindow(ctx).then((win) => {
+        const status = win.getWindowStatus();
+        this.scene = this.resolveSceneWithWindowRect(win, status);
+        this.recalcLayout(w, h);
+      });
     })
   }
 }
