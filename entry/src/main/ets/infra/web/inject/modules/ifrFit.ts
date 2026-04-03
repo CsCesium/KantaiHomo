@@ -164,7 +164,12 @@ window.__safeInject('iframeFit', function () {
     }
     return Math.min(realVW / W, realVH / H);
   }
-  function computeOffsets(){ return { x: 0, y: -TOP_GAP }; } // 永远贴左
+  function computeOffsets(scale, realVW){
+    var contentW = W * scale;
+    var x = (realVW - contentW) * 0.5;
+    if (!isFinite(x)) x = 0;
+    return { x: x, y: -TOP_GAP };
+  }
   function snap(v){ var d = window.devicePixelRatio || 1; return Math.round(v * d) / d; }
 
   function writeFitCSS(scale, off){
@@ -214,7 +219,7 @@ window.__safeInject('iframeFit', function () {
       dbg('REFLOW cache-hit', 'scale=', sc.toFixed(4));
     } else {
       sc  = computeScale(effW, effH, vw, vh);
-      off = computeOffsets();
+      off = computeOffsets(sc, vw);
       dbg('REFLOW recompute', 'policy=', policy, 'scale=', sc.toFixed(4), 'vw/vh=', vw, vh);
       if (LOCK) CACHE = { scale: sc, x: off.x, y: off.y, lw: effW, lh: effH, policy: policy, lock: LOCK };
       else CACHE = null;

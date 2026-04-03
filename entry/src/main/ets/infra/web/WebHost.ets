@@ -147,7 +147,7 @@ export default struct WebHost {
     // Split/floating small windows should always be pure game canvas without fixed tool columns.
     if ((isSmallLandscapeWindow && isSplitScene) || isFloatingScene) {
       nextMode = HostMode.COMPACT;
-      nextFit = 'height';
+      nextFit = isFloatingScene ? 'width' : 'height';
       nextFitLocked = true;
       nextShowSideButtons = false;
       nextShowBottomTools = false;

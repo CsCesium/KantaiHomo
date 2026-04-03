@@ -56,7 +56,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
   if (scene === WindowScene.FLOATING) {
     return {
       mode: HostMode.COMPACT,
-      policy: 'height',
+      policy: 'width',
       lockFit: true,
       showSideButtons: false,
       showBottomTools: false,
