@@ -165,9 +165,13 @@ window.__safeInject('iframeFit', function () {
     return Math.min(realVW / W, realVH / H);
   }
   function computeOffsets(scale, realVW){
-    var contentW = W * scale;
-    var x = (realVW - contentW) * 0.5;
-    if (!isFinite(x)) x = 0;
+    var x = 0;
+    // Only center horizontally for floating-mode fit (policy=width + lock=true).
+    if (policy === 'width' && LOCK) {
+      var contentW = W * scale;
+      x = (realVW - contentW) * 0.5;
+      if (!isFinite(x)) x = 0;
+    }
     return { x: x, y: -TOP_GAP };
   }
   function snap(v){ var d = window.devicePixelRatio || 1; return Math.round(v * d) / d; }
