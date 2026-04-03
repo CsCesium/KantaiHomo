@@ -107,33 +107,11 @@ export default struct WebHost {
     return WindowScene.SPLIT;
   }
 
-  private resolveSceneWithWindowRect(win: window.Window, status: window.WindowStatusType): WindowScene {
+  private resolveScene(status: window.WindowStatusType): WindowScene {
     const byStatus: WindowScene = this.resolveSceneByStatus(status);
-    if (byStatus === WindowScene.FLOATING) {
-      return WindowScene.FLOATING;
-    }
-
-    try {
-      const props = win.getWindowProperties();
-      const rect = props.windowRect;
-      const disp = display.getDefaultDisplaySync();
-      const displayW: number = Number(disp.width);
-      const displayH: number = Number(disp.height);
-      const widthRatio: number = rect.width / displayW;
-      const heightRatio: number = rect.height / displayH;
-
-      // Floating windows usually shrink on both axes.
-      if (widthRatio < 0.95 && heightRatio < 0.95) {
-        return WindowScene.FLOATING;
-      }
-      // Split-screen windows usually shrink on one axis.
-      if (widthRatio < 0.98 || heightRatio < 0.98) {
-        return WindowScene.SPLIT;
-      }
-      return WindowScene.FULLSCREEN;
-    } catch (e) {
-      return byStatus;
-    }
+    // Window status is the source of truth.
+    // Folded/fullscreen devices may have a reduced rect, but should still be treated as fullscreen.
+    return byStatus;
   }
 
 
@@ -189,8 +167,9 @@ export default struct WebHost {
 
     const isSmallLandscapeWindow: boolean = (widthVp > heightVp) && (heightVp <= 650);
     const isFloatingScene: boolean = this.scene === WindowScene.FLOATING;
+    const isSplitScene: boolean = this.scene === WindowScene.SPLIT;
     // Split/floating small windows should always be pure game canvas without fixed tool columns.
-    if (isSmallLandscapeWindow || isFloatingScene) {
+    if ((isSmallLandscapeWindow && isSplitScene) || isFloatingScene) {
       nextMode = HostMode.COMPACT;
       nextFit = 'height';
       nextFitLocked = true;
@@ -237,7 +216,7 @@ export default struct WebHost {
       void win.setWindowSystemBarEnable([]);
 
       const status = win.getWindowStatus();
-      this.scene = this.resolveSceneWithWindowRect(win, status);
+      this.scene = this.resolveScene(status);
       if (this.scene === WindowScene.FLOATING) {
         void win.setWindowLayoutFullScreen(false);
         this.adjustFloatingWindowForReservedTopArea(win);
@@ -248,7 +227,7 @@ export default struct WebHost {
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
-        this.scene = this.resolveSceneWithWindowRect(win, nextStatus);
+        this.scene = this.resolveScene(nextStatus);
         if (this.scene === WindowScene.FLOATING) {
           void win.setWindowLayoutFullScreen(false);
           this.adjustFloatingWindowForReservedTopArea(win);
@@ -337,9 +316,11 @@ export default struct WebHost {
     .height('100%')
     .width('100%')
     .backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM],this.mode === HostMode.COMPACT
-      ? [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
-      : [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END]
+    .expandSafeArea([SafeAreaType.SYSTEM], this.scene === WindowScene.FLOATING
+      ? [SafeAreaEdge.BOTTOM]
+      : (this.mode === HostMode.COMPACT
+        ? [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
+        : [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END])
     )
     .onAreaChange((_, area) => {
       const w: number = lengthToNumber(area.width);
@@ -349,7 +330,7 @@ export default struct WebHost {
       const ctx = getContext(this) as common.UIAbilityContext;
       window.getLastWindow(ctx).then((win) => {
         const status = win.getWindowStatus();
-        this.scene = this.resolveSceneWithWindowRect(win, status);
+        this.scene = this.resolveScene(status);
         this.recalcLayout(w, h);
       });
     })
