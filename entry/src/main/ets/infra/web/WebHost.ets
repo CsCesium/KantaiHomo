@@ -6,7 +6,6 @@ import { decideLayout, FitPolicy, HostMode, WideSplitMode, WindowScene } from ".
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { window } from "@kit.ArkUI";
-import display from "@ohos.display";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
@@ -114,29 +113,6 @@ export default struct WebHost {
     return byStatus;
   }
 
-
-  private adjustFloatingWindowForReservedTopArea(win: window.Window): void {
-    // Keep system reserved area and increase floating window height so content area can still fit the game canvas.
-    try {
-      const props = win.getWindowProperties();
-      const rect = props.windowRect;
-      const sysArea = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
-      const reservedTopPx: number = Number(sysArea?.topRect?.height ?? 0);
-      if (reservedTopPx <= 0) {
-        return;
-      }
-
-      const disp = display.getDefaultDisplaySync();
-      const maxH: number = Number(disp.height);
-      const targetH: number = Math.min(maxH, rect.height + reservedTopPx);
-      if (targetH !== rect.height) {
-        win.resize(rect.width, targetH);
-      }
-    } catch (e) {
-      console.error('[WebHost] adjustFloatingWindowForReservedTopArea failed:', e);
-    }
-  }
-
   private parseWideSplitMode(raw: string): WideSplitMode {
     if (raw === WideSplitMode.LANDSCAPE_WITH_DASHBOARD) {
       return WideSplitMode.LANDSCAPE_WITH_DASHBOARD;
@@ -218,8 +194,8 @@ export default struct WebHost {
       const status = win.getWindowStatus();
       this.scene = this.resolveScene(status);
       if (this.scene === WindowScene.FLOATING) {
-        void win.setWindowLayoutFullScreen(false);
-        this.adjustFloatingWindowForReservedTopArea(win);
+        // Floating mode uses immersive layout so game canvas can occupy full horizontal viewport.
+        void win.setWindowLayoutFullScreen(true);
       } else {
         void win.setWindowLayoutFullScreen(true);
       }
@@ -229,8 +205,8 @@ export default struct WebHost {
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveScene(nextStatus);
         if (this.scene === WindowScene.FLOATING) {
-          void win.setWindowLayoutFullScreen(false);
-          this.adjustFloatingWindowForReservedTopArea(win);
+          // Keep floating window immersive after status transitions.
+          void win.setWindowLayoutFullScreen(true);
         } else {
           void win.setWindowLayoutFullScreen(true);
         }
@@ -264,7 +240,7 @@ export default struct WebHost {
 
   private getSafeAreaEdges(): SafeAreaEdge[] {
     if (this.scene === WindowScene.FLOATING) {
-      return [SafeAreaEdge.BOTTOM];
+      return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
     }
     if (this.mode === HostMode.COMPACT) {
       return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM];
