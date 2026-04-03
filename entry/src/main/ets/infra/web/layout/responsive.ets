@@ -72,11 +72,11 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       mode: HostMode.COMPACT,
       policy: 'height',
       lockFit: true,
-      showSideButtons: false,
+      showSideButtons: true,
       showBottomTools: false,
       gameWidthVp: widthVp,
       gameHeightVp: heightVp,
-      gameLeftMarginVp: 0,
+      gameLeftMarginVp: COMPACT_GUTTER_VP,
     };
   }
 
