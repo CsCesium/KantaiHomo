@@ -262,6 +262,16 @@ export default struct WebHost {
     void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
   }
 
+  private getSafeAreaEdges(): SafeAreaEdge[] {
+    if (this.scene === WindowScene.FLOATING) {
+      return [SafeAreaEdge.BOTTOM];
+    }
+    if (this.mode === HostMode.COMPACT) {
+      return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM];
+    }
+    return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
+  }
+
   build() {
     Column() {
       if (this.progress > 0 && this.progress < 100) {
@@ -316,13 +326,8 @@ export default struct WebHost {
     .height('100%')
     .width('100%')
     .backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM], this.scene === WindowScene.FLOATING
-      ? [SafeAreaEdge.BOTTOM]
-      : (this.mode === HostMode.COMPACT
-        ? [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]
-        : [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END])
-    )
-    .onAreaChange((_, area) => {
+    .expandSafeArea([SafeAreaType.SYSTEM], this.getSafeAreaEdges())
+    .onAreaChange((_oldArea: Area, area: Area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);
       this.viewportWidthVp = w;
