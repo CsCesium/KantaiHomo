@@ -9,7 +9,6 @@ import { ToolTouchInterface } from "../model/ToolTouchInterface";
 import { vibrator } from "@kit.SensorServiceKit";
 import { ChildTool } from "../model/ChildTool";
 import { NumOffset } from "../model/NumOffset";
-import { it } from "@ohos/hypium";
 import { ToolInterface } from "../model/ToolInterface";
 
 enum Direction {
