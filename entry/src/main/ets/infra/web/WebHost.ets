@@ -2,13 +2,15 @@ import { webview } from "@kit.ArkWeb";
 import { kvDelete, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
-import { decideLayout, FitPolicy, HostMode, WideSplitMode, WindowScene } from "./layout/responsive";
+import { decideLayout, FitPolicy, HostMode, LayoutDecision, WideSplitMode, WindowScene } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { window } from "@kit.ArkUI";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
+import PanelHost from "../../app/pages/components/panel/PanelHost";
+import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 
 interface RpcPayload {
   op: string;
@@ -40,6 +42,10 @@ export default struct WebHost {
   @State private viewportHeightVp: number = 0;
   @State private scene: WindowScene = WindowScene.FULLSCREEN;
   @State private wideSplitMode: WideSplitMode = WideSplitMode.PORTRAIT_FILL;
+  @State private panelConfig: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
+  // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
+  // Remove once the fairy ball → panel trigger is wired up.
+  @State private overlayForced: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
 
@@ -167,6 +173,19 @@ export default struct WebHost {
     this.gameHeightVp = nextGameHeightVp;
     this.gameLeftMarginVp = nextGameLeftMarginVp;
 
+    // Derive panel layout from the final (override-adjusted) layout decision.
+    const finalDecision: LayoutDecision = {
+      mode: nextMode,
+      policy: nextFit,
+      lockFit: nextFitLocked,
+      showSideButtons: nextShowSideButtons,
+      showBottomTools: nextShowBottomTools,
+      gameWidthVp: nextGameWidthVp,
+      gameHeightVp: nextGameHeightVp,
+      gameLeftMarginVp: nextGameLeftMarginVp,
+    };
+    this.panelConfig = decidePanelLayout(finalDecision, heightVp);
+
     void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
     if (modeChanged) {
       this.host.onPageEnd();
@@ -254,50 +273,69 @@ export default struct WebHost {
         Progress({ value: this.progress }).width('100%').height(2).backgroundColor('#222')
       }
 
-      Row() {
-        ButtonColumn({ onRefresh: () => this.controller.refresh() })
-          .width(this.showSideButtons ? 56 : 0)
-          .visibility(this.showSideButtons ? Visibility.Visible : Visibility.None)
-          .padding({ left: 4, right: 4, top: 8, bottom: 8 })
-          .align(Alignment.BottomStart)
-
-        Stack({ alignContent: Alignment.TopStart }) {
-          GameWeb({
-            src: this.HOME,
-            controller: this.controller,
-            onWebAttached: this.onWebAttached,
-            onWebPageBegin: this.onBegin,
-            onWebProgress: this.onProg,
-            onWebPageEnd: this.onEnd
+      // Game area.
+      // Wrapped in Stack so FloatOverlayPanel can be laid on top without affecting
+      // the game Row's layout. The Stack carries the same size constraints that
+      // the Row used to carry directly.
+      Stack({ alignContent: Alignment.TopStart }) {
+        Row() {
+          // Side tool column.
+          // Hidden when FloatOverlay is layout-determined (panel covers the same left
+          // area and there is no dismiss gesture yet). Kept visible when the overlay
+          // is manually forced so the user can tap the button again to close it.
+          ButtonColumn({
+            onRefresh: () => this.controller.refresh(),
+            onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+            panelActive: this.overlayForced,
           })
+            .width(this.showSideButtons &&
+              (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced) ? 56 : 0)
+            .visibility(this.showSideButtons &&
+              (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced)
+              ? Visibility.Visible : Visibility.None)
+            .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+            .align(Alignment.BottomStart)
+
+          Stack({ alignContent: Alignment.TopStart }) {
+            GameWeb({
+              src: this.HOME,
+              controller: this.controller,
+              onWebAttached: this.onWebAttached,
+              onWebPageBegin: this.onBegin,
+              onWebProgress: this.onProg,
+              onWebPageEnd: this.onEnd
+            })
+          }
+          .margin({ left: this.gameLeftMarginVp })
+          .width("100%")
+          .height("100%")
+          .clip(true)
         }
-        .margin({left: this.gameLeftMarginVp})
-        .width("100%")
-        .height("100%")
-        .clip(true)
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#000')
+
+        // FloatOverlay panel — overlaid on the left edge of the game viewport.
+        // Shown when layout derives FloatOverlay mode, OR when manually forced
+        // via the test button in the side column (overlayForced).
+        if (this.panelConfig.mode === PanelMode.FloatOverlay || this.overlayForced) {
+          PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
+            .width(PanelDimens.overlayPanelW)
+            .height('100%')
+        }
       }
       .height(this.showBottomTools ? this.gameHeightVp : "auto")
       .constraintSize(this.showBottomTools ? { minHeight: this.gameHeightVp, maxHeight: this.gameHeightVp } : {})
       .layoutWeight(this.showBottomTools ? 0 : 1)
       .width('100%')
-      .backgroundColor('#000')
 
-      Row() {
-        ButtonColumn({ onRefresh: () => this.controller.refresh() })
-          .width(56)
-          .height('100%')
-          .opacity(1)
-          .zIndex(2)
-          .padding({ left: 8 });
-        Blank().layoutWeight(1)
+      // Bottom panel — replaces the old bottom ButtonColumn row entirely.
+      // Rendered only in EXPANDED mode; fills the remaining vertical space.
+      if (this.panelConfig.mode === PanelMode.BottomPanel) {
+        PanelHost({ config: this.panelConfig })
+          .width('100%')
+          .layoutWeight(1)
       }
-      .height(this.showBottomTools ? "auto" : 0)
-      .visibility(this.showBottomTools ? Visibility.Visible : Visibility.None)
-      .layoutWeight(this.showBottomTools ? 1 : 0)
-      .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.Start)
-      .width('100%')
-      .backgroundColor('#0b0b0b')
     }
     .height('100%')
     .width('100%')
