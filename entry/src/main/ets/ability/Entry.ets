@@ -2,10 +2,13 @@ import UIAbility from '@ohos.app.ability.UIAbility';
 import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 import Want from '@ohos.app.ability.Want';
 import window from '@ohos.window';
+import notificationManager from '@ohos.notificationManager';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { setAppContext } from '../infra/appContext'
 import { initPersistDeps } from '../infra/deps';
 import { initHandlerRegistry } from '../features/router/persist/registry';
+import { initAlerts } from '../features/alerts';
+import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
@@ -27,10 +30,20 @@ export default class EntryAbility extends UIAbility {
     try {
       initPersistDeps();
       initHandlerRegistry();
-      hilog.info(HILOG_DOM, 'App', 'deps+registry initialized (stageCreate)');
+      initAlerts();
+      hilog.info(HILOG_DOM, 'App', 'deps+registry+alerts initialized (stageCreate)');
     } catch (e) {
       hilog.error(HILOG_DOM, 'App', 'init failed: %{public}s', String(e));
     }
+
+    // 请求通知权限（用户首次弹窗，之后静默）
+    notificationManager.requestEnableNotification(this.context).then(() => {
+      hilog.info(HILOG_DOM, 'App', 'notification enabled');
+      void getExpeditionLiveNotificationService().start();
+    }).catch((e: BusinessError) => {
+      hilog.warn(HILOG_DOM, 'App', 'notification not enabled: %{public}s', String(e));
+      // 即使用户拒绝通知，常驻通知不可用，但 Toast/震动 仍然正常工作
+    });
     windowStage.loadContent('app/pages/WebRoot', (err) => {
       if (err?.code) {
         console.error(`loadContent failed: ${JSON.stringify(err)}`)
@@ -56,6 +69,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageDestroy(): void {
+    getExpeditionLiveNotificationService().stop();
     this.mainWindow?.disableLandscapeMultiWindow().catch((error: BusinessError): void => {
       hilog.error(HILOG_DOM, 'App', 'disableLandscapeMultiWindow failed: %{public}s', JSON.stringify(error));
     });
