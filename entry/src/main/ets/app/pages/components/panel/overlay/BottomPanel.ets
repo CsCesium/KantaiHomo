@@ -211,7 +211,7 @@ export default struct BottomPanel {
       .edgeEffect(EdgeEffect.None)
     }
     .width('100%')
-    .height(this.panelHeight)
+    .height('100%')
     .backgroundColor(PanelColors.bg)
     .clip(true)
   }

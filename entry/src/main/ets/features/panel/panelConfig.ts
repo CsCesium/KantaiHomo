@@ -93,10 +93,11 @@ export const PanelDimens = {
   fontLg:      12,
 
   // Misc
-  borderW:     0.5,  // thin row separator stroke width
-  radius:       3,   // tab item border radius
-  btnRadius:    4,   // button border radius
-  overlayBlur: 12,   // backdropBlur radius for FloatOverlay glass effect
+  borderW:       0.5,  // thin row separator stroke width
+  radius:         3,   // tab item border radius
+  btnRadius:      4,   // button border radius
+  overlayBlur:   12,   // backdropBlur radius for FloatOverlay glass effect
+  overlayPanelW: 220,  // FloatOverlay panel width when overlaid on game (vp)
 } as const;
 
 // ── HP color helper ────────────────────────────────────────────────────────
