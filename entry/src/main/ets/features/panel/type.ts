@@ -15,6 +15,7 @@ export interface ShipItem {
   id: number;
   name: string;
   shipType: string; // short type label, e.g. '駆', '戦', '空'
+  level: number;
   hp: number;
   hpMax: number;
   s1: number;
