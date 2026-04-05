@@ -43,6 +43,9 @@ export default struct WebHost {
   @State private scene: WindowScene = WindowScene.FULLSCREEN;
   @State private wideSplitMode: WideSplitMode = WideSplitMode.PORTRAIT_FILL;
   @State private panelConfig: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
+  // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
+  // Remove once the fairy ball → panel trigger is wired up.
+  @State private overlayForced: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
 
@@ -276,11 +279,19 @@ export default struct WebHost {
       // the Row used to carry directly.
       Stack({ alignContent: Alignment.TopStart }) {
         Row() {
-          // Side tool column — hidden when FloatOverlay panel is active (panel covers
-          // the same left area) or when the layout already suppresses it.
-          ButtonColumn({ onRefresh: () => this.controller.refresh() })
-            .width(this.showSideButtons && this.panelConfig.mode !== PanelMode.FloatOverlay ? 56 : 0)
-            .visibility(this.showSideButtons && this.panelConfig.mode !== PanelMode.FloatOverlay
+          // Side tool column.
+          // Hidden when FloatOverlay is layout-determined (panel covers the same left
+          // area and there is no dismiss gesture yet). Kept visible when the overlay
+          // is manually forced so the user can tap the button again to close it.
+          ButtonColumn({
+            onRefresh: () => this.controller.refresh(),
+            onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+            panelActive: this.overlayForced,
+          })
+            .width(this.showSideButtons &&
+              (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced) ? 56 : 0)
+            .visibility(this.showSideButtons &&
+              (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced)
               ? Visibility.Visible : Visibility.None)
             .padding({ left: 4, right: 4, top: 8, bottom: 8 })
             .align(Alignment.BottomStart)
@@ -305,8 +316,10 @@ export default struct WebHost {
         .backgroundColor('#000')
 
         // FloatOverlay panel — overlaid on the left edge of the game viewport.
-        if (this.panelConfig.mode === PanelMode.FloatOverlay) {
-          PanelHost({ config: this.panelConfig })
+        // Shown when layout derives FloatOverlay mode, OR when manually forced
+        // via the test button in the side column (overlayForced).
+        if (this.panelConfig.mode === PanelMode.FloatOverlay || this.overlayForced) {
+          PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
             .width(PanelDimens.overlayPanelW)
             .height('100%')
         }
