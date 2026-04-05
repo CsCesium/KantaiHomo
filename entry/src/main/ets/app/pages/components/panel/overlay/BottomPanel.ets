@@ -1,4 +1,5 @@
 import { ShipItem } from '../../../../../features/panel/type';
+import { hpColor, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 
 // ── placeholder data (replace with live game data) ─────────────────────────
 const PLACEHOLDER_SHIPS: ShipItem[] = [
@@ -15,19 +16,12 @@ const FLEET_TABS: string[] = ['1', '2', '3', '4', '基地', '道具'];
 const INFO_TABS: string[]  = ['[类型]信息1', '[类型]信息2'];
 // ───────────────────────────────────────────────────────────────────────────
 
-function hpColor(hp: number, hpMax: number): string {
-  const ratio = hpMax > 0 ? hp / hpMax : 0;
-  if (ratio > 0.5)  { return '#44cc88'; }
-  if (ratio > 0.25) { return '#ddcc44'; }
-  return '#dd4444';
-}
-
 /**
  * Bottom-docked info panel for EXPANDED mode (portrait / wide-split).
  * Occupies the space below the game viewport.
  *
  * Layout (top → bottom):
- *   TabBar   — fleet selector (1-4, 基地, 道具) + info type sub-tabs
+ *   TabBar    — fleet selector (1-4, 基地, 道具) + info type sub-tabs
  *   StatusBar — resource / sortie metrics
  *   ShipList  — scrollable ship rows
  */
@@ -45,11 +39,11 @@ export default struct BottomPanel {
       Row({ space: 2 }) {
         ForEach(FLEET_TABS, (tab: string, idx: number) => {
           Text(tab)
-            .fontSize(12)
-            .fontColor(this.activeFleet === idx ? '#ffffff' : '#666666')
-            .backgroundColor(this.activeFleet === idx ? '#1c5050' : Color.Transparent)
+            .fontSize(PanelDimens.fontLg)
+            .fontColor(this.activeFleet === idx ? PanelColors.txtTabOn : PanelColors.txtFaint)
+            .backgroundColor(this.activeFleet === idx ? PanelColors.bgTabOn : Color.Transparent)
             .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-            .borderRadius(3)
+            .borderRadius(PanelDimens.radius)
             .onClick(() => { this.activeFleet = idx; })
         }, (_tab: string, idx: number) => `fleet-${idx}`)
       }
@@ -60,37 +54,37 @@ export default struct BottomPanel {
       Row({ space: 0 }) {
         ForEach(INFO_TABS, (tab: string, idx: number) => {
           Text(tab)
-            .fontSize(11)
-            .fontColor(this.activeInfo === idx ? '#cccccc' : '#555555')
-            .backgroundColor(this.activeInfo === idx ? '#252525' : Color.Transparent)
+            .fontSize(PanelDimens.fontMd)
+            .fontColor(this.activeInfo === idx ? PanelColors.txtInfoOn : PanelColors.txtFainter)
+            .backgroundColor(this.activeInfo === idx ? PanelColors.bgInfoOn : Color.Transparent)
             .padding({ left: 6, right: 6, top: 4, bottom: 4 })
             .onClick(() => { this.activeInfo = idx; })
         }, (_tab: string, idx: number) => `info-${idx}`)
       }
     }
     .width('100%')
-    .height(30)
-    .backgroundColor('#141414')
+    .height(PanelDimens.tabBarH)
+    .backgroundColor(PanelColors.bgTabs)
     .padding({ left: 6, right: 6 })
     .alignItems(VerticalAlign.Center)
   }
 
   @Builder StatusBar() {
     Row() {
-      Text('刷忍: --').fontSize(10).fontColor('#777777')
-      Text(' | ').fontSize(10).fontColor('#333333')
-      Text('数据: --:--').fontSize(10).fontColor('#777777')
-      Text(' | ').fontSize(10).fontColor('#333333')
-      Text('临储: --').fontSize(10).fontColor('#777777')
-      Text(' | ').fontSize(10).fontColor('#333333')
-      Text('品储: --/--TP').fontSize(10).fontColor('#777777')
+      Text('刷忍: --').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+      Text(' | ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
+      Text('数据: --:--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+      Text(' | ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
+      Text('临储: --').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+      Text(' | ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
+      Text('品储: --/--TP').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
       Blank().layoutWeight(1)
-      Text('--代/--').fontSize(10).fontColor('#777777')
+      Text('--代/--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
     }
     .width('100%')
-    .height(22)
+    .height(PanelDimens.statusBarH)
     .padding({ left: 8, right: 8 })
-    .backgroundColor('#0e0e0e')
+    .backgroundColor(PanelColors.bgStatus)
     .alignItems(VerticalAlign.Center)
   }
 
@@ -98,15 +92,15 @@ export default struct BottomPanel {
     Row({ space: 4 }) {
       // Ship type badge
       Text(ship.shipType)
-        .fontSize(10)
-        .fontColor('#777777')
-        .width(18)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.txtMuted)
+        .width(PanelDimens.typeW)
         .textAlign(TextAlign.Center)
 
       // Ship name (auto-truncated)
       Text(ship.name)
-        .fontSize(12)
-        .fontColor('#dddddd')
+        .fontSize(PanelDimens.fontLg)
+        .fontColor(PanelColors.txtPrimary)
         .layoutWeight(1)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -114,38 +108,38 @@ export default struct BottomPanel {
       // HP number + bar
       Row({ space: 3 }) {
         Text(`${ship.hp}`)
-          .fontSize(11)
+          .fontSize(PanelDimens.fontMd)
           .fontColor(hpColor(ship.hp, ship.hpMax))
-          .width(28)
+          .width(PanelDimens.hpNumW)
           .textAlign(TextAlign.End)
         Progress({ value: ship.hp, total: ship.hpMax, type: ProgressType.Linear })
-          .width(40)
-          .height(6)
+          .width(PanelDimens.hpBarW)
+          .height(PanelDimens.hpBarH)
           .color(hpColor(ship.hp, ship.hpMax))
-          .backgroundColor('#222222')
+          .backgroundColor(PanelColors.bgHpTrack)
       }
 
       // 4 stats
-      Text(`${ship.s1}`).fontSize(10).fontColor('#44dddd').width(24).textAlign(TextAlign.End)
-      Text(`${ship.s2}`).fontSize(10).fontColor('#44dddd').width(24).textAlign(TextAlign.End)
-      Text(`${ship.s3}`).fontSize(10).fontColor('#44dddd').width(24).textAlign(TextAlign.End)
-      Text(`${ship.s4}`).fontSize(10).fontColor('#44dddd').width(24).textAlign(TextAlign.End)
+      Text(`${ship.s1}`).fontSize(PanelDimens.fontSm).fontColor(PanelColors.stat).width(PanelDimens.statW).textAlign(TextAlign.End)
+      Text(`${ship.s2}`).fontSize(PanelDimens.fontSm).fontColor(PanelColors.stat).width(PanelDimens.statW).textAlign(TextAlign.End)
+      Text(`${ship.s3}`).fontSize(PanelDimens.fontSm).fontColor(PanelColors.stat).width(PanelDimens.statW).textAlign(TextAlign.End)
+      Text(`${ship.s4}`).fontSize(PanelDimens.fontSm).fontColor(PanelColors.stat).width(PanelDimens.statW).textAlign(TextAlign.End)
 
       // Action button
       Button('按钮', { type: ButtonType.Normal })
-        .fontSize(11)
-        .fontColor('#aaaaaa')
-        .backgroundColor('#2a2a2a')
-        .width(44)
-        .height(26)
-        .borderRadius(4)
+        .fontSize(PanelDimens.fontMd)
+        .fontColor(PanelColors.txtSub)
+        .backgroundColor(PanelColors.bgBtn)
+        .width(PanelDimens.btnW)
+        .height(PanelDimens.btnH)
+        .borderRadius(PanelDimens.btnRadius)
     }
     .width('100%')
-    .height(36)
+    .height(PanelDimens.rowH)
     .padding({ left: 8, right: 8 })
-    .backgroundColor('#0b0b0b')
-    .borderWidth({ bottom: 0.5 })
-    .borderColor('#1c1c1c')
+    .backgroundColor(PanelColors.bg)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
     .alignItems(VerticalAlign.Center)
   }
 
@@ -161,16 +155,16 @@ export default struct BottomPanel {
           // List header
           Row() {
             Text('排名')
-              .fontSize(11)
-              .fontColor('#555555')
+              .fontSize(PanelDimens.fontMd)
+              .fontColor(PanelColors.txtFainter)
               .width(40)
               .textAlign(TextAlign.Center)
             Blank().layoutWeight(1)
           }
           .width('100%')
-          .height(24)
+          .height(PanelDimens.listHdrH)
           .padding({ left: 8, right: 8 })
-          .backgroundColor('#111111')
+          .backgroundColor(PanelColors.bgHeader)
           .alignItems(VerticalAlign.Center)
 
           // Ship rows
@@ -186,7 +180,7 @@ export default struct BottomPanel {
     }
     .width('100%')
     .height(this.panelHeight)
-    .backgroundColor('#0b0b0b')
+    .backgroundColor(PanelColors.bg)
     .clip(true)
   }
 }

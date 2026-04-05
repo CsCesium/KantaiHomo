@@ -1,4 +1,5 @@
 import { ShipItem } from '../../../../../features/panel/type';
+import { hpColor, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 
 // ── placeholder data (replace with live game data) ─────────────────────────
 const PLACEHOLDER_SHIPS: ShipItem[] = [
@@ -12,23 +13,16 @@ const PLACEHOLDER_SHIPS: ShipItem[] = [
 ];
 // ───────────────────────────────────────────────────────────────────────────
 
-function hpColor(hp: number, hpMax: number): string {
-  const ratio = hpMax > 0 ? hp / hpMax : 0;
-  if (ratio > 0.5)  { return '#44cc88'; }
-  if (ratio > 0.25) { return '#ddcc44'; }
-  return '#dd4444';
-}
-
 /**
  * Semi-transparent floating panel for COMPACT mode (landscape / small window).
  * Rendered on top of the game viewport via Stack in the parent.
  *
- * Visual style: dark glass — ~75% opaque black + backdrop blur.
+ * Visual style: dark glass — overlayBg (~75% opaque) + backdropBlur.
  * Width should be constrained by the parent (Stack alignment or fixed width).
  *
  * Layout (top → bottom):
  *   StatusLine — compact resource / sortie metrics
- *   ShipList   — scrollable condensed ship rows
+ *   ShipList   — scrollable condensed ship rows (2 stat cols)
  */
 @ComponentV2
 export default struct FloatOverlayPanel {
@@ -37,45 +31,45 @@ export default struct FloatOverlayPanel {
     Row({ space: 4 }) {
       // Ship name (takes most of the space)
       Text(ship.name)
-        .fontSize(11)
-        .fontColor('#dddddd')
+        .fontSize(PanelDimens.fontMd)
+        .fontColor(PanelColors.txtPrimary)
         .layoutWeight(1)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
 
       // HP number
       Text(`${ship.hp}`)
-        .fontSize(11)
+        .fontSize(PanelDimens.fontMd)
         .fontColor(hpColor(ship.hp, ship.hpMax))
-        .width(26)
+        .width(PanelDimens.hpNumCompW)
         .textAlign(TextAlign.End)
 
       // HP bar
       Progress({ value: ship.hp, total: ship.hpMax, type: ProgressType.Linear })
-        .width(32)
-        .height(5)
+        .width(PanelDimens.hpBarCompW)
+        .height(PanelDimens.hpBarCompH)
         .color(hpColor(ship.hp, ship.hpMax))
-        .backgroundColor('#2a2a2a')
+        .backgroundColor(PanelColors.overlayRow)
 
       // 2 key stats (condensed; s1/s2 = firepower/torpedo)
-      Text(`${ship.s1}`).fontSize(10).fontColor('#44dddd').width(22).textAlign(TextAlign.End)
-      Text(`${ship.s2}`).fontSize(10).fontColor('#44dddd').width(22).textAlign(TextAlign.End)
+      Text(`${ship.s1}`).fontSize(PanelDimens.fontSm).fontColor(PanelColors.stat).width(PanelDimens.statCompW).textAlign(TextAlign.End)
+      Text(`${ship.s2}`).fontSize(PanelDimens.fontSm).fontColor(PanelColors.stat).width(PanelDimens.statCompW).textAlign(TextAlign.End)
 
       // Action button
       Button('按钮', { type: ButtonType.Normal })
-        .fontSize(10)
-        .fontColor('#aaaaaa')
-        .backgroundColor('#44444466')
-        .width(40)
-        .height(24)
-        .borderRadius(4)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.txtSub)
+        .backgroundColor(PanelColors.overlayBtn)
+        .width(PanelDimens.btnCompW)
+        .height(PanelDimens.btnCompH)
+        .borderRadius(PanelDimens.btnRadius)
     }
     .width('100%')
-    .height(32)
+    .height(PanelDimens.rowCompH)
     .padding({ left: 8, right: 8 })
     .alignItems(VerticalAlign.Center)
-    .borderWidth({ bottom: 0.5 })
-    .borderColor('#2a2a2a')
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.overlayRow)
   }
 
   build() {
@@ -83,19 +77,19 @@ export default struct FloatOverlayPanel {
       // Compact status line
       Row() {
         Text('--:-- | --/--TP')
-          .fontSize(10)
-          .fontColor('#888888')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.overlayTxt)
           .layoutWeight(1)
         Text('--代/--')
-          .fontSize(10)
-          .fontColor('#888888')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.overlayTxt)
       }
       .width('100%')
-      .height(22)
+      .height(PanelDimens.statusBarH)
       .padding({ left: 8, right: 8 })
       .alignItems(VerticalAlign.Center)
-      .borderWidth({ bottom: 0.5 })
-      .borderColor('#333333')
+      .borderWidth({ bottom: PanelDimens.borderW })
+      .borderColor(PanelColors.overlayHdr)
 
       // Ship list
       Scroll() {
@@ -112,8 +106,8 @@ export default struct FloatOverlayPanel {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#bf000000') // ~75% opaque black
-    .backdropBlur(10)
+    .backgroundColor(PanelColors.overlayBg)
+    .backdropBlur(PanelDimens.overlayBlur)
     .clip(true)
   }
 }
