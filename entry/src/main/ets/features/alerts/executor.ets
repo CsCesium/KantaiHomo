@@ -16,6 +16,7 @@ import type {
   SortieNextAlert
 } from './type';
 import { getAlertBus } from '.';
+import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
 
 // ========== 通知 ID 常量 ==========
 const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
@@ -87,6 +88,9 @@ async function handleExpeditionReturn(alert: ExpeditionReturnAlert): Promise<voi
       timeStr
     );
   }
+
+  // 归来后刷新常驻通知（移除已完成舰队，保留仍在远征的舰队）
+  void getExpeditionLiveNotificationService().refresh();
 }
 
 async function handleYasenPrompt(alert: YasenPromptAlert): Promise<void> {

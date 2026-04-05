@@ -4,6 +4,10 @@ import { ExpeditionRow } from '../../../infra/storage/types';
 import { i32, i64 } from '../../../infra/utils/num';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
+import {
+  cacheMissionNames,
+  getExpeditionLiveNotificationService,
+} from '../../../features/alerts/module/expeditionNotification';
 
 class ExpeditionHandler implements Handler{
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
@@ -27,7 +31,7 @@ class ExpeditionHandler implements Handler{
         await this.handleResult(e.payload, ts, deps);
         break;
       case 'EXPEDITION_CATALOG':
-        // catalog 不写表
+        cacheMissionNames((e.payload as { id: number; name: string }[]).map(m => ({ id: m.id, name: m.name })));
         break;
     }
   }
@@ -40,6 +44,7 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(payload.updatedAt ?? ts, ts),
     };
     await deps.repos!.expedition.upsertBatch([row]);
+    void getExpeditionLiveNotificationService().refresh();
   }
 
   private async handleUpdate(payload: ExpeditionSlotState[], ts: number, deps: PersistDeps) {
@@ -51,6 +56,7 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(s.updatedAt ?? ts, ts),
     }));
     await deps.repos!.expedition.upsertBatch(rows);
+    void getExpeditionLiveNotificationService().refresh();
   }
 
   private async handleResult(payload: MissionResult, ts: number, deps: PersistDeps) {
@@ -62,6 +68,7 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(payload.finishedAt ?? ts, ts),
     };
     await deps.repos!.expedition.upsertBatch([row]);
+    void getExpeditionLiveNotificationService().refresh();
   }
 }
 const handler = new ExpeditionHandler();

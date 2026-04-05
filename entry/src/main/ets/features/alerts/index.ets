@@ -51,6 +51,13 @@ export {
   type ExpeditionSchedulerOptions,
 } from './module/expedition';
 
+// ========== ExpeditionLiveNotification ==========
+
+export {
+  getExpeditionLiveNotificationService,
+  cacheMissionNames,
+} from './module/expeditionNotification';
+
 // ========== 统一初始化 ==========
 
 let _initialized = false;
