@@ -8,6 +8,7 @@ import {
   cacheMissionNames,
   getExpeditionLiveNotificationService,
 } from '../../../features/alerts/module/expeditionNotification';
+import { getExpeditionScheduler } from '../../../features/alerts';
 
 class ExpeditionHandler implements Handler{
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
@@ -44,6 +45,7 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(payload.updatedAt ?? ts, ts),
     };
     await deps.repos!.expedition.upsertBatch([row]);
+    void getExpeditionScheduler()?.poke();
     void getExpeditionLiveNotificationService().refresh();
   }
 
@@ -56,6 +58,7 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(s.updatedAt ?? ts, ts),
     }));
     await deps.repos!.expedition.upsertBatch(rows);
+    void getExpeditionScheduler()?.poke();
     void getExpeditionLiveNotificationService().refresh();
   }
 

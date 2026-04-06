@@ -7,8 +7,9 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { setAppContext } from '../infra/appContext'
 import { initPersistDeps } from '../infra/deps';
 import { initHandlerRegistry } from '../features/router/persist/registry';
-import { initAlerts } from '../features/alerts';
+import { initAlerts, initExpeditionScheduler, getExpeditionScheduler } from '../features/alerts';
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
+import { getRepositoryHub } from '../infra/storage/repo';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
@@ -31,7 +32,12 @@ export default class EntryAbility extends UIAbility {
       initPersistDeps();
       initHandlerRegistry();
       initAlerts();
-      hilog.info(HILOG_DOM, 'App', 'deps+registry+alerts initialized (stageCreate)');
+
+      // 启动远征归来调度器（负责在远征到时触发 Toast / 震动 / 归来通知）
+      const scheduler = initExpeditionScheduler(getRepositoryHub().expedition);
+      void scheduler.start();
+
+      hilog.info(HILOG_DOM, 'App', 'deps+registry+alerts+scheduler initialized (stageCreate)');
     } catch (e) {
       hilog.error(HILOG_DOM, 'App', 'init failed: %{public}s', String(e));
     }
@@ -69,6 +75,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageDestroy(): void {
+    getExpeditionScheduler()?.stop();
     getExpeditionLiveNotificationService().stop();
     this.mainWindow?.disableLandscapeMultiWindow().catch((error: BusinessError): void => {
       hilog.error(HILOG_DOM, 'App', 'disableLandscapeMultiWindow failed: %{public}s', JSON.stringify(error));
