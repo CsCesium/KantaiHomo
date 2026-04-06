@@ -1,6 +1,9 @@
 {
   "src": [
+    "app/pages/Launcher",
     "app/pages/WebRoot",
+    "app/pages/Setting",
+    "app/pages/Changelog",
     "infra/fairy/page/FairyPage"
   ]
 }
