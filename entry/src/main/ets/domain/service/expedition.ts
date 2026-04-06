@@ -49,7 +49,16 @@ export async function saveExpeditionResult(result: MissionResult): Promise<void>
     }]);
   }
 
-  // TODO: 保存远征结果到 expedition_results 表
+  await hub.expeditionResult.insert({
+    deckId: result.deckId,
+    missionId: result.missionId,
+    clear: result.clear,
+    admiral_lv: result.admiral.lv,
+    admiral_getExp: result.admiral.getExp,
+    materials: result.drops.materials ? JSON.stringify(result.drops.materials) : null,
+    items: result.drops.items ? JSON.stringify(result.drops.items.map(i => ({ id: i.id, count: i.count }))) : null,
+    finishedAt: result.finishedAt,
+  });
 }
 
 /**

@@ -23,6 +23,8 @@ import type {
   NdockRepository,
   ExpeditionRow,
   ExpeditionRepository,
+  ExpeditionResultRow,
+  ExpeditionResultRepository,
   RepositoryHub,
   BattleRecordRepository,
   BattleRecordRow,
@@ -39,6 +41,7 @@ import {
   KdockDao,
   NdockDao,
   ExpeditionDao,
+  ExpeditionResultDao,
   BattleDao,
   SortieDao,
 } from '../dao';
@@ -230,6 +233,22 @@ export class ExpeditionRepositoryImpl implements ExpeditionRepository {
     return ExpeditionDao.getNextAfter(nowMs);
   }
 }
+// ==================== Expedition Result ====================
+
+export class ExpeditionResultRepositoryImpl implements ExpeditionResultRepository {
+  async insert(row: ExpeditionResultRow): Promise<void> {
+    await ExpeditionResultDao.insert(row);
+  }
+
+  async listByMission(missionId: number, limit = 100): Promise<readonly ExpeditionResultRow[]> {
+    return ExpeditionResultDao.listByMission(missionId, limit);
+  }
+
+  async listRecent(limit: number): Promise<readonly ExpeditionResultRow[]> {
+    return ExpeditionResultDao.listRecent(limit);
+  }
+}
+
 // ==================== Battle Record ====================
 
 export class BattleRecordRepositoryImpl implements BattleRecordRepository {
@@ -303,6 +322,7 @@ class RepositoryHubImpl implements RepositoryHub {
   private _build: KdockRepository | null = null;
   private _repair: NdockRepository | null = null;
   private _expedition: ExpeditionRepository | null = null;
+  private _expeditionResult: ExpeditionResultRepository | null = null;
   private _battle: BattleRecordRepository | null = null;
   private _sortie: SortieRecordRepository | null = null;
 
@@ -342,6 +362,10 @@ class RepositoryHubImpl implements RepositoryHub {
     return this._expedition ??= new ExpeditionRepositoryImpl();
   }
 
+  get expeditionResult(): ExpeditionResultRepository {
+    return this._expeditionResult ??= new ExpeditionResultRepositoryImpl();
+  }
+
   get battle(): BattleRecordRepository {
     return this._battle ??= new BattleRecordRepositoryImpl();
   }
@@ -360,6 +384,7 @@ class RepositoryHubImpl implements RepositoryHub {
     this._build = null;
     this._repair = null;
     this._expedition = null;
+    this._expeditionResult = null;
     this._battle = null;
     this._sortie = null;
   }
@@ -387,6 +412,7 @@ export const repos = {
   get build() { return getRepositoryHub().build; },
   get repair() { return getRepositoryHub().repair; },
   get expedition() { return getRepositoryHub().expedition; },
+  get expeditionResult() { return getRepositoryHub().expeditionResult; },
   get battle() { return getRepositoryHub().battle; },
   get sortie() { return getRepositoryHub().sortie; },
 };
