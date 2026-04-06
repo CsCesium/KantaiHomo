@@ -5,7 +5,7 @@ import { FitGetter, WebHostController } from "./controller/WebHostController";
 import { decideLayout, FitPolicy, HostMode, LayoutDecision, WideSplitMode, WindowScene } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
-import { window } from "@kit.ArkUI";
+import { promptAction, window } from "@kit.ArkUI";
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
@@ -248,6 +248,26 @@ export default struct WebHost {
     }
   }
 
+  private doLogout(): void {
+    webview.WebCookieManager.clearAllCookiesSync();
+    void kvDelete('dmm.cookie.backup.v1');
+    this.controller.clearCache(true);
+    this.controller.loadUrl(this.HOME);
+  }
+
+  private promptLogout(): void {
+    promptAction.showDialog({
+      title: '确认登出',
+      message: '将清除登录 Cookie 及页面缓存，并跳转到登录页。',
+      buttons: [
+        { text: '取消',   color: '#888888' },
+        { text: '确认登出', color: '#e53935' },
+      ],
+    }).then((result) => {
+      if (result.index === 1) { this.doLogout(); }
+    }).catch((_e: Error) => {});
+  }
+
   private onWebAttached = () => { this.host.attach(); }
   private onBegin = () => { this.progress = 5; this.host.onPageBegin(); }
   private onProg = (p: number) => { this.progress = p; }
@@ -286,6 +306,7 @@ export default struct WebHost {
           ButtonColumn({
             onRefresh: () => this.controller.refresh(),
             onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+            onLogout: () => this.promptLogout(),
             panelActive: this.overlayForced,
           })
             .width(this.showSideButtons &&
