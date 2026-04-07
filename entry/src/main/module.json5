@@ -39,7 +39,6 @@
       { "name": "ohos.permission.GET_NETWORK_INFO" },
       { "name": "ohos.permission.KEEP_BACKGROUND_RUNNING" },
       { "name": "ohos.permission.VIBRATE" },
-      //{"name": "ohos.permission.SYSTEM_FLOAT_WINDOW"},
       //{"name": "ohos.permission.USE_FLOAT_BALL"}
     ],
 

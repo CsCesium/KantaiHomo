@@ -1,4 +1,0 @@
-@Observed
-export class CustomAnimation {
-
-}

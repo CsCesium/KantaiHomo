@@ -9,6 +9,7 @@ import { initHandlerRegistry } from '../features/router/persist/registry';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
+import { FairyService } from '../infra/fairy/service/FairyService';
 const HILOG_DOM: number = 0x1357;
 
 export default class EntryAbility extends UIAbility {
@@ -34,7 +35,9 @@ export default class EntryAbility extends UIAbility {
       if (err?.code) {
         console.error(`loadContent failed: ${JSON.stringify(err)}`)
       }
-    })
+    });
+
+    void FairyService.getInstance().init(windowStage);
 
     try {
       this.mainWindow = windowStage.getMainWindowSync();
@@ -56,6 +59,7 @@ export default class EntryAbility extends UIAbility {
     this.mainWindow?.disableLandscapeMultiWindow().catch((error: BusinessError): void => {
       hilog.error(HILOG_DOM, 'App', 'disableLandscapeMultiWindow failed: %{public}s', JSON.stringify(error));
     });
+    void FairyService.getInstance().destroy();
   }
 
   onDestroy(): void | Promise<void> {
