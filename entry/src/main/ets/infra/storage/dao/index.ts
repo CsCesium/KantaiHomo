@@ -19,5 +19,6 @@ export * as QuestDao from './quest';
 export * as KdockDao from './k_dock';
 export * as NdockDao from './n_dock';
 export * as ExpeditionDao from './expedition';
+export * as ExpeditionResultDao from './expedition_result';
 export * as BattleDao from './battle';
 export * as SortieDao from './sortie';

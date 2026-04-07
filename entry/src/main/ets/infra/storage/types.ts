@@ -375,6 +375,26 @@ export interface ExpeditionRepository {
   getNextAfter(nowMs: number): Promise<{ deckId: number; missionId: number; returnTime: number } | null>;
 }
 
+// ==================== Expedition Result ====================
+
+export interface ExpeditionResultRow {
+  id?: number;  // AUTO INCREMENT
+  deckId: number;
+  missionId: number;
+  clear: number;  // 0 | 1 | 2
+  admiral_lv: number | null;
+  admiral_getExp: number | null;
+  materials: string | null;  // JSON: [fuel, ammo, steel, bauxite]
+  items: string | null;      // JSON: [{id, count}, ...]
+  finishedAt: number;
+}
+
+export interface ExpeditionResultRepository {
+  insert(row: ExpeditionResultRow): Promise<void>;
+  listByMission(missionId: number, limit?: number): Promise<readonly ExpeditionResultRow[]>;
+  listRecent(limit: number): Promise<readonly ExpeditionResultRow[]>;
+}
+
 // ==================== Battle Record ====================
 
 export interface BattleRecordRow {
@@ -470,6 +490,7 @@ export interface RepositoryHub {
   material: MaterialsRepository;
   slotitem: SlotItemRepository;
   expedition: ExpeditionRepository;
+  expeditionResult: ExpeditionResultRepository;
   deck: DeckRepository;
   quest: QuestRepository;
   build: KdockRepository;
