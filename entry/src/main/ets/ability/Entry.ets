@@ -31,7 +31,7 @@ export default class EntryAbility extends UIAbility {
     } catch (e) {
       hilog.error(HILOG_DOM, 'App', 'init failed: %{public}s', String(e));
     }
-    windowStage.loadContent('app/pages/WebRoot', (err) => {
+    windowStage.loadContent('app/pages/Launcher', (err) => {
       if (err?.code) {
         console.error(`loadContent failed: ${JSON.stringify(err)}`)
       }

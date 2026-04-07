@@ -1,5 +1,5 @@
 import { webview } from "@kit.ArkWeb";
-import { kvDelete, kvGetString, kvSet } from "../storage/kv";
+import { kvDelete, kvGetBool, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
 import { decideLayout, FitPolicy, HostMode, LayoutDecision, WideSplitMode, WindowScene } from "./layout/responsive";
@@ -28,6 +28,8 @@ export default struct WebHost {
   private host!: WebHostController;
 
   private readonly HOME: string = HOME_URL;
+  private homeOverride: string = '';
+  private firstPageLoad: boolean = true;
   @State private progress: number = 0;
   @State private mode: HostMode = HostMode.COMPACT;
   @State private lastMode: HostMode | null = null;
@@ -193,11 +195,69 @@ export default struct WebHost {
     this.lastMode = this.mode;
   }
 
+  private async loadRuntimeConfig(): Promise<void> {
+    const [homeOverride, uaOverride, clearPending] = await Promise.all([
+      kvGetString('config.homeUrl', ''),
+      kvGetString('config.userAgent', ''),
+      kvGetBool('clear.cache.pending', false),
+    ]);
+
+    if (uaOverride) {
+      try { this.controller.setCustomUserAgent(uaOverride); } catch (_e) {}
+    }
+    if (homeOverride && homeOverride !== HOME_URL) {
+      this.homeOverride = homeOverride;
+    }
+    if (clearPending) {
+      try { this.controller.removeCache(true); } catch (_e) {}
+      void kvDelete('clear.cache.pending');
+    }
+  }
+
+  private async tryAutoFill(): Promise<void> {
+    const [username, password] = await Promise.all([
+      kvGetString('account.username', ''),
+      kvGetString('account.password', ''),
+    ]);
+    if (!username && !password) {
+      return;
+    }
+
+    const u = JSON.stringify(username);
+    const p = JSON.stringify(password);
+    const js: string =
+      '(function(){'
+      + 'try{'
+      + 'if(!document.querySelector(\'input[type="password"]\')) return;'
+      + 'function fill(sels,val){'
+      + '  for(var i=0;i<sels.length;i++){'
+      + '    var el=document.querySelector(sels[i]);'
+      + '    if(el&&el.type!=="hidden"){'
+      + '      var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value");'
+      + '      if(d&&d.set) d.set.call(el,val);'
+      + '      el.dispatchEvent(new Event("input",{bubbles:true}));'
+      + '      el.dispatchEvent(new Event("change",{bubbles:true}));'
+      + '      return true;'
+      + '    }'
+      + '  }'
+      + '  return false;'
+      + '}'
+      + 'fill(["#login_id","input[name=\\"login_id\\"]","input[type=\\"email\\"]","input[name=\\"username\\"]","input[name=\\"email\\"]"],' + u + ');'
+      + 'fill(["#password","input[name=\\"password\\"]","input[type=\\"password\\"]"],' + p + ');'
+      + '}catch(e){console.warn("[autofill]",e);}'
+      + '})();';
+
+    if (typeof this.controller.runJavaScript === 'function') {
+      this.controller.runJavaScript(js);
+    }
+  }
+
   aboutToAppear() {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
     this.host.bindDisplay();
     void this.host.applyOrientationByMode(true);
+    void this.loadRuntimeConfig();
 
     // Preload split policy for wide left/right mode.
     void kvGetString(LAYOUT_WIDE_SPLIT_MODE_KEY, WideSplitMode.PORTRAIT_FILL)
@@ -255,6 +315,23 @@ export default struct WebHost {
     this.progress = 100;
     this.host.onPageEnd();
     void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
+
+    // One-shot redirect to configured home URL on first load.
+    if (this.firstPageLoad && this.homeOverride) {
+      this.firstPageLoad = false;
+      const override = this.homeOverride;
+      this.homeOverride = '';
+      try {
+        if (this.controller.getUrl() !== override) {
+          this.controller.loadUrl(override);
+        }
+      } catch (_e) {}
+    } else {
+      this.firstPageLoad = false;
+    }
+
+    // Auto-fill credentials on login pages.
+    void this.tryAutoFill();
   }
 
   private getSafeAreaEdges(): SafeAreaEdge[] {
