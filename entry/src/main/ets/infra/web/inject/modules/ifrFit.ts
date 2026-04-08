@@ -166,8 +166,8 @@ window.__safeInject('iframeFit', function () {
   }
   function computeOffsets(scale, realVW){
     var x = 0;
-    // Only center horizontally for floating-mode fit (policy=width + lock=true).
-    if (policy === 'width' && LOCK) {
+    // In locked fit modes, keep content horizontally centered (e.g. split stacked windows).
+    if (LOCK) {
       var contentW = W * scale;
       x = (realVW - contentW) * 0.5;
       if (!isFinite(x)) x = 0;
