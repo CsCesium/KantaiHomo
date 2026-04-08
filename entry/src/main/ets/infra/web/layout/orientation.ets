@@ -103,6 +103,8 @@ export class Orientation {
     if (cached) {
       return cached;
     }
+    // Fallback: should not normally be reached after Entry.onWindowStageCreate
+    // completes, but kept as a safety net for early-init edge cases.
     return window.getLastWindow(this.ctx);
   }
 

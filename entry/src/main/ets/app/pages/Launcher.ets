@@ -1,6 +1,6 @@
 import router from '@ohos.router';
-import { common } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
+import { getMainWindowCached } from '../../infra/appContext';
 
 @Entry
 @Component
@@ -9,11 +9,11 @@ struct Launcher {
     router.pushUrl({ url }).catch(() => {});
   }
   private enterGame(): void {
-    const ctx = getContext(this) as common.UIAbilityContext;
-    window.getLastWindow(ctx).then((win: window.Window) => {
-      return win.setPreferredOrientation(window.Orientation.LANDSCAPE);
-    }).catch(() => {
-    }).finally(() => {
+    const win = getMainWindowCached();
+    const orientationPromise = win
+      ? win.setPreferredOrientation(window.Orientation.LANDSCAPE)
+      : Promise.resolve();
+    orientationPromise.catch(() => {}).finally(() => {
       router.replaceUrl({ url: 'app/pages/WebRoot' }).catch(() => {});
     });
   }
