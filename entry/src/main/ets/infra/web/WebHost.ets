@@ -438,7 +438,7 @@ export default struct WebHost {
           .height('100%')
         }
       }
-      .height(this.showBottomTools ? this.gameHeightVp : "auto")
+      .height(this.showBottomTools ? this.gameHeightVp : '100%')
       .constraintSize(this.showBottomTools ? { minHeight: this.gameHeightVp, maxHeight: this.gameHeightVp } : {})
       .layoutWeight(this.showBottomTools ? 0 : 1)
       .width('100%')
