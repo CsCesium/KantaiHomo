@@ -128,10 +128,15 @@ export default struct WebHost {
     return WideSplitMode.PORTRAIT_FILL;
   }
 
-  private applyImmersiveLayoutForScene(win: window.Window): void {
+  private async applyImmersiveLayoutForScene(win: window.Window): Promise<void> {
     // Floating window should be immersive (edge-to-edge).
     // Other scenes keep non-immersive layout to avoid unexpected system-bar overlap.
-    void win.setWindowLayoutFullScreen(this.scene === WindowScene.FLOATING);
+    const immersive: boolean = this.scene === WindowScene.FLOATING;
+    await win.setWindowLayoutFullScreen(immersive);
+    if (immersive) {
+      // Re-apply hidden system bars after scene transition to avoid top bar re-appearing.
+      await win.setWindowSystemBarEnable([]);
+    }
   }
 
   // Centralized layout update for area/window changes.
@@ -282,14 +287,16 @@ export default struct WebHost {
 
       const status = win.getWindowStatus();
       this.scene = this.resolveScene(status);
-      this.applyImmersiveLayoutForScene(win);
-      this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+      void this.applyImmersiveLayoutForScene(win).then(() => {
+        this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+      });
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveScene(nextStatus);
-        this.applyImmersiveLayoutForScene(win);
-        this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+        void this.applyImmersiveLayoutForScene(win).then(() => {
+          this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+        });
       };
       win.on('windowStatusChange', this.windowStatusCb);
     });
@@ -469,8 +476,9 @@ export default struct WebHost {
       window.getLastWindow(ctx).then((win) => {
         const status = win.getWindowStatus();
         this.scene = this.resolveScene(status);
-        this.applyImmersiveLayoutForScene(win);
-        this.recalcLayout(w, h);
+        void this.applyImmersiveLayoutForScene(win).then(() => {
+          this.recalcLayout(w, h);
+        });
       });
     })
   }
