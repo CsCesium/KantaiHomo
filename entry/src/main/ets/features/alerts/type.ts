@@ -80,7 +80,7 @@ export interface AlertConfig {
 export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   enableToast: true,
   enableVibrate: true,
-  enableNotification: false,
+  enableNotification: true,
   vibrateDurationMs: 150,
   debounceMs: 1200,
 };

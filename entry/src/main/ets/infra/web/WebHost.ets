@@ -316,7 +316,6 @@ export default struct WebHost {
   private doLogout(): void {
     webview.WebCookieManager.clearAllCookiesSync();
     void kvDelete('dmm.cookie.backup.v1');
-    this.controller.clearCache(true);
     this.controller.loadUrl(this.HOME);
   }
 
