@@ -55,8 +55,12 @@ export {
 
 export {
   getExpeditionLiveNotificationService,
-  cacheMissionNames,
 } from './module/expeditionNotification';
+
+export {
+  cacheMissionNames,
+  getMissionName,
+} from './module/missionCache';
 
 // ========== 统一初始化 ==========
 

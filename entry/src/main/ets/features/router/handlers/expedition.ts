@@ -4,11 +4,8 @@ import { ExpeditionRow, ExpeditionResultRow } from '../../../infra/storage/types
 import { i32, i64 } from '../../../infra/utils/num';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
-import {
-  cacheMissionNames,
-  getExpeditionLiveNotificationService,
-} from '../../../features/alerts/module/expeditionNotification';
-import { getExpeditionScheduler } from '../../../features/alerts';
+import { cacheMissionNames } from '../../../features/alerts/module/missionCache';
+import { triggerExpeditionChanged } from '../../../features/alerts/module/expeditionTrigger';
 
 class ExpeditionHandler implements Handler{
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
@@ -45,8 +42,7 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(payload.updatedAt ?? ts, ts),
     };
     await deps.repos!.expedition.upsertBatch([row]);
-    void getExpeditionScheduler()?.poke();
-    void getExpeditionLiveNotificationService().refresh();
+    triggerExpeditionChanged();
   }
 
   private async handleUpdate(payload: ExpeditionSlotState[], ts: number, deps: PersistDeps) {
@@ -58,8 +54,7 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(s.updatedAt ?? ts, ts),
     }));
     await deps.repos!.expedition.upsertBatch(rows);
-    void getExpeditionScheduler()?.poke();
-    void getExpeditionLiveNotificationService().refresh();
+    triggerExpeditionChanged();
   }
 
   private async handleResult(payload: MissionResult, ts: number, deps: PersistDeps) {
@@ -91,7 +86,7 @@ class ExpeditionHandler implements Handler{
       console.warn('[persist][EXPEDITION] result insert failed:', e);
     }
 
-    void getExpeditionLiveNotificationService().refresh();
+    triggerExpeditionChanged();
   }
 }
 const handler = new ExpeditionHandler();
