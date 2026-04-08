@@ -1,10 +1,21 @@
 import router from '@ohos.router';
+import { common } from '@kit.AbilityKit';
+import { window } from '@kit.ArkUI';
 
 @Entry
 @Component
 struct Launcher {
   private navigate(url: string): void {
     router.pushUrl({ url }).catch(() => {});
+  }
+  private enterGame(): void {
+    const ctx = getContext(this) as common.UIAbilityContext;
+    window.getLastWindow(ctx).then((win: window.Window) => {
+      return win.setPreferredOrientation(window.Orientation.LANDSCAPE);
+    }).catch(() => {
+    }).finally(() => {
+      router.replaceUrl({ url: 'app/pages/WebRoot' }).catch(() => {});
+    });
   }
 
   @Builder
@@ -80,8 +91,8 @@ struct Launcher {
       // ── Menu Cards ───────────────────────────────────────────────
       Column({ space: 10 }) {
         this.MenuCard(
-          '⚓', '进入游戏', '连接至舰队司令部', false,
-          () => this.navigate('app/pages/WebRoot')
+          '⚓', '进入游戏','艦これ', false,
+          () => this.enterGame()
         )
         this.MenuCard(
           '⚙', '设置', '游戏配置与账号管理', false,
