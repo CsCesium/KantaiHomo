@@ -196,11 +196,14 @@ export default struct WebHost {
   }
 
   private async loadRuntimeConfig(): Promise<void> {
-    const [homeOverride, uaOverride, clearPending] = await Promise.all([
+    const runtimeConfig = await Promise.all([
       kvGetString('config.homeUrl', ''),
       kvGetString('config.userAgent', ''),
       kvGetBool('clear.cache.pending', false),
     ]);
+    const homeOverride = runtimeConfig[0];
+    const uaOverride = runtimeConfig[1];
+    const clearPending = runtimeConfig[2];
 
     if (uaOverride) {
       try { this.controller.setCustomUserAgent(uaOverride); } catch (_e) {}
@@ -215,10 +218,12 @@ export default struct WebHost {
   }
 
   private async tryAutoFill(): Promise<void> {
-    const [username, password] = await Promise.all([
+    const userConfig = await Promise.all([
       kvGetString('account.username', ''),
       kvGetString('account.password', ''),
     ]);
+    const username = userConfig[0];
+    const password = userConfig[1];
     if (!username && !password) {
       return;
     }

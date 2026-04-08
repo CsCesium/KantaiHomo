@@ -24,6 +24,11 @@ export const FAIRY_BALL_VP = 56;
  *   'fairy.visible'        boolean  — whether the ball is shown
  *   'fairy.openDashboard'  number   — timestamp, bump to request dashboard open
  */
+interface Position {
+  x: number;
+  y: number;
+}
+
 export class FairyService {
   // ── singleton ────────────────────────────────────────────────────────────
   private static inst: FairyService | null = null;
@@ -114,7 +119,7 @@ export class FairyService {
   }
 
   /** Current ball position in physical pixels. */
-  getPositionPx(): { x: number; y: number } {
+  getPositionPx(): Position {
     return { x: this.posXPx, y: this.posYPx };
   }
 
@@ -124,7 +129,7 @@ export class FairyService {
       return;
     }
     try {
-      await this.subWin.hide();
+      await this.subWin.minimize();
       AppStorage.set<boolean>('fairy.visible', false);
     } catch (e) {
       hilog.error(0x1357, TAG, 'hide failed: %{public}s', String(e));

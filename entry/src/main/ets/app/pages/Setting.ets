@@ -25,12 +25,16 @@ struct Setting {
   }
 
   private async loadAll(): Promise<void> {
-    const [url, ua, user, pass] = await Promise.all([
+    const WebConfig = await Promise.all([
       kvGetString('config.homeUrl', HOME_URL),
       kvGetString('config.userAgent', USER_AGENT ?? ''),
       kvGetString('account.username', ''),
       kvGetString('account.password', ''),
     ]);
+    const url = WebConfig[0];
+    const ua = WebConfig[1];
+    const user = WebConfig[2];
+    const pass = WebConfig[3];
     this.homeUrl = url;
     this.userAgent = ua;
     this.username = user;
@@ -83,7 +87,7 @@ struct Setting {
 
   private doClearCookies(): void {
     try {
-      webview.WebCookieManager.deleteAllCookiesSync();
+      webview.WebCookieManager.clearAllCookiesSync();
       promptAction.showToast({ message: 'Cookies 已清除', duration: 2000 });
     } catch (e) {
       promptAction.showToast({ message: '清除失败: ' + String(e), duration: 2500 });
@@ -231,9 +235,7 @@ struct Setting {
 
             Row({ space: 10 }) {
               this.ActionBtn('重置默认', '#5A7A8A', () => { void this.resetConfig(); })
-                .layoutWeight(1)
               this.ActionBtn('保存配置', this.configDirty ? '#6A9AB5' : '#3A5060', () => { void this.saveConfig(); })
-                .layoutWeight(1)
             }
           }
           .padding({ left: 16, right: 16, top: 14, bottom: 14 })
@@ -296,9 +298,7 @@ struct Setting {
 
             Row({ space: 10 }) {
               this.ActionBtn('清除账号', '#C0313A', () => { void this.clearAccount(); })
-                .layoutWeight(1)
               this.ActionBtn('保存账号', this.accountDirty ? '#6A9AB5' : '#3A5060', () => { void this.saveAccount(); })
-                .layoutWeight(1)
             }
           }
           .padding({ left: 16, right: 16, top: 14, bottom: 14 })
