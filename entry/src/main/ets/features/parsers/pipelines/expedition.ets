@@ -1,12 +1,13 @@
 import { ApiDump } from '../../../infra/web/types'
 import { parseExpedition } from '../module'
-import { DumpPipeline, ParseResult } from '../pipeline'
+import { DumpPipeline, ParseResult, registerPipeline } from '../pipeline'
 
 export const expeditionPipeline: DumpPipeline = {
   name: 'expedition',
   match: (url) => {
     return url.includes('/api_req_mission/')
-      || url.includes('/api_get_member/deck');
+      || url.includes('/api_get_member/deck')
+      || url.includes('/api_start2');
   },
 
   parse: (dump: ApiDump): ParseResult | null => {
@@ -19,3 +20,5 @@ export const expeditionPipeline: DumpPipeline = {
     };
   }
 };
+
+registerPipeline(expeditionPipeline);

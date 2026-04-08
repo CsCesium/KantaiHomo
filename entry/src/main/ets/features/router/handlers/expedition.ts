@@ -1,6 +1,6 @@
 import { AnyExpEvt } from '../../../domain/events';
 import { MissionStart, ExpeditionProgress, ExpeditionSlotState, MissionResult } from '../../../domain/models';
-import { ExpeditionRow } from '../../../infra/storage/types';
+import { ExpeditionRow, ExpeditionResultRow } from '../../../infra/storage/types';
 import { i32, i64 } from '../../../infra/utils/num';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -63,14 +63,34 @@ class ExpeditionHandler implements Handler{
   }
 
   private async handleResult(payload: MissionResult, ts: number, deps: PersistDeps) {
-    const row: ExpeditionRow = {
+    const finishedAt = i64(payload.finishedAt ?? ts, ts);
+    const stateRow: ExpeditionRow = {
       deckId: i32(payload.deckId, 0),
       missionId: i32(payload.missionId, 0),
       progress: ExpeditionProgress.IDLE,
       returnTime: 0,
-      updatedAt: i64(payload.finishedAt ?? ts, ts),
+      updatedAt: finishedAt,
     };
-    await deps.repos!.expedition.upsertBatch([row]);
+    await deps.repos!.expedition.upsertBatch([stateRow]);
+
+    try {
+      const resultRow: ExpeditionResultRow = {
+        deckId: i32(payload.deckId, 0),
+        missionId: i32(payload.missionId, 0),
+        clear: payload.clear,
+        admiral_lv: payload.admiral?.lv ?? null,
+        admiral_getExp: payload.admiral?.getExp ?? null,
+        materials: payload.drops.materials ? JSON.stringify(payload.drops.materials) : null,
+        items: payload.drops.items?.length
+          ? JSON.stringify(payload.drops.items.map(it => ({ id: it.id, count: it.count })))
+          : null,
+        finishedAt,
+      };
+      await deps.repos!.expeditionResult.insert(resultRow);
+    } catch (e) {
+      console.warn('[persist][EXPEDITION] result insert failed:', e);
+    }
+
     void getExpeditionLiveNotificationService().refresh();
   }
 }

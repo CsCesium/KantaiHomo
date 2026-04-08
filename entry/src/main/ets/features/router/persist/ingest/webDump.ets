@@ -1,6 +1,7 @@
 //src/main/ets/features/router/persist/ingest/webDump.ets
 import taskpool from '@ohos.taskpool'
 import { ApiDump } from "../../../../infra/web/types";
+import '../../../parsers/pipelines'; // trigger side-effect pipeline registrations
 import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';
