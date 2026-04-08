@@ -380,23 +380,6 @@ export default struct WebHost {
       // the Row used to carry directly.
       Stack({ alignContent: Alignment.TopStart }) {
         Row() {
-          // Side tool column — visible only in expanded/wide layout.
-          // In compact mode showSideButtons is false, so this is always hidden there.
-          // Panel is toggled via overlayForced; the toggle button highlights when active.
-          ButtonColumn({
-            onRefresh: () => this.controller.refresh(),
-            onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
-            onLogout: () => this.promptLogout(),
-            panelActive: this.overlayForced,
-          })
-            .width(this.showSideButtons &&
-              (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced) ? 56 : 0)
-            .visibility(this.showSideButtons &&
-              (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced)
-              ? Visibility.Visible : Visibility.None)
-            .padding({ left: 4, right: 4, top: 8, bottom: 8 })
-            .align(Alignment.BottomStart)
-
           Stack({ alignContent: Alignment.TopStart }) {
             GameWeb({
               src: this.HOME,
@@ -416,9 +399,11 @@ export default struct WebHost {
         .height('100%')
         .backgroundColor('#000')
 
-        // Compact mode: show the same multi-action ButtonColumn as a floating layer,
-        // so panel toggle sits together with refresh/logout controls.
-        if (this.mode === HostMode.COMPACT) {
+        // Unified floating controls:
+        // - COMPACT: always show
+        // - non-COMPACT: mirror the original side-button visibility condition
+        if (this.mode === HostMode.COMPACT ||
+          (this.showSideButtons && (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced))) {
           ButtonColumn({
             onRefresh: () => this.controller.refresh(),
             onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
