@@ -128,6 +128,12 @@ export default struct WebHost {
     return WideSplitMode.PORTRAIT_FILL;
   }
 
+  private applyImmersiveLayoutForScene(win: window.Window): void {
+    // Floating window should be immersive (edge-to-edge).
+    // Other scenes keep non-immersive layout to avoid unexpected system-bar overlap.
+    void win.setWindowLayoutFullScreen(this.scene === WindowScene.FLOATING);
+  }
+
   // Centralized layout update for area/window changes.
   private recalcLayout(widthVp: number, heightVp: number): void {
     if (widthVp <= 0 || heightVp <= 0) {
@@ -272,28 +278,17 @@ export default struct WebHost {
       });
 
     window.getLastWindow(ctx).then(win => {
-      void win.setWindowLayoutFullScreen(true);
       void win.setWindowSystemBarEnable([]);
 
       const status = win.getWindowStatus();
       this.scene = this.resolveScene(status);
-      if (this.scene === WindowScene.FLOATING) {
-        // Floating mode uses immersive layout so game canvas can occupy full horizontal viewport.
-        void win.setWindowLayoutFullScreen(true);
-      } else {
-        void win.setWindowLayoutFullScreen(true);
-      }
+      this.applyImmersiveLayoutForScene(win);
       this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveScene(nextStatus);
-        if (this.scene === WindowScene.FLOATING) {
-          // Keep floating window immersive after status transitions.
-          void win.setWindowLayoutFullScreen(true);
-        } else {
-          void win.setWindowLayoutFullScreen(true);
-        }
+        this.applyImmersiveLayoutForScene(win);
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
       };
       win.on('windowStatusChange', this.windowStatusCb);
@@ -474,6 +469,7 @@ export default struct WebHost {
       window.getLastWindow(ctx).then((win) => {
         const status = win.getWindowStatus();
         this.scene = this.resolveScene(status);
+        this.applyImmersiveLayoutForScene(win);
         this.recalcLayout(w, h);
       });
     })
