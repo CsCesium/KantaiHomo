@@ -2,6 +2,7 @@ import settings from '@ohos.settings';
 import common from '@ohos.app.ability.common';
 import window from '@ohos.window';
 import display from '@ohos.display';
+import { getMainWindowCached } from '../../appContext';
 
 export class Orientation {
   private ctx: common.UIAbilityContext;
@@ -97,9 +98,17 @@ export class Orientation {
     }
   }
 
+  private async resolveMainWindow(): Promise<window.Window> {
+    const cached = getMainWindowCached();
+    if (cached) {
+      return cached;
+    }
+    return window.getLastWindow(this.ctx);
+  }
+
   private async registerWindowStatusObserver(): Promise<void> {
     try {
-      const win = await window.getLastWindow(this.ctx);
+      const win = await this.resolveMainWindow();
       this.windowStatus = this.safeGetWindowStatus(win);
       win.on('windowStatusChange', this.onWindowStatusChange);
       console.debug('[Orientation] windowStatus observer registered, initial:', this.windowStatus);
@@ -110,7 +119,7 @@ export class Orientation {
 
   private async unregisterWindowStatusObserver(): Promise<void> {
     try {
-      const win = await window.getLastWindow(this.ctx);
+      const win = await this.resolveMainWindow();
       win.off('windowStatusChange');
     } catch (e) {
       console.error('[Orientation] unregister windowStatus observer failed:', e);
@@ -205,7 +214,7 @@ export class Orientation {
 
   private async refreshWindowStatus(): Promise<void> {
     try {
-      const win = await window.getLastWindow(this.ctx);
+      const win = await this.resolveMainWindow();
       this.windowStatus = this.safeGetWindowStatus(win);
     } catch (e) {
       console.error('[Orientation] refreshWindowStatus failed:', e);
@@ -238,7 +247,7 @@ export class Orientation {
       if (this.current === ori) {
         return;
       }
-      const win = await window.getLastWindow(this.ctx);
+      const win = await this.resolveMainWindow();
       await win.setPreferredOrientation(ori);
       this.current = ori;
       console.debug('[Orientation] force set to:', ori);
@@ -252,7 +261,7 @@ export class Orientation {
       if (this.current === ori) {
         return;
       }
-      const win = await window.getLastWindow(this.ctx);
+      const win = await this.resolveMainWindow();
       await win.setPreferredOrientation(ori);
       this.current = ori;
       console.debug('[Orientation] setPreferred:', ori);
@@ -263,7 +272,7 @@ export class Orientation {
 
   private async getCurrentLockedOrientation(): Promise<window.Orientation> {
     try {
-      const win = await window.getLastWindow(this.ctx);
+      const win = await this.resolveMainWindow();
       const props = win.getWindowProperties();
       const rect = props.windowRect;
 

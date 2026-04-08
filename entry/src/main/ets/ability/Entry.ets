@@ -4,7 +4,7 @@ import Want from '@ohos.app.ability.Want';
 import window from '@ohos.window';
 import notificationManager from '@ohos.notificationManager';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { setAppContext } from '../infra/appContext'
+import { setAppContext, setMainWindow } from '../infra/appContext'
 import { initPersistDeps } from '../infra/deps';
 import { initHandlerRegistry } from '../features/router/persist/registry';
 import { initAlerts, initExpeditionScheduler, getExpeditionScheduler } from '../features/alerts';
@@ -61,6 +61,7 @@ export default class EntryAbility extends UIAbility {
 
     try {
       this.mainWindow = windowStage.getMainWindowSync();
+      setMainWindow(this.mainWindow);
       this.mainWindow.enableLandscapeMultiWindow().catch((error: BusinessError): void => {
         hilog.error(HILOG_DOM, 'App', 'enableLandscapeMultiWindow failed: %{public}s', JSON.stringify(error));
       });
