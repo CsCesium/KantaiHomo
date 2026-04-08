@@ -130,9 +130,10 @@ export default struct WebHost {
   }
 
   private applyImmersiveLayoutForScene(win: window.Window): void {
-    // Floating window should be immersive (edge-to-edge).
-    // Other scenes keep non-immersive layout to avoid unexpected system-bar overlap.
-    void win.setWindowLayoutFullScreen(this.scene === WindowScene.FLOATING);
+    // Split windows share system bars with other apps; keep non-immersive.
+    // Fullscreen and floating are edge-to-edge: immersive layout required so
+    // the hidden system bars don't leave a reserved-but-empty inset at the edges.
+    void win.setWindowLayoutFullScreen(this.scene !== WindowScene.SPLIT);
   }
 
   // Centralized layout update for area/window changes.
@@ -356,12 +357,11 @@ export default struct WebHost {
   }
 
   private getSafeAreaEdges(): SafeAreaEdge[] {
-    if (this.scene === WindowScene.FLOATING) {
-      return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
-    }
-    if (this.mode === HostMode.COMPACT) {
+    if (this.scene === WindowScene.SPLIT) {
+      // Split mode: respect side system UI shared with other windows.
       return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM];
     }
+    // Fullscreen and floating: expand all edges for true edge-to-edge layout.
     return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
   }
 
