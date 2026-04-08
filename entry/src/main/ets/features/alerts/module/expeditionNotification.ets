@@ -9,32 +9,12 @@
 
 import notificationManager from '@ohos.notificationManager';
 import { getRepositoryHub } from '../../../infra/storage/repo';
+import { getMissionName } from './missionCache';
+import { registerOnExpeditionChanged } from './expeditionTrigger';
+import { getExpeditionScheduler } from './expedition';
 
 // ── 常驻通知 ID ──────────────────────────────────────────────────
 const LIVE_NOTIFICATION_ID = 100;
-
-// ── 任务名称内存缓存（missionId → 任务名） ───────────────────────
-
-const _missionNameCache = new Map<number, string>();
-
-/**
- * 从 EXPEDITION_CATALOG 事件更新任务名称缓存
- */
-interface missionInfo {
-  id: number;
-  name: string;
-}
-
-export function cacheMissionNames(missions: Array<missionInfo>): void {
-  for (const m of missions) {
-    _missionNameCache.set(m.id, m.name);
-  }
-  console.debug(`[ExpeditionLiveNotification] cached ${missions.length} mission names`);
-}
-
-function getMissionName(missionId: number): string {
-  return _missionNameCache.get(missionId) ?? `任务 ${missionId}`;
-}
 
 // ── 工具函数 ─────────────────────────────────────────────────────
 
@@ -59,6 +39,11 @@ class ExpeditionLiveNotificationService {
 
   async start(): Promise<void> {
     if (this.timer !== null) return;
+    // Register the bridge callback so .ts handlers can trigger poke + refresh
+    registerOnExpeditionChanged(() => {
+      void getExpeditionScheduler()?.poke();
+      void this.refresh();
+    });
     await this.refresh();
     this.timer = setInterval(() => {
       void this.refresh();
