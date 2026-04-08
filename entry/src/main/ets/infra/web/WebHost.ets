@@ -22,7 +22,6 @@ interface RpcPayload {
 
 const LAYOUT_WIDE_SPLIT_MODE_KEY = 'layout.wideSplitMode';
 
-@Entry
 @Component
 export default struct WebHost {
   private controller: webview.WebviewController = new webview.WebviewController();
