@@ -2,7 +2,7 @@
  * Migration 012: 创建战斗和出击记录表
  */
 
-import { relationalStore } from '@kit.ArkData';
+import type relationalStore from '@ohos.data.relationalStore';
 import { Migration } from '.';
 
 const m012: Migration = {

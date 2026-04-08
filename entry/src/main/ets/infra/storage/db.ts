@@ -14,6 +14,7 @@ const DEFAULT_USER_KEY = 'default';
 let store: RdbStore | null = null;
 let activeUserKey: string = DEFAULT_USER_KEY;
 let openedDbName: string | null = null;
+let openingPromise: Promise<RdbStore> | null = null; // initialization lock
 
 let activeKeyLoaded = false;
 
@@ -103,6 +104,9 @@ export async function getDB(): Promise<RdbStore> {
 
   if (store && openedDbName === dbName) return store;
 
+  // If already initializing the same DB, join the in-flight promise.
+  if (openingPromise) return openingPromise;
+
   // 若 store 不为空但名字不对，关掉
   if (store) {
     await closeDB();
@@ -113,16 +117,31 @@ export async function getDB(): Promise<RdbStore> {
     securityLevel: relationalStore.SecurityLevel.S1,
   };
 
-  store = await relationalStore.getRdbStore(ctx, config);
-  openedDbName = dbName;
-  await runMigrations(store);
-  return store;
+  openingPromise = (async (): Promise<RdbStore> => {
+    const newStore = await relationalStore.getRdbStore(ctx, config);
+    try {
+      await runMigrations(newStore);
+    } catch (e) {
+      // Migration failed — do NOT cache the broken store.
+      // Next call to getDB() will retry opening + migrating.
+      try { await newStore.close(); } catch (_) {}
+      openingPromise = null;
+      throw e;
+    }
+    store = newStore;
+    openedDbName = dbName;
+    openingPromise = null;
+    return store;
+  })();
+
+  return openingPromise;
 }
 
 export async function closeDB(): Promise<void> {
+  openingPromise = null;
   if (!store) return;
   try {
-    await store.close(); //close() :contentReference[oaicite:3]{index=3}
+    await store.close();
   } finally {
     store = null;
     openedDbName = null;
