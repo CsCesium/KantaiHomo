@@ -6,6 +6,7 @@ import { decideLayout, FitPolicy, HostMode, LayoutDecision, WideSplitMode, Windo
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
+import { getMainWindowCached } from '../appContext';
 import ButtonColumn from "./components/ButtonColumn";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
@@ -277,22 +278,23 @@ export default struct WebHost {
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
       });
 
-    window.getLastWindow(ctx).then(win => {
-      void win.setWindowSystemBarEnable([]);
+    const mainWin = getMainWindowCached();
+    if (mainWin) {
+      void mainWin.setWindowSystemBarEnable([]);
 
-      const status = win.getWindowStatus();
+      const status = mainWin.getWindowStatus();
       this.scene = this.resolveScene(status);
-      this.applyImmersiveLayoutForScene(win);
+      this.applyImmersiveLayoutForScene(mainWin);
       this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveScene(nextStatus);
-        this.applyImmersiveLayoutForScene(win);
+        this.applyImmersiveLayoutForScene(mainWin);
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
       };
-      win.on('windowStatusChange', this.windowStatusCb);
-    });
+      mainWin.on('windowStatusChange', this.windowStatusCb);
+    }
 
     webview.WebviewController.setWebDebuggingAccess(true);//Chrome DevTool debug
   }
@@ -300,11 +302,11 @@ export default struct WebHost {
   aboutToDisappear() {
     this.host.unbindDisplay();
 
-    const ctx = getContext(this) as common.UIAbilityContext;
     if (this.windowStatusCb) {
-      window.getLastWindow(ctx).then(win => {
-        win.off('windowStatusChange', this.windowStatusCb);
-      });
+      const mainWin = getMainWindowCached();
+      if (mainWin) {
+        mainWin.off('windowStatusChange', this.windowStatusCb);
+      }
     }
   }
 
@@ -465,13 +467,13 @@ export default struct WebHost {
       const h: number = lengthToNumber(area.height);
       this.viewportWidthVp = w;
       this.viewportHeightVp = h;
-      const ctx = getContext(this) as common.UIAbilityContext;
-      window.getLastWindow(ctx).then((win) => {
-        const status = win.getWindowStatus();
+      const mainWin = getMainWindowCached();
+      if (mainWin) {
+        const status = mainWin.getWindowStatus();
         this.scene = this.resolveScene(status);
-        this.applyImmersiveLayoutForScene(win);
-        this.recalcLayout(w, h);
-      });
+        this.applyImmersiveLayoutForScene(mainWin);
+      }
+      this.recalcLayout(w, h);
     })
   }
 }
