@@ -368,6 +368,16 @@ export default struct WebHost {
     return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
   }
 
+  private shouldShowFloatingButtons(): boolean {
+    const fullscreen: boolean = this.scene === WindowScene.FULLSCREEN;
+    if (!fullscreen) {
+      return false;
+    }
+    const nonCompactVisible: boolean = this.showSideButtons &&
+      (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced);
+    return this.mode === HostMode.COMPACT || nonCompactVisible;
+  }
+
   build() {
     Column() {
       if (this.progress > 0 && this.progress < 100) {
@@ -403,9 +413,7 @@ export default struct WebHost {
         // - COMPACT fullscreen: always show
         // - non-COMPACT fullscreen: mirror the original side-button visibility condition
         // Split/Floating scenes are intentionally hidden.
-        if (this.scene === WindowScene.FULLSCREEN &&
-          (this.mode === HostMode.COMPACT ||
-          (this.showSideButtons && (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced)))) {
+        if (this.shouldShowFloatingButtons()) {
           ButtonColumn({
             onRefresh: () => this.controller.refresh(),
             onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
