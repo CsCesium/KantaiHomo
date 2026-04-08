@@ -98,6 +98,7 @@ export const PanelDimens = {
   btnRadius:      4,   // button border radius
   overlayBlur:   12,   // backdropBlur radius for FloatOverlay glass effect
   overlayPanelW: 220,  // FloatOverlay panel width when overlaid on game (vp)
+  overlaySideGap: 18,  // left/right dismiss area in compact overlay (vp)
 } as const;
 
 // ── HP color helper ────────────────────────────────────────────────────────

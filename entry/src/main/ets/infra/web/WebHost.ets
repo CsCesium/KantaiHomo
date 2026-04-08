@@ -416,22 +416,38 @@ export default struct WebHost {
         .height('100%')
         .backgroundColor('#000')
 
+        // Compact mode: use a single floating toggle instead of the full left button column.
+        if (this.mode === HostMode.COMPACT) {
+          Button({ type: ButtonType.Circle, stateEffect: true }) {
+            Text('面')
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.overlayForced ? '#56d8e0' : '#d0d3e0')
+          }
+            .width(38)
+            .height(38)
+            .backgroundColor(this.overlayForced ? '#c01c3535' : '#b81a1d2e')
+            .border({ width: 0 })
+            .margin({ left: 8, bottom: 10 })
+            .align(Alignment.BottomStart)
+            .onClick(() => { this.overlayForced = !this.overlayForced; })
+        }
+
         // FloatOverlay panel — overlaid on the game viewport.
         // Only shown when explicitly triggered (overlayForced / fairy ball event).
-        // The full-width Row creates transparent dismiss areas on both sides;
-        // tapping either side hides the panel.
+        // Side margins act as dismiss areas; tapping outside panel hides it.
         if (this.overlayForced) {
           Row() {
             Column()
-              .layoutWeight(1)
+              .width(PanelDimens.overlaySideGap)
               .height('100%')
               .backgroundColor(Color.Transparent)
               .onClick(() => { this.overlayForced = false; })
             PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
-              .width(PanelDimens.overlayPanelW)
+              .layoutWeight(1)
               .height('100%')
             Column()
-              .layoutWeight(1)
+              .width(PanelDimens.overlaySideGap)
               .height('100%')
               .backgroundColor(Color.Transparent)
               .onClick(() => { this.overlayForced = false; })
