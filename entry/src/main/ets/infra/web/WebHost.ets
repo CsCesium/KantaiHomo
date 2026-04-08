@@ -416,21 +416,18 @@ export default struct WebHost {
         .height('100%')
         .backgroundColor('#000')
 
-        // Compact mode: use a single floating toggle instead of the full left button column.
+        // Compact mode: show the same multi-action ButtonColumn as a floating layer,
+        // so panel toggle sits together with refresh/logout controls.
         if (this.mode === HostMode.COMPACT) {
-          Button({ type: ButtonType.Circle, stateEffect: true }) {
-            Text('面')
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.overlayForced ? '#56d8e0' : '#d0d3e0')
-          }
-            .width(38)
-            .height(38)
-            .backgroundColor(this.overlayForced ? '#c01c3535' : '#b81a1d2e')
-            .border({ width: 0 })
-            .margin({ left: 8, bottom: 10 })
+          ButtonColumn({
+            onRefresh: () => this.controller.refresh(),
+            onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+            onLogout: () => this.promptLogout(),
+            panelActive: this.overlayForced,
+          })
+            .width(56)
+            .padding({ left: 4, right: 4, top: 8, bottom: 8 })
             .align(Alignment.BottomStart)
-            .onClick(() => { this.overlayForced = !this.overlayForced; })
         }
 
         // FloatOverlay panel — overlaid on the game viewport.
