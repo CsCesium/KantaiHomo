@@ -399,11 +399,13 @@ export default struct WebHost {
         .height('100%')
         .backgroundColor('#000')
 
-        // Unified floating controls:
-        // - COMPACT: always show
-        // - non-COMPACT: mirror the original side-button visibility condition
-        if (this.mode === HostMode.COMPACT ||
-          (this.showSideButtons && (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced))) {
+        // Unified floating controls (fullscreen only):
+        // - COMPACT fullscreen: always show
+        // - non-COMPACT fullscreen: mirror the original side-button visibility condition
+        // Split/Floating scenes are intentionally hidden.
+        if (this.scene === WindowScene.FULLSCREEN &&
+          (this.mode === HostMode.COMPACT ||
+          (this.showSideButtons && (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced)))) {
           ButtonColumn({
             onRefresh: () => this.controller.refresh(),
             onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
