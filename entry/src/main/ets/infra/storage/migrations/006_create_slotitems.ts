@@ -1,5 +1,5 @@
 import { Migration } from ".";
-import { relationalStore } from "@kit.ArkData";
+import type relationalStore from '@ohos.data.relationalStore';
 
 const m006: Migration = {
   version: 6,
