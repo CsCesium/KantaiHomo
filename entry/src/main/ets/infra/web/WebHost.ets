@@ -380,10 +380,9 @@ export default struct WebHost {
       // the Row used to carry directly.
       Stack({ alignContent: Alignment.TopStart }) {
         Row() {
-          // Side tool column.
-          // Hidden when FloatOverlay is layout-determined (panel covers the same left
-          // area and there is no dismiss gesture yet). Kept visible when the overlay
-          // is manually forced so the user can tap the button again to close it.
+          // Side tool column — visible only in expanded/wide layout.
+          // In compact mode showSideButtons is false, so this is always hidden there.
+          // Panel is toggled via overlayForced; the toggle button highlights when active.
           ButtonColumn({
             onRefresh: () => this.controller.refresh(),
             onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
@@ -417,13 +416,28 @@ export default struct WebHost {
         .height('100%')
         .backgroundColor('#000')
 
-        // FloatOverlay panel — overlaid on the left edge of the game viewport.
-        // Shown when layout derives FloatOverlay mode, OR when manually forced
-        // via the test button in the side column (overlayForced).
-        if (this.panelConfig.mode === PanelMode.FloatOverlay || this.overlayForced) {
-          PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
-            .width(PanelDimens.overlayPanelW)
-            .height('100%')
+        // FloatOverlay panel — overlaid on the game viewport.
+        // Only shown when explicitly triggered (overlayForced / fairy ball event).
+        // The full-width Row creates transparent dismiss areas on both sides;
+        // tapping either side hides the panel.
+        if (this.overlayForced) {
+          Row() {
+            Column()
+              .layoutWeight(1)
+              .height('100%')
+              .backgroundColor(Color.Transparent)
+              .onClick(() => { this.overlayForced = false; })
+            PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
+              .width(PanelDimens.overlayPanelW)
+              .height('100%')
+            Column()
+              .layoutWeight(1)
+              .height('100%')
+              .backgroundColor(Color.Transparent)
+              .onClick(() => { this.overlayForced = false; })
+          }
+          .width('100%')
+          .height('100%')
         }
       }
       .height(this.showBottomTools ? this.gameHeightVp : "auto")
