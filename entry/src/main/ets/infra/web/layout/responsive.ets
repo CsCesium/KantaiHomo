@@ -33,7 +33,6 @@ export interface LayoutDecision {
 }
 
 const NARROW_SHORT_SIDE_VP = 420;
-const COMPACT_GUTTER_VP = 30;
 const GAME_HEIGHT_WIDTH_RATIO = 720 / 1200;
 
 function isNarrowScreen(widthVp: number, heightVp: number): boolean {
@@ -118,7 +117,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       showBottomTools: false,
       gameWidthVp: widthVp,
       gameHeightVp: heightVp,
-      gameLeftMarginVp: COMPACT_GUTTER_VP,
+      gameLeftMarginVp: 0,
     };
   }
 
@@ -145,7 +144,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       showBottomTools: false,
       gameWidthVp: widthVp,
       gameHeightVp: heightVp,
-      gameLeftMarginVp: COMPACT_GUTTER_VP,
+      gameLeftMarginVp: 0,
     };
   }
 
