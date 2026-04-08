@@ -3,11 +3,11 @@ import taskpool from '@ohos.taskpool'
 import { ApiDump } from "../../../../infra/web/types";
 import '../../../parsers/pipelines'; // trigger side-effect pipeline registrations
 // trigger side-effect handler registrations (must come after executor/registry are loaded)
-import '../handlers/session';
-import '../handlers/port';
-import '../handlers/expedition';
-import '../handlers/battle';
-import '../handlers/sortie';
+import '../../handlers/session';
+import '../../handlers/port';
+import '../../handlers/expedition';
+import '../../handlers/battle';
+import '../../handlers/sortie';
 import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';
