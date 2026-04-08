@@ -20,7 +20,12 @@ const _missionNameCache = new Map<number, string>();
 /**
  * 从 EXPEDITION_CATALOG 事件更新任务名称缓存
  */
-export function cacheMissionNames(missions: Array<{ id: number; name: string }>): void {
+interface missionInfo {
+  id: number;
+  name: string;
+}
+
+export function cacheMissionNames(missions: Array<missionInfo>): void {
   for (const m of missions) {
     _missionNameCache.set(m.id, m.name);
   }
@@ -52,14 +57,12 @@ const REFRESH_INTERVAL_MS = 60_000; // 每分钟刷新
 class ExpeditionLiveNotificationService {
   private timer: number | null = null;
 
-  // ── 生命周期 ──
-
   async start(): Promise<void> {
     if (this.timer !== null) return;
     await this.refresh();
     this.timer = setInterval(() => {
       void this.refresh();
-    }, REFRESH_INTERVAL_MS) as unknown as number;
+    }, REFRESH_INTERVAL_MS) as number;
     console.info('[ExpeditionLiveNotification] started');
   }
 
@@ -107,7 +110,7 @@ class ExpeditionLiveNotificationService {
 
       await notificationManager.publish({
         id: LIVE_NOTIFICATION_ID,
-        slotType: notificationManager.SlotType.OTHER_TYPES,
+        notificationSlotType: notificationManager.SlotType.OTHER_TYPES,
         isOngoing: true,
         isUnremovable: false,
         content: {
