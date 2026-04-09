@@ -1,6 +1,6 @@
 import { int, withTransaction, query, readOne, readRows } from "../db";
 import { MaterialsRow, MaterialsRowWrite } from "../types";
-import { relationalStore } from "@kit.ArkData";
+import type relationalStore from '@ohos.data.relationalStore';
 
 const mapRow = (rs: relationalStore.ResultSet): MaterialsRow => ({
   id: int(rs, 'id') ?? 0,

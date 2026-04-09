@@ -6,8 +6,8 @@ const m005: Migration = {
   name: 'create_materials',
   async up(db: relationalStore.RdbStore): Promise<void> {
     await db.executeSql(`
-      CREATE TABLE IF NOT EXISTS materials (
-        memberId INTEGER PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS materials_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         fuel INTEGER NOT NULL,
         ammo INTEGER NOT NULL,
         steel INTEGER NOT NULL,
@@ -20,7 +20,7 @@ const m005: Migration = {
       );
     `);
 
-    await db.executeSql(`CREATE INDEX IF NOT EXISTS idx_materials_updatedAt ON materials(updatedAt);`);
+    await db.executeSql(`CREATE INDEX IF NOT EXISTS idx_mat_updatedAt ON materials_history(updatedAt);`);
   },
 };
 
