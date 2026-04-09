@@ -45,12 +45,9 @@ export default class EntryAbility extends UIAbility {
       hilog.error(HILOG_DOM, 'App', 'init failed: %{public}s', String(e));
     }
 
-    // 通知服务无条件启动：单次 publish() 已有 try/catch，无权限时静默失败即可。
-    // 不依赖 requestEnableNotification 的 Promise settle（该 API 在部分版本会永久 pending）。
     void getExpeditionLiveNotificationService().start();
 
     // 异步申请/确认通知权限：先用 isNotificationEnabled() 探查，
-    // 仅在未授权时才调用 requestEnableNotification，避免已授权时的挂起问题。
     notificationManager.isNotificationEnabled().then((enabled: boolean) => {
       hilog.info(HILOG_DOM, 'App', 'notification enabled=%{public}s', String(enabled));
       if (!enabled) {
