@@ -82,9 +82,9 @@ class ExpeditionLiveNotificationService {
       // 构建活跃远征 Map，供 lines 查找
       const activeMap = new Map(active.map(e => [e.deckId, e]));
 
-      // 所有舰队按 deckId 排序：远征中显示任务+倒计时，空闲显示"空闲中"
+      // 第二舰队起按 deckId 排序：远征中显示任务+倒计时，空闲显示"空闲中"（第一舰队不参与远征，跳过）
       const lines: string[] = decks
-        .slice()
+        .filter(d => d.deckId !== 1)
         .sort((a, b) => a.deckId - b.deckId)
         .map(d => {
           const exp = activeMap.get(d.deckId);
