@@ -26,7 +26,7 @@ function formatCountdown(remainingMs: number): string {
   if (h > 0) {
     return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
-  return `${m}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 // ── 服务主体 ─────────────────────────────────────────────────────
@@ -79,15 +79,28 @@ class ExpeditionLiveNotificationService {
       // 按返回时间升序排列
       active.sort((a, b) => a.returnTime - b.returnTime);
 
-      const lines: string[] = active.map(e => {
-        const deckName = deckNameMap.get(e.deckId) ?? `第${e.deckId}舰队`;
-        const missionName = getMissionName(e.missionId);
-        const countdown = formatCountdown(e.returnTime - now);
-        return `${deckName}: ${missionName}  ${countdown}`;
-      });
+      // 构建活跃远征 Map，供 lines 查找
+      const activeMap = new Map(active.map(e => [e.deckId, e]));
+
+      // 第二舰队起按 deckId 排序：远征中显示任务+倒计时，空闲显示"空闲中"（第一舰队不参与远征，跳过）
+      const lines: string[] = decks
+        .filter(d => d.deckId !== 1)
+        .sort((a, b) => a.deckId - b.deckId)
+        .map(d => {
+          const exp = activeMap.get(d.deckId);
+          if (exp) {
+            const missionName = getMissionName(exp.missionId);
+            const countdown = formatCountdown(exp.returnTime - now);
+            return `${d.name}: ${missionName}  ${countdown}`;
+          }
+          return `${d.name}: 空闲中`;
+        });
 
       const briefText = `${active.length} 支舰队远征中`;
-      const earliestCountdown = formatCountdown(active[0].returnTime - now);
+      const earliest = active[0];
+      const earliestCountdown = formatCountdown(earliest.returnTime - now);
+      const earliestDeckName = deckNameMap.get(earliest.deckId) ?? `第${earliest.deckId}舰队`;
+      const earliestMissionName = getMissionName(earliest.missionId);
 
       await notificationManager.publish({
         id: LIVE_NOTIFICATION_ID,
@@ -100,7 +113,7 @@ class ExpeditionLiveNotificationService {
             title: '舰队远征倒计时',
             text: briefText,
             briefText,
-            longTitle: `最快返回: ${earliestCountdown}`,
+            longTitle: `最快返回：${earliestDeckName} 「${earliestMissionName}」 ${earliestCountdown}`,
             lines,
           },
         },
