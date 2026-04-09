@@ -6,6 +6,7 @@ import '../../../parsers/pipelines'; // trigger side-effect pipeline registratio
 import '../../handlers/session';
 import '../../handlers/port';
 import '../../handlers/expedition';
+import '../../handlers/quest';
 import '../../handlers/start2';
 import '../../handlers/battle';
 import '../../handlers/sortie';

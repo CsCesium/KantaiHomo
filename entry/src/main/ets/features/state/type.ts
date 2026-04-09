@@ -53,6 +53,18 @@ export interface KDockSnapShot{
   capturedAt: number;
 }
 
+/** 任务快照 */
+export interface QuestSnapshot {
+  questId: number;
+  title: string;
+  state: number;
+  category: number;
+  type: number;
+  progress?: number;
+  updatedAt: number;
+  capturedAt: number;
+}
+
 /** 舰船状态 */
 export interface ShipState {
   uid: number;
@@ -83,6 +95,8 @@ export interface GameState {
   Ndocks:NDockSnapShot[];
   /** 修理渠状态 */
   Kdocks:KDockSnapShot[];
+  /** 当前任务状态 */
+  quests: QuestSnapshot[];
   /** 舰船状态 Map (uid -> ShipState) */
   ships: Map<number, ShipState>;
   /** 当前战斗状态 (暂态) */
@@ -98,6 +112,7 @@ export type StateChangeType =
     | 'decks'
     | 'ndocks'
     | 'kdocks'
+    | 'quests'
     | 'ships'
     | 'battle'
     | 'all';

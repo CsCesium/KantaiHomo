@@ -16,6 +16,8 @@ export type EventType =
     | 'EXPEDITION_UPDATE'
     | 'EXPEDITION_RESULT'
     | 'EXPEDITION_CATALOG'
+  // Quest
+    | 'QUEST_LIST'
   // Sortie
     | 'SORTIE_START'
     | 'SORTIE_NEXT'

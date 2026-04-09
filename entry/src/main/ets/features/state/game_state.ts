@@ -1,6 +1,6 @@
 
 // ==================== 状态管理类 ====================
-import { Admiral, Materials, Deck, Ship, Ndock, Kdock } from "../../domain/models";
+import { Admiral, Materials, Deck, Ship, Ndock, Kdock, Quest } from "../../domain/models";
 import {
   GameState,
   StateChangeListener,
@@ -28,6 +28,7 @@ class GameStateManager {
     decks: [],
     Ndocks:[],
     Kdocks:[],
+    quests: [],
     ships: new Map(),
     currentBattle: {
       status: null,
@@ -139,6 +140,25 @@ class GameStateManager {
 
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('decks');
+  }
+
+  /**
+   * 更新任务（仅维护当前可见任务页）
+   */
+  updateQuests(quests: Quest[]): void {
+    this.state.quests = quests.map(quest => ({
+      questId: quest.questId,
+      title: quest.title,
+      state: quest.state,
+      category: quest.category,
+      type: quest.type,
+      progress: quest.progress,
+      updatedAt: quest.updatedAt,
+      capturedAt: Date.now(),
+    }));
+
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('quests');
   }
 
   /**
@@ -308,6 +328,13 @@ class GameStateManager {
   }
 
   /**
+   * 获取任务信息
+   */
+  getQuests() {
+    return this.state.quests;
+  }
+
+  /**
    * 获取舰船状态
    */
   getShip(uid: number): ShipState | undefined {
@@ -437,6 +464,7 @@ class GameStateManager {
       decks: [],
       Ndocks:[],
       Kdocks:[],
+      quests: [],
       ships: new Map(),
       currentBattle: {
         status: null,
@@ -538,6 +566,7 @@ class GameStateManager {
       decks: this.state.decks,
       Ndocks: this.state.Ndocks,
       Kdocks: this.state.Kdocks,
+      quests: this.state.quests,
       ships: Array.from(this.state.ships.values()),
       currentBattle: this.state.currentBattle,
       lastUpdatedAt: this.state.lastUpdatedAt,
@@ -561,6 +590,7 @@ export const updateMaterials = (materials: Materials) => gameStateManager.update
 export const updateNdocks = (ndocks:Ndock[]) => gameStateManager.updateNDocks(ndocks);
 export const updateKdocks = (kdocks:Kdock[]) => gameStateManager.updateKDocks(kdocks);
 export const updateDecks = (decks: Deck[]) => gameStateManager.updateDecks(decks);
+export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(quests);
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>
 gameStateManager.updateFromPort(data);
@@ -571,6 +601,7 @@ export const getNDocks = ()=> gameStateManager.getNDocks();
 export const getKDocks = ()=> gameStateManager.getKDocks();
 export const getDecks = () => gameStateManager.getDecks();
 export const getDeck = (deckId: number) => gameStateManager.getDeck(deckId);
+export const getQuests = () => gameStateManager.getQuests();
 export const getShip = (uid: number) => gameStateManager.getShip(uid);
 export const getDeckShips = (deckId: number) => gameStateManager.getDeckShips(deckId);
 export const getDeckTaihaShips = (deckId: number) => gameStateManager.getDeckTaihaShips(deckId);

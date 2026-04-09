@@ -15,7 +15,8 @@ export type {
   ExpChange,
   SenkaInfo,
   NDockSnapShot,
-  KDockSnapShot
+  KDockSnapShot,
+  QuestSnapshot
 } from './type';
 
 // ========== GameState 导出 ==========
@@ -30,6 +31,7 @@ export {
   updateNdocks,
   updateKdocks,
   updateDecks,
+  updateQuests,
   updateShips,
   updateFromPort,
 
@@ -40,6 +42,7 @@ export {
   getKDocks,
   getDecks,
   getDeck,
+  getQuests,
   getShip,
   getDeckShips,
   getDeckTaihaShips,
