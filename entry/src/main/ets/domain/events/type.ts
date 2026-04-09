@@ -2,6 +2,9 @@
 export type EventType =
   // Session
   | 'SESSION_BIND'
+  //start
+  |  'SHIP_MASTER_CATALOG'
+  |  'SLOTITEM_MASTER_CATALOG'
   // Port
     | 'PORT_SNAPSHOT'
     | 'PORT_BASIC'
