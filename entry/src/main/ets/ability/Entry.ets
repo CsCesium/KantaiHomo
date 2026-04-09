@@ -9,6 +9,7 @@ import { initPersistDeps } from '../infra/deps';
 import { initHandlerRegistry } from '../features/router/persist/registry';
 import { initAlerts, initExpeditionScheduler, getExpeditionScheduler } from '../features/alerts';
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
+import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
 import { getRepositoryHub } from '../infra/storage/repo';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
@@ -35,6 +36,8 @@ export default class EntryAbility extends UIAbility {
 
       // 启动远征归来调度器（负责在远征到时触发 Toast / 震动 / 归来通知）
       const scheduler = initExpeditionScheduler(getRepositoryHub().expedition);
+      // 每当 expedition 状态写入 DB 后立即重新规划 timer，与通知权限无关
+      addOnExpeditionChanged(() => { void getExpeditionScheduler()?.poke(); });
       void scheduler.start();
 
       hilog.info(HILOG_DOM, 'App', 'deps+registry+alerts+scheduler initialized (stageCreate)');
