@@ -123,6 +123,10 @@ export class ShipRepositoryImpl implements ShipRepository {
   async listWithMaster(): Promise<readonly ShipJoinedRow[]> {
     return ShipDao.listWithMaster();
   }
+
+  async listMasterIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>> {
+    return ShipDao.listMasterIdNames();
+  }
 }
 
 // ==================== SlotItem ====================
@@ -146,6 +150,10 @@ export class SlotItemRepositoryImpl implements SlotItemRepository {
 
   async listWithMasterByUids(uids: readonly number[]): Promise<readonly SlotItemJoinedRow[]> {
     return SlotItemDao.listWithMasterByUids(uids);
+  }
+
+  async listMasterIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>> {
+    return SlotItemDao.listMasterIdNames();
   }
 }
 

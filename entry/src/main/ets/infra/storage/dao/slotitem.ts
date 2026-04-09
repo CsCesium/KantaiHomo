@@ -132,6 +132,11 @@ export async function upsertMasterBatch(rows: readonly SlotItemMasterRow[]): Pro
   });
 }
 
+export async function listMasterIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>> {
+  const rs = await query(`SELECT id, name FROM slotitem_mst ORDER BY id ASC`, []);
+  return readRows(rs, (r) => ({ id: int(r, 'id') ?? 0, name: str(r, 'name') ?? '' }));
+}
+
 // ==================== Item Operations ====================
 
 export async function upsertBatch(rows: readonly SlotItemRow[]): Promise<void> {
