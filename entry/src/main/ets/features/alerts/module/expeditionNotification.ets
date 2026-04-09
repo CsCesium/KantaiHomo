@@ -79,12 +79,22 @@ class ExpeditionLiveNotificationService {
       // 按返回时间升序排列
       active.sort((a, b) => a.returnTime - b.returnTime);
 
-      const lines: string[] = active.map(e => {
-        const deckName = deckNameMap.get(e.deckId) ?? `第${e.deckId}舰队`;
-        const missionName = getMissionName(e.missionId);
-        const countdown = formatCountdown(e.returnTime - now);
-        return `${deckName}: ${missionName}  ${countdown}`;
-      });
+      // 构建活跃远征 Map，供 lines 查找
+      const activeMap = new Map(active.map(e => [e.deckId, e]));
+
+      // 所有舰队按 deckId 排序：远征中显示任务+倒计时，空闲显示"空闲中"
+      const lines: string[] = decks
+        .slice()
+        .sort((a, b) => a.deckId - b.deckId)
+        .map(d => {
+          const exp = activeMap.get(d.deckId);
+          if (exp) {
+            const missionName = getMissionName(exp.missionId);
+            const countdown = formatCountdown(exp.returnTime - now);
+            return `${d.name}: ${missionName}  ${countdown}`;
+          }
+          return `${d.name}: 空闲中`;
+        });
 
       const briefText = `${active.length} 支舰队远征中`;
       const earliest = active[0];
