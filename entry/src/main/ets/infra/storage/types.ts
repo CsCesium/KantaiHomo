@@ -359,6 +359,39 @@ export interface NdockRepository {
   getNextAfter(nowMs: number): Promise<{ dockId: number; shipUid: number; completeTime: number } | null>;
 }
 
+// ==================== Mission ====================
+
+export interface MissionRow {
+  id: number;
+  code: string | null;
+  mapAreaId: number | null;
+  name: string;
+  details: string | null;
+  resetType: string | null;
+  damageType: number | null;
+  timeMin: number | null;
+  requireShips: number | null;
+  difficulty: number | null;
+  fuelPct: number | null;
+  ammoPct: number | null;
+  reward_item1_id: number | null;
+  reward_item1_count: number | null;
+  reward_item2_id: number | null;
+  reward_item2_count: number | null;
+  mat0: number | null;
+  mat1: number | null;
+  mat2: number | null;
+  mat3: number | null;
+  returnCancelable: number | null;  // 0 | 1
+  sampleFleet: string | null;       // JSON number[]
+  updatedAt: number;
+}
+
+export interface MissionRepository {
+  upsertBatch(rows: readonly MissionRow[]): Promise<void>;
+  listIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>>;
+}
+
 // ==================== Expedition ====================
 
 export interface ExpeditionRow {
@@ -489,6 +522,7 @@ export interface RepositoryHub {
   admiral: AdmiralRepository;
   material: MaterialsRepository;
   slotitem: SlotItemRepository;
+  mission: MissionRepository;
   expedition: ExpeditionRepository;
   expeditionResult: ExpeditionResultRepository;
   deck: DeckRepository;

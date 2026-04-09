@@ -18,6 +18,7 @@ export * as DeckDao from './deck';
 export * as QuestDao from './quest';
 export * as KdockDao from './k_dock';
 export * as NdockDao from './n_dock';
+export * as MissionDao from './mission';
 export * as ExpeditionDao from './expedition';
 export * as ExpeditionResultDao from './expedition_result';
 export * as BattleDao from './battle';

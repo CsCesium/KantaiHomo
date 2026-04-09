@@ -1,6 +1,6 @@
 import { AnyExpEvt } from '../../../domain/events';
-import { MissionStart, ExpeditionProgress, ExpeditionSlotState, MissionResult } from '../../../domain/models';
-import { ExpeditionRow, ExpeditionResultRow } from '../../../infra/storage/types';
+import { MissionStart, ExpeditionProgress, ExpeditionSlotState, MissionResult, MissionCatalogItem } from '../../../domain/models';
+import { ExpeditionRow, ExpeditionResultRow, MissionRow } from '../../../infra/storage/types';
 import { i32, i64 } from '../../../infra/utils/num';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -29,10 +29,61 @@ class ExpeditionHandler implements Handler{
         await this.handleResult(e.payload, ts, deps);
         break;
       case 'EXPEDITION_CATALOG':
-        cacheMissionNames((e.payload as { id: number; name: string }[]).map(m => ({ id: m.id, name: m.name })));
+        await this.handleCatalog(e.payload as MissionCatalogItem[], deps);
         break;
     }
   }
+  private async handleCatalog(payload: MissionCatalogItem[], deps: PersistDeps): Promise<void> {
+    // 填充内存缓存（无论是否写 DB 都执行）
+    cacheMissionNames(payload.map(m => ({ id: m.id, name: m.name })));
+
+    if (!deps.repos?.mission) return;
+
+    // Diff 检查：加载 DB 中已有的 id+name，若完全一致则跳过写入
+    try {
+      const existing = await deps.repos.mission.listIdNames();
+      if (existing.length === payload.length) {
+        const dbMap = new Map(existing.map(r => [r.id, r.name]));
+        const unchanged = payload.every(m => dbMap.get(m.id) === m.name);
+        if (unchanged) {
+          console.debug('[persist][EXPEDITION_CATALOG] no changes, skip upsert');
+          return;
+        }
+      }
+
+      const rows: MissionRow[] = payload.map(m => ({
+        id: m.id,
+        code: m.code ?? null,
+        mapAreaId: m.mapAreaId ?? null,
+        name: m.name,
+        details: m.details ?? null,
+        resetType: m.resetType ?? null,
+        damageType: m.damageType ?? null,
+        timeMin: m.timeMin ?? null,
+        requireShips: m.requireShips ?? null,
+        difficulty: m.difficulty ?? null,
+        fuelPct: m.costRatio?.fuelPct ?? null,
+        ammoPct: m.costRatio?.ammoPct ?? null,
+        reward_item1_id: m.reward?.winItem1?.itemId ?? null,
+        reward_item1_count: m.reward?.winItem1?.count ?? null,
+        reward_item2_id: m.reward?.winItem2?.itemId ?? null,
+        reward_item2_count: m.reward?.winItem2?.count ?? null,
+        mat0: m.reward?.matLevel?.[0] ?? null,
+        mat1: m.reward?.matLevel?.[1] ?? null,
+        mat2: m.reward?.matLevel?.[2] ?? null,
+        mat3: m.reward?.matLevel?.[3] ?? null,
+        returnCancelable: m.returnCancelable ? 1 : 0,
+        sampleFleet: m.sampleFleet?.length ? JSON.stringify(m.sampleFleet) : null,
+        updatedAt: m.updatedAt,
+      }));
+
+      await deps.repos.mission.upsertBatch(rows);
+      console.info(`[persist][EXPEDITION_CATALOG] upserted ${rows.length} missions`);
+    } catch (e) {
+      console.warn('[persist][EXPEDITION_CATALOG] failed:', e);
+    }
+  }
+
   private async handleStart(payload: MissionStart, ts: number, deps: PersistDeps) {
     const row: ExpeditionRow = {
       deckId: i32(payload.deckId, 0),

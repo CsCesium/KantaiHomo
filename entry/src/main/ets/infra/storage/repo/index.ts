@@ -21,6 +21,8 @@ import type {
   KdockRepository,
   NdockRow,
   NdockRepository,
+  MissionRow,
+  MissionRepository,
   ExpeditionRow,
   ExpeditionRepository,
   ExpeditionResultRow,
@@ -40,6 +42,7 @@ import {
   QuestDao,
   KdockDao,
   NdockDao,
+  MissionDao,
   ExpeditionDao,
   ExpeditionResultDao,
   BattleDao,
@@ -218,6 +221,18 @@ export class NdockRepositoryImpl implements NdockRepository {
   }
 }
 
+// ==================== Mission ====================
+
+export class MissionRepositoryImpl implements MissionRepository {
+  async upsertBatch(rows: readonly MissionRow[]): Promise<void> {
+    await MissionDao.upsertBatch(rows);
+  }
+
+  async listIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>> {
+    return MissionDao.listIdNames();
+  }
+}
+
 // ==================== Expedition ====================
 
 export class ExpeditionRepositoryImpl implements ExpeditionRepository {
@@ -321,6 +336,7 @@ class RepositoryHubImpl implements RepositoryHub {
   private _quest: QuestRepository | null = null;
   private _build: KdockRepository | null = null;
   private _repair: NdockRepository | null = null;
+  private _mission: MissionRepository | null = null;
   private _expedition: ExpeditionRepository | null = null;
   private _expeditionResult: ExpeditionResultRepository | null = null;
   private _battle: BattleRecordRepository | null = null;
@@ -358,6 +374,10 @@ class RepositoryHubImpl implements RepositoryHub {
     return this._repair ??= new NdockRepositoryImpl();
   }
 
+  get mission(): MissionRepository {
+    return this._mission ??= new MissionRepositoryImpl();
+  }
+
   get expedition(): ExpeditionRepository {
     return this._expedition ??= new ExpeditionRepositoryImpl();
   }
@@ -383,6 +403,7 @@ class RepositoryHubImpl implements RepositoryHub {
     this._quest = null;
     this._build = null;
     this._repair = null;
+    this._mission = null;
     this._expedition = null;
     this._expeditionResult = null;
     this._battle = null;
@@ -411,6 +432,7 @@ export const repos = {
   get quest() { return getRepositoryHub().quest; },
   get build() { return getRepositoryHub().build; },
   get repair() { return getRepositoryHub().repair; },
+  get mission() { return getRepositoryHub().mission; },
   get expedition() { return getRepositoryHub().expedition; },
   get expeditionResult() { return getRepositoryHub().expeditionResult; },
   get battle() { return getRepositoryHub().battle; },
