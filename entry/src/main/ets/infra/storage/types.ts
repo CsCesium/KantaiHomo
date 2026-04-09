@@ -166,6 +166,7 @@ export interface ShipRepository {
   upsertBatch(rows: readonly ShipRow[]): Promise<void>;
   getWithMaster(uid: number): Promise<ShipJoinedRow | null>;
   listWithMaster(): Promise<readonly ShipJoinedRow[]>;
+  listMasterIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>>;
 }
 
 // ==================== SlotItem Master ====================
@@ -268,6 +269,7 @@ export interface SlotItemRepository {
   getWithMaster(uid: number): Promise<SlotItemJoinedRow | null>;
   listWithMaster(): Promise<readonly SlotItemJoinedRow[]>;
   listWithMasterByUids(uids: readonly number[]): Promise<readonly SlotItemJoinedRow[]>;
+  listMasterIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>>;
 }
 
 // ==================== Deck ====================

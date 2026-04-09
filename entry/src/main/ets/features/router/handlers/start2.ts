@@ -1,0 +1,91 @@
+import { AnyStart2Evt } from '../../../domain/events/start2';
+import { ApiMstShipRaw, ApiMstSlotitemRaw } from '../../../domain/models/api/start2';
+import { ApiMstSlotItemRaw } from '../../../domain/models/api/mst_slotitem';
+import { normalizeMstSlotItem } from '../../../domain/models/normalizer/mst_slotitem';
+import { slotItemMasterToRow } from '../../../domain/models/mapper/slotitem';
+import { ShipMasterRow } from '../../../infra/storage/types';
+import { registerHandler } from '../persist/registry';
+import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
+
+// ── Raw → ShipMasterRow (no intermediate domain struct needed) ──
+function shipRawToRow(raw: ApiMstShipRaw, ts: number): ShipMasterRow {
+  return {
+    id: raw.api_id,
+    sortNo: raw.api_sortno ?? raw.api_sort_id ?? 0,
+    name: raw.api_name ?? '',
+    stype: raw.api_stype ?? null,
+    ctype: raw.api_ctype ?? null,
+    speed: raw.api_soku ?? null,
+    range: raw.api_leng ?? null,
+    slotNum: raw.api_slot_num ?? null,
+    maxEqJson: Array.isArray(raw.api_maxeq) ? JSON.stringify(raw.api_maxeq) : null,
+    afterLv: raw.api_afterlv ?? null,
+    afterShipId: raw.api_aftershipid ? (parseInt(raw.api_aftershipid) || null) : null,
+    updatedAt: ts,
+  };
+}
+
+// ── Diff helper ──
+function hasChanges(
+  existing: ReadonlyArray<{ id: number; name: string }>,
+  incoming: ReadonlyArray<{ id: number; name: string }>,
+): boolean {
+  if (existing.length !== incoming.length) return true;
+  const dbMap = new Map(existing.map(r => [r.id, r.name]));
+  return incoming.some(m => dbMap.get(m.id) !== m.name);
+}
+
+class Start2Handler implements Handler {
+  async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
+    const e = ev as AnyStart2Evt;
+    const ts = ev.timestamp ?? Date.now();
+
+    switch (e.type) {
+      case 'SHIP_MASTER_CATALOG':
+        await this.handleShipMaster(e.payload, ts, deps);
+        break;
+      case 'SLOTITEM_MASTER_CATALOG':
+        await this.handleSlotItemMaster(e.payload, ts, deps);
+        break;
+    }
+  }
+
+  private async handleShipMaster(payload: ApiMstShipRaw[], ts: number, deps: PersistDeps): Promise<void> {
+    if (!deps.repos?.ship) return;
+    try {
+      const existing = await deps.repos.ship.listMasterIdNames();
+      if (!hasChanges(existing, payload.map(r => ({ id: r.api_id, name: r.api_name ?? '' })))) {
+        console.debug('[persist][SHIP_MASTER] no changes, skip upsert');
+        return;
+      }
+      const rows = payload.map(r => shipRawToRow(r, ts));
+      await deps.repos.ship.upsertMasterBatch(rows);
+      console.info(`[persist][SHIP_MASTER] upserted ${rows.length} ship masters`);
+    } catch (e) {
+      console.warn('[persist][SHIP_MASTER] failed:', e);
+    }
+  }
+
+  private async handleSlotItemMaster(payload: ApiMstSlotitemRaw[], ts: number, deps: PersistDeps): Promise<void> {
+    if (!deps.repos?.slotitem) return;
+    try {
+      const existing = await deps.repos.slotitem.listMasterIdNames();
+      if (!hasChanges(existing, payload.map(r => ({ id: r.api_id, name: r.api_name ?? '' })))) {
+        console.debug('[persist][SLOTITEM_MASTER] no changes, skip upsert');
+        return;
+      }
+      const rows = payload.map(r => {
+        const master = normalizeMstSlotItem(r as unknown as ApiMstSlotItemRaw, ts);
+        return slotItemMasterToRow(master);
+      });
+      await deps.repos.slotitem.upsertMasterBatch(rows);
+      console.info(`[persist][SLOTITEM_MASTER] upserted ${rows.length} slotitem masters`);
+    } catch (e) {
+      console.warn('[persist][SLOTITEM_MASTER] failed:', e);
+    }
+  }
+}
+
+const handler = new Start2Handler();
+registerHandler('SHIP_MASTER_CATALOG', handler);
+registerHandler('SLOTITEM_MASTER_CATALOG', handler);

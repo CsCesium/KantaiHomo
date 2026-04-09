@@ -131,6 +131,11 @@ export async function upsertMasterBatch(rows: readonly ShipMasterRow[]): Promise
   });
 }
 
+export async function listMasterIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>> {
+  const rs = await query(`SELECT id, name FROM ship_mst ORDER BY id ASC`, []);
+  return readRows(rs, (r) => ({ id: int(r, 'id') ?? 0, name: str(r, 'name') ?? '' }));
+}
+
 export async function getMaster(id: number): Promise<ShipMasterRow | null> {
   const rs = await query(
     `SELECT id, sortNo, name, stype, ctype, speed, range, slotNum, maxEqJson, afterLv, afterShipId, updatedAt
