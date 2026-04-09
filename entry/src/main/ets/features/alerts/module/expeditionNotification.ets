@@ -10,8 +10,7 @@
 import notificationManager from '@ohos.notificationManager';
 import { getRepositoryHub } from '../../../infra/storage/repo';
 import { getMissionName } from './missionCache';
-import { registerOnExpeditionChanged } from './expeditionTrigger';
-import { getExpeditionScheduler } from './expedition';
+import { addOnExpeditionChanged } from './expeditionTrigger';
 
 // ── 常驻通知 ID ──────────────────────────────────────────────────
 const LIVE_NOTIFICATION_ID = 100;
@@ -39,11 +38,8 @@ class ExpeditionLiveNotificationService {
 
   async start(): Promise<void> {
     if (this.timer !== null) return;
-    // Register the bridge callback so .ts handlers can trigger poke + refresh
-    registerOnExpeditionChanged(() => {
-      void getExpeditionScheduler()?.poke();
-      void this.refresh();
-    });
+    // Only registers refresh — scheduler poke is registered separately in Entry.ets
+    addOnExpeditionChanged(() => { void this.refresh(); });
     await this.refresh();
     this.timer = setInterval(() => {
       void this.refresh();
