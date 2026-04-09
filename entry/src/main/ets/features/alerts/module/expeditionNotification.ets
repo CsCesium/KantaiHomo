@@ -26,7 +26,7 @@ function formatCountdown(remainingMs: number): string {
   if (h > 0) {
     return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
-  return `${m}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 // ── 服务主体 ─────────────────────────────────────────────────────
@@ -87,7 +87,10 @@ class ExpeditionLiveNotificationService {
       });
 
       const briefText = `${active.length} 支舰队远征中`;
-      const earliestCountdown = formatCountdown(active[0].returnTime - now);
+      const earliest = active[0];
+      const earliestCountdown = formatCountdown(earliest.returnTime - now);
+      const earliestDeckName = deckNameMap.get(earliest.deckId) ?? `第${earliest.deckId}舰队`;
+      const earliestMissionName = getMissionName(earliest.missionId);
 
       await notificationManager.publish({
         id: LIVE_NOTIFICATION_ID,
@@ -100,7 +103,7 @@ class ExpeditionLiveNotificationService {
             title: '舰队远征倒计时',
             text: briefText,
             briefText,
-            longTitle: `最快返回: ${earliestCountdown}`,
+            longTitle: `最快返回：${earliestDeckName} 「${earliestMissionName}」 ${earliestCountdown}`,
             lines,
           },
         },
