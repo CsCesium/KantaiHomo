@@ -7,6 +7,7 @@ export const expeditionPipeline: DumpPipeline = {
   match: (url) => {
     return url.includes('/api_req_mission/')
       || url.includes('/api_get_member/deck')
+      || url.includes('/api_port/port')
       || url.includes('/api_start2');
   },
 

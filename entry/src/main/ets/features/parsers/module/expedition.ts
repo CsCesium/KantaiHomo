@@ -22,10 +22,11 @@ import { parseFormBody, parseSvdata } from '../../utils/common';
 
 
 const RULES: EndpointRule[] = [
-  { endpoint: '/api_req_mission/start', match: (url: string) => url.includes('/api_req_mission/start') },
+  { endpoint: '/api_req_mission/start',  match: (url: string) => url.includes('/api_req_mission/start') },
   { endpoint: '/api_req_mission/result', match: (url: string) => url.includes('/api_req_mission/result') },
-  { endpoint: '/api_get_member/deck', match: (url: string) => url.includes('/api_get_member/deck') },
-  { endpoint: '/api_start2', match: (url: string) => url.includes('/api_start2') },
+  { endpoint: '/api_get_member/deck',    match: (url: string) => url.includes('/api_get_member/deck') },
+  { endpoint: '/api_port/port',          match: (url: string) => url.includes('/api_port/port') },
+  { endpoint: '/api_start2',             match: (url: string) => url.includes('/api_start2') },
 ]
 
 function parseStart(ctx: ParserCtx): ExpeditionStartEvent[] | null {
@@ -97,6 +98,7 @@ export function parseExpedition(dump: ApiDump): AnyExpEvt[] | null {
   if (endpoint === '/api_req_mission/start') return parseStart(ctx)
   if (endpoint === '/api_req_mission/result') return parseResult(ctx)
   if (endpoint === '/api_get_member/deck') return parseDeckState(ctx)
+  if (endpoint === '/api_port/port') return parseDeckState(ctx)  // api_deck_port in port response
   if (endpoint === '/api_start2') return parseCatalog(ctx)
 
   return null
