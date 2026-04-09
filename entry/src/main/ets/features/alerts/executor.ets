@@ -17,6 +17,7 @@ import type {
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
+import { getMissionName } from './module/missionCache';
 
 // ========== 通知 ID 常量 ==========
 const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
@@ -67,13 +68,13 @@ async function executeNotification(
 
 async function handleExpeditionReturn(alert: ExpeditionReturnAlert): Promise<void> {
   const config = getAlertBus().getConfig();
-  const timestamp = alert.timestamp;
   const deckId = alert.deckId;
-  const missionId = alert.missionId;
-  const timeStr = new Date(timestamp).toLocaleTimeString();
+  const missionName = getMissionName(alert.missionId);
+  const timeStr = new Date(alert.timestamp).toLocaleTimeString();
+  const body = `第 ${deckId} 舰队「${missionName}」已返回`;
 
   if (config.enableToast) {
-    await executeToast(`第 ${deckId} 舰队远征 ${missionId} 已返回`);
+    await executeToast(body);
   }
 
   if (config.enableVibrate) {
@@ -84,7 +85,7 @@ async function handleExpeditionReturn(alert: ExpeditionReturnAlert): Promise<voi
     await executeNotification(
       NOTIFICATION_ID_EXPEDITION_BASE + deckId,
       '远征归来',
-      `第 ${deckId} 舰队远征 ${missionId} 已返回`,
+      body,
       timeStr
     );
   }
