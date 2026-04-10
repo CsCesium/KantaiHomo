@@ -65,10 +65,10 @@ function buildHpOverrideMap(fleet: FleetBattleStatus | undefined): Map<number, S
 /**
  * 舰队状态侧边栏 — 在 compact 全屏模式下展示在游戏画面右侧黑边区域。
  *
- * 显示优先级（HP 数据来源）：
- *   1. 战斗结算快照（BATTLE_RESULT）中的 hpAfter（实际结果）
- *   2. 战斗预测快照（BATTLE_DAY / BATTLE_NIGHT）中的 hpAfter（预测值）
- *   3. GameState 中的 ShipState.hpNow（入港时写入的真实值）
+ * HP 数据来源优先级：
+ *   1. 战斗结算快照（BATTLE_RESULT）中的 hpAfter — 结算后立即生效
+ *   2. GameState 中的 ShipState.hpNow — 入港时写入的真实值
+ * 昼/夜战预测值不在侧边栏显示，避免与实际结果产生混淆。
  *
  * 舰队选择：优先出击舰队（getSortieContext().deckId），无出击时回退第一舰队。
  */
@@ -105,11 +105,10 @@ export default struct FleetStatusSidebar {
     // 从战斗状态取最新的 HP 覆盖数据
     // 优先用 result（已结算），其次 status（预测）
     const battle = getCurrentBattle();
+    // 仅使用已结算的战斗结果（BATTLE_RESULT），不使用昼/夜战预测值
     const sourceFleet: FleetBattleStatus | undefined =
       battle.result?.friendMain?.deckId === deckId ? battle.result!.friendMain :
       battle.result?.friendEscort?.deckId === deckId ? battle.result!.friendEscort :
-      battle.status?.friendMain?.deckId === deckId ? battle.status!.friendMain :
-      battle.status?.friendEscort?.deckId === deckId ? battle.status!.friendEscort :
       undefined;
 
     const overrides = buildHpOverrideMap(sourceFleet);
