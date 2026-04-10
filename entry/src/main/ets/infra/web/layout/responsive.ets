@@ -30,10 +30,18 @@ export interface LayoutDecision {
   gameWidthVp: number;
   gameHeightVp: number;
   gameLeftMarginVp: number;
+  /** Compact 模式下右侧可用于侧边栏的宽度（vp），0 表示不显示侧边栏 */
+  sidebarWidthVp: number;
 }
 
 const NARROW_SHORT_SIDE_VP = 420;
 const GAME_HEIGHT_WIDTH_RATIO = 720 / 1200;
+/** 游戏画面宽高比（宽/高） */
+const GAME_ASPECT_RATIO = 1200 / 720;
+/** 侧边栏最小宽度（vp），低于此值不显示侧边栏 */
+const MIN_SIDEBAR_VP = 44;
+/** 侧边栏最大宽度（vp） */
+const MAX_SIDEBAR_VP = 56;
 
 function isNarrowScreen(widthVp: number, heightVp: number): boolean {
   return Math.min(widthVp, heightVp) <= NARROW_SHORT_SIDE_VP;
@@ -41,6 +49,20 @@ function isNarrowScreen(widthVp: number, heightVp: number): boolean {
 
 function isPortraitViewport(widthVp: number, heightVp: number): boolean {
   return heightVp >= widthVp;
+}
+
+/**
+ * 计算 compact height-fit 模式下右侧可用侧边栏宽度。
+ * 游戏画面以 height 为准缩放，实际画面宽 = heightVp × ASPECT_RATIO。
+ * 右侧剩余 = viewportWidth - 游戏画面宽。
+ * 仅横屏且剩余 >= MIN_SIDEBAR_VP 时才分配侧边栏。
+ */
+function calcSidebarWidth(widthVp: number, heightVp: number): number {
+  if (heightVp >= widthVp) return 0;   // 竖屏不显示侧边栏
+  const gameContentW = heightVp * GAME_ASPECT_RATIO;
+  const rightSpace = widthVp - gameContentW;
+  if (rightSpace < MIN_SIDEBAR_VP) return 0;
+  return Math.min(MAX_SIDEBAR_VP, Math.floor(rightSpace));
 }
 
 export function decideLayout(input: LayoutInput): LayoutDecision {
@@ -62,6 +84,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       gameWidthVp: widthVp,
       gameHeightVp: heightVp,
       gameLeftMarginVp: 0,
+      sidebarWidthVp: 0,
     };
   }
 
@@ -76,6 +99,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       gameWidthVp: widthVp,
       gameHeightVp: heightVp,
       gameLeftMarginVp: 0,
+      sidebarWidthVp: 0,
     };
   }
 
@@ -91,6 +115,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
         gameWidthVp: widthVp,
         gameHeightVp: heightVp,
         gameLeftMarginVp: 0,
+        sidebarWidthVp: calcSidebarWidth(widthVp, heightVp),
       };
     }
 
@@ -104,6 +129,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       gameWidthVp: widthVp,
       gameHeightVp: Math.floor(contentH),
       gameLeftMarginVp: 0,
+      sidebarWidthVp: 0,
     };
   }
 
@@ -118,6 +144,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       gameWidthVp: widthVp,
       gameHeightVp: heightVp,
       gameLeftMarginVp: 0,
+      sidebarWidthVp: calcSidebarWidth(widthVp, heightVp),
     };
   }
 
@@ -132,6 +159,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       gameWidthVp: widthVp,
       gameHeightVp: Math.floor(contentH),
       gameLeftMarginVp: 0,
+      sidebarWidthVp: 0,
     };
   }
 
@@ -145,6 +173,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       gameWidthVp: widthVp,
       gameHeightVp: heightVp,
       gameLeftMarginVp: 0,
+      sidebarWidthVp: calcSidebarWidth(widthVp, heightVp),
     };
   }
 
@@ -158,5 +187,6 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
     gameWidthVp: widthVp,
     gameHeightVp: Math.floor(contentH),
     gameLeftMarginVp: 0,
+    sidebarWidthVp: 0,
   };
 }

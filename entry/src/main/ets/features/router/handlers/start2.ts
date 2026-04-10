@@ -4,6 +4,7 @@ import { ApiMstSlotItemRaw } from '../../../domain/models/api/mst_slotitem';
 import { normalizeMstSlotItem } from '../../../domain/models/normalizer/mst_slotitem';
 import { slotItemMasterToRow } from '../../../domain/models/mapper/slotitem';
 import { ShipMasterRow } from '../../../infra/storage/types';
+import { updateShipMasterMeta, updateSlotItemEquipTypes } from '../../state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -51,6 +52,15 @@ class Start2Handler implements Handler {
   }
 
   private async handleShipMaster(payload: ApiMstShipRaw[], ts: number, deps: PersistDeps): Promise<void> {
+    // 更新内存缓存（名称和最大补给量）
+    const metaItems = payload.map(r => ({
+      id: r.api_id,
+      name: r.api_name ?? '',
+      fuelMax: r.api_fuel_max ?? 0,
+      ammoMax: r.api_bull_max ?? 0,
+    }));
+    updateShipMasterMeta(metaItems);
+
     if (!deps.repos?.ship) return;
     try {
       const existing = await deps.repos.ship.listMasterIdNames();
@@ -67,6 +77,13 @@ class Start2Handler implements Handler {
   }
 
   private async handleSlotItemMaster(payload: ApiMstSlotitemRaw[], ts: number, deps: PersistDeps): Promise<void> {
+    // 更新内存缓存（装备类型）：api_type[2] = typeEquipType
+    const equipTypeItems = payload.map(r => ({
+      id: r.api_id,
+      equipType: Array.isArray(r.api_type) ? (r.api_type[2] ?? 0) : 0,
+    }));
+    updateSlotItemEquipTypes(equipTypeItems);
+
     if (!deps.repos?.slotitem) return;
     try {
       const existing = await deps.repos.slotitem.listMasterIdNames();
