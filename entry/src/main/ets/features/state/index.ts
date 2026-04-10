@@ -16,7 +16,12 @@ export type {
   ExpChange,
   SenkaInfo,
   NDockSnapShot,
-  KDockSnapShot
+  KDockSnapShot,
+  CurrentBattleState,
+  BattleStatusSnapshot,
+  BattleResultSnapshot,
+  FleetBattleStatus,
+  ShipBattleStatus,
 } from './type';
 
 // ========== GameState 导出 ==========
@@ -59,6 +64,13 @@ export {
 
   // 订阅
   subscribeGameState,
+
+  // 战斗状态查询
+  getCurrentBattle,
+  getBattleStatus,
+  getBattleResult,
+  isInBattle,
+  hasBattleResult,
 
   // 工具
   clearGameState,
