@@ -65,7 +65,7 @@ export default class EntryAbility extends UIAbility {
       }
     });
 
-    void FairyService.getInstance().init(windowStage);
+    //void FairyService.getInstance().init(windowStage);
 
     try {
       this.mainWindow = windowStage.getMainWindowSync();

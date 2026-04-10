@@ -427,13 +427,16 @@ export default struct WebHost {
             .align(Alignment.BottomStart)
         }
 
-        // Fleet status sidebar — right-side persistent status bar in compact landscape mode.
-        // Rendered only when sidebarWidthVp > 0 (enough right-space in height-fit layout).
-        if (this.sidebarWidthVp > 0) {
+        // Fleet status sidebar — right-side persistent status bar.
+        // Conditions mirror shouldShowFloatingButtons: compact mode + fullscreen only.
+        // Use absolute position to anchor to the right edge of the Stack (align() only
+        // sets internal content alignment and does NOT reposition within the parent).
+        if (this.sidebarWidthVp > 0 && this.shouldShowFloatingButtons()) {
           FleetStatusSidebar({ sidebarWidth: this.sidebarWidthVp })
             .width(this.sidebarWidthVp)
             .height('100%')
             .align(Alignment.TopEnd)
+            .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
         }
 
         // FloatOverlay panel — overlaid on the game viewport.

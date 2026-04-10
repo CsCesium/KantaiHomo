@@ -132,9 +132,9 @@ export default struct ShipStatusBadge {
 
     // HP 弧（从顶部顺时针，比例 = hpPct）
     if (hpPct > 0) {
-      const endAngle = startAngle + Math.PI * 2 * Math.min(hpPct, 1);
+      const endAngle = startAngle - Math.PI * 2 * Math.min(hpPct, 1);
       c.beginPath();
-      c.arc(cx, cy, r, startAngle, endAngle);
+      c.arc(cx, cy, r, startAngle, endAngle, true);
       c.strokeStyle = this.hpColor();
       c.lineWidth = RING_STROKE_WIDTH;
       c.lineCap = 'butt';
@@ -143,7 +143,7 @@ export default struct ShipStatusBadge {
 
     // 阈值刻度线（50% 中破 / 25% 大破）
     const drawTick = (fraction: number): void => {
-      const angle = startAngle + Math.PI * 2 * fraction;
+      const angle = startAngle - Math.PI * 2 * fraction;
       const cos = Math.cos(angle);
       const sin = Math.sin(angle);
       const outerR = r + RING_STROKE_WIDTH / 2 + TICK_OUTER_PAD;
@@ -203,7 +203,7 @@ export default struct ShipStatusBadge {
             .height(this.badgeSize)
             .borderRadius(this.badgeSize / 2)
             .backgroundColor(this.badgeBgColor)
-            .fontColor('#ffffff')
+            .fontColor($r('sys.color.comp_background_secondary'))
             .fontSize(this.badgeFontSize)
             .textAlign(TextAlign.Center)
             .align(Alignment.BottomEnd)
