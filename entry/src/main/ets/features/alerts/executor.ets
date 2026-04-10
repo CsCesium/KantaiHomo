@@ -18,6 +18,7 @@ import type {
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
 import { getMissionName } from './module/missionCache';
+import { getLaunchWantAgent } from './module/launchWantAgent';
 
 // ========== 通知 ID 常量 ==========
 const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
@@ -52,8 +53,11 @@ async function executeNotification(
   additionalText?: string
 ): Promise<void> {
   try {
+    const agent = await getLaunchWantAgent();
     await notificationManager.publish({
       id,
+      wantAgent: agent ?? undefined,
+      tapDismissed: true,
       content: {
         notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
         normal: { title, text, additionalText },

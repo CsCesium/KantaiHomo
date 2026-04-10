@@ -11,7 +11,7 @@ import notificationManager from '@ohos.notificationManager';
 import { getRepositoryHub } from '../../../infra/storage/repo';
 import { getMissionName } from './missionCache';
 import { addOnExpeditionChanged } from './expeditionTrigger';
-
+import { getLaunchWantAgent } from './launchWantAgent';
 // ── 常驻通知 ID ──────────────────────────────────────────────────
 const LIVE_NOTIFICATION_ID = 100;
 
@@ -102,11 +102,15 @@ class ExpeditionLiveNotificationService {
       const earliestDeckName = deckNameMap.get(earliest.deckId) ?? `第${earliest.deckId}舰队`;
       const earliestMissionName = getMissionName(earliest.missionId);
 
+      const agent = await getLaunchWantAgent();
+
       await notificationManager.publish({
         id: LIVE_NOTIFICATION_ID,
         notificationSlotType: notificationManager.SlotType.OTHER_TYPES,
         isOngoing: true,
         isUnremovable: false,
+        tapDismissed: false,
+        wantAgent: agent ?? undefined,
         content: {
           notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_MULTILINE,
           multiLine: {
