@@ -57,18 +57,38 @@ export interface KDockSnapShot{
 export interface ShipState {
   uid: number;
   masterId: number;
+  /** 舰娘名称（来自舰船图鉴） */
+  name: string;
   level: number;
   hpNow: number;
   hpMax: number;
   cond: number;
   fuel: number;
   ammo: number;
+  /** 最大燃料（来自舰船图鉴，0表示未知） */
+  fuelMax: number;
+  /** 最大弹药（来自舰船图鉴，0表示未知） */
+  ammoMax: number;
+  /** 是否需要补给 */
+  needsResupply: boolean;
+  /** 装备槽 (装备实例 UID 列表) */
+  slots: number[];
+  /** 扩张装备槽 UID（0=未解锁，-1=未装备，>0=装备UID） */
+  exSlot: number;
   /** HP 百分比 */
   hpPercent: number;
   /** 是否大破 (HP <= 25%) */
   isTaiha: boolean;
   /** 是否中破 (HP <= 50%) */
   isChuuha: boolean;
+}
+
+/** 舰娘特殊装备状态（损管/女神） */
+export interface ShipSpecialEquip {
+  /** 是否装备损管 (応急修理要員, masterId=42) */
+  hasDamageControl: boolean;
+  /** 是否装备女神 (応急修理女神, masterId=43) */
+  hasGoddess: boolean;
 }
 
 /** 完整游戏状态 */
@@ -89,6 +109,16 @@ export interface GameState {
   currentBattle: CurrentBattleState;
   /** 上次更新时间 */
   lastUpdatedAt: number;
+
+  // ── 派生数据缓存（从 start2/port 填充，用于 ShipState 派生字段） ──
+  /** 舰船图鉴名称缓存 (masterId → name) */
+  shipMasterNames: Map<number, string>;
+  /** 舰船图鉴最大补给量缓存 (masterId → { fuelMax, ammoMax }) */
+  shipMasterMaxSupply: Map<number, { fuelMax: number; ammoMax: number }>;
+  /** 装备图鉴类型缓存 (slotitem masterId → typeEquipType) */
+  slotItemEquipTypes: Map<number, number>;
+  /** 装备实例索引 (slotitem uid → masterId) */
+  slotItemIndex: Map<number, number>;
 }
 
 /** 状态变更类型 */

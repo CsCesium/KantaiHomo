@@ -9,6 +9,7 @@ import {
   MaterialsSnapshot,
   DeckSnapshot,
   ShipState,
+  ShipSpecialEquip,
   SenkaInfo,
   StateChangeType,
   NDockSnapShot,
@@ -20,6 +21,10 @@ import {
   EnemyBattleStatus,
   ShipBattleStatus
 } from "./type";
+
+/** 损管/女神 master ID 常量 */
+const DAMAGE_CONTROL_MASTER_ID = 42;
+const GODDESS_MASTER_ID = 43;
 
 class GameStateManager {
   private state: GameState = {
@@ -35,6 +40,10 @@ class GameStateManager {
       lastUpdatedAt: 0,
     },
     lastUpdatedAt: 0,
+    shipMasterNames: new Map(),
+    shipMasterMaxSupply: new Map(),
+    slotItemEquipTypes: new Map(),
+    slotItemIndex: new Map(),
   };
 
   private listeners: Set<StateChangeListener> = new Set();
@@ -159,15 +168,33 @@ class GameStateManager {
   updateShip(ship: Ship, notify = true): void {
     const hpPercent = ship.hpMax > 0 ? ship.hpNow / ship.hpMax : 1;
 
+    // 从图鉴缓存派生名称和最大补给量
+    const name = this.state.shipMasterNames.get(ship.masterId) ?? `#${ship.masterId}`;
+    const maxSupply = this.state.shipMasterMaxSupply.get(ship.masterId);
+    const fuelMax = maxSupply?.fuelMax ?? 0;
+    const ammoMax = maxSupply?.ammoMax ?? 0;
+    const needsResupply = fuelMax > 0
+      ? (ship.fuel < fuelMax || ship.ammo < ammoMax)
+      : false;
+
+    const slots: number[] = Array.isArray(ship.slots) ? [...ship.slots] : [];
+    const exSlot: number = typeof ship.exSlot === 'number' ? ship.exSlot : 0;
+
     this.state.ships.set(ship.uid, {
       uid: ship.uid,
       masterId: ship.masterId,
+      name,
       level: ship.level,
       hpNow: ship.hpNow,
       hpMax: ship.hpMax,
       cond: ship.cond,
       fuel: ship.fuel,
       ammo: ship.ammo,
+      fuelMax,
+      ammoMax,
+      needsResupply,
+      slots,
+      exSlot,
       hpPercent,
       isTaiha: hpPercent <= 0.25,
       isChuuha: hpPercent <= 0.5,
@@ -444,10 +471,74 @@ class GameStateManager {
         lastUpdatedAt: 0,
       },
       lastUpdatedAt: 0,
+      shipMasterNames: new Map(),
+      shipMasterMaxSupply: new Map(),
+      slotItemEquipTypes: new Map(),
+      slotItemIndex: new Map(),
     };
     this.expHistory = [];
     this.dailySenkaStart = null;
     this.notifyListeners('all');
+  }
+
+  // ==================== 派生数据缓存更新 ====================
+
+  /**
+   * 更新舰船图鉴名称及最大补给量缓存（来自 api_start2 舰船图鉴）
+   */
+  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number }>): void {
+    for (const item of items) {
+      this.state.shipMasterNames.set(item.id, item.name);
+      this.state.shipMasterMaxSupply.set(item.id, { fuelMax: item.fuelMax, ammoMax: item.ammoMax });
+    }
+  }
+
+  /**
+   * 更新装备图鉴类型缓存（来自 api_start2 装备图鉴，masterId → typeEquipType）
+   */
+  updateSlotItemEquipTypes(items: ReadonlyArray<{ id: number; equipType: number }>): void {
+    for (const item of items) {
+      this.state.slotItemEquipTypes.set(item.id, item.equipType);
+    }
+  }
+
+  /**
+   * 更新装备实例索引（来自 api_port/api_slot_item，uid → masterId）
+   */
+  updateSlotItemIndex(items: ReadonlyArray<{ uid: number; masterId: number }>): void {
+    for (const item of items) {
+      this.state.slotItemIndex.set(item.uid, item.masterId);
+    }
+  }
+
+  /**
+   * 获取舰娘的特殊装备状态（损管/女神）
+   * 检查舰娘装备槽（包括扩张槽）中是否有损管或女神
+   */
+  getShipSpecialEquip(uid: number): ShipSpecialEquip {
+    const ship = this.state.ships.get(uid);
+    if (!ship) return { hasDamageControl: false, hasGoddess: false };
+
+    let hasDamageControl = false;
+    let hasGoddess = false;
+
+    const checkSlot = (slotUid: number): void => {
+      if (slotUid <= 0) return;
+      const masterId = this.state.slotItemIndex.get(slotUid);
+      if (masterId === undefined) return;
+      if (masterId === GODDESS_MASTER_ID) {
+        hasGoddess = true;
+      } else if (masterId === DAMAGE_CONTROL_MASTER_ID) {
+        hasDamageControl = true;
+      }
+    };
+
+    for (const slotUid of ship.slots) {
+      checkSlot(slotUid);
+    }
+    checkSlot(ship.exSlot);
+
+    return { hasDamageControl, hasGoddess };
   }
 
   // ==================== 战斗状态管理 ====================
@@ -556,6 +647,14 @@ export function getGameState(): GameStateManager {
 }
 
 // 便捷函数
+export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number }>) =>
+  gameStateManager.updateShipMasterMeta(items);
+export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number }>) =>
+  gameStateManager.updateSlotItemEquipTypes(items);
+export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number }>) =>
+  gameStateManager.updateSlotItemIndex(items);
+export const getShipSpecialEquip = (uid: number) => gameStateManager.getShipSpecialEquip(uid);
+
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);
 export const updateNdocks = (ndocks:Ndock[]) => gameStateManager.updateNDocks(ndocks);

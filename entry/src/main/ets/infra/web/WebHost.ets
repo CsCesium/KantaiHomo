@@ -12,6 +12,7 @@ import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
 import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
+import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 
 interface RpcPayload {
   op: string;
@@ -45,6 +46,7 @@ export default struct WebHost {
   @State private scene: WindowScene = WindowScene.FULLSCREEN;
   @State private wideSplitMode: WideSplitMode = WideSplitMode.PORTRAIT_FILL;
   @State private panelConfig: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
+  @State private sidebarWidthVp: number = 0;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
@@ -155,6 +157,7 @@ export default struct WebHost {
     let nextGameWidthVp: number = decision.gameWidthVp;
     let nextGameHeightVp: number = decision.gameHeightVp;
     let nextGameLeftMarginVp: number = decision.gameLeftMarginVp;
+    let nextSidebarWidthVp: number = decision.sidebarWidthVp;
 
     const isSmallLandscapeWindow: boolean = (widthVp > heightVp) && (heightVp <= 650);
     const isFloatingScene: boolean = this.scene === WindowScene.FLOATING;
@@ -169,6 +172,7 @@ export default struct WebHost {
       nextGameWidthVp = widthVp;
       nextGameHeightVp = heightVp;
       nextGameLeftMarginVp = 0;
+      nextSidebarWidthVp = 0;
     }
 
     const modeChanged: boolean = this.lastMode !== nextMode;
@@ -181,6 +185,7 @@ export default struct WebHost {
     this.gameWidthVp = nextGameWidthVp;
     this.gameHeightVp = nextGameHeightVp;
     this.gameLeftMarginVp = nextGameLeftMarginVp;
+    this.sidebarWidthVp = nextSidebarWidthVp;
 
     // Derive panel layout from the final (override-adjusted) layout decision.
     const finalDecision: LayoutDecision = {
@@ -192,6 +197,7 @@ export default struct WebHost {
       gameWidthVp: nextGameWidthVp,
       gameHeightVp: nextGameHeightVp,
       gameLeftMarginVp: nextGameLeftMarginVp,
+      sidebarWidthVp: nextSidebarWidthVp,
     };
     this.panelConfig = decidePanelLayout(finalDecision, heightVp);
 
@@ -419,6 +425,15 @@ export default struct WebHost {
             .width(56)
             .padding({ left: 4, right: 4, top: 8, bottom: 8 })
             .align(Alignment.BottomStart)
+        }
+
+        // Fleet status sidebar — right-side persistent status bar in compact landscape mode.
+        // Rendered only when sidebarWidthVp > 0 (enough right-space in height-fit layout).
+        if (this.sidebarWidthVp > 0) {
+          FleetStatusSidebar({ sidebarWidth: this.sidebarWidthVp })
+            .width(this.sidebarWidthVp)
+            .height('100%')
+            .align(Alignment.TopEnd)
         }
 
         // FloatOverlay panel — overlaid on the game viewport.

@@ -9,6 +9,7 @@ export type {
   MaterialsSnapshot,
   DeckSnapshot,
   ShipState,
+  ShipSpecialEquip,
   GameState,
   StateChangeType,
   StateChangeListener,
@@ -33,6 +34,11 @@ export {
   updateShips,
   updateFromPort,
 
+  // 派生数据缓存更新
+  updateShipMasterMeta,
+  updateSlotItemEquipTypes,
+  updateSlotItemIndex,
+
   // 查询方法
   getAdmiral,
   getMaterials,
@@ -44,6 +50,7 @@ export {
   getDeckShips,
   getDeckTaihaShips,
   hasTaihaInDeck,
+  getShipSpecialEquip,
 
   // 战果计算
   getSenkaInfo,
