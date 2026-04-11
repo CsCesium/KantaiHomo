@@ -142,6 +142,9 @@ class SortieHandler implements Handler {
       eventKind: cell.eventKind,
       isBoss: cell.isBoss ?? false,
       eventDesc: getFullEventDesc(cell.eventId, cell.eventKind),
+      deckId: context.deckId,
+      combinedType: context.combinedType,
+      fleetName: context.fleetSnapshot.name,
     };
     publishAlert(sortieNextAlert);
 

@@ -4,13 +4,16 @@ import {
   mergeBattleSegments,
   BattleRecord,
   generateBattleId,
-  battleRecordToRow
+  battleRecordToRow,
+  getFullEventDesc,
 } from '../../../domain/models';
 import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
 import { updateBattleStatus, updateBattleResult } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
+import { publishAlert } from '../../alerts/bus';
+import type { BattleResultAlert } from '../../alerts/type';
 
 
 class BattleHandler implements Handler {
@@ -255,6 +258,28 @@ class BattleHandler implements Handler {
         record,
         normalizedResult,
       });
+    }
+
+    // 5a. 战斗结算提醒（含舰队信息 + 敌方舰队名）
+    try {
+      const cell = context?.currentCell;
+      const battleResultAlert: BattleResultAlert = {
+        type: 'battle_result',
+        timestamp: now,
+        rank: record.rank,
+        mapAreaId: record.mapAreaId,
+        mapInfoNo: record.mapInfoNo,
+        cellId: record.cellId,
+        isBoss: record.isBoss,
+        eventDesc: cell ? getFullEventDesc(cell.eventId, cell.eventKind) : '战斗',
+        enemyDeckName: normalizedResult.enemy.deckName,
+        deckId: context?.deckId ?? record.cellId,
+        combinedType: context?.combinedType ?? 0,
+        dropShipName: record.dropShipName,
+      };
+      publishAlert(battleResultAlert);
+    } catch (e) {
+      console.warn('[battle] publishAlert failed:', String(e));
     }
 
     // 6. 清理战斗上下文

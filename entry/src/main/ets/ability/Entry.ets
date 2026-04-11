@@ -7,7 +7,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { setAppContext, setMainWindow } from '../infra/appContext'
 import { initPersistDeps } from '../infra/deps';
 import { initHandlerRegistry } from '../features/router/persist/registry';
-import { initAlerts, initExpeditionScheduler, getExpeditionScheduler } from '../features/alerts';
+import { initAlerts, initExpeditionScheduler, getExpeditionScheduler, setAlertConfig } from '../features/alerts';
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
 import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
 import { getRepositoryHub } from '../infra/storage/repo';
@@ -15,12 +15,14 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
 import { FairyService } from '../infra/fairy/service/FairyService';
-import { kvGetBool } from '../infra/storage/kv';
+import { kvGetBool, kvGetString } from '../infra/storage/kv';
 
 const HILOG_DOM: number = 0x1357;
 
 /** AppStorage key for fleet sidebar visibility preference */
 export const APP_STORAGE_SHOW_SIDEBAR = 'ui.showSidebar';
+/** AppStorage key controlling whether YasenDetect JS is injected */
+export const APP_STORAGE_YASEN_DETECT_ENABLED = 'alerts.yasen.enabled';
 
 export default class EntryAbility extends UIAbility {
   private mainWindow?: window.Window;
@@ -37,6 +39,12 @@ export default class EntryAbility extends UIAbility {
     void kvGetBool(APP_STORAGE_SHOW_SIDEBAR, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_SHOW_SIDEBAR, v);
     });
+
+    // Yasen detect: default enabled; drives inject options in WebHost.
+    AppStorage.setOrCreate(APP_STORAGE_YASEN_DETECT_ENABLED, true);
+    void kvGetBool(APP_STORAGE_YASEN_DETECT_ENABLED, true).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_YASEN_DETECT_ENABLED, v);
+    });
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
@@ -44,6 +52,23 @@ export default class EntryAbility extends UIAbility {
       initPersistDeps();
       initHandlerRegistry();
       initAlerts();
+
+      // 从 KV 加载提醒配置，应用到运行中的 AlertBus
+      void Promise.all([
+        kvGetBool('alerts.yasen.enabled', true),
+        kvGetBool('alerts.battle.enabled', true),
+        kvGetString('alerts.mode', 'both'),
+      ]).then((results: Array<boolean | string>) => {
+        const yasen = results[0] as boolean;
+        const battle = results[1] as boolean;
+        const mode = results[2] as string;
+        setAlertConfig({
+          enableYasenAlert: yasen,
+          enableBattleResultAlert: battle,
+          enableVibrate: mode === 'vibrate' || mode === 'both',
+          enableNotification: mode === 'ring' || mode === 'both',
+        });
+      });
 
       // 启动远征归来调度器（负责在远征到时触发 Toast / 震动 / 归来通知）
       const scheduler = initExpeditionScheduler(getRepositoryHub().expedition);

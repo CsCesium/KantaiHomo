@@ -13,7 +13,8 @@ import type {
   ExpeditionReturnAlert,
   YasenPromptAlert,
   TaihaWarningAlert,
-  SortieNextAlert
+  SortieNextAlert,
+  BattleResultAlert,
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
@@ -25,6 +26,17 @@ const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
 const NOTIFICATION_ID_YASEN = 2000;
 const NOTIFICATION_ID_TAIHA = 2001;
 const NOTIFICATION_ID_SORTIE_NEXT = 2002;
+const NOTIFICATION_ID_BATTLE_RESULT = 2003;
+
+/** 根据 deckId / combinedType 生成舰队标签 */
+function formatFleetLabel(deckId: number, combinedType: number): string {
+  switch (combinedType) {
+    case 1: return `第${deckId}舰队（机动联合）`;
+    case 2: return `第${deckId}舰队（水上联合）`;
+    case 3: return `第${deckId}舰队（输送联合）`;
+    default: return `第${deckId}舰队`;
+  }
+}
 // ========== 执行函数 ==========
 
 async function executeToast(message: string, duration: number = 2000): Promise<void> {
@@ -100,6 +112,7 @@ async function handleExpeditionReturn(alert: ExpeditionReturnAlert): Promise<voi
 
 async function handleYasenPrompt(alert: YasenPromptAlert): Promise<void> {
   const config = getAlertBus().getConfig();
+  if (!config.enableYasenAlert) return;
 
   console.info(`[AlertExecutor] yasen prompt: yes=${alert.yesTex}, no=${alert.noTex}`);
 
@@ -150,32 +163,57 @@ async function handleTaihaWarning(alert: TaihaWarningAlert): Promise<void> {
 
 async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   const config = getAlertBus().getConfig();
-  const mapAreaId = alert.mapAreaId;
-  const mapInfoNo = alert.mapInfoNo;
-  const cellId = alert.cellId;
-  const eventDesc = alert.eventDesc;
-  const isBoss = alert.isBoss;
-  
-  const mapStr = `${mapAreaId}-${mapInfoNo}`;
-  const bossStr = isBoss ? ' [BOSS]' : '';
-  const message = `${mapStr} → ${cellId}${bossStr}: ${eventDesc}`;
+  const fleetLabel = formatFleetLabel(alert.deckId, alert.combinedType);
+  const bossStr = alert.isBoss ? '[BOSS]' : '';
+  const message = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}`;
 
   console.info(`[AlertExecutor] sortie next: ${message}`);
 
   if (config.enableToast) {
-    await executeToast(message, isBoss ? 3000 : 2000);
+    await executeToast(message, alert.isBoss ? 3000 : 2000);
   }
 
   // Boss 点额外震动
-  if (config.enableVibrate && isBoss) {
+  if (config.enableVibrate && alert.isBoss) {
     await executeVibrate(config.vibrateDurationMs * 2);
   }
 
   if (config.enableNotification) {
     await executeNotification(
       NOTIFICATION_ID_SORTIE_NEXT,
-      isBoss ? '🎯 到达 BOSS 点' : '进击中',
+      alert.isBoss ? '到达 BOSS 点' : '进击中',
       message
+    );
+  }
+}
+
+async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableBattleResultAlert) return;
+
+  const fleetLabel = formatFleetLabel(alert.deckId, alert.combinedType);
+  const bossStr = alert.isBoss ? '[BOSS]' : '';
+  const line1 = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}`;
+  const line2 = `敌舰队：  ${alert.enemyDeckName}`;
+  const message = `${line1}\n${line2}`;
+  const dropStr = alert.dropShipName ? `  落单：${alert.dropShipName}` : '';
+  const notifText = `${alert.rank}${dropStr}  ${alert.enemyDeckName}`;
+
+  console.info(`[AlertExecutor] battle result: rank=${alert.rank} ${line1}`);
+
+  if (config.enableToast) {
+    await executeToast(message, 3500);
+  }
+
+  if (config.enableVibrate) {
+    await executeVibrate(config.vibrateDurationMs);
+  }
+
+  if (config.enableNotification) {
+    await executeNotification(
+      NOTIFICATION_ID_BATTLE_RESULT,
+      `战斗结算：${alert.rank}`,
+      notifText
     );
   }
 }
@@ -195,6 +233,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'sortie_next':
       await handleSortieNext(alert);
+      break;
+    case 'battle_result':
+      await handleBattleResult(alert);
       break;
   }
 }

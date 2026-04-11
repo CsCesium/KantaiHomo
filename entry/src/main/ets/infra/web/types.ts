@@ -195,6 +195,6 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   enablePixiPatch: false,
   enableSessionPersist: true,
   enableIframeFit: true,
-  enableYasenDetect: false,
+  enableYasenDetect: true,
   enableDebug: true,
 };
