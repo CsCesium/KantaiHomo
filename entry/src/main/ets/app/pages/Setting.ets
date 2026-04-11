@@ -38,7 +38,7 @@ struct Setting {
   }
 
   private async loadAll(): Promise<void> {
-    const [url, ua, user, pass, battleEnabled, mode] = await Promise.all([
+    const kvConfig = await Promise.all([
       kvGetString('config.homeUrl', HOME_URL),
       kvGetString('config.userAgent', USER_AGENT ?? ''),
       kvGetString('account.username', ''),
@@ -46,6 +46,12 @@ struct Setting {
       kvGetBool('alerts.battle.enabled', true),
       kvGetString('alerts.mode', 'both'),
     ]);
+    const url = kvConfig[0];
+    const ua = kvConfig[1];
+    const user = kvConfig[2];
+    const pass = kvConfig[3];
+    const battleEnabled = kvConfig[4];
+    const mode = kvConfig[5];
     this.homeUrl = url;
     this.userAgent = ua;
     this.username = user;

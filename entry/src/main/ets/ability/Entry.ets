@@ -16,7 +16,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
 import { FairyService } from '../infra/fairy/service/FairyService';
-import { kvGetBool } from '../infra/storage/kv';
+import { kvGetBool, kvGetString } from '../infra/storage/kv';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -59,7 +59,10 @@ export default class EntryAbility extends UIAbility {
         kvGetBool('alerts.yasen.enabled', true),
         kvGetBool('alerts.battle.enabled', true),
         kvGetString('alerts.mode', 'both'),
-      ]).then(([yasen, battle, mode]: [boolean, boolean, string]) => {
+      ]).then((results: [boolean, boolean, string]) => {
+        const yasen = results[0];
+        const battle = results[1];
+        const mode = results[2];
         const m = mode as AlertMode;
         setAlertConfig({
           enableYasenAlert: yasen,
