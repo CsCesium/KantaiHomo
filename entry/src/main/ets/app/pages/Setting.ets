@@ -3,6 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
+import { APP_STORAGE_SHOW_SIDEBAR } from '../../ability/Entry';
 
 @Entry
 @Component
@@ -15,6 +16,10 @@ struct Setting {
   @State private username: string = '';
   @State private password: string = '';
   @State private showPassword: boolean = false;
+
+  // ── UI preferences ─────────────────────────────────────────────
+  /** Two-way binding to AppStorage; writing this immediately updates WebHost. */
+  @StorageLink(APP_STORAGE_SHOW_SIDEBAR) private showSidebar: boolean = true;
 
   // ── UI state ───────────────────────────────────────────────────
   @State private configDirty: boolean = false;
@@ -132,6 +137,33 @@ struct Setting {
       .borderRadius(8)
       .height(42)
       .onClick(action)
+  }
+
+  @Builder
+  private ToggleRow(label: string, desc: string, isOn: boolean, onChange: (v: boolean) => void) {
+    Row() {
+      Column({ space: 3 }) {
+        Text(label)
+          .fontSize(15)
+          .fontColor('#A09080')
+        Text(desc)
+          .fontSize(12)
+          .fontColor('#3A4A55')
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+
+      Toggle({ type: ToggleType.Switch, isOn: isOn })
+        .selectedColor('#6A9AB5')
+        .switchPointColor('#FFFFFF')
+        .onChange(onChange)
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -311,6 +343,19 @@ struct Setting {
             .fontSize(11)
             .fontColor('#2A3A45')
             .padding({ left: 4, top: 4 })
+
+          // ── SECTION: 界面 ────────────────────────────────────
+          this.SectionHeader('界面')
+
+          this.ToggleRow(
+            '舰队状态侧边栏',
+            '横屏时在游戏右侧显示舰队 HP / 损管 / 补给状态',
+            this.showSidebar,
+            (v: boolean) => {
+              this.showSidebar = v;            // 写入 AppStorage，WebHost 立即响应
+              void kvSet(APP_STORAGE_SHOW_SIDEBAR, v); // 持久化
+            }
+          )
 
           // ── SECTION: 数据清理 ─────────────────────────────────
           this.SectionHeader('数据清理')

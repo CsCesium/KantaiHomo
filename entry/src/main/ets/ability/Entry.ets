@@ -15,7 +15,12 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
 import { FairyService } from '../infra/fairy/service/FairyService';
+import { kvGetBool } from '../infra/storage/kv';
+
 const HILOG_DOM: number = 0x1357;
+
+/** AppStorage key for fleet sidebar visibility preference */
+export const APP_STORAGE_SHOW_SIDEBAR = 'ui.showSidebar';
 
 export default class EntryAbility extends UIAbility {
   private mainWindow?: window.Window;
@@ -26,6 +31,12 @@ export default class EntryAbility extends UIAbility {
     webview.WebCookieManager.putAcceptCookieEnabled(true);
     webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true);
 
+    // Pre-seed AppStorage with defaults so @StorageProp bindings are valid
+    // before any page renders. Actual persisted values are loaded below.
+    AppStorage.setOrCreate(APP_STORAGE_SHOW_SIDEBAR, true);
+    void kvGetBool(APP_STORAGE_SHOW_SIDEBAR, true).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_SHOW_SIDEBAR, v);
+    });
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
