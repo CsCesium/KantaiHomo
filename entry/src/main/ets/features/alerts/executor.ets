@@ -13,7 +13,8 @@ import type {
   ExpeditionReturnAlert,
   YasenPromptAlert,
   TaihaWarningAlert,
-  SortieNextAlert
+  SortieNextAlert,
+  BattleResultAlert,
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
@@ -25,6 +26,7 @@ const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
 const NOTIFICATION_ID_YASEN = 2000;
 const NOTIFICATION_ID_TAIHA = 2001;
 const NOTIFICATION_ID_SORTIE_NEXT = 2002;
+const NOTIFICATION_ID_BATTLE_RESULT = 2003;
 // ========== 执行函数 ==========
 
 async function executeToast(message: string, duration: number = 2000): Promise<void> {
@@ -100,6 +102,7 @@ async function handleExpeditionReturn(alert: ExpeditionReturnAlert): Promise<voi
 
 async function handleYasenPrompt(alert: YasenPromptAlert): Promise<void> {
   const config = getAlertBus().getConfig();
+  if (!config.enableYasenAlert) return;
 
   console.info(`[AlertExecutor] yasen prompt: yes=${alert.yesTex}, no=${alert.noTex}`);
 
@@ -180,6 +183,34 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   }
 }
 
+async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableBattleResultAlert) return;
+
+  const mapStr = alert.mapAreaId > 0 ? `${alert.mapAreaId}-${alert.mapInfoNo} ` : '';
+  const bossStr = alert.isBoss ? '[BOSS] ' : '';
+  const dropStr = alert.dropShipName ? `  落单：${alert.dropShipName}` : '';
+  const message = `${mapStr}${bossStr}战斗结算：${alert.rank}${dropStr}`;
+
+  console.info(`[AlertExecutor] battle result: ${message}`);
+
+  if (config.enableToast) {
+    await executeToast(message, 3000);
+  }
+
+  if (config.enableVibrate) {
+    await executeVibrate(config.vibrateDurationMs);
+  }
+
+  if (config.enableNotification) {
+    await executeNotification(
+      NOTIFICATION_ID_BATTLE_RESULT,
+      '战斗结算',
+      message
+    );
+  }
+}
+
 // ========== 主处理函数 ==========
 
 async function handleAlert(alert: AnyAlert): Promise<void> {
@@ -195,6 +226,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'sortie_next':
       await handleSortieNext(alert);
+      break;
+    case 'battle_result':
+      await handleBattleResult(alert);
       break;
   }
 }

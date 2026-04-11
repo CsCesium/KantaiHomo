@@ -19,7 +19,10 @@ export type AlertType =
   | 'expedition_return'
   | 'yasen_prompt'
   | 'taiha_warning'
-  | 'sortie_next';
+  | 'sortie_next'
+  | 'battle_result';
+
+export type AlertMode = 'vibrate' | 'ring' | 'both';
 
 export interface BaseAlert {
   type: AlertType;
@@ -61,11 +64,23 @@ export interface SortieNextAlert extends BaseAlert {
   eventDesc: string;
 }
 
+/** 战斗结算提醒 */
+export interface BattleResultAlert extends BaseAlert {
+  type: 'battle_result';
+  rank: string;
+  mapAreaId: number;
+  mapInfoNo: number;
+  cellId: number;
+  isBoss: boolean;
+  dropShipName?: string;
+}
+
 export type AnyAlert =
   | ExpeditionReturnAlert
   | YasenPromptAlert
   | TaihaWarningAlert
-  | SortieNextAlert;
+  | SortieNextAlert
+  | BattleResultAlert;
 
 // ========== Alert Config ==========
 
@@ -75,6 +90,10 @@ export interface AlertConfig {
   enableNotification: boolean;
   vibrateDurationMs: number;
   debounceMs: number;
+  /** 是否启用夜战选择提醒 */
+  enableYasenAlert: boolean;
+  /** 是否启用战斗结算提醒 */
+  enableBattleResultAlert: boolean;
 }
 
 export const DEFAULT_ALERT_CONFIG: AlertConfig = {
@@ -83,6 +102,8 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   enableNotification: true,
   vibrateDurationMs: 150,
   debounceMs: 1200,
+  enableYasenAlert: true,
+  enableBattleResultAlert: true,
 };
 
 // ========== Expedition DAO interface ==========

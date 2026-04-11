@@ -13,11 +13,14 @@ import { initAlertExecutor } from './executor';
 
 export type {
   AlertType,
+  AlertMode,
   AnyAlert,
   BaseAlert,
   ExpeditionReturnAlert,
   YasenPromptAlert,
   TaihaWarningAlert,
+  SortieNextAlert,
+  BattleResultAlert,
   AlertConfig,
   ExpeditionNext,
   ExpeditionDaoLike,

@@ -11,6 +11,8 @@ import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot
 import { updateBattleStatus, updateBattleResult } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
+import { publishAlert } from '../../alerts/bus';
+import type { BattleResultAlert } from '../../alerts/type';
 
 
 class BattleHandler implements Handler {
@@ -256,6 +258,19 @@ class BattleHandler implements Handler {
         normalizedResult,
       });
     }
+
+    // 5a. 战斗结算提醒
+    const battleResultAlert: BattleResultAlert = {
+      type: 'battle_result',
+      timestamp: now,
+      rank: record.rank,
+      mapAreaId: record.mapAreaId,
+      mapInfoNo: record.mapInfoNo,
+      cellId: record.cellId,
+      isBoss: record.isBoss,
+      dropShipName: record.dropShipName,
+    };
+    publishAlert(battleResultAlert);
 
     // 6. 清理战斗上下文
     if (context) {

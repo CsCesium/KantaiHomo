@@ -13,7 +13,7 @@ import { lengthToNumber } from "../utils/trans";
 import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
-import { APP_STORAGE_SHOW_SIDEBAR } from "../../ability/Entry";
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED } from "../../ability/Entry";
 
 interface RpcPayload {
   op: string;
@@ -50,6 +50,8 @@ export default struct WebHost {
   @State private sidebarWidthVp: number = 0;
   /** Mirrors ui.showSidebar AppStorage preference; updates immediately when user toggles in Settings. */
   @StorageProp(APP_STORAGE_SHOW_SIDEBAR) private showSidebarPref: boolean = true;
+  /** Mirrors alerts.yasen.enabled; drives enableYasenDetect in the inject bundle. */
+  @StorageProp(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenDetectEnabled: boolean = true;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
@@ -71,7 +73,7 @@ export default struct WebHost {
       enablePixiPatch: defaultInjectOptions.enablePixiPatch,
       enableSessionPersist: defaultInjectOptions.enableSessionPersist,
       enableIframeFit: defaultInjectOptions.enableIframeFit,
-      enableYasenDetect: defaultInjectOptions.enableYasenDetect,
+      enableYasenDetect: this.yasenDetectEnabled,
       enableDebug:defaultInjectOptions.enableDebug,
     };
   };
