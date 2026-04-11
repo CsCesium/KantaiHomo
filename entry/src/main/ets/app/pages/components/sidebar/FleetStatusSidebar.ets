@@ -2,8 +2,14 @@ import {
   getDeckShips,
   getShipSpecialEquip,
   subscribeGameState,
+  getCurrentBattle,
 } from '../../../../features/state';
-import { ShipSpecialEquip, ShipState } from '../../../../features/state/type';
+import {
+  ShipSpecialEquip,
+  ShipState,
+  FleetBattleStatus,
+  ShipBattleStatus,
+} from '../../../../features/state/type';
 import { getSortieContext } from '../../../../domain/service/sortie';
 import ShipStatusBadge from './ShipStatusBadge';
 
@@ -14,14 +20,57 @@ interface ShipEntry {
 }
 
 /**
- * 舰队状态侧边栏 — 在 compact 模式下展示在游戏画面右侧黑边区域。
+ * 用战斗快照中的 hpAfter 覆盖 ShipState 的 HP 字段，返回新对象。
+ * 只有当快照中有对应 uid 的数据时才覆盖，否则原样返回。
+ */
+function applyBattleHp(
+  base: ShipState,
+  overrides: Map<number, ShipBattleStatus>
+): ShipState {
+  const bss = overrides.get(base.uid);
+  if (!bss) return base;
+  return {
+    uid:          base.uid,
+    masterId:     base.masterId,
+    name:         base.name,
+    level:        base.level,
+    hpNow:        bss.hpAfter,
+    hpMax:        bss.hpMax,
+    cond:         base.cond,
+    fuel:         base.fuel,
+    ammo:         base.ammo,
+    fuelMax:      base.fuelMax,
+    ammoMax:      base.ammoMax,
+    needsResupply: base.needsResupply,
+    slots:        base.slots,
+    exSlot:       base.exSlot,
+    hpPercent:    bss.hpPercent,
+    isTaiha:      bss.isTaiha,
+    isChuuha:     bss.isChuuha,
+  };
+}
+
+/**
+ * 将 FleetBattleStatus 中的 ships 数组转成 uid→ShipBattleStatus 的 Map。
+ */
+function buildHpOverrideMap(fleet: FleetBattleStatus | undefined): Map<number, ShipBattleStatus> {
+  const m = new Map<number, ShipBattleStatus>();
+  if (!fleet) return m;
+  for (const s of fleet.ships) {
+    m.set(s.uid, s);
+  }
+  return m;
+}
+
+/**
+ * 舰队状态侧边栏 — 在 compact 全屏模式下展示在游戏画面右侧黑边区域。
  *
- * 逻辑：
- * - 优先显示当前出击舰队（getSortieContext().deckId）
- * - 无出击时回退为第一舰队（deckId=1）
- * - 订阅 GameState 变化，实时刷新
+ * HP 数据来源优先级：
+ *   1. 战斗结算快照（BATTLE_RESULT）中的 hpAfter — 结算后立即生效
+ *   2. GameState 中的 ShipState.hpNow — 入港时写入的真实值
+ * 昼/夜战预测值不在侧边栏显示，避免与实际结果产生混淆。
  *
- * @param sidebarWidth  侧边栏宽度（vp），由父组件（WebHost）传入
+ * 舰队选择：优先出击舰队（getSortieContext().deckId），无出击时回退第一舰队。
  */
 @ComponentV2
 export default struct FleetStatusSidebar {
@@ -34,7 +83,7 @@ export default struct FleetStatusSidebar {
   aboutToAppear(): void {
     this.refreshEntries();
     this.unsubscribe = subscribeGameState((type) => {
-      if (type === 'ships' || type === 'decks' || type === 'all') {
+      if (type === 'ships' || type === 'decks' || type === 'all' || type === 'battle') {
         this.refreshEntries();
       }
     });
@@ -47,14 +96,25 @@ export default struct FleetStatusSidebar {
     }
   }
 
-  /** 刷新舰队条目列表 */
+  /** 刷新舰队条目，并用战斗快照覆盖 HP */
   private refreshEntries(): void {
     const ctx = getSortieContext();
     const deckId = ctx ? ctx.deckId : 1;
     const ships = getDeckShips(deckId);
 
+    // 从战斗状态取最新的 HP 覆盖数据
+    // 优先用 result（已结算），其次 status（预测）
+    const battle = getCurrentBattle();
+    // 仅使用已结算的战斗结果（BATTLE_RESULT），不使用昼/夜战预测值
+    const sourceFleet: FleetBattleStatus | undefined =
+      battle.result?.friendMain?.deckId === deckId ? battle.result!.friendMain :
+      battle.result?.friendEscort?.deckId === deckId ? battle.result!.friendEscort :
+      undefined;
+
+    const overrides = buildHpOverrideMap(sourceFleet);
+
     this.entries = ships.map((s: ShipState): ShipEntry => ({
-      ship: s,
+      ship: applyBattleHp(s, overrides),
       equip: getShipSpecialEquip(s.uid),
     }));
   }
@@ -68,7 +128,6 @@ export default struct FleetStatusSidebar {
             ShipStatusBadge({
               ship: entry.ship,
               equip: entry.equip,
-              // 每个徽章按侧边栏宽度确定正方形尺寸，由 layoutWeight(1) 均分高度
               totalWidth: this.sidebarWidth,
               totalHeight: this.sidebarWidth,
             })

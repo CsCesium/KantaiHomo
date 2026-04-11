@@ -13,6 +13,7 @@ import { lengthToNumber } from "../utils/trans";
 import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
+import { APP_STORAGE_SHOW_SIDEBAR } from "../../ability/Entry";
 
 interface RpcPayload {
   op: string;
@@ -47,6 +48,8 @@ export default struct WebHost {
   @State private wideSplitMode: WideSplitMode = WideSplitMode.PORTRAIT_FILL;
   @State private panelConfig: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
   @State private sidebarWidthVp: number = 0;
+  /** Mirrors ui.showSidebar AppStorage preference; updates immediately when user toggles in Settings. */
+  @StorageProp(APP_STORAGE_SHOW_SIDEBAR) private showSidebarPref: boolean = true;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
@@ -431,7 +434,7 @@ export default struct WebHost {
         // Conditions mirror shouldShowFloatingButtons: compact mode + fullscreen only.
         // Use absolute position to anchor to the right edge of the Stack (align() only
         // sets internal content alignment and does NOT reposition within the parent).
-        if (this.sidebarWidthVp > 0 && this.shouldShowFloatingButtons()) {
+        if (this.showSidebarPref && this.sidebarWidthVp > 0 && this.shouldShowFloatingButtons()) {
           FleetStatusSidebar({ sidebarWidth: this.sidebarWidthVp })
             .width(this.sidebarWidthVp)
             .height('100%')
