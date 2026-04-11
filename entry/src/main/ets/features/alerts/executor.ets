@@ -14,6 +14,7 @@ import type {
   YasenPromptAlert,
   TaihaWarningAlert,
   SortieNextAlert,
+  BattleStartAlert,
   BattleResultAlert,
 } from './type';
 import { getAlertBus } from '.';
@@ -26,7 +27,8 @@ const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
 const NOTIFICATION_ID_YASEN = 2000;
 const NOTIFICATION_ID_TAIHA = 2001;
 const NOTIFICATION_ID_SORTIE_NEXT = 2002;
-const NOTIFICATION_ID_BATTLE_RESULT = 2003;
+const NOTIFICATION_ID_BATTLE_START = 2003;
+const NOTIFICATION_ID_BATTLE_RESULT = 2004;
 
 /** 根据 deckId / combinedType 生成舰队标签 */
 function formatFleetLabel(deckId: number, combinedType: number): string {
@@ -37,11 +39,16 @@ function formatFleetLabel(deckId: number, combinedType: number): string {
     default: return `第${deckId}舰队`;
   }
 }
+
 // ========== 执行函数 ==========
 
-async function executeToast(message: string, duration: number = 2000): Promise<void> {
+async function executeToast(message: string, duration: number = 2000, textColor?: string): Promise<void> {
   try {
-    promptAction.showToast({ message, duration });
+    if (textColor) {
+      promptAction.showToast({ message, duration, textColor });
+    } else {
+      promptAction.showToast({ message, duration });
+    }
   } catch (e) {
     console.warn('[AlertExecutor] toast failed:', e);
   }
@@ -167,13 +174,14 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   const bossStr = alert.isBoss ? '[BOSS]' : '';
   const message = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}`;
 
-  console.info(`[AlertExecutor] sortie next: ${message}`);
+  console.info(`[AlertExecutor] sortie next: ${message} (isBattleNode=${alert.isBattleNode})`);
 
-  if (config.enableToast) {
+  // 战斗节点的 toast 由 BattleStartAlert（BATTLE_DAY 时）负责，此处跳过 toast
+  if (!alert.isBattleNode && config.enableToast) {
     await executeToast(message, alert.isBoss ? 3000 : 2000);
   }
 
-  // Boss 点额外震动
+  // Boss 点额外震动（无论是否战斗节点）
   if (config.enableVibrate && alert.isBoss) {
     await executeVibrate(config.vibrateDurationMs * 2);
   }
@@ -187,34 +195,74 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   }
 }
 
-async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
+async function handleBattleStart(alert: BattleStartAlert): Promise<void> {
   const config = getAlertBus().getConfig();
-  if (!config.enableBattleResultAlert) return;
-
   const fleetLabel = formatFleetLabel(alert.deckId, alert.combinedType);
   const bossStr = alert.isBoss ? '[BOSS]' : '';
   const line1 = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}`;
-  const line2 = `敌舰队：  ${alert.enemyDeckName}`;
-  const message = `${line1}\n${line2}`;
-  const dropStr = alert.dropShipName ? `  落单：${alert.dropShipName}` : '';
-  const notifText = `${alert.rank}${dropStr}  ${alert.enemyDeckName}`;
+  const line2 = alert.enemyFlagshipName ? `敌旗舰：[${alert.enemyFlagshipName}]` : '';
+  const message = line2 ? `${line1}\n${line2}` : line1;
 
-  console.info(`[AlertExecutor] battle result: rank=${alert.rank} ${line1}`);
+  console.info(`[AlertExecutor] battle start: ${line1}`);
 
   if (config.enableToast) {
-    await executeToast(message, 3500);
-  }
-
-  if (config.enableVibrate) {
-    await executeVibrate(config.vibrateDurationMs);
+    await executeToast(message, alert.isBoss ? 3000 : 2000);
   }
 
   if (config.enableNotification) {
     await executeNotification(
-      NOTIFICATION_ID_BATTLE_RESULT,
-      `战斗结算：${alert.rank}`,
-      notifText
+      NOTIFICATION_ID_BATTLE_START,
+      alert.isBoss ? '迎击 BOSS！' : '战斗开始',
+      line1,
+      line2 || undefined
     );
+  }
+}
+
+async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableBattleResultAlert) return;
+
+  const bossStr = alert.isBoss ? '[BOSS]' : '';
+
+  if (alert.hasTaihaRisk) {
+    const message = `[${alert.cellId}${bossStr}]战斗结束 - ⚠大破警告！`;
+    console.warn(`[AlertExecutor] battle result (taiha risk): ${message}`);
+
+    if (config.enableToast) {
+      await executeToast(message, 4000, '#FF4444');
+    }
+
+    if (config.enableVibrate) {
+      await executeVibrate(3000);
+    }
+
+    if (config.enableNotification) {
+      await executeNotification(
+        NOTIFICATION_ID_BATTLE_RESULT,
+        `⚠ 大破警告！战斗结算：${alert.rank}`,
+        message
+      );
+    }
+  } else {
+    const message = `[${alert.cellId}${bossStr}]战斗结束`;
+    console.info(`[AlertExecutor] battle result: ${message} rank=${alert.rank}`);
+
+    if (config.enableToast) {
+      await executeToast(message, 2000);
+    }
+
+    if (config.enableVibrate) {
+      await executeVibrate(config.vibrateDurationMs);
+    }
+
+    if (config.enableNotification) {
+      await executeNotification(
+        NOTIFICATION_ID_BATTLE_RESULT,
+        `战斗结算：${alert.rank}`,
+        message
+      );
+    }
   }
 }
 
@@ -233,6 +281,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'sortie_next':
       await handleSortieNext(alert);
+      break;
+    case 'battle_start':
+      await handleBattleStart(alert);
       break;
     case 'battle_result':
       await handleBattleResult(alert);

@@ -20,6 +20,7 @@ export type {
   YasenPromptAlert,
   TaihaWarningAlert,
   SortieNextAlert,
+  BattleStartAlert,
   BattleResultAlert,
   AlertConfig,
   ExpeditionNext,

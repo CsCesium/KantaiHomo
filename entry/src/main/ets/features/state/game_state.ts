@@ -522,6 +522,13 @@ class GameStateManager {
   }
 
   /**
+   * 按图鉴 ID 查询舰船名称
+   */
+  getShipMasterName(masterId: number): string | undefined {
+    return this.state.shipMasterNames.get(masterId);
+  }
+
+  /**
    * 更新装备图鉴类型缓存（来自 api_start2 装备图鉴，masterId → typeEquipType）
    */
   updateSlotItemEquipTypes(items: ReadonlyArray<{ id: number; equipType: number }>): void {
@@ -683,6 +690,7 @@ export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equi
 export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number }>) =>
   gameStateManager.updateSlotItemIndex(items);
 export const getShipSpecialEquip = (uid: number) => gameStateManager.getShipSpecialEquip(uid);
+export const getShipMasterName = (masterId: number) => gameStateManager.getShipMasterName(masterId);
 
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);

@@ -22,6 +22,7 @@ export type AlertType =
   | 'yasen_prompt'
   | 'taiha_warning'
   | 'sortie_next'
+  | 'battle_start'
   | 'battle_result';
 
 export interface BaseAlert {
@@ -60,6 +61,8 @@ export interface SortieNextAlert extends BaseAlert {
   eventId: number;
   eventKind: number;
   isBoss: boolean;
+  /** 是否为战斗节点（若是，toast 由 BattleStartAlert 负责） */
+  isBattleNode: boolean;
   /** 事件描述 (例如: "战斗", "资源", "漩涡" 等) */
   eventDesc: string;
   /** 出击舰队 ID */
@@ -70,23 +73,29 @@ export interface SortieNextAlert extends BaseAlert {
   fleetName: string;
 }
 
+/** 战斗开始提醒（BATTLE_DAY 时触发，含敌方旗舰信息） */
+export interface BattleStartAlert extends BaseAlert {
+  type: 'battle_start';
+  /** 出击舰队 ID */
+  deckId: number;
+  /** 联合舰队类型 0=无 1=机动 2=水上 3=输送 */
+  combinedType: number;
+  cellId: number;
+  isBoss: boolean;
+  /** 节点事件描述 */
+  eventDesc: string;
+  /** 敌方旗舰名称（来自 master data） */
+  enemyFlagshipName?: string;
+}
+
 /** 战斗结算提醒 */
 export interface BattleResultAlert extends BaseAlert {
   type: 'battle_result';
-  rank: string;
-  mapAreaId: number;
-  mapInfoNo: number;
   cellId: number;
   isBoss: boolean;
-  /** 节点事件描述 (例如: "战斗") */
-  eventDesc: string;
-  /** 敌方舰队名称 (api_deck_name) */
-  enemyDeckName: string;
-  /** 出击舰队 ID */
-  deckId: number;
-  /** 联合舰队类型 */
-  combinedType: number;
-  dropShipName?: string;
+  rank: string;
+  /** 是否存在大破且无损管的击沉风险 */
+  hasTaihaRisk: boolean;
 }
 
 export type AnyAlert =
@@ -94,6 +103,7 @@ export type AnyAlert =
   | YasenPromptAlert
   | TaihaWarningAlert
   | SortieNextAlert
+  | BattleStartAlert
   | BattleResultAlert;
 
 // ========== Alert Config ==========

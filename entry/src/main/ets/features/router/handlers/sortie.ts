@@ -141,6 +141,7 @@ class SortieHandler implements Handler {
       eventId: cell.eventId,
       eventKind: cell.eventKind,
       isBoss: cell.isBoss ?? false,
+      isBattleNode: isBattleEvent(cell.eventId),
       eventDesc: getFullEventDesc(cell.eventId, cell.eventKind),
       deckId: context.deckId,
       combinedType: context.combinedType,
