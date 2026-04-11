@@ -22,7 +22,6 @@ export type {
   BattleResultSnapshot,
   FleetBattleStatus,
   ShipBattleStatus,
-  KDockSnapShot,
   QuestSnapshot
 } from './type';
 
