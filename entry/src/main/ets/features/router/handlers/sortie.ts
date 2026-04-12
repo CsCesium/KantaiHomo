@@ -134,7 +134,7 @@ class SortieHandler implements Handler {
 
     console.info('[sortie] moved to cell:', cell.cellId, 'event:', cell.eventId, 'boss:', cell.isBoss);
 
-    // 2. 发布 SortieNextAlert
+    // 2. 发布 SortieNextAlert（所有节点类型均触发，含战斗节点）
     const sortieNextAlert: SortieNextAlert = {
       type: 'sortie_next',
       timestamp: Date.now(),
@@ -144,7 +144,6 @@ class SortieHandler implements Handler {
       eventId: cell.eventId,
       eventKind: cell.eventKind,
       isBoss: cell.isBoss ?? false,
-      isBattleNode: isBattleEvent(cell.eventId),
       eventDesc: getFullEventDesc(cell.eventId, cell.eventKind),
       deckId: context.deckId,
       combinedType: context.combinedType,

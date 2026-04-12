@@ -110,12 +110,8 @@ class AlertBusImpl {
         return `taiha:${alert.shipUids.slice().sort((a, b) => a - b).join(',')}`;
       case 'sortie_next':
         return `sortie:${alert.mapAreaId}-${alert.mapInfoNo}:${alert.cellId}`;
-      case 'battle_start':
-        return `bstart:${alert.cellId}`;
       case 'battle_result':
         return `bresult:${alert.cellId}`;
-      case 'sortie_advance_prompt':
-        return `advance:${alert.timestamp}`;
       default:
         return `unknown`;
     }
