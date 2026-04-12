@@ -7,15 +7,18 @@ import { buildInjectionBundle } from '../../web/inject';
 import {  InjectOptions, AppChannelMessage, ApiDump,
   isApiDump,
   isYasenUiEvent,
+  isSortieAdvanceUiEvent,
   parseBridgeMessage,
-  YasenUiEvent } from '../types';
+  YasenUiEvent,
+  SortieAdvanceUiEvent } from '../types';
 import { parseAppChannelMessage as parseMsg } from '../types';
 import { ingestDump } from '../../../features/router/persist/ingest/webDump';
 import { getPersistDeps } from '../../deps/index';
 import { PERMISSION_JSON, USER_AGENT } from '../config';
 import { Orientation } from '../layout/orientation';
 import hilog from '@ohos.hilog';
-import { YasenPromptAlert, publishAlert } from '../../../features/alerts';
+import { YasenPromptAlert, SortieAdvancePromptAlert, publishAlert } from '../../../features/alerts';
+import { getLastBattleHasTaihaRisk } from '../../../features/alerts/lastBattleState';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -188,6 +191,12 @@ export class WebHostController {
       return;
     }
 
+    // 处理进击/撤退选择
+    if (isSortieAdvanceUiEvent(msg)) {
+      this.handleAdvanceMessage(msg);
+      return;
+    }
+
     // 处理 API Dump
     if (isApiDump(msg)) {
       const traceId = this.extractTraceId(raw);
@@ -212,6 +221,18 @@ export class WebHostController {
       yesTex: msg.yesId,
       noTex: msg.noId,
       containerName: msg.containerName,
+    };
+
+    publishAlert(alert);
+  }
+
+  private handleAdvanceMessage(msg: SortieAdvanceUiEvent): void {
+    hilog.info(HILOG_DOM, 'Bridge', '[ADVANCE] detected: adv=%{public}s ret=%{public}s', msg.advId, msg.retId);
+
+    const alert: SortieAdvancePromptAlert = {
+      type: 'sortie_advance_prompt',
+      timestamp: msg.ts,
+      hasTaihaRisk: getLastBattleHasTaihaRisk(),
     };
 
     publishAlert(alert);

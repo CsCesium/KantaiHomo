@@ -22,10 +22,10 @@ struct Setting {
   // ── UI preferences ─────────────────────────────────────────────
   /** Two-way binding to AppStorage; writing this immediately updates WebHost. */
   @StorageLink(APP_STORAGE_SHOW_SIDEBAR) private showSidebar: boolean = true;
-
-  // ── Battle alerts ───────────────────────────────────────────────
-  /** Two-way binding; also drives YasenDetect injection in WebHost. */
+  /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
+
+  // ── Alert settings ─────────────────────────────────────────────
   @State private battleResultAlertEnabled: boolean = true;
   @State private alertMode: AlertMode = 'both';
 
@@ -38,7 +38,7 @@ struct Setting {
   }
 
   private async loadAll(): Promise<void> {
-    const kvConfig = await Promise.all([
+    const results = await Promise.all([
       kvGetString('config.homeUrl', HOME_URL),
       kvGetString('config.userAgent', USER_AGENT ?? ''),
       kvGetString('account.username', ''),
@@ -46,20 +46,35 @@ struct Setting {
       kvGetBool('alerts.battle.enabled', true),
       kvGetString('alerts.mode', 'both'),
     ]);
-    const url = kvConfig[0];
-    const ua = kvConfig[1];
-    const user = kvConfig[2];
-    const pass = kvConfig[3];
-    const battleEnabled = kvConfig[4];
-    const mode = kvConfig[5];
-    this.homeUrl = url;
-    this.userAgent = ua;
-    this.username = user;
-    this.password = pass;
-    this.battleResultAlertEnabled = battleEnabled;
-    this.alertMode = mode as AlertMode;
+    this.homeUrl = results[0] as string;
+    this.userAgent = results[1] as string;
+    this.username = results[2] as string;
+    this.password = results[3] as string;
+    this.battleResultAlertEnabled = results[4] as boolean;
+    this.alertMode = (results[5] as string) as AlertMode;
     this.configDirty = false;
     this.accountDirty = false;
+  }
+
+  private applyAlertMode(mode: AlertMode): void {
+    this.alertMode = mode;
+    void kvSet('alerts.mode', mode);
+    setAlertConfig({
+      enableVibrate: mode === 'vibrate' || mode === 'both',
+      enableNotification: mode === 'ring' || mode === 'both',
+    });
+  }
+
+  private onYasenToggle(v: boolean): void {
+    this.yasenAlertEnabled = v;           // writes AppStorage → WebHost re-injects on next load
+    void kvSet(APP_STORAGE_YASEN_DETECT_ENABLED, v);
+    setAlertConfig({ enableYasenAlert: v });
+  }
+
+  private onBattleResultToggle(v: boolean): void {
+    this.battleResultAlertEnabled = v;
+    void kvSet('alerts.battle.enabled', v);
+    setAlertConfig({ enableBattleResultAlert: v });
   }
 
   private async saveConfig(): Promise<void> {
@@ -116,31 +131,6 @@ struct Setting {
   private async doClearCache(): Promise<void> {
     await kvSet('clear.cache.pending', true);
     promptAction.showToast({ message: '缓存将在下次进入游戏时清除', duration: 2500 });
-  }
-
-  private applyAlertMode(mode: AlertMode): void {
-    setAlertConfig({
-      enableVibrate: mode === 'vibrate' || mode === 'both',
-      enableNotification: mode === 'ring' || mode === 'both',
-    });
-  }
-
-  private async onYasenToggle(v: boolean): Promise<void> {
-    this.yasenAlertEnabled = v;      // writes AppStorage via @StorageLink
-    await kvSet('alerts.yasen.enabled', v);
-    setAlertConfig({ enableYasenAlert: v });
-  }
-
-  private async onBattleResultToggle(v: boolean): Promise<void> {
-    this.battleResultAlertEnabled = v;
-    await kvSet('alerts.battle.enabled', v);
-    setAlertConfig({ enableBattleResultAlert: v });
-  }
-
-  private async onAlertModeChange(mode: AlertMode): Promise<void> {
-    this.alertMode = mode;
-    await kvSet('alerts.mode', mode);
-    this.applyAlertMode(mode);
   }
 
   // ── Builders ───────────────────────────────────────────────────
@@ -207,15 +197,16 @@ struct Setting {
 
   @Builder
   private ModeBtn(label: string, mode: AlertMode) {
-    Text(label)
+    Button(label, { type: ButtonType.Normal })
       .fontSize(13)
-      .fontColor(this.alertMode === mode ? '#FFFFFF' : '#4A6A7A')
-      .fontWeight(this.alertMode === mode ? FontWeight.Medium : FontWeight.Normal)
-      .backgroundColor(this.alertMode === mode ? '#1E4060' : '#0A1520')
-      .borderRadius(6)
-      .padding({ left: 14, right: 14, top: 8, bottom: 8 })
-      .border({ width: 1, color: this.alertMode === mode ? '#3A6A90' : '#1A2A38' })
-      .onClick(() => { void this.onAlertModeChange(mode); })
+      .fontWeight(FontWeight.Medium)
+      .fontColor(this.alertMode === mode ? '#FFFFFF' : '#5A7A8A')
+      .backgroundColor(this.alertMode === mode ? '#1A3A50' : '#0A1420')
+      .border({ width: 1, color: this.alertMode === mode ? '#2A6A8A' : '#1C2E3A' })
+      .borderRadius(8)
+      .height(36)
+      .layoutWeight(1)
+      .onClick(() => { this.applyAlertMode(mode); })
   }
 
   @Builder
@@ -415,16 +406,16 @@ struct Setting {
           Column({ space: 8 }) {
             this.ToggleRow(
               '夜战选择提醒',
-              '出现夜战选择界面时发出提醒',
+              '夜战选择出现时震动 / 铃声提醒',
               this.yasenAlertEnabled,
-              (v: boolean) => { void this.onYasenToggle(v); }
+              (v: boolean) => { this.onYasenToggle(v); }
             )
 
             this.ToggleRow(
               '战斗结算提醒',
-              '收到战斗结算 API 返回后发出提醒',
+              '战斗结算时显示结果并震动 / 铃声提醒',
               this.battleResultAlertEnabled,
-              (v: boolean) => { void this.onBattleResultToggle(v); }
+              (v: boolean) => { this.onBattleResultToggle(v); }
             )
           }
           .width('100%')
@@ -432,38 +423,16 @@ struct Setting {
           // ── SECTION: 提醒方式 ─────────────────────────────────
           this.SectionHeader('提醒方式')
 
-          Column({ space: 0 }) {
-            Row() {
-              Column({ space: 3 }) {
-                Text('提醒方式')
-                  .fontSize(15)
-                  .fontColor('#A09080')
-                Text('震动、铃声或两者同时')
-                  .fontSize(12)
-                  .fontColor('#3A4A55')
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1)
-
-              Row({ space: 6 }) {
-                this.ModeBtn('仅震动', 'vibrate')
-                this.ModeBtn('仅铃声', 'ring')
-                this.ModeBtn('震动+铃声', 'both')
-              }
-            }
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 14, bottom: 14 })
-            .backgroundColor('#0C1420')
-            .borderRadius(10)
-            .border({ width: 1, color: '#15202C' })
-            .alignItems(VerticalAlign.Center)
+          Row({ space: 8 }) {
+            this.ModeBtn('仅震动', 'vibrate')
+            this.ModeBtn('仅铃声', 'ring')
+            this.ModeBtn('震动+铃声', 'both')
           }
           .width('100%')
-
-          Text('提醒方式对所有战斗提醒及远征提醒均生效')
-            .fontSize(11)
-            .fontColor('#2A3A45')
-            .padding({ left: 4, top: 4 })
+          .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+          .backgroundColor('#0C1420')
+          .borderRadius(10)
+          .border({ width: 1, color: '#15202C' })
 
           // ── SECTION: 数据清理 ─────────────────────────────────
           this.SectionHeader('数据清理')

@@ -59,6 +59,7 @@ export {
   getDeckTaihaShips,
   hasTaihaInDeck,
   getShipSpecialEquip,
+  getShipMasterName,
 
   // 战果计算
   getSenkaInfo,

@@ -50,7 +50,7 @@ export default struct WebHost {
   @State private sidebarWidthVp: number = 0;
   /** Mirrors ui.showSidebar AppStorage preference; updates immediately when user toggles in Settings. */
   @StorageProp(APP_STORAGE_SHOW_SIDEBAR) private showSidebarPref: boolean = true;
-  /** Mirrors alerts.yasen.enabled; drives enableYasenDetect in the inject bundle. */
+  /** Mirrors alerts.yasen.enabled; controls YasenDetect JS injection on each page load. */
   @StorageProp(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenDetectEnabled: boolean = true;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.

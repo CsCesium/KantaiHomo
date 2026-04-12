@@ -15,14 +15,16 @@ export interface Clock {
 
 // ========== Alert Type ==========
 
+export type AlertMode = 'vibrate' | 'ring' | 'both';
+
 export type AlertType =
   | 'expedition_return'
   | 'yasen_prompt'
   | 'taiha_warning'
   | 'sortie_next'
-  | 'battle_result';
-
-export type AlertMode = 'vibrate' | 'ring' | 'both';
+  | 'battle_start'
+  | 'battle_result'
+  | 'sortie_advance_prompt';
 
 export interface BaseAlert {
   type: AlertType;
@@ -60,19 +62,52 @@ export interface SortieNextAlert extends BaseAlert {
   eventId: number;
   eventKind: number;
   isBoss: boolean;
+  /** 是否为战斗节点（若是，toast 由 BattleStartAlert 负责） */
+  isBattleNode: boolean;
   /** 事件描述 (例如: "战斗", "资源", "漩涡" 等) */
   eventDesc: string;
+  /** 出击舰队 ID */
+  deckId: number;
+  /** 联合舰队类型 0=无 1=机动 2=水上 3=输送 */
+  combinedType: number;
+  /** 舰队名称 */
+  fleetName: string;
+  /** 是否存在大破无损管击沉风险（来自上一场战斗结算） */
+  hasTaihaRisk: boolean;
+}
+
+/** 战斗开始提醒（BATTLE_DAY 时触发，含敌方旗舰信息） */
+export interface BattleStartAlert extends BaseAlert {
+  type: 'battle_start';
+  /** 出击舰队 ID */
+  deckId: number;
+  /** 联合舰队类型 0=无 1=机动 2=水上 3=输送 */
+  combinedType: number;
+  cellId: number;
+  isBoss: boolean;
+  /** 节点事件描述 */
+  eventDesc: string;
+  /** 敌方旗舰名称（来自 master data） */
+  enemyFlagshipName?: string;
+  /** 是否存在大破无损管击沉风险（来自上一场战斗结算） */
+  hasTaihaRisk: boolean;
 }
 
 /** 战斗结算提醒 */
 export interface BattleResultAlert extends BaseAlert {
   type: 'battle_result';
-  rank: string;
-  mapAreaId: number;
-  mapInfoNo: number;
   cellId: number;
   isBoss: boolean;
-  dropShipName?: string;
+  rank: string;
+  /** 是否存在大破且无损管的击沉风险 */
+  hasTaihaRisk: boolean;
+}
+
+/** 进击/撤退选择提醒（结算页面结束后、下一节点 SORTIE_NEXT 触发前） */
+export interface SortieAdvancePromptAlert extends BaseAlert {
+  type: 'sortie_advance_prompt';
+  /** 是否存在大破无损管击沉风险（来自本次战斗结算） */
+  hasTaihaRisk: boolean;
 }
 
 export type AnyAlert =
@@ -80,7 +115,9 @@ export type AnyAlert =
   | YasenPromptAlert
   | TaihaWarningAlert
   | SortieNextAlert
-  | BattleResultAlert;
+  | BattleStartAlert
+  | BattleResultAlert
+  | SortieAdvancePromptAlert;
 
 // ========== Alert Config ==========
 
@@ -90,9 +127,9 @@ export interface AlertConfig {
   enableNotification: boolean;
   vibrateDurationMs: number;
   debounceMs: number;
-  /** 是否启用夜战选择提醒 */
+  /** 是否启用夜战选择提醒 (yasen_prompt) */
   enableYasenAlert: boolean;
-  /** 是否启用战斗结算提醒 */
+  /** 是否启用战斗结算提醒 (battle_result) */
   enableBattleResultAlert: boolean;
 }
 

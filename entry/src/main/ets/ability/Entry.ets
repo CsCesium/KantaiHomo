@@ -10,7 +10,6 @@ import { initHandlerRegistry } from '../features/router/persist/registry';
 import { initAlerts, initExpeditionScheduler, getExpeditionScheduler, setAlertConfig } from '../features/alerts';
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
 import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
-import type { AlertMode } from '../features/alerts';
 import { getRepositoryHub } from '../infra/storage/repo';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
@@ -59,16 +58,15 @@ export default class EntryAbility extends UIAbility {
         kvGetBool('alerts.yasen.enabled', true),
         kvGetBool('alerts.battle.enabled', true),
         kvGetString('alerts.mode', 'both'),
-      ]).then((results: [boolean, boolean, string]) => {
-        const yasen = results[0];
-        const battle = results[1];
-        const mode = results[2];
-        const m = mode as AlertMode;
+      ]).then((results: Array<boolean | string>) => {
+        const yasen = results[0] as boolean;
+        const battle = results[1] as boolean;
+        const mode = results[2] as string;
         setAlertConfig({
           enableYasenAlert: yasen,
           enableBattleResultAlert: battle,
-          enableVibrate: m === 'vibrate' || m === 'both',
-          enableNotification: m === 'ring' || m === 'both',
+          enableVibrate: mode === 'vibrate' || mode === 'both',
+          enableNotification: mode === 'ring' || mode === 'both',
         });
       });
 
