@@ -16,6 +16,7 @@ import type {
   SortieNextAlert,
   BattleStartAlert,
   BattleResultAlert,
+  SortieAdvancePromptAlert,
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
@@ -29,6 +30,7 @@ const NOTIFICATION_ID_TAIHA = 2001;
 const NOTIFICATION_ID_SORTIE_NEXT = 2002;
 const NOTIFICATION_ID_BATTLE_START = 2003;
 const NOTIFICATION_ID_BATTLE_RESULT = 2004;
+const NOTIFICATION_ID_ADVANCE = 2005;
 
 /** 根据 deckId / combinedType 生成舰队标签 */
 function formatFleetLabel(deckId: number, combinedType: number): string {
@@ -113,7 +115,6 @@ async function handleExpeditionReturn(alert: ExpeditionReturnAlert): Promise<voi
     );
   }
 
-  // 归来后刷新常驻通知（移除已完成舰队，保留仍在远征的舰队）
   void getExpeditionLiveNotificationService().refresh();
 }
 
@@ -152,7 +153,6 @@ async function handleTaihaWarning(alert: TaihaWarningAlert): Promise<void> {
   }
 
   if (config.enableVibrate) {
-    // 大破警告：震动两次
     await executeVibrate(config.vibrateDurationMs);
     setTimeout(() => {
       void executeVibrate(config.vibrateDurationMs);
@@ -172,21 +172,23 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   const config = getAlertBus().getConfig();
   const fleetLabel = formatFleetLabel(alert.deckId, alert.combinedType);
   const bossStr = alert.isBoss ? '[BOSS]' : '';
-  const message = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}`;
+  const taihaStr = alert.hasTaihaRisk ? ' - ⚠大破警告！' : '';
+  const message = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}${taihaStr}`;
 
   console.info(`[AlertExecutor] sortie next: ${message} (isBattleNode=${alert.isBattleNode})`);
 
   // 战斗节点的 toast 由 BattleStartAlert（BATTLE_DAY 时）负责，此处跳过 toast
   if (!alert.isBattleNode && config.enableToast) {
-    await executeToast(message, alert.isBoss ? 3000 : 2000);
+    const color = alert.hasTaihaRisk ? '#FF4444' : undefined;
+    await executeToast(message, alert.isBoss ? 3000 : 2000, color);
   }
 
   // Boss 点额外震动（无论是否战斗节点）
   if (config.enableVibrate && alert.isBoss) {
-    await executeVibrate(config.vibrateDurationMs * 2);
+    await executeVibrate(alert.hasTaihaRisk ? 3000 : config.vibrateDurationMs * 2);
   }
 
-  if (config.enableNotification) {
+  if (!alert.isBattleNode && config.enableNotification) {
     await executeNotification(
       NOTIFICATION_ID_SORTIE_NEXT,
       alert.isBoss ? '到达 BOSS 点' : '进击中',
@@ -199,14 +201,21 @@ async function handleBattleStart(alert: BattleStartAlert): Promise<void> {
   const config = getAlertBus().getConfig();
   const fleetLabel = formatFleetLabel(alert.deckId, alert.combinedType);
   const bossStr = alert.isBoss ? '[BOSS]' : '';
-  const line1 = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}`;
+  const taihaStr = alert.hasTaihaRisk ? ' - ⚠大破警告！' : '';
+  const line1 = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}${taihaStr}`;
   const line2 = alert.enemyFlagshipName ? `敌旗舰：[${alert.enemyFlagshipName}]` : '';
   const message = line2 ? `${line1}\n${line2}` : line1;
 
   console.info(`[AlertExecutor] battle start: ${line1}`);
 
   if (config.enableToast) {
-    await executeToast(message, alert.isBoss ? 3000 : 2000);
+    const color = alert.hasTaihaRisk ? '#FF4444' : undefined;
+    await executeToast(message, alert.isBoss ? 3000 : 2000, color);
+  }
+
+  // Boss 点或大破时震动
+  if (config.enableVibrate && (alert.isBoss || alert.hasTaihaRisk)) {
+    await executeVibrate(alert.hasTaihaRisk ? 3000 : config.vibrateDurationMs * 2);
   }
 
   if (config.enableNotification) {
@@ -266,6 +275,32 @@ async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
   }
 }
 
+async function handleSortieAdvancePrompt(alert: SortieAdvancePromptAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+
+  const taihaStr = alert.hasTaihaRisk ? ' - ⚠大破警告！' : '';
+  const message = `进击选择${taihaStr}`;
+
+  console.info(`[AlertExecutor] sortie advance prompt (hasTaiha=${alert.hasTaihaRisk})`);
+
+  if (config.enableToast) {
+    const color = alert.hasTaihaRisk ? '#FF4444' : undefined;
+    await executeToast(message, 2000, color);
+  }
+
+  if (config.enableVibrate) {
+    await executeVibrate(alert.hasTaihaRisk ? 3000 : config.vibrateDurationMs);
+  }
+
+  if (config.enableNotification) {
+    await executeNotification(
+      NOTIFICATION_ID_ADVANCE,
+      alert.hasTaihaRisk ? '⚠ 进击选择（大破警告）' : '进击选择',
+      message
+    );
+  }
+}
+
 // ========== 主处理函数 ==========
 
 async function handleAlert(alert: AnyAlert): Promise<void> {
@@ -287,6 +322,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'battle_result':
       await handleBattleResult(alert);
+      break;
+    case 'sortie_advance_prompt':
+      await handleSortieAdvancePrompt(alert);
       break;
   }
 }

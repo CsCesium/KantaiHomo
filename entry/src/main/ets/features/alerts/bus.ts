@@ -114,6 +114,8 @@ class AlertBusImpl {
         return `bstart:${alert.cellId}`;
       case 'battle_result':
         return `bresult:${alert.cellId}`;
+      case 'sortie_advance_prompt':
+        return `advance:${alert.timestamp}`;
       default:
         return `unknown`;
     }

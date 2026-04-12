@@ -22,6 +22,7 @@ import {
 import { startSortie, moveToNextCell } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
 import { SortieNextAlert, TaihaWarningAlert } from '../../alerts/type';
+import { getLastBattleHasTaihaRisk, resetLastBattleState } from '../../alerts/lastBattleState';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -50,6 +51,8 @@ class SortieHandler implements Handler {
     PersistDeps: PersistDeps
   ): Promise<void> {
     const { mapAreaId, mapInfoNo, cellId, deckId, combinedType, fleetSnapshot, fleetSnapshotEscort } = payload;
+    // 新出击：重置上次战斗的大破风险状态
+    resetLastBattleState();
 
     // 1. 尝试从 Repository 获取更完整的舰队快照
     const actualFleetSnapshot = await this.captureFleetSnapshot(deckId, PersistDeps) || fleetSnapshot;
@@ -146,6 +149,7 @@ class SortieHandler implements Handler {
       deckId: context.deckId,
       combinedType: context.combinedType,
       fleetName: context.fleetSnapshot.name,
+      hasTaihaRisk: getLastBattleHasTaihaRisk(),
     };
     publishAlert(sortieNextAlert);
 

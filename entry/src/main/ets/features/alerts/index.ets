@@ -22,6 +22,7 @@ export type {
   SortieNextAlert,
   BattleStartAlert,
   BattleResultAlert,
+  SortieAdvancePromptAlert,
   AlertConfig,
   ExpeditionNext,
   ExpeditionDaoLike,

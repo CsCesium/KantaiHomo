@@ -23,7 +23,8 @@ export type AlertType =
   | 'taiha_warning'
   | 'sortie_next'
   | 'battle_start'
-  | 'battle_result';
+  | 'battle_result'
+  | 'sortie_advance_prompt';
 
 export interface BaseAlert {
   type: AlertType;
@@ -71,6 +72,8 @@ export interface SortieNextAlert extends BaseAlert {
   combinedType: number;
   /** 舰队名称 */
   fleetName: string;
+  /** 是否存在大破无损管击沉风险（来自上一场战斗结算） */
+  hasTaihaRisk: boolean;
 }
 
 /** 战斗开始提醒（BATTLE_DAY 时触发，含敌方旗舰信息） */
@@ -86,6 +89,8 @@ export interface BattleStartAlert extends BaseAlert {
   eventDesc: string;
   /** 敌方旗舰名称（来自 master data） */
   enemyFlagshipName?: string;
+  /** 是否存在大破无损管击沉风险（来自上一场战斗结算） */
+  hasTaihaRisk: boolean;
 }
 
 /** 战斗结算提醒 */
@@ -98,13 +103,21 @@ export interface BattleResultAlert extends BaseAlert {
   hasTaihaRisk: boolean;
 }
 
+/** 进击/撤退选择提醒（结算页面结束后、下一节点 SORTIE_NEXT 触发前） */
+export interface SortieAdvancePromptAlert extends BaseAlert {
+  type: 'sortie_advance_prompt';
+  /** 是否存在大破无损管击沉风险（来自本次战斗结算） */
+  hasTaihaRisk: boolean;
+}
+
 export type AnyAlert =
   | ExpeditionReturnAlert
   | YasenPromptAlert
   | TaihaWarningAlert
   | SortieNextAlert
   | BattleStartAlert
-  | BattleResultAlert;
+  | BattleResultAlert
+  | SortieAdvancePromptAlert;
 
 // ========== Alert Config ==========
 

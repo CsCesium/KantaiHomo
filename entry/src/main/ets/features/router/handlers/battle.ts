@@ -14,6 +14,7 @@ import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
 import { getShipMasterName, getShipSpecialEquip } from '../../state/game_state';
+import { setLastBattleHasTaihaRisk, getLastBattleHasTaihaRisk } from '../../alerts/lastBattleState';
 import type { BattleResultAlert, BattleStartAlert } from '../../alerts/type';
 
 
@@ -108,6 +109,7 @@ class BattleHandler implements Handler {
             ? getFullEventDesc(context.currentCell.eventId, context.currentCell.eventKind)
             : '战斗',
           enemyFlagshipName,
+          hasTaihaRisk: getLastBattleHasTaihaRisk(),
         };
         publishAlert(battleStartAlert);
       }
@@ -198,6 +200,7 @@ class BattleHandler implements Handler {
             ? getFullEventDesc(context.currentCell.eventId, context.currentCell.eventKind)
             : '夜战',
           enemyFlagshipName,
+          hasTaihaRisk: getLastBattleHasTaihaRisk(),
         };
         publishAlert(battleStartAlert);
       }
@@ -344,6 +347,9 @@ class BattleHandler implements Handler {
           }
         }
       }
+
+      // 保存本次大破风险，供进击选择提醒使用
+      setLastBattleHasTaihaRisk(hasTaihaRisk);
 
       const battleResultAlert: BattleResultAlert = {
         type: 'battle_result',

@@ -35,6 +35,14 @@ export interface YasenUiEvent {
   containerName: string;
 }
 
+/** 进击/撤退选择检测 */
+export interface SortieAdvanceUiEvent {
+  type: 'SORTIE_ADVANCE_UI';
+  ts: number;
+  advId: string;
+  retId: string;
+}
+
 /** Ping 事件 */
 export interface PingEvent {
   type: 'PING';
@@ -46,6 +54,7 @@ export type BridgeMessage =
   | ApiDump
   | FpsEvent
   | YasenUiEvent
+  | SortieAdvanceUiEvent
   | PingEvent;
 
 /** @deprecated 使用 BridgeMessage */
@@ -78,6 +87,16 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
         noId: typeof obj.noId === 'string' ? obj.noId : '',
         containerName: typeof obj.containerName === 'string' ? obj.containerName : '',
       } as YasenUiEvent;
+    }
+
+    // SORTIE_ADVANCE_UI
+    if (type === 'SORTIE_ADVANCE_UI') {
+      return {
+        type: 'SORTIE_ADVANCE_UI',
+        ts: typeof obj.ts === 'number' ? obj.ts : Date.now(),
+        advId: typeof obj.advId === 'string' ? obj.advId : '',
+        retId: typeof obj.retId === 'string' ? obj.retId : '',
+      } as SortieAdvanceUiEvent;
     }
 
     // PING
@@ -127,6 +146,10 @@ export function isFpsEvent(msg: BridgeMessage): msg is FpsEvent {
 
 export function isYasenUiEvent(msg: BridgeMessage): msg is YasenUiEvent {
   return msg.type === 'YASEN_UI';
+}
+
+export function isSortieAdvanceUiEvent(msg: BridgeMessage): msg is SortieAdvanceUiEvent {
+  return msg.type === 'SORTIE_ADVANCE_UI';
 }
 
 export function isPingEvent(msg: BridgeMessage): msg is PingEvent {
@@ -179,7 +202,8 @@ export interface InjectOptions {
 
   enableSessionPersist?: boolean;         // 默认 true
   enableIframeFit?: boolean;              // 默认 true
-  enableYasenDetect?: boolean;
+  enableYasenDetect?: boolean;            // 默认 true
+  enableAdvanceDetect?: boolean;          // 默认 true：进击/撤退选择提醒
   enableDebug?: boolean;
 }
 
@@ -196,5 +220,6 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   enableSessionPersist: true,
   enableIframeFit: true,
   enableYasenDetect: true,
+  enableAdvanceDetect: true,
   enableDebug: true,
 };
