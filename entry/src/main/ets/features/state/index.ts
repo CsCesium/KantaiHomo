@@ -76,6 +76,11 @@ export {
   isInBattle,
   hasBattleResult,
 
+  // 战斗状态更新
+  updateBattleStatus,
+  updateBattleResult,
+  clearBattleState,
+
   // 工具
   clearGameState,
   exportGameStateSnapshot,
