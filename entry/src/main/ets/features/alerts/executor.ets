@@ -177,9 +177,11 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   const fleetLabel = formatFleetLabel(alert.deckId, alert.combinedType);
   const bossStr = alert.isBoss ? '[BOSS]' : '';
   const taihaStr = alert.hasTaihaRisk ? ' - ⚠大破警告！' : '';
-  const message = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}${taihaStr}`;
+  const line1 = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}${taihaStr}`;
+  const line2 = alert.enemyFlagshipName ? `敌旗舰：[${alert.enemyFlagshipName}]` : '';
+  const message = line2 ? `${line1}\n${line2}` : line1;
 
-  console.info(`[AlertExecutor] sortie next: ${message}`);
+  console.info(`[AlertExecutor] sortie next: ${line1}`);
 
   if (config.enableToast) {
     const color = alert.hasTaihaRisk ? '#FF4444' : undefined;
@@ -196,7 +198,8 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
     await executeNotification(
       NOTIFICATION_ID_SORTIE_NEXT,
       alert.isBoss ? '到达 BOSS 点' : '进击中',
-      message
+      line1,
+      line2 || undefined
     );
   }
 }

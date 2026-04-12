@@ -70,6 +70,8 @@ export interface SortieNextAlert extends BaseAlert {
   fleetName: string;
   /** 是否存在大破无损管击沉风险（来自上一场战斗结算） */
   hasTaihaRisk: boolean;
+  /** 敌方旗舰名称（来自 /next api_enemy_info，仅战斗节点且数据存在时） */
+  enemyFlagshipName?: string;
 }
 
 /** 战斗结算提醒 */
