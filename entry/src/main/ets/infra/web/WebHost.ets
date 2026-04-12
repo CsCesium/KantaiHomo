@@ -75,6 +75,7 @@ export default struct WebHost {
       enableIframeFit: defaultInjectOptions.enableIframeFit,
       enableYasenDetect: this.yasenDetectEnabled,
       enableDebug:defaultInjectOptions.enableDebug,
+      enableAdvanceDetect:defaultInjectOptions.enableAdvanceDetect,
     };
   };
 
