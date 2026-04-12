@@ -133,7 +133,9 @@ export default struct FleetStatusSidebar {
             })
               .layoutWeight(1)
           },
-          (entry: ShipEntry) => entry.ship.uid.toString()
+          // key 含 hpNow：HP 变化时旧组件被销毁、新组件被创建，
+          // 保证 Canvas.onReady 重新触发，命令式 drawRing() 得到执行。
+          (entry: ShipEntry) => `${entry.ship.uid}_${entry.ship.hpNow}_${entry.ship.hpMax}`
         )
       }
     }
