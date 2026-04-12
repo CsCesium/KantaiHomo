@@ -17,7 +17,8 @@ import {
   slotItemToRow
 } from '../../../domain/models';
 import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks, updateKdocks,
-  updateShips } from '../../state';
+  updateShips, clearBattleState } from '../../state';
+import { clearSortieContext } from '../../../domain/service';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -61,6 +62,10 @@ class PortPersistHandler implements Handler {
       decks: snapshot.decks,
       ships: snapshot.ships,
     });
+    // 入港即出击结束：清空战斗结果快照和出击上下文，
+    // 防止旧的战斗 HP 覆盖入港后的最新舰船状态。
+    clearBattleState();
+    clearSortieContext();
     console.info('[port] snapshot updated to GameState');
     return;
   }
