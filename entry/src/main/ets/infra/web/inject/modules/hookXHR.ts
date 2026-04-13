@@ -10,7 +10,7 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
 
     __kc_tryInject('hook-xhr', function(){
 
-      var MAX_RES_LEN = 400 * 1024; // 400KB
+      var MAX_RES_LEN = 4 * 1024 * 1024; // 4MB — api_port/port 对老玩家可达 1-3MB
       var MAX_REQ_LEN = 50 * 1024;
 
       var SKIP = [
