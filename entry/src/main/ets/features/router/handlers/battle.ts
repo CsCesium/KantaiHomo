@@ -5,6 +5,7 @@ import {
   BattleRecord,
   generateBattleId,
   battleRecordToRow,
+  createBattleContext,
 } from '../../../domain/models';
 import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
