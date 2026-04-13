@@ -60,7 +60,7 @@ class BattleHandler implements Handler {
 
       // 首节点战斗时 pendingBattle 为 null（api_req_map/start 直接进入战斗，
       // 没有经过 api_req_map/next 触发的 handleSortieNext 来创建战斗上下文），
-      // 在此补建，避免后续 handleBattleResult 无法写入结果快照。
+      // 避免后续 handleBattleResult 无法写入结果快照。
       if (!context.pendingBattle && context.currentCell) {
         context.pendingBattle = createBattleContext(
           context.currentCell,

@@ -133,7 +133,7 @@ export default struct FleetStatusSidebar {
             })
               .layoutWeight(1)
           },
-          (entry: ShipEntry) => entry.ship.uid.toString()
+          (entry: ShipEntry) => `${entry.ship.uid}_${entry.ship.hpNow}_${entry.ship.hpMax}`
         )
       }
     }
