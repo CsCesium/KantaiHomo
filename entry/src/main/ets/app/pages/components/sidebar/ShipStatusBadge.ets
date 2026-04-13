@@ -14,10 +14,10 @@ const RING_STROKE_WIDTH = 3.5;
 const TICK_COLOR = '#ffffff';
 const TICK_OUTER_PAD = 2;
 const TICK_INNER_PAD = 2;
-const SUPPLY_BAR_WIDTH = 4;
-const SUPPLY_BAR_GAP = 3;
+const SUPPLY_BAR_WIDTH = 2;
+const SUPPLY_BAR_GAP = 1;
 const SUPPLY_PANEL_WIDTH = SUPPLY_BAR_WIDTH * 2 + SUPPLY_BAR_GAP;
-const SUPPLY_LABEL_SIZE = 8;
+const SUPPLY_LABEL_SIZE = 4;
 const STATUS_PANEL_WIDTH = 18;
 
 /**
@@ -31,6 +31,24 @@ const STATUS_PANEL_WIDTH = 18;
  * @param totalHeight 该条目可用的总高度（vp），用于计算圆的大小
  * @param totalWidth  侧边栏总宽度（vp）
  */
+interface color {
+  r: number;
+  g: number;
+  b: number;
+}
+
+class CondVisual {
+  symbol: string
+  symbolColor: string
+  valueColor: string
+
+  constructor(symbol: string, symbolColor: string, valueColor: string) {
+    this.symbol = symbol
+    this.symbolColor = symbolColor
+    this.valueColor = valueColor
+  }
+}
+
 @ComponentV2
 export default struct ShipStatusBadge {
   @Param ship: ShipState = {
@@ -42,7 +60,7 @@ export default struct ShipStatusBadge {
   };
   @Param equip: ShipSpecialEquip = { hasDamageControl: false, hasGoddess: false };
   @Param totalHeight: number = 48;
-  @Param totalWidth: number = 48;
+  @Param totalWidth: number = 60;
 
   // Canvas 渲染上下文，在整个组件生命周期内复用
   private context: CanvasRenderingContext2D =
@@ -130,9 +148,9 @@ export default struct ShipStatusBadge {
 
   private ratioColor(pct: number): string {
     const clampPct = Math.max(Math.min(pct, 1), 0);
-    const colorGreen = { r: 76, g: 175, b: 80 };
-    const colorYellow = { r: 255, g: 235, b: 59 };
-    const colorRed = { r: 244, g: 67, b: 54 };
+    const colorGreen: color = { r: 76, g: 175, b: 80 };
+    const colorYellow: color= { r: 255, g: 235, b: 59 };
+    const colorRed: color = { r: 244, g: 67, b: 54 };
 
     if (clampPct < 0.2) {
       return `rgb(${colorRed.r}, ${colorRed.g}, ${colorRed.b})`;
@@ -148,7 +166,18 @@ export default struct ShipStatusBadge {
     const b = Math.round(from.b + (to.b - from.b) * normalized);
     return `rgb(${r}, ${g}, ${b})`;
   }
-
+  private condVisual(cond: number): CondVisual {
+    if (cond > 50) {
+      return new CondVisual('✦', '#F6C64A', '#F6C64A')
+    }
+    if (cond > 30) {
+      return new CondVisual('○', '#FFFFFF', '#FFFFFF')
+    }
+    if (cond >= 20) {
+      return new CondVisual('△', '#FF9F43', '#FF9F43')
+    }
+    return new CondVisual('!', '#FF5A5A', '#FF5A5A')
+  }
   /** 绘制 HP 环到 Canvas */
   private drawRing(): void {
     const diam = this.ringDiam;
@@ -201,13 +230,13 @@ export default struct ShipStatusBadge {
   private supplyBar(valuePct: number, label: string): void {
     Column({ space: 2 }) {
       Stack({ alignContent: Alignment.Bottom }) {
-        Blank()
+        Column() {}
           .width(SUPPLY_BAR_WIDTH)
           .height(this.ringDiam - SUPPLY_LABEL_SIZE - 2)
           .backgroundColor('#303030')
           .borderRadius(2)
 
-        Blank()
+        Column() {}
           .width(SUPPLY_BAR_WIDTH)
           .height((this.ringDiam - SUPPLY_LABEL_SIZE - 2) * valuePct)
           .backgroundColor(this.ratioColor(valuePct))
@@ -224,6 +253,7 @@ export default struct ShipStatusBadge {
 
   @Builder
   private statusPanel(): void {
+
     Column({ space: 2 }) {
       Text(`Lv.${this.ship.level}`)
         .fontSize(8)

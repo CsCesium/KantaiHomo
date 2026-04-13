@@ -41,7 +41,7 @@ const GAME_ASPECT_RATIO = 1200 / 720;
 /** 侧边栏最小宽度（vp），低于此值不显示侧边栏 */
 const MIN_SIDEBAR_VP = 44;
 /** 侧边栏最大宽度（vp） */
-const MAX_SIDEBAR_VP = 56;
+const MAX_SIDEBAR_VP = 80;
 
 function isNarrowScreen(widthVp: number, heightVp: number): boolean {
   return Math.min(widthVp, heightVp) <= NARROW_SHORT_SIDE_VP;
@@ -60,7 +60,8 @@ function isPortraitViewport(widthVp: number, heightVp: number): boolean {
 function calcSidebarWidth(widthVp: number, heightVp: number): number {
   if (heightVp >= widthVp) return 0;   // 竖屏不显示侧边栏
   const gameContentW = heightVp * GAME_ASPECT_RATIO;
-  const rightSpace = widthVp - gameContentW;
+  const totalSpace = widthVp - gameContentW;
+  const rightSpace = Math.floor(totalSpace / 2);
   if (rightSpace < MIN_SIDEBAR_VP) return 0;
   return Math.min(MAX_SIDEBAR_VP, Math.floor(rightSpace));
 }

@@ -74,7 +74,7 @@ function buildHpOverrideMap(fleet: FleetBattleStatus | undefined): Map<number, S
  */
 @ComponentV2
 export default struct FleetStatusSidebar {
-  @Param sidebarWidth: number = 48;
+  @Param sidebarWidth: number = 72;
 
   @Local private entries: ShipEntry[] = [];
 
