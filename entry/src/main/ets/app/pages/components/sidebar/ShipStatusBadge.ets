@@ -14,12 +14,17 @@ const RING_STROKE_WIDTH = 3.5;
 const TICK_COLOR = '#ffffff';
 const TICK_OUTER_PAD = 2;
 const TICK_INNER_PAD = 2;
+const SUPPLY_BAR_WIDTH = 4;
+const SUPPLY_BAR_GAP = 3;
+const SUPPLY_PANEL_WIDTH = SUPPLY_BAR_WIDTH * 2 + SUPPLY_BAR_GAP;
+const SUPPLY_LABEL_SIZE = 8;
+const STATUS_PANEL_WIDTH = 18;
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
  *
  * 布局（横向）：
- *   [补给指示] [HP环 + 头像圆 + 装备角标]
+ *   [HP环 + 头像圆 + 装备角标] [油/弹剩余竖条] [Lv/Cond 状态]
  *
  * @param ship        舰娘状态数据
  * @param equip       特殊装备状态（损管/女神）
@@ -53,9 +58,11 @@ export default struct ShipStatusBadge {
 
   @Computed
   get ringDiam(): number {
-    const resupplyW = this.ship.needsResupply ? 8 : 0;
-    const available = Math.min(this.totalHeight, this.totalWidth - resupplyW) - 4;
-    return Math.max(available, 24);
+    const available = Math.min(
+      this.totalHeight,
+      this.totalWidth - SUPPLY_PANEL_WIDTH - STATUS_PANEL_WIDTH - 6
+    ) - 4;
+    return Math.max(available, 18);
   }
 
   @Computed
@@ -103,12 +110,43 @@ export default struct ShipStatusBadge {
     return this.ringDiam / 2 - this.badgeSize / 2 - 1;
   }
 
+  @Computed
+  get fuelPct(): number {
+    return this.ship.fuelMax > 0 ? Math.max(Math.min(this.ship.fuel / this.ship.fuelMax, 1), 0) : 0;
+  }
+
+  @Computed
+  get ammoPct(): number {
+    return this.ship.ammoMax > 0 ? Math.max(Math.min(this.ship.ammo / this.ship.ammoMax, 1), 0) : 0;
+  }
+
   /** HP 颜色 */
   private hpColor(): string {
     const pct = this.ship.hpMax > 0 ? this.ship.hpNow / this.ship.hpMax : 1;
     if (pct > 0.5) return HP_COLOR_GREEN;
     if (pct > 0.25) return HP_COLOR_YELLOW;
     return HP_COLOR_RED;
+  }
+
+  private ratioColor(pct: number): string {
+    const clampPct = Math.max(Math.min(pct, 1), 0);
+    const colorGreen = { r: 76, g: 175, b: 80 };
+    const colorYellow = { r: 255, g: 235, b: 59 };
+    const colorRed = { r: 244, g: 67, b: 54 };
+
+    if (clampPct < 0.2) {
+      return `rgb(${colorRed.r}, ${colorRed.g}, ${colorRed.b})`;
+    }
+
+    const from = clampPct >= 0.5 ? colorYellow : colorRed;
+    const to = clampPct >= 0.5 ? colorGreen : colorYellow;
+    const span = clampPct >= 0.5 ? 0.5 : 0.3;
+    const normalized = clampPct >= 0.5 ? (clampPct - 0.5) / span : (clampPct - 0.2) / span;
+
+    const r = Math.round(from.r + (to.r - from.r) * normalized);
+    const g = Math.round(from.g + (to.g - from.g) * normalized);
+    const b = Math.round(from.b + (to.b - from.b) * normalized);
+    return `rgb(${r}, ${g}, ${b})`;
   }
 
   /** 绘制 HP 环到 Canvas */
@@ -159,22 +197,50 @@ export default struct ShipStatusBadge {
     drawTick(0.25);  // 25% 大破线
   }
 
-  build() {
-    Row({ space: 0 }) {
-      // 补给不足指示符（左侧 8vp 细条）
-      if (this.ship.needsResupply) {
-        Column() {
-          Text('補')
-            .fontSize(7)
-            .fontColor('#ff9800')
-            .fontWeight(FontWeight.Bold)
-        }
-        .width(8)
-        .height(this.ringDiam)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
+  @Builder
+  private supplyBar(valuePct: number, label: string): void {
+    Column({ space: 2 }) {
+      Stack({ alignContent: Alignment.Bottom }) {
+        Blank()
+          .width(SUPPLY_BAR_WIDTH)
+          .height(this.ringDiam - SUPPLY_LABEL_SIZE - 2)
+          .backgroundColor('#303030')
+          .borderRadius(2)
+
+        Blank()
+          .width(SUPPLY_BAR_WIDTH)
+          .height((this.ringDiam - SUPPLY_LABEL_SIZE - 2) * valuePct)
+          .backgroundColor(this.ratioColor(valuePct))
+          .borderRadius(2)
       }
 
+      Text(label)
+        .width(SUPPLY_BAR_WIDTH + 2)
+        .fontSize(7)
+        .fontColor('#bdbdbd')
+        .textAlign(TextAlign.Center)
+    }
+  }
+
+  @Builder
+  private statusPanel(): void {
+    Column({ space: 2 }) {
+      Text(`Lv.${this.ship.level}`)
+        .fontSize(8)
+        .fontColor('#d9d9d9')
+        .maxLines(1)
+      Text(`Cond.${this.ship.cond}`)
+        .fontSize(8)
+        .fontColor('#d9d9d9')
+        .maxLines(1)
+    }
+    .width(STATUS_PANEL_WIDTH)
+    .alignItems(HorizontalAlign.Start)
+    .justifyContent(FlexAlign.Center)
+  }
+
+  build() {
+    Row({ space: 3 }) {
       // 主体：HP 环（Canvas）+ 头像圆 + 装备角标，重叠在 Stack 内
       Stack({ alignContent: Alignment.Center }) {
         // HP 环 Canvas（最底层）
@@ -212,6 +278,18 @@ export default struct ShipStatusBadge {
       }
       .width(this.ringDiam)
       .height(this.ringDiam)
+
+      // 右侧油/弹余量竖条
+      Row({ space: SUPPLY_BAR_GAP }) {
+        this.supplyBar(this.fuelPct, '油')
+        this.supplyBar(this.ammoPct, '弹')
+      }
+      .width(SUPPLY_PANEL_WIDTH)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Bottom)
+
+      // 油弹条右侧状态信息
+      this.statusPanel()
     }
     .width(this.totalWidth)
     .height(this.totalHeight)
