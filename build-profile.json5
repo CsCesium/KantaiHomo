@@ -7,11 +7,11 @@
         "material": {
           "certpath": "C:\\Users\\ROG\\.ohos\\config\\default_app_D4c4f_uUO_p8qV4XqaTiGWiwfFClFHIQ_seHj36NKZY=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B7004CE5B047F027DD17687AE9C6BFCE2BBFB936EA6289D7DE204C7845283C838B3999926DDDDBF",
+          "keyPassword": "0000001BA3B483441006B2BE99D28BFFE8AC36AE8A1BD73FF082018B81EA3B19632A464B4E1D0306440E90",
           "profile": "C:\\Users\\ROG\\.ohos\\config\\default_app_D4c4f_uUO_p8qV4XqaTiGWiwfFClFHIQ_seHj36NKZY=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\ROG\\.ohos\\config\\default_app_D4c4f_uUO_p8qV4XqaTiGWiwfFClFHIQ_seHj36NKZY=.p12",
-          "storePassword": "0000001B4662E7ED60AF0A063939EDFD2E0A04DD4D6FEB975055B880D6FC374C8D0DC208F6ED335B79C5C5"
+          "storePassword": "0000001B77973AD16D9C002F5818B805D49D4A87D373497EE87EE66C80FE9DA6B14C3ACB90D13FDB06078F"
         }
       }
     ],
