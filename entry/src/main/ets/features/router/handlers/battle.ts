@@ -5,18 +5,15 @@ import {
   BattleRecord,
   generateBattleId,
   battleRecordToRow,
-  createBattleContext,
-  getFullEventDesc,
 } from '../../../domain/models';
 import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
-import { updateBattleStatus, updateBattleResult } from '../../state/game_state';
+import { updateBattleStatus, updateBattleResult, getShipSpecialEquip } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
-import { getShipMasterName, getShipSpecialEquip } from '../../state/game_state';
-import { setLastBattleHasTaihaRisk, getLastBattleHasTaihaRisk } from '../../alerts/lastBattleState';
-import type { BattleResultAlert, BattleStartAlert } from '../../alerts/type';
+import { setLastBattleHasTaihaRisk } from '../../alerts/lastBattleState';
+import type { BattleResultAlert } from '../../alerts/type';
 
 
 class BattleHandler implements Handler {
@@ -102,33 +99,6 @@ class BattleHandler implements Handler {
       }
     }
 
-    // 4. 发布 BattleStartAlert（包含敌方旗舰名）
-    try {
-      if (context) {
-        const enemyFlagshipId: number | undefined = segment.enemy?.mainKe?.[0];
-        const enemyFlagshipName: string | undefined = enemyFlagshipId && enemyFlagshipId > 0
-          ? getShipMasterName(enemyFlagshipId)
-          : undefined;
-
-        const battleStartAlert: BattleStartAlert = {
-          type: 'battle_start',
-          timestamp: Date.now(),
-          deckId: context.deckId,
-          combinedType: context.combinedType,
-          cellId: context.currentCell?.cellId ?? 0,
-          isBoss: context.currentCell?.isBoss ?? false,
-          eventDesc: context.currentCell
-            ? getFullEventDesc(context.currentCell.eventId, context.currentCell.eventKind)
-            : '战斗',
-          enemyFlagshipName,
-          hasTaihaRisk: getLastBattleHasTaihaRisk(),
-        };
-        publishAlert(battleStartAlert);
-      }
-    } catch (e) {
-      console.warn('[battle] publishAlert(BattleStartAlert) failed:', String(e));
-    }
-
     console.info('[battle] day battle processed, predicted rank:', prediction.predictedRank);
   }
 
@@ -191,33 +161,6 @@ class BattleHandler implements Handler {
           ships: taihaRisk.ships,
         });
       }
-    }
-
-    // 6. 夜战开始提醒（仅限夜战出发，即无昼战 segment 的情况）
-    try {
-      if (context && !context.pendingBattle?.daySegment) {
-        const enemyFlagshipId: number | undefined = segment.enemy?.mainKe?.[0];
-        const enemyFlagshipName: string | undefined = enemyFlagshipId && enemyFlagshipId > 0
-          ? getShipMasterName(enemyFlagshipId)
-          : undefined;
-
-        const battleStartAlert: BattleStartAlert = {
-          type: 'battle_start',
-          timestamp: Date.now(),
-          deckId: context.deckId,
-          combinedType: context.combinedType,
-          cellId: context.currentCell?.cellId ?? 0,
-          isBoss: context.currentCell?.isBoss ?? false,
-          eventDesc: context.currentCell
-            ? getFullEventDesc(context.currentCell.eventId, context.currentCell.eventKind)
-            : '夜战',
-          enemyFlagshipName,
-          hasTaihaRisk: getLastBattleHasTaihaRisk(),
-        };
-        publishAlert(battleStartAlert);
-      }
-    } catch (e) {
-      console.warn('[battle] publishAlert(BattleStartAlert night) failed:', String(e));
     }
 
     console.info('[battle] night battle processed, predicted rank:', prediction.predictedRank);

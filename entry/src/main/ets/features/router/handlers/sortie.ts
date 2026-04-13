@@ -23,6 +23,7 @@ import { startSortie, moveToNextCell } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
 import { SortieNextAlert, TaihaWarningAlert } from '../../alerts/type';
 import { getLastBattleHasTaihaRisk, resetLastBattleState } from '../../alerts/lastBattleState';
+import { getShipMasterName } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -134,7 +135,25 @@ class SortieHandler implements Handler {
 
     console.info('[sortie] moved to cell:', cell.cellId, 'event:', cell.eventId, 'boss:', cell.isBoss);
 
-    // 2. 发布 SortieNextAlert
+    // 2. 发布 SortieNextAlert（所有节点类型均触发，含战斗节点）
+    // 尝试从 /next 响应的 api_enemy_info 中提取敌方旗舰名称（仅战斗节点有效）
+    let enemyFlagshipName: string | undefined;
+    if (isBattleEvent(cell.eventId)) {
+      try {
+        const extras = cell.extras as Record<string, unknown> | undefined;
+        const enemyInfo = extras?.api_enemy_info as Record<string, unknown> | undefined;
+        const shipKe = Array.isArray(enemyInfo?.api_ship_ke)
+          ? (enemyInfo!.api_ship_ke as number[])
+          : [];
+        const firstId = shipKe.find((id: number) => id > 0);
+        if (firstId) {
+          enemyFlagshipName = getShipMasterName(firstId);
+        }
+      } catch {
+        // extras 解析失败则忽略
+      }
+    }
+
     const sortieNextAlert: SortieNextAlert = {
       type: 'sortie_next',
       timestamp: Date.now(),
@@ -144,12 +163,12 @@ class SortieHandler implements Handler {
       eventId: cell.eventId,
       eventKind: cell.eventKind,
       isBoss: cell.isBoss ?? false,
-      isBattleNode: isBattleEvent(cell.eventId),
       eventDesc: getFullEventDesc(cell.eventId, cell.eventKind),
       deckId: context.deckId,
       combinedType: context.combinedType,
       fleetName: context.fleetSnapshot.name,
       hasTaihaRisk: getLastBattleHasTaihaRisk(),
+      enemyFlagshipName,
     };
     publishAlert(sortieNextAlert);
 
