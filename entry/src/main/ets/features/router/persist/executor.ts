@@ -11,11 +11,9 @@ export async function executeParseResult(
     await dispatchEvent(ev, deps);
   }
 
-  // 2. 并发执行 mainEvents
-  if (result.mainEvents.length > 0) {
-    await Promise.all(
-      result.mainEvents.map(ev => dispatchEvent(ev, deps))
-    );
+  // 2. 串行执行 mainEvents（同一 SQLite 连接不支持嵌套事务，不可并发）
+  for (const ev of result.mainEvents) {
+    await dispatchEvent(ev, deps);
   }
 
   // 3. 串行执行 postEvents

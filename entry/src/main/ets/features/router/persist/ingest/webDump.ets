@@ -28,7 +28,7 @@ function totalSize(d: ApiDump): number {
 }
 
 async function executeParseResult(result: ParseResult, deps: PersistDeps): Promise<void> {
-  // 1. 串行执行 preEvents
+  // 1. 串行执行 preEvents（如 SESSION_BIND 会切换 DB，必须先完成）
   for (const ev of result.preEvents) {
     try {
       await dispatchEvent(ev, deps);
@@ -37,10 +37,16 @@ async function executeParseResult(result: ParseResult, deps: PersistDeps): Promi
     }
   }
 
-  // 2. 并发执行 mainEvents
-  if (result.mainEvents.length > 0) {
-    const tasks = result.mainEvents.map(ev => dispatchEvent(ev, deps));
-    await Promise.all(tasks);
+  // 2. 串行执行 mainEvents
+  // 注意：不能并发执行——多个 handler 同时调用 withTransaction 会在同一个
+  // SQLite 连接上并发调用 beginTransaction()，SQLite 不支持嵌套事务，
+  // 除第一个外所有事务都会抛出异常，导致数据写入静默失败。
+  for (const ev of result.mainEvents) {
+    try {
+      await dispatchEvent(ev, deps);
+    } catch (e) {
+      console.error('[persist] mainEvent failed:', ev.type, String(e));
+    }
   }
 
   // 3. 串行执行 postEvents
