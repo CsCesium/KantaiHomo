@@ -1,5 +1,6 @@
 import { Admiral } from './admiral';
 import { Deck } from './deck';
+import { Kdock } from './k_dock';
 import { Materials } from './material';
 import { Ndock } from './n_dock';
 import type { Ship } from './ship';
@@ -17,6 +18,7 @@ export interface PortSnapshot {
   materials: Materials;
   decks: Deck[];
   ndocks: Ndock[];
+  kdocks: Kdock[];
   ships: Ship[];
   logs: PortLog[];
 

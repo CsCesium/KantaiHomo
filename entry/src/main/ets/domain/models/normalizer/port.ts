@@ -3,6 +3,7 @@ import { ApiPortLogRaw, ApiPortRespRaw } from "../api/port";
 import { PortLog, PortSnapshot } from "../struct/port";
 import { normalizeAdmiral } from "./admiral";
 import { normalizeDecks } from "./deck";
+import { normalizeKdocks } from "./k_dock";
 import { normalizeMaterials } from "./material";
 import { normalizeNdocks } from "./n_dock";
 
@@ -23,6 +24,7 @@ export function normalizePort(raw: ApiPortRespRaw, now: number = Date.now()): Po
     materials: normalizeMaterials(raw.api_material, now),
     decks: normalizeDecks(raw.api_deck_port, now),
     ndocks: normalizeNdocks(raw.api_ndock, now),
+    kdocks: normalizeKdocks(raw.api_kdock ?? [], now),
     ships: (raw.api_ship ?? []).map((s) => normalizeShip(s, now)),
     logs: (raw.api_log ?? []).map((l) => normalizePortLog(l, now)),
 

@@ -2,6 +2,7 @@ import { SessionBindEvent } from '../../../domain/events';
 import { AnyPortEvt,
   PortBasicEvent,
   PortFleetsEvent,
+  PortKdockEvent,
   PortNdockEvent,
   PortResourcesEvent,
   PortShipsEvent,
@@ -25,7 +26,7 @@ function pickMemberIdFromPortPayload(payload: JsonObject): string {
 
 export function parsePort(dump: ApiDump): (AnyPortEvt | SessionBindEvent)[] {
   const endpoint = detectEndpoint(dump.url, RULES)
-  if (!endpoint) return null
+  if (!endpoint) return []
 
   const ctx: ParserCtx = {
     ts: Date.now(),
@@ -66,9 +67,12 @@ export function parsePort(dump: ApiDump): (AnyPortEvt | SessionBindEvent)[] {
   const ndockEv: PortNdockEvent =
     mkEvt(ctx, 'PORT_NDOCK', ['PORT_NDOCK', snap.updatedAt], snap.ndocks)
 
+  const kdockEv: PortKdockEvent =
+    mkEvt(ctx, 'PORT_KDOCK', ['PORT_KDOCK', snap.updatedAt], snap.kdocks)
+
   const shipsEv: PortShipsEvent =
     mkEvt(ctx, 'PORT_SHIPS', ['PORT_SHIPS', snap.updatedAt], snap.ships)
 
-  out.push(snapEv, basicEv, resEv, fleetsEv, ndockEv, shipsEv)
+  out.push(snapEv, basicEv, resEv, fleetsEv, ndockEv, kdockEv, shipsEv)
   return out
 }

@@ -3,6 +3,7 @@ import type { ApiNdockRaw } from './n_dock';
 import { ApiBasicRaw } from './basic';
 import { ApiMaterialItemRaw } from './materials';
 import { ApiDeckPortRaw } from './deck';
+import { ApiKdockRaw } from './k_dock';
 
 export interface ApiPortLogRaw {
   api_no: number;
@@ -17,6 +18,7 @@ export interface ApiPortRespRaw {
   api_material: ApiMaterialItemRaw[];
   api_deck_port: ApiDeckPortRaw[];
   api_ndock: ApiNdockRaw[];
+  api_kdock?: ApiKdockRaw[];
   api_ship: ApiShipRaw[];
 
   api_log?: ApiPortLogRaw[];
