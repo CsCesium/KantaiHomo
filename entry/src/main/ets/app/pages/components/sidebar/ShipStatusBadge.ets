@@ -201,13 +201,13 @@ export default struct ShipStatusBadge {
   private supplyBar(valuePct: number, label: string): void {
     Column({ space: 2 }) {
       Stack({ alignContent: Alignment.Bottom }) {
-        Blank()
+        Column() {}
           .width(SUPPLY_BAR_WIDTH)
           .height(this.ringDiam - SUPPLY_LABEL_SIZE - 2)
           .backgroundColor('#303030')
           .borderRadius(2)
 
-        Blank()
+        Column() {}
           .width(SUPPLY_BAR_WIDTH)
           .height((this.ringDiam - SUPPLY_LABEL_SIZE - 2) * valuePct)
           .backgroundColor(this.ratioColor(valuePct))
