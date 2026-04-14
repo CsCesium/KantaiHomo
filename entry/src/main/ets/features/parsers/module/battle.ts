@@ -11,7 +11,7 @@ import {
 } from "../../../domain/events";
 import { BattleApiPath, normalizeBattleSegment, normalizeBattleResult } from "../../../domain/models";
 import { normalizeSortieCell } from "../../../domain/models/normalizer/map";
-import { predictBattle } from "../../../domain/service";
+import { predictBattle } from "../../../domain/service/battle_prediction";
 import { ApiDump } from "../../../infra/web/types";
 import { parseSvdata, parseFormBody, extractApiPath, matchAnyPattern } from "../../utils/common";
 import { ParserCtx, mkEvt } from "./common";

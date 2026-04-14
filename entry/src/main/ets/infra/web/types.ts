@@ -1,4 +1,4 @@
-import { webview } from '@kit.ArkWeb';
+import type { webview } from '@kit.ArkWeb';
 
 export type WebCtrl = webview.WebviewController;
 
