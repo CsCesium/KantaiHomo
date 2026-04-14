@@ -11,7 +11,7 @@ const RULES: EndpointRule[] = [
 
 export function parseQuest(dump: ApiDump): AnyQuestEvt[] {
   const endpoint = detectEndpoint(dump.url, RULES)
-  if (!endpoint) return null;
+  if (!endpoint) return [];
 
   const ctx: ParserCtx = {
     ts: Date.now(),

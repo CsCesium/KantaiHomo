@@ -1,5 +1,5 @@
 import type { ApiDump } from '../../../infra/web/types';
-import type { AnyStart2Evt, ShipMasterCatalogEvent, SlotItemMasterCatalogEvent } from '../../../domain/events/start2';
+import type { AnyStart2Evt, ShipMasterCatalogEvent, SlotItemMasterCatalogEvent, MissionMasterCatalogEvent } from '../../../domain/events/start2';
 import { ApiStart2DataRaw } from '../../../domain/models/api/start2';
 import { mkEvt, ParserCtx } from './common';
 import { parseSvdata } from '../../utils/common';
@@ -36,6 +36,15 @@ export function parseStart2(dump: ApiDump): AnyStart2Evt[] | null {
         ['slotitem-mst', data.api_mst_slotitem.length, ctx.ts],
         data.api_mst_slotitem
       ) as SlotItemMasterCatalogEvent
+    );
+  }
+
+  if (Array.isArray(data.api_mst_mission) && data.api_mst_mission.length > 0) {
+    out.push(
+      mkEvt(ctx, 'MISSION_MASTER_CATALOG',
+        ['mission-mst', data.api_mst_mission.length, ctx.ts],
+        data.api_mst_mission
+      ) as MissionMasterCatalogEvent
     );
   }
 
