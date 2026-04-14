@@ -1,5 +1,5 @@
-import { ApiDump } from "../../../infra/web/types"
-import { HandlerEvent } from "../../router/persist/type"
+import type { ApiDump } from "../../../infra/web/types"
+import type { HandlerEvent } from "../../router/persist/type"
 import { parsePort } from "../module"
 import { DumpPipeline, ParseResult, registerPipeline } from "../pipeline"
 

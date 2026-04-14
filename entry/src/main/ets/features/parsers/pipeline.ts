@@ -1,5 +1,5 @@
-import { ApiDump } from "../../infra/web/types"
-import { HandlerEvent } from "../router/persist/type"
+import type { ApiDump } from "../../infra/web/types"
+import type { HandlerEvent } from "../router/persist/type"
 
 export interface ParseResult {
   /** 必须先执行 */

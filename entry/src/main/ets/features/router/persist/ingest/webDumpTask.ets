@@ -1,5 +1,5 @@
 //src/main/ets/features/router/persist/ingest/webDumpTask.ets
-import { ApiDump } from "../../../../infra/web/types";
+import type { ApiDump } from "../../../../infra/web/types";
 import { ParseResult, parseDump } from "../../../parsers/pipeline";
 import "../../../parsers/pipelines"; // trigger side-effect pipeline registrations in worker
 
