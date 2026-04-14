@@ -1,9 +1,9 @@
 import { AnyStart2Evt } from '../../../domain/events/start2';
-import { ApiMstShipRaw, ApiMstSlotitemRaw } from '../../../domain/models/api/start2';
+import { ApiMstMissionRaw, ApiMstShipRaw, ApiMstSlotitemRaw } from '../../../domain/models/api/start2';
 import { ApiMstSlotItemRaw } from '../../../domain/models/api/mst_slotitem';
 import { normalizeMstSlotItem } from '../../../domain/models/normalizer/mst_slotitem';
 import { slotItemMasterToRow } from '../../../domain/models/mapper/slotitem';
-import { ShipMasterRow } from '../../../infra/storage/types';
+import { MissionRow, ShipMasterRow } from '../../../infra/storage/types';
 import { updateShipMasterMeta, updateSlotItemEquipTypes } from '../../state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -22,6 +22,35 @@ function shipRawToRow(raw: ApiMstShipRaw, ts: number): ShipMasterRow {
     maxEqJson: Array.isArray(raw.api_maxeq) ? JSON.stringify(raw.api_maxeq) : null,
     afterLv: raw.api_afterlv ?? null,
     afterShipId: raw.api_aftershipid ? (parseInt(raw.api_aftershipid) || null) : null,
+    updatedAt: ts,
+  };
+}
+
+// ── Raw → MissionRow ──
+function missionRawToRow(raw: ApiMstMissionRaw, ts: number): MissionRow {
+  return {
+    id: raw.api_id,
+    code: raw.api_disp_no ?? null,
+    mapAreaId: raw.api_maparea_id ?? null,
+    name: raw.api_name,
+    details: raw.api_details ?? null,
+    resetType: raw.api_reset_type === 1 ? 'monthly' : 'normal',
+    damageType: raw.api_damage_type ?? null,
+    timeMin: raw.api_time ?? null,
+    requireShips: raw.api_deck_num ?? null,
+    difficulty: raw.api_difficulty ?? null,
+    fuelPct: raw.api_use_fuel ?? null,
+    ammoPct: raw.api_use_bull ?? null,
+    reward_item1_id: raw.api_win_item1?.[0] ?? null,
+    reward_item1_count: raw.api_win_item1?.[1] ?? null,
+    reward_item2_id: raw.api_win_item2?.[0] ?? null,
+    reward_item2_count: raw.api_win_item2?.[1] ?? null,
+    mat0: raw.api_win_mat_level?.[0] ?? null,
+    mat1: raw.api_win_mat_level?.[1] ?? null,
+    mat2: raw.api_win_mat_level?.[2] ?? null,
+    mat3: raw.api_win_mat_level?.[3] ?? null,
+    returnCancelable: raw.api_return_flag ?? null,
+    sampleFleet: raw.api_sample_fleet ? JSON.stringify(raw.api_sample_fleet) : null,
     updatedAt: ts,
   };
 }
@@ -48,6 +77,9 @@ class Start2Handler implements Handler {
       case 'SLOTITEM_MASTER_CATALOG':
         await this.handleSlotItemMaster(e.payload, ts, deps);
         break;
+      case 'MISSION_MASTER_CATALOG':
+        await this.handleMissionMaster(e.payload, ts, deps);
+        break;
     }
   }
 
@@ -73,6 +105,22 @@ class Start2Handler implements Handler {
       console.info(`[persist][SHIP_MASTER] upserted ${rows.length} ship masters`);
     } catch (e) {
       console.warn('[persist][SHIP_MASTER] failed:', e);
+    }
+  }
+
+  private async handleMissionMaster(payload: ApiMstMissionRaw[], ts: number, deps: PersistDeps): Promise<void> {
+    if (!deps.repos?.mission) return;
+    try {
+      const existing = await deps.repos.mission.listIdNames();
+      if (!hasChanges(existing, payload.map(r => ({ id: r.api_id, name: r.api_name })))) {
+        console.debug('[persist][MISSION_MASTER] no changes, skip upsert');
+        return;
+      }
+      const rows = payload.map(r => missionRawToRow(r, ts));
+      await deps.repos.mission.upsertBatch(rows);
+      console.info(`[persist][MISSION_MASTER] upserted ${rows.length} missions`);
+    } catch (e) {
+      console.warn('[persist][MISSION_MASTER] failed:', e);
     }
   }
 
@@ -106,3 +154,4 @@ class Start2Handler implements Handler {
 const handler = new Start2Handler();
 registerHandler('SHIP_MASTER_CATALOG', handler);
 registerHandler('SLOTITEM_MASTER_CATALOG', handler);
+registerHandler('MISSION_MASTER_CATALOG', handler);
