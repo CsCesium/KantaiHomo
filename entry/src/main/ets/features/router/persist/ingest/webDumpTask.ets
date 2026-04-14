@@ -13,22 +13,25 @@ import { battlePipeline } from "../../../parsers/pipelines/battle";
 import { start2Pipeline } from "../../../parsers/pipelines/start2";
 import { questPipeline } from "../../../parsers/pipelines/quest";
 
-// Safety net: if for some reason the module-level registerPipeline() calls
-// in each pipeline file didn't run (e.g., due to bundler tree-shaking),
-// register them explicitly here. Dedup prevents double registration.
-const _all = [portPipeline, expeditionPipeline, battlePipeline, start2Pipeline, questPipeline];
-for (const p of _all) {
-  if (!DUMP_PIPELINES.some(x => x.name === p.name)) {
-    registerPipeline(p);
-  }
-}
-
 @Concurrent
 export function parseDumpInWorker(
   url: string,
   requestBody: string,
   responseText: string
 ): ParseResult {
-  const dump: ApiDump = { url, type:'API_DUMP',requestBody, responseText };
+  // Register pipelines on first call in this worker context.
+  // Module-level side effects may be stripped by the ArkTS TaskPool bundler,
+  // so we guarantee registration here — inside the function body that
+  // is always executed. The check avoids duplicate registration when
+  // the worker thread is reused across multiple tasks.
+  if (DUMP_PIPELINES.length === 0) {
+    registerPipeline(portPipeline);
+    registerPipeline(expeditionPipeline);
+    registerPipeline(battlePipeline);
+    registerPipeline(start2Pipeline);
+    registerPipeline(questPipeline);
+  }
+
+  const dump: ApiDump = { url, type:'API_DUMP', requestBody, responseText };
   return parseDump(dump);
 }
