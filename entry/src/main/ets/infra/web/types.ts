@@ -196,5 +196,5 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   enableSessionPersist: true,
   enableIframeFit: true,
   enableYasenDetect: true,
-  enableDebug: true,
+  enableDebug: false,
 };
