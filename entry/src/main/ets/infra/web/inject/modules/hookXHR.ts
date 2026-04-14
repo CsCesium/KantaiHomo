@@ -13,7 +13,7 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
       var MAX_RES_LEN = 14 * 1024 * 1024; // 14MB — api_start2/getData 可达 8-12MB
       var MAX_REQ_LEN = 50 * 1024;
 
-      var SKIP: string[] = [];
+      var SKIP = [];
 
       function __shouldSkip(url){
         for (var i=0;i<SKIP.length;i++){
