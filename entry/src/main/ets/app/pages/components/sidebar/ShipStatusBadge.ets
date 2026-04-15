@@ -14,37 +14,25 @@ const RING_STROKE_WIDTH = 3.5;
 const TICK_COLOR = '#ffffff';
 const TICK_OUTER_PAD = 2;
 const TICK_INNER_PAD = 2;
-const SUPPLY_BAR_WIDTH = 2;
-const SUPPLY_BAR_GAP = 1;
-const SUPPLY_PANEL_WIDTH = SUPPLY_BAR_WIDTH * 2 + SUPPLY_BAR_GAP;
-const SUPPLY_LABEL_SIZE = 4;
-const STATUS_PANEL_WIDTH = 18;
+const STATUS_PANEL_WIDTH = 24;
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
  *
  * 布局（横向）：
- *   [HP环 + 头像圆 + 装备角标] [油/弹剩余竖条] [Lv/Cond 状态]
+ *   [HP环 + 头像圆 + 装备角标] [补给⚠(按需) + Cond emoji+数值]
  *
  * @param ship        舰娘状态数据
  * @param equip       特殊装备状态（损管/女神）
  * @param totalHeight 该条目可用的总高度（vp），用于计算圆的大小
  * @param totalWidth  侧边栏总宽度（vp）
  */
-interface color {
-  r: number;
-  g: number;
-  b: number;
-}
-
 class CondVisual {
   symbol: string
-  symbolColor: string
   valueColor: string
 
-  constructor(symbol: string, symbolColor: string, valueColor: string) {
+  constructor(symbol: string, valueColor: string) {
     this.symbol = symbol
-    this.symbolColor = symbolColor
     this.valueColor = valueColor
   }
 }
@@ -78,7 +66,7 @@ export default struct ShipStatusBadge {
   get ringDiam(): number {
     const available = Math.min(
       this.totalHeight,
-      this.totalWidth - SUPPLY_PANEL_WIDTH - STATUS_PANEL_WIDTH - 6
+      this.totalWidth - STATUS_PANEL_WIDTH - 3
     ) - 4;
     return Math.max(available, 18);
   }
@@ -128,16 +116,6 @@ export default struct ShipStatusBadge {
     return this.ringDiam / 2 - this.badgeSize / 2 - 1;
   }
 
-  @Computed
-  get fuelPct(): number {
-    return this.ship.fuelMax > 0 ? Math.max(Math.min(this.ship.fuel / this.ship.fuelMax, 1), 0) : 0;
-  }
-
-  @Computed
-  get ammoPct(): number {
-    return this.ship.ammoMax > 0 ? Math.max(Math.min(this.ship.ammo / this.ship.ammoMax, 1), 0) : 0;
-  }
-
   /** HP 颜色 */
   private hpColor(): string {
     const pct = this.ship.hpMax > 0 ? this.ship.hpNow / this.ship.hpMax : 1;
@@ -146,37 +124,17 @@ export default struct ShipStatusBadge {
     return HP_COLOR_RED;
   }
 
-  private ratioColor(pct: number): string {
-    const clampPct = Math.max(Math.min(pct, 1), 0);
-    const colorGreen: color = { r: 76, g: 175, b: 80 };
-    const colorYellow: color= { r: 255, g: 235, b: 59 };
-    const colorRed: color = { r: 244, g: 67, b: 54 };
-
-    if (clampPct < 0.2) {
-      return `rgb(${colorRed.r}, ${colorRed.g}, ${colorRed.b})`;
-    }
-
-    const from = clampPct >= 0.5 ? colorYellow : colorRed;
-    const to = clampPct >= 0.5 ? colorGreen : colorYellow;
-    const span = clampPct >= 0.5 ? 0.5 : 0.3;
-    const normalized = clampPct >= 0.5 ? (clampPct - 0.5) / span : (clampPct - 0.2) / span;
-
-    const r = Math.round(from.r + (to.r - from.r) * normalized);
-    const g = Math.round(from.g + (to.g - from.g) * normalized);
-    const b = Math.round(from.b + (to.b - from.b) * normalized);
-    return `rgb(${r}, ${g}, ${b})`;
-  }
   private condVisual(cond: number): CondVisual {
     if (cond > 50) {
-      return new CondVisual('✦', '#F6C64A', '#F6C64A')
+      return new CondVisual('😼', '#F6C64A')
     }
     if (cond > 30) {
-      return new CondVisual('○', '#FFFFFF', '#FFFFFF')
+      return new CondVisual('😺', '#FFFFFF')
     }
     if (cond >= 20) {
-      return new CondVisual('△', '#FF9F43', '#FF9F43')
+      return new CondVisual('😾', '#FF9F43')
     }
-    return new CondVisual('!', '#FF5A5A', '#FF5A5A')
+    return new CondVisual('🙀', '#FF5A5A')
   }
   /** 绘制 HP 环到 Canvas */
   private drawRing(): void {
@@ -227,42 +185,26 @@ export default struct ShipStatusBadge {
   }
 
   @Builder
-  private supplyBar(valuePct: number, label: string): void {
-    Column({ space: 2 }) {
-      Stack({ alignContent: Alignment.Bottom }) {
-        Column() {}
-          .width(SUPPLY_BAR_WIDTH)
-          .height(this.ringDiam - SUPPLY_LABEL_SIZE - 2)
-          .backgroundColor('#303030')
-          .borderRadius(2)
-
-        Column() {}
-          .width(SUPPLY_BAR_WIDTH)
-          .height((this.ringDiam - SUPPLY_LABEL_SIZE - 2) * valuePct)
-          .backgroundColor(this.ratioColor(valuePct))
-          .borderRadius(2)
-      }
-
-      Text(label)
-        .width(SUPPLY_BAR_WIDTH + 2)
-        .fontSize(7)
-        .fontColor('#bdbdbd')
-        .textAlign(TextAlign.Center)
-    }
-  }
-
-  @Builder
   private statusPanel(): void {
-
-    Column({ space: 2 }) {
-      Text(`Lv.${this.ship.level}`)
-        .fontSize(8)
-        .fontColor('#d9d9d9')
-        .maxLines(1)
-      Text(`Cond.${this.ship.cond}`)
-        .fontSize(8)
-        .fontColor('#d9d9d9')
-        .maxLines(1)
+    Column({ space: 3 }) {
+      // 补给不足图标（仅在需要补给时显示）
+      if (this.ship.needsResupply) {
+        Text('⚠')
+          .fontSize(10)
+          .fontColor('#FF9F43')
+          .maxLines(1)
+      }
+      // Cond：emoji icon + 数值
+      Row({ space: 2 }) {
+        Text(this.condVisual(this.ship.cond).symbol)
+          .fontSize(10)
+          .maxLines(1)
+        Text(`${this.ship.cond}`)
+          .fontSize(8)
+          .fontColor(this.condVisual(this.ship.cond).valueColor)
+          .maxLines(1)
+      }
+      .alignItems(VerticalAlign.Center)
     }
     .width(STATUS_PANEL_WIDTH)
     .alignItems(HorizontalAlign.Start)
@@ -309,16 +251,7 @@ export default struct ShipStatusBadge {
       .width(this.ringDiam)
       .height(this.ringDiam)
 
-      // 右侧油/弹余量竖条
-      Row({ space: SUPPLY_BAR_GAP }) {
-        this.supplyBar(this.fuelPct, '油')
-        this.supplyBar(this.ammoPct, '弹')
-      }
-      .width(SUPPLY_PANEL_WIDTH)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Bottom)
-
-      // 油弹条右侧状态信息
+      // 补给状态 + Cond
       this.statusPanel()
     }
     .width(this.totalWidth)
