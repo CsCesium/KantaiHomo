@@ -57,7 +57,8 @@ export default struct BottomPanel {
     this.loadState();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
-          changeType === 'decks' || changeType === 'materials') {
+          changeType === 'decks' || changeType === 'materials' ||
+          changeType === 'admiral' || changeType === 'quests') {
         this.loadState();
       }
     });
