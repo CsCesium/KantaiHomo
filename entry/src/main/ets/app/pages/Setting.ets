@@ -3,7 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
 
@@ -24,6 +24,8 @@ struct Setting {
   @StorageLink(APP_STORAGE_SHOW_SIDEBAR) private showSidebar: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
+  /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
+  @StorageLink(APP_STORAGE_ADVANCE_GUARD_ENABLED) private advanceGuardEnabled: boolean = true;
 
   // ── Alert settings ─────────────────────────────────────────────
   @State private battleResultAlertEnabled: boolean = true;
@@ -75,6 +77,11 @@ struct Setting {
     this.battleResultAlertEnabled = v;
     void kvSet('alerts.battle.enabled', v);
     setAlertConfig({ enableBattleResultAlert: v });
+  }
+
+  private onAdvanceGuardToggle(v: boolean): void {
+    this.advanceGuardEnabled = v;   // writes AppStorage → WebHost re-injects on next load
+    void kvSet(APP_STORAGE_ADVANCE_GUARD_ENABLED, v);
   }
 
   private async saveConfig(): Promise<void> {
@@ -416,6 +423,13 @@ struct Setting {
               '战斗结算时显示结果并震动 / 铃声提醒',
               this.battleResultAlertEnabled,
               (v: boolean) => { this.onBattleResultToggle(v); }
+            )
+
+            this.ToggleRow(
+              '大破进击警告',
+              '进击/撤退选择出现时，若存在无损管大破舰则弹窗提示',
+              this.advanceGuardEnabled,
+              (v: boolean) => { this.onAdvanceGuardToggle(v); }
             )
           }
           .width('100%')

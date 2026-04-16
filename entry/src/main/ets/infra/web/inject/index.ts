@@ -13,6 +13,7 @@ import {kcDebugSnippet} from './modules/debug'
 import { promoteGameFrameSnippet } from './modules/promoteGameFrame';
 import { postMessageGuardSnippet } from './modules/postMessageGuard';
 import { yasenDetectorJS } from './modules/YasenDetect';
+import { advanceDetectorJS } from './modules/AdvanceDetect';
 
 
 function asEvalChunk(name: string, code: string): string {
@@ -44,6 +45,7 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   if (o.enableTickerRAF)  out.push(asEvalChunk('hm-inject://tickerRaf.js', tickerRafSnippet));
   if (o.enablePixiPatch)  out.push(asEvalChunk('hm-inject://pixiPatch.js', pixiPatchSnippet));
   if (o.enableYasenDetect) out.push(asEvalChunk('hm-inject://yasenDetect.js', yasenDetectorJS()));
+  if (o.enableAdvanceDetect) out.push(asEvalChunk('hm-inject://advanceDetect.js', advanceDetectorJS()));
 
   out.push('//# sourceURL=hm-inject://loader.js');
   return out.join('\n');

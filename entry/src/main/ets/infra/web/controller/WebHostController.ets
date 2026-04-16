@@ -7,8 +7,10 @@ import { buildInjectionBundle } from '../../web/inject';
 import {  InjectOptions, AppChannelMessage, ApiDump,
   isApiDump,
   isYasenUiEvent,
+  isSortieAdvanceUiEvent,
   parseBridgeMessage,
-  YasenUiEvent } from '../types';
+  YasenUiEvent,
+  SortieAdvanceUiEvent } from '../types';
 import { parseAppChannelMessage as parseMsg } from '../types';
 import { ingestDump } from '../../../features/router/persist/ingest/webDump';
 import { getPersistDeps } from '../../deps/index';
@@ -16,6 +18,7 @@ import { PERMISSION_JSON, USER_AGENT } from '../config';
 import { Orientation } from '../layout/orientation';
 import hilog from '@ohos.hilog';
 import { YasenPromptAlert, publishAlert } from '../../../features/alerts';
+import { getBattleResult, getBattleStatus, getShipSpecialEquip, ShipBattleStatus } from '../../../features/state';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -60,6 +63,8 @@ export class WebHostController {
   private ackDraining: boolean = false;
   private readonly MAX_ACK_Q: number = 200;
   private readonly ACK_BATCH: number = 30;
+
+  private advanceWarningHandler: ((msg: string) => void) | null = null;
 
 
   constructor(
@@ -188,6 +193,12 @@ export class WebHostController {
       return;
     }
 
+    // 处理进击提醒
+    if (isSortieAdvanceUiEvent(msg)) {
+      this.handleAdvanceMessage(msg);
+      return;
+    }
+
     // 处理 API Dump
     if (isApiDump(msg)) {
       const traceId = this.extractTraceId(raw);
@@ -215,6 +226,57 @@ export class WebHostController {
     };
 
     publishAlert(alert);
+  }
+
+  setAdvanceWarningHandler(handler: (msg: string) => void): void {
+    this.advanceWarningHandler = handler;
+  }
+
+  private handleAdvanceMessage(_msg: SortieAdvanceUiEvent): void {
+    hilog.info(HILOG_DOM, 'Bridge', '[ADVANCE] sortie advance UI detected');
+    const warning = this.buildAdvanceRiskMessage();
+    if (warning && this.advanceWarningHandler) {
+      this.advanceWarningHandler(warning);
+    }
+  }
+
+  private buildAdvanceRiskMessage(): string | null {
+    // Prefer result snapshot (post-battle), fall back to status snapshot (in-battle prediction)
+    const result = getBattleResult();
+    const status = getBattleStatus();
+
+    const fleets: ShipBattleStatus[][] = [];
+
+    if (result) {
+      if (result.friendMain) fleets.push(result.friendMain.ships);
+      if (result.friendEscort) fleets.push(result.friendEscort.ships);
+    } else if (status) {
+      if (status.friendMain) fleets.push(status.friendMain.ships);
+      if (status.friendEscort) fleets.push(status.friendEscort.ships);
+    }
+
+    if (fleets.length === 0) return null;
+
+    // Collect non-flagship taiha ships without damage control or goddess
+    const riskShips: string[] = [];
+
+    fleets.forEach((ships: ShipBattleStatus[], fleetIdx: number) => {
+      ships.forEach((ship: ShipBattleStatus, shipIdx: number) => {
+        // Skip flagship of main fleet (index 0 of fleet 0)
+        const isFlagship = (fleetIdx === 0 && shipIdx === 0);
+        if (isFlagship) return;
+        if (!ship.isTaiha || ship.isSunk) return;
+
+        const equip = getShipSpecialEquip(ship.uid);
+        if (equip.hasDamageControl || equip.hasGoddess) return;
+
+        riskShips.push(`${ship.name} (${ship.hpAfter}/${ship.hpMax})`);
+      });
+    });
+
+    if (riskShips.length === 0) return null;
+
+    return `以下舰娘大破且无损管，进击有击沉风险：\n${riskShips.join('\n')}`;
   }
 
   private pushFitStrong(policy: string, locked: boolean, vw: number, vh: number): void {

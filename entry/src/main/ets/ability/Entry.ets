@@ -23,6 +23,8 @@ const HILOG_DOM: number = 0x1357;
 export const APP_STORAGE_SHOW_SIDEBAR = 'ui.showSidebar';
 /** AppStorage key controlling whether YasenDetect JS is injected */
 export const APP_STORAGE_YASEN_DETECT_ENABLED = 'alerts.yasen.enabled';
+/** AppStorage key controlling whether AdvanceDetect (进击大破警告) is enabled */
+export const APP_STORAGE_ADVANCE_GUARD_ENABLED = 'alerts.advanceGuard.enabled';
 
 export default class EntryAbility extends UIAbility {
   private mainWindow?: window.Window;
@@ -44,6 +46,12 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_YASEN_DETECT_ENABLED, true);
     void kvGetBool(APP_STORAGE_YASEN_DETECT_ENABLED, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_YASEN_DETECT_ENABLED, v);
+    });
+
+    // Advance guard warning: default enabled; drives inject options in WebHost.
+    AppStorage.setOrCreate(APP_STORAGE_ADVANCE_GUARD_ENABLED, true);
+    void kvGetBool(APP_STORAGE_ADVANCE_GUARD_ENABLED, true).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_ADVANCE_GUARD_ENABLED, v);
     });
   }
 
