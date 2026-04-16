@@ -103,9 +103,8 @@ export default struct FleetStatusSidebar {
     const ships = getDeckShips(deckId);
 
     // 从战斗状态取最新的 HP 覆盖数据
-    // 优先用 result（已结算），其次 status（预测）
     const battle = getCurrentBattle();
-    // 仅使用已结算的战斗结果（BATTLE_RESULT），不使用昼/夜战预测值
+    // 仅使用已结算的战斗结果（BATTLE_RESULT）
     const sourceFleet: FleetBattleStatus | undefined =
       battle.result?.friendMain?.deckId === deckId ? battle.result!.friendMain :
       battle.result?.friendEscort?.deckId === deckId ? battle.result!.friendEscort :
@@ -133,7 +132,7 @@ export default struct FleetStatusSidebar {
             })
               .layoutWeight(1)
           },
-          (entry: ShipEntry) => `${entry.ship.uid}_${entry.ship.hpNow}_${entry.ship.hpMax}`
+          (entry: ShipEntry) => `${entry.ship.uid}_${entry.ship.hpNow}_${entry.ship.hpMax}_${entry.ship.cond}`
         )
       }
     }
