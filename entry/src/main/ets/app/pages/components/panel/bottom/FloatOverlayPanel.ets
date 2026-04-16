@@ -1,37 +1,97 @@
 import { ShipItem } from '../../../../../features/panel/type';
 import { hpColor, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import {
+  subscribeGameState, getDeckShips, getMaterials, getDecks,
+  MaterialsSnapshot, DeckSnapshot, ShipState
+} from '../../../../../features/state';
 
-// ── placeholder data (replace with live game data) ─────────────────────────
-const PLACEHOLDER_SHIPS: ShipItem[] = [
-  { id: 1, name: '阳炎改二',               shipType: '駆', level: 175, hp: 40, hpMax: 40, s1: 99,  s2: 99, s3: 87, s4: 45 },
-  { id: 2, name: '阳炎改二甲',              shipType: '駆', level: 153, hp: 40, hpMax: 40, s1: 99,  s2: 99, s3: 87, s4: 45 },
-  { id: 3, name: '大舱改二',               shipType: '戦', level:  84, hp: 84, hpMax: 84, s1: 109, s2: 0,  s3: 88, s4: 0  },
-  { id: 4, name: 'Conte di Cavour nuovo',  shipType: '戦', level:  80, hp: 80, hpMax: 80, s1: 85,  s2: 0,  s3: 86, s4: 0  },
-  { id: 5, name: 'Октябрьская революция',  shipType: '戦', level:  29, hp: 29, hpMax: 29, s1: 15,  s2: 0,  s3: 75, s4: 0  },
-  { id: 6, name: '第二十二号海防舰改',       shipType: '海', level:  47, hp:  7, hpMax: 10, s1: 17,  s2: 0,  s3: 62, s4: 35 },
-  { id: 7, name: 'Samuel B.Roberts Mk.II', shipType: '護', level:  31, hp: 31, hpMax: 31, s1: 99,  s2: 99, s3: 99, s4: 99 },
-];
-// ───────────────────────────────────────────────────────────────────────────
+function shipStateToItem(s: ShipState): ShipItem {
+  return {
+    id: s.uid,
+    name: s.name,
+    shipType: '',
+    level: s.level,
+    hp: s.hpNow,
+    hpMax: s.hpMax,
+    s1: s.cond,
+    s2: s.fuel,
+    s3: s.ammo,
+    s4: 0,
+  };
+}
+
+function condColor(cond: number): string {
+  if (cond >= 50) return '#FFD700';
+  if (cond >= 40) return PanelColors.txtSub;
+  if (cond >= 30) return PanelColors.hpWarn;
+  return PanelColors.hpCrit;
+}
 
 /**
  * Semi-transparent floating panel for COMPACT mode (landscape / small window).
  * Rendered on top of the game viewport via Stack in the parent.
  *
- * Visual style: dark glass (overlayBg + backdropBlur), KC3-inspired palette.
- * Width is constrained by the parent; height fills its container.
- *
- * Layout (top → bottom):
- *   StatusLine — compact resource / sortie metrics
- *   ShipList   — 2-line compact rows (no avatar; name + Lv + HP bar + 2 stats)
+ * Displays the selected fleet's ships from live GameState.
+ * Fleet selector is a compact row of numbered buttons at the top.
  */
 @ComponentV2
 export default struct FloatOverlayPanel {
+  @Local activeFleet: number = 0;
+  @Local ships: ShipItem[] = [];
+  @Local materials: MaterialsSnapshot | null = null;
+  @Local decks: DeckSnapshot[] = [];
+
+  private unsubscribe: (() => void) | null = null;
+
+  aboutToAppear(): void {
+    this.loadState();
+    this.unsubscribe = subscribeGameState((changeType, _state) => {
+      if (changeType === 'all' || changeType === 'ships' ||
+          changeType === 'decks' || changeType === 'materials') {
+        this.loadState();
+      }
+    });
+  }
+
+  aboutToDisappear(): void {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
+  }
+
+  private loadState(): void {
+    this.materials = getMaterials();
+    this.decks = [...getDecks()];
+    this.refreshShips();
+  }
+
+  private refreshShips(): void {
+    if (this.activeFleet < 4) {
+      this.ships = getDeckShips(this.activeFleet + 1).map(shipStateToItem);
+    } else {
+      this.ships = [];
+    }
+  }
+
+  private selectFleet(idx: number): void {
+    this.activeFleet = idx;
+    this.refreshShips();
+  }
+
+  private isOnExpedition(idx: number): boolean {
+    if (idx >= 4) return false;
+    const deck = this.decks.find(d => d.deckId === idx + 1);
+    return !!(deck?.expeditionReturnTime && deck.expeditionReturnTime > Date.now());
+  }
+
+  // ── builders ──────────────────────────────────────────────────────────────
 
   /**
-   * Compact 2-line ship row without avatar (space-efficient for overlay):
+   * Compact 2-line ship row:
    *
-   *   name (flex)        hp / hpMax
-   *   Lv.xxx  [=====HP bar=====]  s1  s2  [btn]
+   *   name (flex)               hp / hpMax
+   *   Lv.xxx  [=====HP bar=====]  ◆cond  燃s2
    */
   @Builder ShipRow(ship: ShipItem) {
     Column({ space: 3 }) {
@@ -40,45 +100,46 @@ export default struct FloatOverlayPanel {
         Text(ship.name)
           .fontSize(PanelDimens.fontMd)
           .fontWeight(FontWeight.Medium)
-          .fontColor(PanelColors.txtPrimary)
+          .fontColor(ship.hp <= 0 ? PanelColors.txtMuted : PanelColors.txtPrimary)
           .layoutWeight(1)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${ship.hp} / ${ship.hpMax}`)
+        Text(`${ship.hp}/${ship.hpMax}`)
           .fontSize(PanelDimens.fontMd)
           .fontColor(hpColor(ship.hp, ship.hpMax))
-          .margin({ left: 6 })
+          .margin({ left: 4 })
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      // Line 2: Lv | HP bar | 2 stats | button
-      Row({ space: 4 }) {
-        Text(`Lv. ${ship.level}`)
+      // Line 2: Lv | HP bar | cond | fuel
+      Row({ space: 3 }) {
+        Text(`Lv.${ship.level}`)
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtSub)
           .width(PanelDimens.levelW)
-        Progress({ value: ship.hp, total: ship.hpMax, type: ProgressType.Linear })
+        Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
           .layoutWeight(1)
           .height(PanelDimens.hpBarCompH)
           .color(hpColor(ship.hp, ship.hpMax))
           .backgroundColor(PanelColors.overlayRow)
-        Text(`${ship.s1}`).fontSize(PanelDimens.fontSm).fontColor(PanelColors.stat).width(PanelDimens.statCompW).textAlign(TextAlign.End)
-        Text(`${ship.s2}`).fontSize(PanelDimens.fontSm).fontColor(PanelColors.stat).width(PanelDimens.statCompW).textAlign(TextAlign.End)
-        Button('按钮', { type: ButtonType.Normal })
+        Text(`◆${ship.s1}`)
           .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtSub)
-          .backgroundColor(PanelColors.overlayBtn)
-          .width(PanelDimens.btnCompW)
-          .height(PanelDimens.btnCompH)
-          .borderRadius(PanelDimens.btnRadius)
+          .fontColor(condColor(ship.s1))
+          .width(PanelDimens.statCompW + 4)
+          .textAlign(TextAlign.End)
+        Text(`燃${ship.s2}`)
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.stat)
+          .width(PanelDimens.statCompW + 6)
+          .textAlign(TextAlign.End)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .height(PanelDimens.rowCompH)
-    .padding({ left: 10, right: 8, top: 5, bottom: 5 })
+    .padding({ left: 8, right: 6, top: 4, bottom: 4 })
     .justifyContent(FlexAlign.Center)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.overlayRow)
@@ -86,29 +147,69 @@ export default struct FloatOverlayPanel {
 
   build() {
     Column() {
-      // Compact status line
+      // Compact resource status line
       Row() {
-        Text('--:-- | --/--TP')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.overlayTxt)
-          .layoutWeight(1)
-        Text('--代/--')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.overlayTxt)
+        if (this.materials) {
+          Text(`燃${this.materials.fuel}`)
+            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
+          Text(`弾${this.materials.ammo}`)
+            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
+          Text(`鋼${this.materials.steel}`)
+            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
+          Text(`ボ${this.materials.bauxite}`)
+            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          Blank().layoutWeight(1)
+          Text(`修${this.materials.instantRepair}`)
+            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+        } else {
+          Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+        }
       }
       .width('100%')
       .height(PanelDimens.statusBarH)
-      .padding({ left: 10, right: 10 })
+      .padding({ left: 8, right: 8 })
       .alignItems(VerticalAlign.Center)
       .borderWidth({ bottom: PanelDimens.borderW })
       .borderColor(PanelColors.overlayHdr)
 
+      // Compact fleet selector row
+      Row({ space: 2 }) {
+        ForEach([0, 1, 2, 3], (idx: number) => {
+          Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtTabOn)
+            .backgroundColor(this.activeFleet === idx ? '#0d47a1' : PanelColors.bgTabInactive)
+            .opacity(this.activeFleet === idx ? 1.0 : 0.55)
+            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+            .borderRadius(PanelDimens.radius)
+            .onClick(() => { this.selectFleet(idx); })
+        }, (idx: number) => `ftab-${idx}`)
+
+        Blank().layoutWeight(1)
+      }
+      .width('100%')
+      .height(PanelDimens.tabBarH - 4)
+      .padding({ left: 8, right: 8 })
+      .backgroundColor(PanelColors.bgTabs)
+      .alignItems(VerticalAlign.Center)
+
       // Ship list
       Scroll() {
         Column() {
-          ForEach(PLACEHOLDER_SHIPS, (ship: ShipItem) => {
-            this.ShipRow(ship)
-          }, (ship: ShipItem) => `ship-${ship.id}`)
+          if (this.ships.length > 0) {
+            ForEach(this.ships, (ship: ShipItem) => {
+              this.ShipRow(ship)
+            }, (ship: ShipItem) => `ship-${ship.id}`)
+          } else {
+            Text('データなし')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtMuted)
+              .margin({ top: 16 })
+              .alignSelf(ItemAlign.Center)
+          }
         }
         .width('100%')
       }
