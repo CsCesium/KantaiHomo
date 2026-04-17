@@ -20,6 +20,7 @@ export default struct GameWeb {
       .javaScriptAccess(true)
       .domStorageAccess(true)
       .fileAccess(true)
+      .zoomAccess(false)
       .onControllerAttached(() => { this.onWebAttached?.(); })
       .onLoadIntercept(() => false)
       .onInterceptRequest((ev) => {
