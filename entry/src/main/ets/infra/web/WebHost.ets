@@ -66,7 +66,14 @@ export default struct WebHost {
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
-    ...defaultInjectOptions,
+    channelName: defaultInjectOptions.channelName,
+    postMethod: defaultInjectOptions.postMethod,
+    apiFilter: defaultInjectOptions.apiFilter,
+    enableXHRHook: defaultInjectOptions.enableXHRHook,
+    enableFetchHook: defaultInjectOptions.enableFetchHook,
+    enableSessionPersist: defaultInjectOptions.enableSessionPersist,
+    enableIframeFit: defaultInjectOptions.enableIframeFit,
+    enableDebug: defaultInjectOptions.enableDebug,
     enableYasenDetect: this.yasenDetectEnabled,
     enableAdvanceDetect: this.advanceGuardEnabled,
     enableFPS: this.injectFpsEnabled,
