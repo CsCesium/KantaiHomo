@@ -15,6 +15,7 @@ export type {
   StateChangeListener,
   ExpChange,
   SenkaInfo,
+  RankingSnapshot,
   NDockSnapShot,
   KDockSnapShot,
   CurrentBattleState,
@@ -65,6 +66,10 @@ export {
   getSenkaInfo,
   getRecentExpChanges,
   resetDailySenka,
+  updateRanking,
+  getRankingSnapshot,
+  initDailySenka,
+  initRanking,
 
   // 订阅
   subscribeGameState,

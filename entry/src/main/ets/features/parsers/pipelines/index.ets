@@ -3,6 +3,7 @@ import { expeditionPipeline } from './expedition';
 import { battlePipeline } from './battle';
 import { start2Pipeline } from './start2';
 import { questPipeline } from './quest';
+import { rankingPipeline } from './ranking';
 import { DUMP_PIPELINES, registerPipeline, DumpPipeline } from '../pipeline';
 
 export * from './port';
@@ -10,6 +11,7 @@ export * from './expedition';
 export * from './battle';
 export * from './start2';
 export * from './quest';
+export * from './ranking';
 
 /** 所有 pipeline，按需维护。新增 pipeline 时在此数组添加即可。 */
 const ALL_PIPELINES: DumpPipeline[] = [
@@ -18,6 +20,7 @@ const ALL_PIPELINES: DumpPipeline[] = [
   battlePipeline,
   start2Pipeline,
   questPipeline,
+  rankingPipeline,
 ];
 
 /**

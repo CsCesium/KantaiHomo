@@ -165,12 +165,30 @@ export interface ExpChange {
   timestamp: number;
 }
 
+/** 战绩页面战果快照（实际排行数据） */
+export interface RankingSnapshot {
+  /** 当前名次 */
+  rank: number;
+  /** 当月战果点数 */
+  senka: number;
+  /** 快照时提督经验值（用于估算增量） */
+  exp: number;
+  /** 提督 memberId */
+  memberId: string;
+  /** 快照时间戳 */
+  capturedAt: number;
+}
+
 /** 战果信息（基于经验计算） */
 export interface SenkaInfo {
   /** 今日获得经验 */
   todayExp: number;
-  /** 预估战果 (经验 / 1428) */
-  estimatedSenka: number;
+  /** 今日预估战果增量 (todayExp / 1428) */
+  estimatedTodaySenka: number;
+  /** 战绩页面战果快照（访问战绩表示后更新） */
+  rankingSnapshot: RankingSnapshot | null;
+  /** 本月预估总战果：快照战果 + 快照后经验增量估算；无快照时为 null */
+  estimatedMonthlySenka: number | null;
   /** 记录开始时间 */
   startTime: number;
   /** 记录开始时的经验 */

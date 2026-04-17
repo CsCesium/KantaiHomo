@@ -29,6 +29,8 @@ export type EventType =
     | 'BATTLE_DAY'
     | 'BATTLE_NIGHT'
     | 'BATTLE_RESULT'
+  // Ranking
+    | 'RANKING_SNAPSHOT'
   // UI
     | 'YASEN_DETECTED'
     | 'TAIHA_WARNING';
