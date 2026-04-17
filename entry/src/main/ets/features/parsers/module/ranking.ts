@@ -8,20 +8,28 @@ import { ParserCtx, mkEvt, detectEndpoint, EndpointRule } from "./common"
 const RULES: EndpointRule[] = [
   {
     endpoint: '/api_req_ranking',
-    match: (url: string) => {
-      const i = url.indexOf('/api_req_ranking/')
-      return i >= 0
-    },
+    match: (url: string) => url.indexOf('/api_req_ranking/') >= 0,
   },
 ]
 
-// Known field names for the current game client (obfuscated).
-// These are tried first; if they yield nothing, heuristic detection takes over.
+// Confirmed field mapping (RecordRankingModel.SetAll, current client):
+//   api_mxltvkpyuklh  → rank
+//   api_mtjmdcwtvhdr  → nickname
+//   api_itbrdpdbkynm  → comment
+//   api_pbgkfylkbjuy  → flagtype
+//   api_pcumlrymlujh  → classrank (admiral rank tier)
+//   api_itslcqtmrxtf  → medals  (NOT period exp — do not divide by 1428)
+//   api_wuhnhojjxmke  → score[0] (lifetime/cumulative exp, ~hundreds of millions)
+//   api_xlqcmisdyfiu  → score[1] (monthly ranking senka, direct integer value)
+//   api_mcouotbbbzpx  → score[2] (secondary score component)
 const KNOWN_RANK     = 'api_mxltvkpyuklh'
 const KNOWN_NICKNAME = 'api_mtjmdcwtvhdr'
-const KNOWN_SCORE    = 'api_itslcqtmrxtf'
+// score[1] is the monthly senka as displayed in the ranking — stored directly, no conversion.
+const KNOWN_SENKA    = 'api_xlqcmisdyfiu'
+// score[2]: secondary component (e.g. base senka without EO bonus), used as fallback.
+const KNOWN_SENKA_2  = 'api_mcouotbbbzpx'
 
-// Field names from the legacy unobfuscated endpoint.
+// Legacy unobfuscated endpoint field names.
 const LEGACY_RANK      = 'api_no'
 const LEGACY_NICKNAME  = 'api_nickname'
 const LEGACY_SENKA     = 'api_rate'
@@ -35,25 +43,31 @@ interface EntryFields {
 }
 
 /**
- * Parse a ranking list entry using known field names first, then fall back to
- * value-range heuristics so the parser survives future obfuscation changes.
+ * Parse a ranking list entry.
  *
- * Value-range assumptions (stable across obfuscation):
- *   - rank:         integer 1–5000 (top-1000 ranking)
- *   - period score: integer 10 000 – 100 000 000 (monthly exp for ranked players)
- *   - total exp:    integer > 100 000 000 (cumulative, excluded from period score)
- *   - nickname:     shortest non-empty string (KanColle nickname ≤ 7 chars)
+ * Priority:
+ *   ① Current obfuscated field names (precise, fast)
+ *   ② Legacy unobfuscated field names
+ *   ③ Value-range heuristics (obfuscation-agnostic fallback)
+ *
+ * Value tiers (stable across obfuscation changes):
+ *   > 100 000 000 : lifetime cumulative exp (score[0]) — excluded
+ *   1 000 000 – 100 000 000 : medals / long-term accumulators — excluded
+ *   1 000 – 1 000 000 : monthly ranking senka (e.g. 1654)
+ *   1 – 1 000 : rank position (1–1000) and admiral-rank tier (1–~20)
+ *   0 : flag fields
  */
 function parseEntry(entry: JsonObject): EntryFields | null {
-  // ① Try current obfuscated field names
+  // ① Current obfuscated field names
   const rank1     = getNum(entry, KNOWN_RANK, 0)
   const nickname1 = getStr(entry, KNOWN_NICKNAME, '')
-  const score1    = getNum(entry, KNOWN_SCORE, 0)
+  // Prefer score[1]; fall back to score[2] if score[1] is absent.
+  const senka1 = getNum(entry, KNOWN_SENKA, 0) || getNum(entry, KNOWN_SENKA_2, 0)
   if (rank1 > 0 && nickname1) {
-    return { rank: rank1, nickname: nickname1, memberId: '', senka: Math.floor(score1 / 1428) }
+    return { rank: rank1, nickname: nickname1, memberId: '', senka: senka1 }
   }
 
-  // ② Try legacy unobfuscated field names
+  // ② Legacy unobfuscated field names
   const rank2     = getNum(entry, LEGACY_RANK, 0)
   const nickname2 = getStr(entry, LEGACY_NICKNAME, '')
   const senka2    = getNum(entry, LEGACY_SENKA, 0)
@@ -66,7 +80,7 @@ function parseEntry(entry: JsonObject): EntryFields | null {
     }
   }
 
-  // ③ Heuristic fallback: infer fields from value ranges
+  // ③ Heuristic fallback using value tiers
   const strings: string[] = []
   const nums: number[]    = []
   const vals = Object.values(entry) as (string | number | boolean | null | JsonObject | JsonArray)[]
@@ -77,28 +91,29 @@ function parseEntry(entry: JsonObject): EntryFields | null {
   }
   if (strings.length < 1 || nums.length < 3) return null
 
-  // Nickname = shortest non-empty string (nicknames are max 7 chars in KanColle)
+  // Nickname = shortest non-empty string (KanColle nickname cap: 7 chars)
   const nonEmpty = strings.filter(s => s.length > 0)
   if (nonEmpty.length === 0) return null
   const nickname3 = nonEmpty.reduce((a, b) => (a.length <= b.length ? a : b))
 
-  // Period score = largest integer in [10 000, 100 000 000)
-  let periodScore = -1
+  // Monthly senka = largest integer in [1 000, 1 000 000)
+  // (lifetime exp > 100M and medals > 1M are above this window; rank ≤ 1000 is below)
+  let senka3 = -1
   for (let i = 0; i < nums.length; i++) {
     const v = nums[i]
-    if (v > 10_000 && v < 100_000_000 && v > periodScore) periodScore = v
+    if (v >= 1000 && v < 1_000_000 && v > senka3) senka3 = v
   }
-  if (periodScore < 0) return null
+  if (senka3 < 0) return null
 
-  // Rank = largest integer in [1, 5000] (top-1000 pages; admiral-rank ≤ ~20 will be smaller)
+  // Rank = largest integer in [1, 1000] (top-1000 ranking; admiral-rank tier ≤ ~20 is smaller)
   let rank3 = -1
   for (let i = 0; i < nums.length; i++) {
     const v = nums[i]
-    if (v >= 1 && v <= 5000 && v > rank3) rank3 = v
+    if (v >= 1 && v <= 1000 && v > rank3) rank3 = v
   }
   if (rank3 <= 0) return null
 
-  return { rank: rank3, nickname: nickname3, memberId: '', senka: Math.floor(periodScore / 1428) }
+  return { rank: rank3, nickname: nickname3, memberId: '', senka: senka3 }
 }
 
 export function parseRanking(dump: ApiDump): AnyRankingEvt[] {
