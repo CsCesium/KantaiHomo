@@ -1,29 +1,30 @@
 /**
- * AdvanceDetect — 检测战斗结算后的"进击/撤退"选择界面
+ * AdvanceDetect — 检测战斗后"进击/撤退"及联合舰队"退避/退避せず"选择界面
  *
- * 与 YasenDetect 原理相同：Hook PIXI addChild 并配合 RAF 轮询，
- * 检测到进击/撤退两个可见按钮同时出现时，向 ArkTS 端上报 SORTIE_ADVANCE_UI 消息。
+ * Hook PIXI addChild 并配合 RAF 轮询，
+ * 检测到决策按钮对同时可见时，向 ArkTS 端上报 SORTIE_ADVANCE_UI 消息。
  *
- * ⚠ 纹理 ID 说明：
- *   ADVANCE_TEX / RETREAT_TEX 来自对 KC HTML5 PIXI stage 的实际抓包分析。
- *   若检测失效，请在浏览器控制台打印 PIXI stage 节点后更新下方 Set。
+ * 纹理 ID（map_decision_* 系列，KC HTML5 PIXI stage 实际值）：
+ *   map_decision_1  / map_decision_8  → 進撃 / 進撃_glow
+ *   map_decision_13 / map_decision_14 → 撤退 / 撤退_glow
+ *   map_decision_11 / map_decision_12 → 退避 / 退避_glow        (联合舰队护卫队退避)
+ *   map_decision_9  / map_decision_10 → 退避せず / 退避せず_glow
  */
 export function advanceDetectorJS(): string {
   return `
   (() => {
-    // ---- 进击/撤退 按钮纹理 ID
-    const MAP_DECISION_LABELS = {
-  map_decision_1:  '進撃',
-  map_decision_8:  '進撃_glow',
-  map_decision_13: '撤退',
-  map_decision_14: '撤退_glow',
-  map_decision_9:  '退避せず',
-  map_decision_10: '退避せず_glow',
-  map_decision_11: '退避',
-  map_decision_12: '退避_glow',
-};
-    const ADVANCE_TEX = new Set(['battle_main_5', 'battle_main_66']);  // 進撃する
-    const RETREAT_TEX = new Set(['battle_main_7', 'battle_main_68']);  // 撤退する
+    // 進撃/撤退（普通出击每节点决策）
+    const ADVANCE_TEX  = new Set(['map_decision_1',  'map_decision_8']);
+    const RETREAT_TEX  = new Set(['map_decision_13', 'map_decision_14']);
+    // 退避/退避せず（联合舰队护卫队专用）
+    const EVADE_TEX    = new Set(['map_decision_11', 'map_decision_12']);
+    const NO_EVADE_TEX = new Set(['map_decision_9',  'map_decision_10']);
+
+    // 按场景分组：[正向按钮集合, 反向按钮集合]
+    const SCENES = [
+      [ADVANCE_TEX,  RETREAT_TEX],   // 進撃 vs 撤退
+      [EVADE_TEX,    NO_EVADE_TEX],  // 退避 vs 退避せず
+    ];
 
     const isSprite = n => window.PIXI && n instanceof PIXI.Sprite;
     function texId(n) {
@@ -47,21 +48,27 @@ export function advanceDetectorJS(): string {
       return null;
     }
 
-    function collectAdvanceButtons(root) {
-      const stack = [root], hits = [];
+    function collectButtons(root) {
+      const stack = [root];
+      const byTex = new Map(); // texId -> { node, id }
       while (stack.length) {
         const n = stack.pop(); if (!n) continue;
         if (isSprite(n)) {
           const id = texId(n);
-          if (ADVANCE_TEX.has(id) || RETREAT_TEX.has(id)) hits.push({ node: n, id });
+          for (const [posSet, negSet] of SCENES) {
+            if ((posSet.has(id) || negSet.has(id)) && visibleChain(n)) {
+              if (!byTex.has(id)) byTex.set(id, { node: n, id });
+            }
+          }
         }
         if (n.children?.length) for (const c of n.children) stack.push(c);
       }
-      const adv = hits.find(h => ADVANCE_TEX.has(h.id) && visibleChain(h.node));
-      const ret = hits.find(h => RETREAT_TEX.has(h.id) && visibleChain(h.node));
-      if (adv && ret) {
-        const parent = commonAncestor(adv.node, ret.node) || root;
-        return { adv, ret, parent };
+      for (const [posSet, negSet] of SCENES) {
+        const pos = [...byTex.values()].find(h => posSet.has(h.id));
+        const neg = [...byTex.values()].find(h => negSet.has(h.id));
+        if (pos && neg) {
+          return { adv: pos, ret: neg, parent: commonAncestor(pos.node, neg.node) || root };
+        }
       }
       return null;
     }
@@ -69,7 +76,7 @@ export function advanceDetectorJS(): string {
     let lastFire = 0;
     function postAdvance(ctx) {
       const now = Date.now();
-      if (now - lastFire < 2000) return; // 去抖（结算->进撃UI 一般 >1 s）
+      if (now - lastFire < 2000) return;
       lastFire = now;
       try {
         const payload = {
@@ -89,7 +96,7 @@ export function advanceDetectorJS(): string {
     }
 
     function tryDetect(node) {
-      const r = collectAdvanceButtons(node);
+      const r = collectButtons(node);
       if (r) postAdvance(r);
     }
 
@@ -112,7 +119,6 @@ export function advanceDetectorJS(): string {
         return ret;
       };
 
-      // RAF 兜底扫描
       (function loop() {
         try {
           const root = window.app?.stage;
@@ -122,7 +128,7 @@ export function advanceDetectorJS(): string {
       })();
 
       C.__kca_advance_installed__ = true;
-      console.log('[ADVANCE] detector installed.');
+      console.log('[ADVANCE] detector installed (map_decision_*).');
     }
 
     (function boot() {
