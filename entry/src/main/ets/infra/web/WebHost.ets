@@ -437,20 +437,21 @@ export default struct WebHost {
         // - non-COMPACT fullscreen: mirror the original side-button visibility condition
         // Split/Floating scenes are intentionally hidden.
         if (this.shouldShowFloatingButtons()) {
-          ButtonColumn({
-            onRefresh: () => this.controller.refresh(),
-            onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
-            onLogout: () => this.promptLogout(),
-            panelActive: this.overlayForced,
-          })
-            .width(56)
-            .padding({ left: 4, right: 4, top: 8, bottom: 8 })
-            .align(Alignment.BottomStart)
-
-          // 今日/本月战果常驻显示 — 贴合 ButtonColumn 右侧、底部对齐
-          BattleStatsWidget()
-            .align(Alignment.BottomStart)
-            .margin({ left: 60, bottom: 10 })
+          // 左下角纵向排列：ButtonColumn 在上，战果在下
+          Column() {
+            ButtonColumn({
+              onRefresh: () => this.controller.refresh(),
+              onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+              onLogout: () => this.promptLogout(),
+              panelActive: this.overlayForced,
+            })
+              .width(56)
+              .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+            BattleStatsWidget()
+              .margin({ left: 4, bottom: 6 })
+          }
+          .align(Alignment.BottomStart)
+          .alignItems(HorizontalAlign.Start)
         }
 
         // Fleet status sidebar — right-side persistent status bar.

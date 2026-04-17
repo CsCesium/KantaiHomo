@@ -9,6 +9,11 @@ const RULES: EndpointRule[] = [
     endpoint: '/api_req_ranking/getlist',
     match: (url: string) => url.includes('/api_req_ranking/getlist'),
   },
+  {
+    // Obfuscated ranking endpoint used by current game client
+    endpoint: '/api_req_ranking/mxltvkpyuklh',
+    match: (url: string) => url.includes('/api_req_ranking/mxltvkpyuklh'),
+  },
 ]
 
 export function parseRanking(dump: ApiDump): AnyRankingEvt[] {
@@ -35,15 +40,32 @@ export function parseRanking(dump: ApiDump): AnyRankingEvt[] {
   if (!list || list.length === 0) return []
 
   const entries: RankingEntryList['entries'] = []
-  for (const item of list) {
-    const entry: JsonObject | null = asObject(item as JsonObject)
-    if (!entry) continue
-    entries.push({
-      memberId: getStr(entry, 'api_member_id', ''),
-      rank: getNum(entry, 'api_no', 0),
-      senka: getNum(entry, 'api_rate', 0),
-      nickname: getStr(entry, 'api_nickname', ''),
-    })
+
+  if (endpoint === '/api_req_ranking/mxltvkpyuklh') {
+    // Obfuscated API: field names differ from the old unobfuscated endpoint.
+    // api_itslcqtmrxtf is the period score; senka ≈ floor(score / 1428).
+    for (const item of list) {
+      const entry: JsonObject | null = asObject(item as JsonObject)
+      if (!entry) continue
+      const periodScore = getNum(entry, 'api_itslcqtmrxtf', 0)
+      entries.push({
+        memberId: '',
+        rank: getNum(entry, 'api_mxltvkpyuklh', 0),
+        senka: Math.floor(periodScore / 1428),
+        nickname: getStr(entry, 'api_mtjmdcwtvhdr', ''),
+      })
+    }
+  } else {
+    for (const item of list) {
+      const entry: JsonObject | null = asObject(item as JsonObject)
+      if (!entry) continue
+      entries.push({
+        memberId: getStr(entry, 'api_member_id', ''),
+        rank: getNum(entry, 'api_no', 0),
+        senka: getNum(entry, 'api_rate', 0),
+        nickname: getStr(entry, 'api_nickname', ''),
+      })
+    }
   }
 
   if (entries.length === 0) return []

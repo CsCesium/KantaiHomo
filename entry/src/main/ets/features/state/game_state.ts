@@ -527,6 +527,7 @@ class GameStateManager {
    * 确保战果起点已初始化；周期切换（01:00 / 13:00 CST）时自动重置。
    */
   private ensureDailySenka(currentExp: number): void {
+    if (currentExp <= 0) return;
     const period = getCSTSenkaPeriodId();
     if (!this.dailySenkaStart) {
       this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: period };
