@@ -5,7 +5,7 @@ import { DumpPipeline, ParseResult, registerPipeline } from "../pipeline"
 
 export const rankingPipeline: DumpPipeline = {
   name: 'ranking',
-  match: (url) => url.includes('/api_req_ranking/getlist') || url.includes('/api_req_ranking/mxltvkpyuklh'),
+  match: (url) => url.includes('/api_req_ranking/'),
 
   parse: (dump: ApiDump): ParseResult | null => {
     const evts = parseRanking(dump)
