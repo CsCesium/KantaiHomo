@@ -11,7 +11,18 @@
 export function advanceDetectorJS(): string {
   return `
   (() => {
-    // ---- 进击/撤退 按钮纹理 ID（实际游戏中的值，如失效请更新） ----
+    // ---- 进击/撤退 按钮纹理 ID
+    const MAP_DECISION_LABELS = {
+  map_decision_1:  '進撃',
+  map_decision_8:  '進撃_glow',
+  map_decision_13: '撤退',
+  map_decision_14: '撤退_glow',
+  map_decision_9:  '退避せず',
+  map_decision_10: '退避せず_glow',
+  map_decision_11: '退避',
+  map_decision_12: '退避_glow',
+  map_decision_0:  'ring'
+};
     const ADVANCE_TEX = new Set(['battle_main_5', 'battle_main_66']);  // 進撃する
     const RETREAT_TEX = new Set(['battle_main_7', 'battle_main_68']);  // 撤退する
 
