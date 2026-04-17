@@ -41,12 +41,21 @@ export interface PingEvent {
   ts: number;
 }
 
+/** 进击/撤退选择界面出现事件 */
+export interface SortieAdvanceUiEvent {
+  type: 'SORTIE_ADVANCE_UI';
+  ts: number;
+  advId: string;
+  retId: string;
+}
+
 /** 所有 Bridge 消息联合类型 */
 export type BridgeMessage =
   | ApiDump
   | FpsEvent
   | YasenUiEvent
-  | PingEvent;
+  | PingEvent
+  | SortieAdvanceUiEvent;
 
 /** @deprecated 使用 BridgeMessage */
 export type AppChannelMessage = ApiDump | FpsEvent;
@@ -86,6 +95,16 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
         type: 'PING',
         ts: typeof obj.ts === 'number' ? obj.ts : Date.now(),
       } as PingEvent;
+    }
+
+    // SORTIE_ADVANCE_UI
+    if (type === 'SORTIE_ADVANCE_UI') {
+      return {
+        type: 'SORTIE_ADVANCE_UI',
+        ts: typeof obj.ts === 'number' ? obj.ts : Date.now(),
+        advId: typeof obj.advId === 'string' ? obj.advId : '',
+        retId: typeof obj.retId === 'string' ? obj.retId : '',
+      } as SortieAdvanceUiEvent;
     }
 
     // API_DUMP (type 可能为空)
@@ -131,6 +150,10 @@ export function isYasenUiEvent(msg: BridgeMessage): msg is YasenUiEvent {
 
 export function isPingEvent(msg: BridgeMessage): msg is PingEvent {
   return msg.type === 'PING';
+}
+
+export function isSortieAdvanceUiEvent(msg: BridgeMessage): msg is SortieAdvanceUiEvent {
+  return msg.type === 'SORTIE_ADVANCE_UI';
 }
 
 /* ===================== onInterceptRequest ===================== */
@@ -180,6 +203,7 @@ export interface InjectOptions {
   enableSessionPersist?: boolean;         // 默认 true
   enableIframeFit?: boolean;              // 默认 true
   enableYasenDetect?: boolean;            // 默认 true
+  enableAdvanceDetect?: boolean;          // 默认 true
   enableDebug?: boolean;
 }
 
@@ -196,5 +220,6 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   enableSessionPersist: true,
   enableIframeFit: true,
   enableYasenDetect: true,
+  enableAdvanceDetect: true,
   enableDebug: false,
 };

@@ -14,7 +14,7 @@ import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED } from "../../ability/Entry";
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED } from "../../ability/Entry";
 
 interface RpcPayload {
   op: string;
@@ -53,6 +53,8 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_SHOW_SIDEBAR) private showSidebarPref: boolean = true;
   /** Mirrors alerts.yasen.enabled; controls YasenDetect JS injection on each page load. */
   @StorageProp(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenDetectEnabled: boolean = true;
+  /** Mirrors alerts.advanceGuard.enabled; controls AdvanceDetect JS injection. */
+  @StorageProp(APP_STORAGE_ADVANCE_GUARD_ENABLED) private advanceGuardEnabled: boolean = true;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
@@ -276,9 +278,21 @@ export default struct WebHost {
     }
   }
 
+  private showAdvanceWarningDialog(msg: string): void {
+    promptAction.showDialog({
+      title: '⚠️ 大破进击警告',
+      message: msg,
+      buttons: [
+        { text: '撤退', color: '#6A9AB5' },
+        { text: '继续进击', color: '#e53935' },
+      ],
+    }).catch((_e: Error) => {});
+  }
+
   aboutToAppear() {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
+    this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
     this.host.bindDisplay();
     void this.host.applyOrientationByMode(true);
     void this.loadRuntimeConfig();
