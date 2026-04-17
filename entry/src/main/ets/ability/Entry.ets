@@ -61,15 +61,25 @@ export default class EntryAbility extends UIAbility {
     });
 
     // Optional injection features; all off by default.
-    for (const [key, def] of [
-      [APP_STORAGE_INJECT_FPS, false],
-      [APP_STORAGE_INJECT_TOUCH_PATCH, false],
-      [APP_STORAGE_INJECT_TICKER_RAF, false],
-      [APP_STORAGE_INJECT_PIXI_PATCH, false],
-    ] as [string, boolean][]) {
-      AppStorage.setOrCreate(key, def);
-      void kvGetBool(key, def).then((v: boolean) => { AppStorage.set(key, v); });
-    }
+    AppStorage.setOrCreate(APP_STORAGE_INJECT_FPS, false);
+    void kvGetBool(APP_STORAGE_INJECT_FPS, false).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_INJECT_FPS, v);
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_INJECT_TOUCH_PATCH, false);
+    void kvGetBool(APP_STORAGE_INJECT_TOUCH_PATCH, false).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_INJECT_TOUCH_PATCH, v);
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_INJECT_TICKER_RAF, false);
+    void kvGetBool(APP_STORAGE_INJECT_TICKER_RAF, false).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_INJECT_TICKER_RAF, v);
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_INJECT_PIXI_PATCH, false);
+    void kvGetBool(APP_STORAGE_INJECT_PIXI_PATCH, false).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_INJECT_PIXI_PATCH, v);
+    });
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
