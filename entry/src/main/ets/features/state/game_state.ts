@@ -11,6 +11,7 @@ import {
   ShipState,
   ShipSpecialEquip,
   SenkaInfo,
+  RankingSnapshot,
   StateChangeType,
   NDockSnapShot,
   KDockSnapShot,
@@ -21,6 +22,49 @@ import {
   EnemyBattleStatus,
   ShipBattleStatus
 } from "./type";
+
+/**
+ * 获取战果统计周期 ID（CST UTC+8 基准）。
+ *
+ * 战果统计时间为 01:00 和 13:00 (CST)，更新时间为 02:00 和 14:00 (CST)。
+ * 按统计时间划分计日周期：
+ *   - AM 周期：01:00 ≤ CST < 13:00  → "YYYY-MM-DD-AM"
+ *   - PM 周期：13:00 ≤ CST < 01:00(次日) → "YYYY-MM-DD-PM"（日期为 PM 开始当天）
+ */
+function getCSTSenkaPeriodId(ts?: number): string {
+  const ms = ts !== undefined ? ts : Date.now();
+  const cstMs = ms + 8 * 60 * 60 * 1000; // CST = UTC+8
+  const d = new Date(cstMs);
+  const h = d.getUTCHours();
+
+  let y: number;
+  let mo: number;
+  let day: number;
+  let period: string;
+
+  if (h >= 13) {
+    // PM 周期：从当天 13:00 开始
+    y = d.getUTCFullYear();
+    mo = d.getUTCMonth() + 1;
+    day = d.getUTCDate();
+    period = 'PM';
+  } else if (h >= 1) {
+    // AM 周期：从当天 01:00 开始
+    y = d.getUTCFullYear();
+    mo = d.getUTCMonth() + 1;
+    day = d.getUTCDate();
+    period = 'AM';
+  } else {
+    // 00:xx CST：属于前一天的 PM 周期
+    const yesterday = new Date(cstMs - 24 * 60 * 60 * 1000);
+    y = yesterday.getUTCFullYear();
+    mo = yesterday.getUTCMonth() + 1;
+    day = yesterday.getUTCDate();
+    period = 'PM';
+  }
+
+  return `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}-${period}`;
+}
 
 /** 损管/女神 master ID 常量 */
 const DAMAGE_CONTROL_MASTER_ID = 42;
@@ -52,8 +96,11 @@ class GameStateManager {
   private expHistory: ExpChange[] = [];
   private readonly MAX_EXP_HISTORY = 100;
 
-  /** 每日战果追踪 */
-  private dailySenkaStart: { exp: number; time: number } | null = null;
+  /** 每日战果追踪（含 CST 周期 ID，用于跨周期重置） */
+  private dailySenkaStart: { exp: number; time: number; date: string } | null = null;
+
+  /** 战绩页面战果快照 */
+  private rankingSnapshot: RankingSnapshot | null = null;
 
   // ==================== 状态更新 ====================
 
@@ -78,10 +125,8 @@ class GameStateManager {
       this.recordExpChange(oldExp, newExp);
     }
 
-    // 初始化每日战果追踪
-    if (!this.dailySenkaStart) {
-      this.dailySenkaStart = { exp: newExp, time: Date.now() };
-    }
+    // 初始化或跨日重置每日战果追踪
+    this.ensureDailySenka(newExp);
 
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('admiral');
@@ -260,9 +305,7 @@ class GameStateManager {
       if (oldExp > 0 && data.admiral.experience !== oldExp) {
         this.recordExpChange(oldExp, data.admiral.experience);
       }
-      if (!this.dailySenkaStart) {
-        this.dailySenkaStart = { exp: data.admiral.experience, time: Date.now() };
-      }
+      this.ensureDailySenka(data.admiral.experience);
     }
 
     if (data.materials) {
@@ -401,19 +444,62 @@ class GameStateManager {
    * 获取战果信息
    */
   getSenkaInfo(): SenkaInfo | null {
-    if (!this.dailySenkaStart || !this.state.admiral) {
+    if (!this.state.admiral) {
       return null;
     }
 
     const currentExp = this.state.admiral.experience;
-    const todayExp = currentExp - this.dailySenkaStart.exp;
+    const startExp = this.dailySenkaStart?.exp ?? currentExp;
+    const startTime = this.dailySenkaStart?.time ?? Date.now();
+    const todayExp = Math.max(0, currentExp - startExp);
+
+    let estimatedMonthlySenka: number | null = null;
+    const rs = this.rankingSnapshot;
+    if (rs) {
+      const expSinceRanking = Math.max(0, currentExp - rs.exp);
+      estimatedMonthlySenka = rs.senka + Math.floor(expSinceRanking / 1428);
+    }
 
     return {
       todayExp,
-      estimatedSenka: Math.floor(todayExp / 1428),
-      startTime: this.dailySenkaStart.time,
-      startExp: this.dailySenkaStart.exp,
+      estimatedTodaySenka: Math.floor(todayExp / 1428),
+      rankingSnapshot: rs,
+      estimatedMonthlySenka,
+      startTime,
+      startExp,
     };
+  }
+
+  /**
+   * 更新战绩排行快照（访问战绩表示页面时调用）
+   */
+  updateRanking(snapshot: RankingSnapshot): void {
+    this.rankingSnapshot = snapshot;
+    this.notifyListeners('admiral');
+  }
+
+  /**
+   * 获取战绩排行快照
+   */
+  getRankingSnapshot(): RankingSnapshot | null {
+    return this.rankingSnapshot;
+  }
+
+  /**
+   * 从 KV 恢复数据时调用：设置每日战果起点（仅当周期 ID 与当前一致时有效）
+   */
+  initDailySenka(exp: number, time: number, date: string): void {
+    const currentPeriod = getCSTSenkaPeriodId();
+    if (date === currentPeriod) {
+      this.dailySenkaStart = { exp, time, date: currentPeriod };
+    }
+  }
+
+  /**
+   * 从 KV 恢复数据时调用：设置战绩快照
+   */
+  initRanking(snapshot: RankingSnapshot): void {
+    this.rankingSnapshot = snapshot;
   }
 
   /**
@@ -424,14 +510,29 @@ class GameStateManager {
   }
 
   /**
-   * 重置每日战果追踪（跨日时调用）
+   * 强制重置当前周期战果追踪（手动调用）
    */
   resetDailySenka(): void {
     if (this.state.admiral) {
+      const period = getCSTSenkaPeriodId();
       this.dailySenkaStart = {
         exp: this.state.admiral.experience,
         time: Date.now(),
+        date: period,
       };
+    }
+  }
+
+  /**
+   * 确保战果起点已初始化；周期切换（01:00 / 13:00 CST）时自动重置。
+   */
+  private ensureDailySenka(currentExp: number): void {
+    const period = getCSTSenkaPeriodId();
+    if (!this.dailySenkaStart) {
+      this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: period };
+    } else if (this.dailySenkaStart.date !== period) {
+      // CST 周期切换（01:00 或 13:00）：重置起点
+      this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: period };
     }
   }
 
@@ -670,6 +771,7 @@ class GameStateManager {
       lastUpdatedAt: this.state.lastUpdatedAt,
       expHistory: this.expHistory,
       dailySenkaStart: this.dailySenkaStart,
+      rankingSnapshot: this.rankingSnapshot,
     };
   }
 }
@@ -716,6 +818,10 @@ export const hasTaihaInDeck = (deckId: number) => gameStateManager.hasTaihaInDec
 export const getSenkaInfo = () => gameStateManager.getSenkaInfo();
 export const getRecentExpChanges = (count?: number) => gameStateManager.getRecentExpChanges(count);
 export const resetDailySenka = () => gameStateManager.resetDailySenka();
+export const updateRanking = (snapshot: RankingSnapshot) => gameStateManager.updateRanking(snapshot);
+export const getRankingSnapshot = () => gameStateManager.getRankingSnapshot();
+export const initDailySenka = (exp: number, time: number, date: string) => gameStateManager.initDailySenka(exp, time, date);
+export const initRanking = (snapshot: RankingSnapshot) => gameStateManager.initRanking(snapshot);
 export const clearGameState = () => gameStateManager.clear();
 export const subscribeGameState = (listener: StateChangeListener) => gameStateManager.subscribe(listener);
 export const exportGameStateSnapshot = () => gameStateManager.exportSnapshot();

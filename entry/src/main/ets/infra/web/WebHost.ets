@@ -13,6 +13,7 @@ import { lengthToNumber } from "../utils/trans";
 import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
+import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED } from "../../ability/Entry";
 
 interface RpcPayload {
@@ -430,6 +431,11 @@ export default struct WebHost {
             .width(56)
             .padding({ left: 4, right: 4, top: 8, bottom: 8 })
             .align(Alignment.BottomStart)
+
+          // 今日/本月战果常驻显示 — 贴合 ButtonColumn 右侧、底部对齐
+          BattleStatsWidget()
+            .align(Alignment.BottomStart)
+            .margin({ left: 60, bottom: 10 })
         }
 
         // Fleet status sidebar — right-side persistent status bar.

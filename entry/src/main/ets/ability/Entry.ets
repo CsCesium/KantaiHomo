@@ -16,6 +16,7 @@ import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
 import { FairyService } from '../infra/fairy/service/FairyService';
 import { kvGetBool, kvGetString } from '../infra/storage/kv';
+import { loadSenkaFromKV } from '../features/state/senkaInit';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -75,6 +76,9 @@ export default class EntryAbility extends UIAbility {
       // 每当 expedition 状态写入 DB 后立即重新规划 timer，与通知权限无关
       addOnExpeditionChanged(() => { void getExpeditionScheduler()?.poke(); });
       void scheduler.start();
+
+      // 恢复战果跟踪数据（每日起点 + 战绩快照）
+      void loadSenkaFromKV();
 
       hilog.info(HILOG_DOM, 'App', 'deps+registry+alerts+scheduler initialized (stageCreate)');
     } catch (e) {

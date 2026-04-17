@@ -2,6 +2,7 @@
 import type { AnyBattleEvt, AnyExpEvt, AnyPortEvt, AnyQuestEvt, AnySortieEvt,
   SessionBindEvent } from '../../../domain/events';
 import type { AnyStart2Evt } from '../../../domain/events/start2';
+import type { AnyRankingEvt } from '../../../domain/events/ranking';
 
 import type { PersistDeps } from '../../../infra/deps/index';
 
@@ -14,7 +15,8 @@ export type HandlerEvent =
     | AnyStart2Evt
     | AnyExpEvt
     | AnySortieEvt
-    | AnyBattleEvt;
+    | AnyBattleEvt
+    | AnyRankingEvt;
   ;
 
 export interface Handler {
