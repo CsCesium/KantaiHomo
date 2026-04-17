@@ -5,19 +5,9 @@ import { RankingSnapshot } from './type';
 const KV_RANKING_KEY = 'senka.ranking.v1';
 const KV_DAILY_KEY = 'senka.daily.v1';
 
-/** 获取 JST 日期字符串 (YYYY-MM-DD) */
-function getJSTDateString(): string {
-  const jstMs = Date.now() + 9 * 60 * 60 * 1000;
-  const d = new Date(jstMs);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 /**
  * 从 KV 加载战果跟踪数据，在应用启动时调用一次。
- * 恢复当日经验起点（同日有效）和战绩快照。
+ * 恢复当前统计周期经验起点和战绩快照。
  */
 export async function loadSenkaFromKV(): Promise<void> {
   await Promise.all([loadDailyFromKV(), loadRankingFromKV()]);
@@ -29,6 +19,7 @@ async function loadDailyFromKV(): Promise<void> {
     if (!raw) return;
     const parsed = JSON.parse(raw) as { exp: number; time: number; date: string };
     if (typeof parsed.exp === 'number' && typeof parsed.time === 'number' && typeof parsed.date === 'string') {
+      // date 字段存的是 CST 统计周期 ID（由 game_state 内部验证是否匹配当前周期）
       initDailySenka(parsed.exp, parsed.time, parsed.date);
     }
   } catch (_e) {}
@@ -42,16 +33,5 @@ async function loadRankingFromKV(): Promise<void> {
     if (typeof parsed.senka === 'number' && typeof parsed.rank === 'number') {
       initRanking(parsed);
     }
-  } catch (_e) {}
-}
-
-/**
- * 将当日经验起点保存至 KV（在首次初始化时或跨日重置后调用）。
- */
-export async function saveDailyToKV(exp: number, time: number): Promise<void> {
-  try {
-    const date = getJSTDateString();
-    const { kvSet } = await import('../../infra/storage/kv');
-    await kvSet(KV_DAILY_KEY, JSON.stringify({ exp, time, date }));
   } catch (_e) {}
 }

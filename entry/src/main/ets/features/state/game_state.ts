@@ -23,16 +23,47 @@ import {
   ShipBattleStatus
 } from "./type";
 
-/** 获取 JST 日期字符串 (YYYY-MM-DD)，用于检测跨日边界 */
-function getJSTDateString(ts?: number): string {
+/**
+ * 获取战果统计周期 ID（CST UTC+8 基准）。
+ *
+ * 战果统计时间为 01:00 和 13:00 (CST)，更新时间为 02:00 和 14:00 (CST)。
+ * 按统计时间划分计日周期：
+ *   - AM 周期：01:00 ≤ CST < 13:00  → "YYYY-MM-DD-AM"
+ *   - PM 周期：13:00 ≤ CST < 01:00(次日) → "YYYY-MM-DD-PM"（日期为 PM 开始当天）
+ */
+function getCSTSenkaPeriodId(ts?: number): string {
   const ms = ts !== undefined ? ts : Date.now();
-  // JST = UTC+9
-  const jstMs = ms + 9 * 60 * 60 * 1000;
-  const d = new Date(jstMs);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  const cstMs = ms + 8 * 60 * 60 * 1000; // CST = UTC+8
+  const d = new Date(cstMs);
+  const h = d.getUTCHours();
+
+  let y: number;
+  let mo: number;
+  let day: number;
+  let period: string;
+
+  if (h >= 13) {
+    // PM 周期：从当天 13:00 开始
+    y = d.getUTCFullYear();
+    mo = d.getUTCMonth() + 1;
+    day = d.getUTCDate();
+    period = 'PM';
+  } else if (h >= 1) {
+    // AM 周期：从当天 01:00 开始
+    y = d.getUTCFullYear();
+    mo = d.getUTCMonth() + 1;
+    day = d.getUTCDate();
+    period = 'AM';
+  } else {
+    // 00:xx CST：属于前一天的 PM 周期
+    const yesterday = new Date(cstMs - 24 * 60 * 60 * 1000);
+    y = yesterday.getUTCFullYear();
+    mo = yesterday.getUTCMonth() + 1;
+    day = yesterday.getUTCDate();
+    period = 'PM';
+  }
+
+  return `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}-${period}`;
 }
 
 /** 损管/女神 master ID 常量 */
@@ -65,7 +96,7 @@ class GameStateManager {
   private expHistory: ExpChange[] = [];
   private readonly MAX_EXP_HISTORY = 100;
 
-  /** 每日战果追踪（含 JST 日期，用于跨日重置） */
+  /** 每日战果追踪（含 CST 周期 ID，用于跨周期重置） */
   private dailySenkaStart: { exp: number; time: number; date: string } | null = null;
 
   /** 战绩页面战果快照 */
@@ -455,12 +486,12 @@ class GameStateManager {
   }
 
   /**
-   * 从 KV 恢复数据时调用：设置每日战果起点（仅当当日记录有效时）
+   * 从 KV 恢复数据时调用：设置每日战果起点（仅当周期 ID 与当前一致时有效）
    */
   initDailySenka(exp: number, time: number, date: string): void {
-    const today = getJSTDateString();
-    if (date === today) {
-      this.dailySenkaStart = { exp, time, date };
+    const currentPeriod = getCSTSenkaPeriodId();
+    if (date === currentPeriod) {
+      this.dailySenkaStart = { exp, time, date: currentPeriod };
     }
   }
 
@@ -479,29 +510,29 @@ class GameStateManager {
   }
 
   /**
-   * 强制重置每日战果追踪（手动调用）
+   * 强制重置当前周期战果追踪（手动调用）
    */
   resetDailySenka(): void {
     if (this.state.admiral) {
-      const today = getJSTDateString();
+      const period = getCSTSenkaPeriodId();
       this.dailySenkaStart = {
         exp: this.state.admiral.experience,
         time: Date.now(),
-        date: today,
+        date: period,
       };
     }
   }
 
   /**
-   * 确保每日战果起点已初始化，跨日时自动重置
+   * 确保战果起点已初始化；周期切换（01:00 / 13:00 CST）时自动重置。
    */
   private ensureDailySenka(currentExp: number): void {
-    const today = getJSTDateString();
+    const period = getCSTSenkaPeriodId();
     if (!this.dailySenkaStart) {
-      this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: today };
-    } else if (this.dailySenkaStart.date !== today) {
-      // JST 日期变化：重置当日起点
-      this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: today };
+      this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: period };
+    } else if (this.dailySenkaStart.date !== period) {
+      // CST 周期切换（01:00 或 13:00）：重置起点
+      this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: period };
     }
   }
 
