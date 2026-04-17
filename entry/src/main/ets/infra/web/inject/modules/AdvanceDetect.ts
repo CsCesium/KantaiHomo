@@ -21,7 +21,6 @@ export function advanceDetectorJS(): string {
   map_decision_10: '退避せず_glow',
   map_decision_11: '退避',
   map_decision_12: '退避_glow',
-  map_decision_0:  'ring'
 };
     const ADVANCE_TEX = new Set(['battle_main_5', 'battle_main_66']);  // 進撃する
     const RETREAT_TEX = new Set(['battle_main_7', 'battle_main_68']);  // 撤退する
