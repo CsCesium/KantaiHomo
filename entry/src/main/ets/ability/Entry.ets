@@ -26,6 +26,11 @@ export const APP_STORAGE_SHOW_SIDEBAR = 'ui.showSidebar';
 export const APP_STORAGE_YASEN_DETECT_ENABLED = 'alerts.yasen.enabled';
 /** AppStorage key controlling whether AdvanceDetect (进击大破警告) is enabled */
 export const APP_STORAGE_ADVANCE_GUARD_ENABLED = 'alerts.advanceGuard.enabled';
+/** AppStorage keys for optional WebView injection feature flags */
+export const APP_STORAGE_INJECT_FPS = 'inject.fps';
+export const APP_STORAGE_INJECT_TOUCH_PATCH = 'inject.touchPatch';
+export const APP_STORAGE_INJECT_TICKER_RAF = 'inject.tickerRaf';
+export const APP_STORAGE_INJECT_PIXI_PATCH = 'inject.pixiPatch';
 
 export default class EntryAbility extends UIAbility {
   private mainWindow?: window.Window;
@@ -54,6 +59,17 @@ export default class EntryAbility extends UIAbility {
     void kvGetBool(APP_STORAGE_ADVANCE_GUARD_ENABLED, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_ADVANCE_GUARD_ENABLED, v);
     });
+
+    // Optional injection features; all off by default.
+    for (const [key, def] of [
+      [APP_STORAGE_INJECT_FPS, false],
+      [APP_STORAGE_INJECT_TOUCH_PATCH, false],
+      [APP_STORAGE_INJECT_TICKER_RAF, false],
+      [APP_STORAGE_INJECT_PIXI_PATCH, false],
+    ] as [string, boolean][]) {
+      AppStorage.setOrCreate(key, def);
+      void kvGetBool(key, def).then((v: boolean) => { AppStorage.set(key, v); });
+    }
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

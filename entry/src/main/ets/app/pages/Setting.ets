@@ -3,7 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
 
@@ -26,6 +26,10 @@ struct Setting {
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_ADVANCE_GUARD_ENABLED) private advanceGuardEnabled: boolean = true;
+  @StorageLink(APP_STORAGE_INJECT_FPS) private injectFpsEnabled: boolean = false;
+  @StorageLink(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
+  @StorageLink(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
+  @StorageLink(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
 
   // ── Alert settings ─────────────────────────────────────────────
   @State private battleResultAlertEnabled: boolean = true;
@@ -82,6 +86,26 @@ struct Setting {
   private onAdvanceGuardToggle(v: boolean): void {
     this.advanceGuardEnabled = v;   // writes AppStorage → WebHost re-injects on next load
     void kvSet(APP_STORAGE_ADVANCE_GUARD_ENABLED, v);
+  }
+
+  private onInjectFpsToggle(v: boolean): void {
+    this.injectFpsEnabled = v;
+    void kvSet(APP_STORAGE_INJECT_FPS, v);
+  }
+
+  private onInjectTouchPatchToggle(v: boolean): void {
+    this.injectTouchPatch = v;
+    void kvSet(APP_STORAGE_INJECT_TOUCH_PATCH, v);
+  }
+
+  private onInjectTickerRafToggle(v: boolean): void {
+    this.injectTickerRaf = v;
+    void kvSet(APP_STORAGE_INJECT_TICKER_RAF, v);
+  }
+
+  private onInjectPixiPatchToggle(v: boolean): void {
+    this.injectPixiPatch = v;
+    void kvSet(APP_STORAGE_INJECT_PIXI_PATCH, v);
   }
 
   private async saveConfig(): Promise<void> {
@@ -447,6 +471,45 @@ struct Setting {
           .backgroundColor('#0C1420')
           .borderRadius(10)
           .border({ width: 1, color: '#15202C' })
+
+          // ── SECTION: WebView 注入 ─────────────────────────────
+          this.SectionHeader('WebView 注入')
+
+          Column({ space: 8 }) {
+            this.ToggleRow(
+              'FPS 显示',
+              '在游戏画面左上角叠加实时帧率计数器',
+              this.injectFpsEnabled,
+              (v: boolean) => { this.onInjectFpsToggle(v); }
+            )
+
+            this.ToggleRow(
+              '触摸事件补丁',
+              '修正部分设备上触摸坐标偏移问题',
+              this.injectTouchPatch,
+              (v: boolean) => { this.onInjectTouchPatchToggle(v); }
+            )
+
+            this.ToggleRow(
+              'Ticker RAF 优化',
+              '将 Pixi Ticker 驱动切换为 requestAnimationFrame，降低后台 CPU 占用',
+              this.injectTickerRaf,
+              (v: boolean) => { this.onInjectTickerRafToggle(v); }
+            )
+
+            this.ToggleRow(
+              'Pixi 渲染补丁',
+              '应用 Pixi.js 渲染兼容性补丁（仅在画面异常时启用）',
+              this.injectPixiPatch,
+              (v: boolean) => { this.onInjectPixiPatchToggle(v); }
+            )
+          }
+          .width('100%')
+
+          Text('注入功能更改在下次进入游戏页面时生效')
+            .fontSize(11)
+            .fontColor('#2A3A45')
+            .padding({ left: 4, top: 4 })
 
           // ── SECTION: 数据清理 ─────────────────────────────────
           this.SectionHeader('数据清理')

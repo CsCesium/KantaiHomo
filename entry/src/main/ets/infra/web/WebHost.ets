@@ -14,7 +14,7 @@ import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED } from "../../ability/Entry";
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
 
 interface RpcPayload {
   op: string;
@@ -55,31 +55,25 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenDetectEnabled: boolean = true;
   /** Mirrors alerts.advanceGuard.enabled; controls AdvanceDetect JS injection. */
   @StorageProp(APP_STORAGE_ADVANCE_GUARD_ENABLED) private advanceGuardEnabled: boolean = true;
+  @StorageProp(APP_STORAGE_INJECT_FPS) private injectFpsEnabled: boolean = false;
+  @StorageProp(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
+  @StorageProp(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
+  @StorageProp(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
 
-  private getInjectOptions = (): Required<InjectOptions> => {
-    return {
-      channelName: 'hmos',
-      postMethod: 'post',
-      apiFilter: '/\\/kcsapi\\//',
-      //apiFilter: '/.*/',//debug
-
-      enableXHRHook: true,
-      enableFetchHook: true,
-      enableFPS: defaultInjectOptions.enableFPS,
-      enableTouchPatch: defaultInjectOptions.enableTouchPatch,
-      enableTickerRAF: defaultInjectOptions.enableTickerRAF,
-      enablePixiPatch: defaultInjectOptions.enablePixiPatch,
-      enableSessionPersist: defaultInjectOptions.enableSessionPersist,
-      enableIframeFit: defaultInjectOptions.enableIframeFit,
-      enableYasenDetect: this.yasenDetectEnabled,
-      enableDebug:defaultInjectOptions.enableDebug,
-    };
-  };
+  private getInjectOptions = (): Required<InjectOptions> => ({
+    ...defaultInjectOptions,
+    enableYasenDetect: this.yasenDetectEnabled,
+    enableAdvanceDetect: this.advanceGuardEnabled,
+    enableFPS: this.injectFpsEnabled,
+    enableTouchPatch: this.injectTouchPatch,
+    enableTickerRAF: this.injectTickerRaf,
+    enablePixiPatch: this.injectPixiPatch,
+  });
 
   private getFit = (): FitGetter => ({
     policy: this.fit,
