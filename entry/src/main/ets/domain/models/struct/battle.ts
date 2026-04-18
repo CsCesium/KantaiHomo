@@ -90,6 +90,11 @@ export interface BattleMeta {
   /** optional: for later advanced UI */
   balloonCell?: number;
   atollCell?: number;
+
+  /** air battle info (from api_kouku.api_stage1/stage2) */
+  airState?: number;
+  aircraftFriend?: { count: number; remaining: number };
+  hasAaci?: boolean;
 }
 
 

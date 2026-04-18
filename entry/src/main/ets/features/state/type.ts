@@ -241,7 +241,9 @@ export interface FleetBattleStatus {
 export interface EnemyBattleStatus {
   /** 舰船ID列表 (master id) */
   shipIds: number[];
-  /** 各舰当前HP */
+  /** 各舰战斗开始时HP */
+  hpStart?: number[];
+  /** 各舰战斗后HP (预测/实际) */
   hpNow: number[];
   /** 各舰最大HP */
   hpMax: number[];
@@ -303,6 +305,14 @@ export interface BattleStatusSnapshot {
   taihaShips: { uid: number; name: string; hpPercent: number }[];
   /** 友方有击沉风险 (旗舰以外) */
   hasSunkRisk: boolean;
+
+  // 航空战信息
+  /** 制空状态 (0均衡 1確保 2優勢 3劣勢 4喪失) */
+  airState?: number;
+  /** 友军舰载机 {count: 出击数, remaining: 剩余数} */
+  aircraftFriend?: { count: number; remaining: number };
+  /** 是否发动对空CI */
+  hasAaci?: boolean;
 
   // 时间戳
   /** 战斗开始时间 */

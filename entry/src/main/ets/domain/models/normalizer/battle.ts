@@ -120,8 +120,22 @@ function buildMeta(apiPath: string, d: any, now: number) {
     smokeType: typeof d?.api_smoke_type === 'number' ? d.api_smoke_type : undefined,
     balloonCell: typeof d?.api_balloon_cell === 'number' ? d.api_balloon_cell : undefined,
     atollCell: typeof d?.api_atoll_cell === 'number' ? d.api_atoll_cell : undefined,
+    ...buildAirInfo(d),
   };
   return meta;
+}
+
+function buildAirInfo(d: any): { airState?: number; aircraftFriend?: { count: number; remaining: number }; hasAaci?: boolean } {
+  const kouku = d?.api_kouku;
+  if (!kouku) return {};
+  const s1 = kouku.api_stage1;
+  const s2 = kouku.api_stage2;
+  const airState = typeof s1?.api_disp_seiku === 'number' ? s1.api_disp_seiku as number : undefined;
+  const fCount = typeof s1?.api_f_count === 'number' ? s1.api_f_count as number : 0;
+  const fLost = typeof s1?.api_f_lostcount === 'number' ? s1.api_f_lostcount as number : 0;
+  const aircraftFriend = fCount > 0 ? { count: fCount, remaining: fCount - fLost } : undefined;
+  const hasAaci = s2?.api_air_fire != null ? true : undefined;
+  return { airState, aircraftFriend, hasAaci };
 }
 
 function parseFormation(arr?: number[]): BattleFormation | undefined {

@@ -77,6 +77,7 @@ function buildEnemyBattleStatus(
 
   return {
     shipIds: enemyInfo.shipIds,
+    hpStart: enemyInfo.hpNow,
     hpNow,
     hpMax,
     sunkCount,
@@ -166,6 +167,11 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
     hasTaihaRisk: prediction.hasTaihaFriend,
     taihaShips,
     hasSunkRisk: hasSunkRiskNonFlagship(prediction.friendMain, prediction.friendEscort),
+
+    // 航空战信息
+    airState: battleContext.merged?.meta.airState,
+    aircraftFriend: battleContext.merged?.meta.aircraftFriend,
+    hasAaci: battleContext.merged?.meta.hasAaci,
 
     // 时间戳
     startedAt: battleContext.startedAt,

@@ -23,6 +23,7 @@ export type {
   BattleResultSnapshot,
   FleetBattleStatus,
   ShipBattleStatus,
+  EnemyBattleStatus,
   QuestSnapshot
 } from './type';
 
