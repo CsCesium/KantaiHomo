@@ -80,27 +80,6 @@ class BattleHandler implements Handler {
       }
     }
 
-    // 2. 检查大破风险
-    const taihaRisk = checkTaihaAdvanceRisk(prediction);
-
-    // 3. 发布事件通知 UI
-    if (deps.publish) {
-      deps.publish('battle:predicted', {
-        prediction,
-        apiPath,
-        kind: 'day',
-        hasTaiha: taihaRisk.hasRisk,
-        taihaShips: taihaRisk.ships,
-      });
-
-      if (taihaRisk.hasRisk) {
-        deps.publish('battle:taiha_warning', {
-          ships: taihaRisk.ships,
-        });
-      }
-    }
-
-    console.info('[battle] day battle processed, predicted rank:', prediction.predictedRank);
   }
 
   /**
@@ -143,28 +122,6 @@ class BattleHandler implements Handler {
         updateBattleStatus(battleStatus);
       }
     }
-
-    // 4. 检查大破风险
-    const taihaRisk = checkTaihaAdvanceRisk(prediction);
-
-    // 5. 发布事件
-    if (deps.publish) {
-      deps.publish('battle:predicted', {
-        prediction,
-        apiPath,
-        kind: 'night',
-        hasTaiha: taihaRisk.hasRisk,
-        taihaShips: taihaRisk.ships,
-      });
-
-      if (taihaRisk.hasRisk) {
-        deps.publish('battle:taiha_warning', {
-          ships: taihaRisk.ships,
-        });
-      }
-    }
-
-    console.info('[battle] night battle processed, predicted rank:', prediction.predictedRank);
   }
 
   /**
@@ -263,15 +220,6 @@ class BattleHandler implements Handler {
         console.error('[battle] save failed:', String(e));
       }
     }
-
-    // 5. 发布事件
-    if (deps.publish) {
-      deps.publish('battle:ended', {
-        record,
-        normalizedResult,
-      });
-    }
-
     // 5a. 战斗结算提醒
     try {
       // 计算大破无损管击沉风险

@@ -97,15 +97,7 @@ class SortieHandler implements Handler {
       }
     }
 
-    // 4. 发布事件
-    if (PersistDeps.publish) {
-      PersistDeps.publish('sortie:started', {
-        sortieId: context.sortieId,
-        mapAreaId,
-        mapInfoNo,
-        deckId,
-      });
-    }
+
   }
 
   /**
@@ -199,19 +191,6 @@ class SortieHandler implements Handler {
         }
       } catch (e) {
         console.error('[sortie] update route failed:', String(e));
-      }
-    }
-
-    // 6. 发布事件
-    if (PersistDeps.publish) {
-      PersistDeps.publish('sortie:cell_moved', {
-        cell,
-        cellIndex: context.cellHistory.length - 1,
-      });
-
-      // Boss 点到达提醒
-      if (cell.isBoss) {
-        PersistDeps.publish('sortie:boss_reached', { cell });
       }
     }
   }
