@@ -1,6 +1,7 @@
 
 // ==================== 状态管理类 ====================
 import { Admiral, Materials, Deck, Ship, Ndock, Kdock, Quest } from "../../domain/models";
+import { kvSet } from "../../infra/storage/kv";
 import {
   GameState,
   StateChangeListener,
@@ -492,6 +493,7 @@ class GameStateManager {
     const currentPeriod = getCSTSenkaPeriodId();
     if (date === currentPeriod) {
       this.dailySenkaStart = { exp, time, date: currentPeriod };
+      this.notifyListeners('admiral');
     }
   }
 
@@ -500,6 +502,7 @@ class GameStateManager {
    */
   initRanking(snapshot: RankingSnapshot): void {
     this.rankingSnapshot = snapshot;
+    this.notifyListeners('admiral');
   }
 
   /**
@@ -520,6 +523,7 @@ class GameStateManager {
         time: Date.now(),
         date: period,
       };
+      this.persistDailySenka();
     }
   }
 
@@ -534,7 +538,14 @@ class GameStateManager {
     } else if (this.dailySenkaStart.date !== period) {
       // CST 周期切换（01:00 或 13:00）：重置起点
       this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: period };
+      this.persistDailySenka();
     }
+  }
+
+  private persistDailySenka(): void {
+    if (!this.dailySenkaStart) return;
+    const payload = JSON.stringify(this.dailySenkaStart);
+    void kvSet('senka.daily.v1', payload);
   }
 
   // ==================== 订阅机制 ====================
