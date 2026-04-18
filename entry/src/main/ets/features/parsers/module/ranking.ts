@@ -3,29 +3,65 @@ import { JsonArray, JsonObject, asArray, asObject, getNum, getStr } from "../../
 import { ApiDump } from "../../../infra/web/types"
 import { parseSvdata } from "../../utils/common"
 import { ParserCtx, mkEvt, detectEndpoint, EndpointRule } from "./common"
+import { getAdmiral } from "../../state"
 
-// Match the logical prefix only — the suffix is obfuscated and changes between game updates.
+// Match the logical prefix — the suffix is obfuscated and changes between game updates.
 const RULES: EndpointRule[] = [
   {
     endpoint: '/api_req_ranking',
-    match: (url: string) => {
-      const i = url.indexOf('/api_req_ranking/')
-      return i >= 0
-    },
+    match: (url: string) => url.indexOf('/api_req_ranking/') >= 0,
   },
 ]
 
-// Known field names for the current game client (obfuscated).
-// These are tried first; if they yield nothing, heuristic detection takes over.
+// ─────────────────────────────────────────────────────────────────────────────
+// Decoding constants from game source (TaskTop.__drawRanking).
+//
+// PORT_API_SEED  — consts.PORT_API_SEED, changes with each client release.
+//                  Update this array when the game ships a new client bundle.
+// RANK_SEED      — inline array in __drawRanking, stable across releases.
+// ─────────────────────────────────────────────────────────────────────────────
+const PORT_API_SEED = [6713, 4576, 8196, 6225, 2604, 8105, 9414, 2531, 2589, 3497]
+const RANK_SEED     = [8931, 1201, 1156, 5061, 4569, 4732, 3779, 4568, 5695, 4619, 4912, 5669, 6586]
+
+// Confirmed obfuscated field names from RecordRankingModel.SetAll (current client):
+//   api_mxltvkpyuklh  → rank
+//   api_mtjmdcwtvhdr  → nickname
+//   api_wuhnhojjxmke  → score[0]  (encoded; decode with formula below)
+//   api_itslcqtmrxtf  → medals    (not used for senka)
 const KNOWN_RANK     = 'api_mxltvkpyuklh'
 const KNOWN_NICKNAME = 'api_mtjmdcwtvhdr'
-const KNOWN_SCORE    = 'api_itslcqtmrxtf'
+const KNOWN_SCORE0   = 'api_wuhnhojjxmke'
 
-// Field names from the legacy unobfuscated endpoint.
+// Legacy unobfuscated endpoint field names.
 const LEGACY_RANK      = 'api_no'
 const LEGACY_NICKNAME  = 'api_nickname'
 const LEGACY_SENKA     = 'api_rate'
 const LEGACY_MEMBER_ID = 'api_member_id'
+
+/**
+ * Replicates TaskTop._getPortSeed:
+ *   sd = PORT_API_SEED[memberId % 10]
+ *   return (sd - sd%100) / 100   ← floor(sd / 100)
+ */
+function getPortSeed(memberId: number): number {
+  const sd = PORT_API_SEED[memberId % 10]
+  return (sd - (sd % 100)) / 100
+}
+
+/**
+ * Replicates TaskTop.__drawRanking score decode:
+ *   score = (score[0] / RANK_SEED[rank%13] / portSd) - 91
+ *
+ * The server encodes as (senka+91)*hashValue*portSd, so this inverts it.
+ * portSd depends on the VIEWER's memberId, not the ranked player's.
+ */
+function decodeScore(score0: number, rank: number, memberId: number): number {
+  if (score0 <= 0 || rank <= 0 || memberId <= 0) return 0
+  const hashValue = RANK_SEED[rank % 13]
+  const portSd    = getPortSeed(memberId)
+  if (portSd <= 0) return 0
+  return Math.round(score0 / hashValue / portSd) - 91
+}
 
 interface EntryFields {
   rank: number
@@ -34,26 +70,17 @@ interface EntryFields {
   senka: number
 }
 
-/**
- * Parse a ranking list entry using known field names first, then fall back to
- * value-range heuristics so the parser survives future obfuscation changes.
- *
- * Value-range assumptions (stable across obfuscation):
- *   - rank:         integer 1–5000 (top-1000 ranking)
- *   - period score: integer 10 000 – 100 000 000 (monthly exp for ranked players)
- *   - total exp:    integer > 100 000 000 (cumulative, excluded from period score)
- *   - nickname:     shortest non-empty string (KanColle nickname ≤ 7 chars)
- */
-function parseEntry(entry: JsonObject): EntryFields | null {
-  // ① Try current obfuscated field names
+function parseEntry(entry: JsonObject, myMemberId: number): EntryFields | null {
+  // ① Current obfuscated field names (fast path)
   const rank1     = getNum(entry, KNOWN_RANK, 0)
   const nickname1 = getStr(entry, KNOWN_NICKNAME, '')
-  const score1    = getNum(entry, KNOWN_SCORE, 0)
+  const score0    = getNum(entry, KNOWN_SCORE0, 0)
   if (rank1 > 0 && nickname1) {
-    return { rank: rank1, nickname: nickname1, memberId: '', senka: Math.floor(score1 / 1428) }
+    const senka = decodeScore(score0, rank1, myMemberId)
+    return { rank: rank1, nickname: nickname1, memberId: '', senka: Math.max(0, senka) }
   }
 
-  // ② Try legacy unobfuscated field names
+  // ② Legacy unobfuscated field names
   const rank2     = getNum(entry, LEGACY_RANK, 0)
   const nickname2 = getStr(entry, LEGACY_NICKNAME, '')
   const senka2    = getNum(entry, LEGACY_SENKA, 0)
@@ -66,7 +93,13 @@ function parseEntry(entry: JsonObject): EntryFields | null {
     }
   }
 
-  // ③ Heuristic fallback: infer fields from value ranges
+  // ③ Heuristic fallback — value-tier detection, no hardcoded field names
+  //
+  // Tier layout (stable across obfuscation changes):
+  //   > 30 000 000  : score[0] — encoding yields (senka+91)*hashValue*portSd ≈ 30M–500M
+  //   1 – 1 000     : rank position (1–1000) and admiral-rank tier (1–~20)
+  //   0             : flag fields
+  //   strings       : nickname (shorter) and comment (longer)
   const strings: string[] = []
   const nums: number[]    = []
   const vals = Object.values(entry) as (string | number | boolean | null | JsonObject | JsonArray)[]
@@ -77,28 +110,25 @@ function parseEntry(entry: JsonObject): EntryFields | null {
   }
   if (strings.length < 1 || nums.length < 3) return null
 
-  // Nickname = shortest non-empty string (nicknames are max 7 chars in KanColle)
   const nonEmpty = strings.filter(s => s.length > 0)
   if (nonEmpty.length === 0) return null
   const nickname3 = nonEmpty.reduce((a, b) => (a.length <= b.length ? a : b))
 
-  // Period score = largest integer in [10 000, 100 000 000)
-  let periodScore = -1
+  // score[0]: largest number > 30 000 000
+  let score0h = -1
   for (let i = 0; i < nums.length; i++) {
-    const v = nums[i]
-    if (v > 10_000 && v < 100_000_000 && v > periodScore) periodScore = v
+    if (nums[i] > 30_000_000 && nums[i] > score0h) score0h = nums[i]
   }
-  if (periodScore < 0) return null
 
-  // Rank = largest integer in [1, 5000] (top-1000 pages; admiral-rank ≤ ~20 will be smaller)
+  // rank: largest number in [1, 1000]
   let rank3 = -1
   for (let i = 0; i < nums.length; i++) {
-    const v = nums[i]
-    if (v >= 1 && v <= 5000 && v > rank3) rank3 = v
+    if (nums[i] >= 1 && nums[i] <= 1000 && nums[i] > rank3) rank3 = nums[i]
   }
   if (rank3 <= 0) return null
 
-  return { rank: rank3, nickname: nickname3, memberId: '', senka: Math.floor(periodScore / 1428) }
+  const senka3 = score0h > 0 ? Math.max(0, decodeScore(score0h, rank3, myMemberId)) : 0
+  return { rank: rank3, nickname: nickname3, memberId: '', senka: senka3 }
 }
 
 export function parseRanking(dump: ApiDump): AnyRankingEvt[] {
@@ -124,11 +154,13 @@ export function parseRanking(dump: ApiDump): AnyRankingEvt[] {
   const list: JsonArray | null = asArray(rawList as JsonArray)
   if (!list || list.length === 0) return []
 
+  const myMemberId = getAdmiral()?.memberId ?? 0
+
   const entries: RankingEntryList['entries'] = []
   for (const item of list) {
     const entry: JsonObject | null = asObject(item as JsonObject)
     if (!entry) continue
-    const parsed = parseEntry(entry)
+    const parsed = parseEntry(entry, myMemberId)
     if (parsed && parsed.rank > 0 && parsed.nickname) {
       entries.push(parsed)
     }
