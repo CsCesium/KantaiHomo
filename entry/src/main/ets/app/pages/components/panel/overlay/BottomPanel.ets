@@ -6,6 +6,11 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState
 } from '../../../../../features/state';
 import { getPersistDeps } from '../../../../../infra/deps';
+import {
+  getFleetFighterPower,
+  calcSingleFleetLoS,
+  detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
+} from '../../../../../features/calc';
 
 const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具'];
 
@@ -56,10 +61,10 @@ function shipStateToItem(
 }
 
 function condColor(cond: number): string {
-  if (cond >= 50) return '#FFD700';   // sparkle — gold
-  if (cond >= 40) return PanelColors.txtSub; // normal
-  if (cond >= 30) return PanelColors.hpWarn; // tired — yellow
-  return PanelColors.hpCrit;               // exhausted — red
+  if (cond >= 50) return '#FFD700';
+  if (cond >= 40) return PanelColors.txtSub;
+  if (cond >= 30) return PanelColors.hpWarn;
+  return PanelColors.hpCrit;
 }
 
 function condIcon(cond: number): string {
@@ -71,10 +76,8 @@ function condIcon(cond: number): string {
 
 /**
  * Bottom-docked info panel for EXPANDED mode (portrait / wide-split).
- * Occupies the remaining space below the game viewport.
- *
- * Displays the currently-selected fleet's ships from live GameState,
- * with resource counts in the status bar.
+ * Shows fleet air power, LoS(×3), and special attack eligibility
+ * in addition to the per-ship rows.
  */
 @ComponentV2
 export default struct BottomPanel {
@@ -83,6 +86,9 @@ export default struct BottomPanel {
   @Local ships: ShipItem[] = [];
   @Local materials: MaterialsSnapshot | null = null;
   @Local decks: DeckSnapshot[] = [];
+  @Local airPower: number = 0;
+  @Local fleetLoS: number = 0;
+  @Local specialAttack: string = '';
 
   private unsubscribe: (() => void) | null = null;
 
@@ -108,21 +114,47 @@ export default struct BottomPanel {
     this.materials = getMaterials();
     this.decks = [...getDecks()];
     this.refreshShips();
+    this.loadCalcStats();
   }
 
   private refreshShips(): void {
     if (this.activeFleet < 4) {
       const st = getGameState().getState();
-      this.ships = getDeckShips(this.activeFleet + 1).map(s =>
-        shipStateToItem(s, st.slotItemIndex, st.slotItemEquipTypes));
+      const rawShips = getDeckShips(this.activeFleet + 1);
+      this.ships = rawShips.map(s => shipStateToItem(s, st.slotItemIndex, st.slotItemEquipTypes));
+      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
+      this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
     } else {
       this.ships = [];
+      this.specialAttack = '';
+    }
+  }
+
+  private async loadCalcStats(): Promise<void> {
+    if (this.activeFleet >= 4) {
+      this.airPower = 0;
+      this.fleetLoS = 0;
+      return;
+    }
+    const deckId = this.activeFleet + 1;
+    try {
+      const fpResult = await getFleetFighterPower(deckId);
+      this.airPower = fpResult?.totalFighterPower ?? 0;
+    } catch (_e) {
+      this.airPower = 0;
+    }
+    try {
+      const losResult = await calcSingleFleetLoS(deckId, 3);
+      this.fleetLoS = losResult?.losScore ?? 0;
+    } catch (_e) {
+      this.fleetLoS = 0;
     }
   }
 
   private selectFleet(idx: number): void {
     this.activeFleet = idx;
     this.refreshShips();
+    this.loadCalcStats();
   }
 
   private tabLabel(idx: number): string {
@@ -193,12 +225,47 @@ export default struct BottomPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
+  /** Fleet-level calc stats: air power and LoS (branch ×3). */
+  @Builder FleetStatsBar() {
+    if (this.activeFleet < 4) {
+      Row() {
+        Text('制空')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.txtMuted)
+        Text(this.airPower > 0 ? `${this.airPower}` : '--')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.stat)
+          .margin({ left: 3 })
+        Blank().layoutWeight(1)
+        Text('索敵')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.txtMuted)
+        Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.stat)
+          .margin({ left: 3 })
+        Text('(×3)')
+          .fontSize(PanelDimens.fontSm - 1)
+          .fontColor(PanelColors.txtFainter)
+          .margin({ left: 2 })
+      }
+      .width('100%')
+      .height(PanelDimens.statusBarH)
+      .padding({ left: 8, right: 8 })
+      .backgroundColor(PanelColors.bgTabs)
+      .alignItems(VerticalAlign.Center)
+      .borderWidth({ bottom: PanelDimens.borderW })
+      .borderColor(PanelColors.rowBorder)
+    }
+  }
+
   /**
-   * 2-line ship row:
-   *   [cond] | name              hp / hpMax  |
-   *          | Lv.xxx  [====HP bar====]  ◆cond  [s1][s2]…[ex] |
+   * 2-line (+ optional special-attack label) ship row:
+   *   [cond] | [⚡特殊攻撃名]  (flagship only, when eligible)
+   *          | name              hp / hpMax
+   *          | Lv.xxx  [====HP bar====]  ◆cond  [s1]…[ex]
    */
-  @Builder ShipRow(ship: ShipItem) {
+  @Builder ShipRow(ship: ShipItem, isFlag: boolean) {
     Row() {
       // Cond (morale) indicator column
       Column() {
@@ -214,7 +281,21 @@ export default struct BottomPanel {
       .alignItems(HorizontalAlign.Center)
 
       // Info column
-      Column({ space: 4 }) {
+      Column({ space: 3 }) {
+        // Special attack badge — only for flagship when eligible
+        if (isFlag && this.specialAttack !== '') {
+          Row() {
+            Text(`⚡ ${this.specialAttack}`)
+              .fontSize(9)
+              .fontColor('#FFD700')
+              .backgroundColor('#1a1525')
+              .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+              .borderRadius(2)
+          }
+          .width('100%')
+          .height(14)
+        }
+
         // Line 1: name | HP fraction
         Row() {
           Text(ship.name)
@@ -248,7 +329,7 @@ export default struct BottomPanel {
             .fontColor(condColor(ship.s1))
             .width(PanelDimens.statW)
             .textAlign(TextAlign.End)
-          // Slot icons (regular slots + ex slot)
+          // Slot icons
           Row({ space: 1 }) {
             ForEach(ship.slots, (uid: number, idx: number) => {
               Text(uid > 0 ? equipLabel(ship.slotTypes[idx] ?? 0) : '–')
@@ -259,11 +340,7 @@ export default struct BottomPanel {
                 .height(14)
                 .borderRadius(2)
                 .backgroundColor(uid > 0 ? '#252940' : '#181b2e')
-                .onClick(() => {
-                  if (uid > 0) {
-                    showEquipToast(uid);
-                  }
-                })
+                .onClick(() => { if (uid > 0) showEquipToast(uid); })
             }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
             if (ship.exSlot > 0) {
               Text(equipLabel(ship.exSlotType))
@@ -275,9 +352,7 @@ export default struct BottomPanel {
                 .margin({ left: 2 })
                 .borderRadius(2)
                 .backgroundColor('#1a2855')
-                .onClick(() => {
-                  showEquipToast(ship.exSlot);
-                })
+                .onClick(() => { showEquipToast(ship.exSlot); })
             }
           }
           .alignItems(VerticalAlign.Center)
@@ -290,7 +365,7 @@ export default struct BottomPanel {
       .justifyContent(FlexAlign.Center)
     }
     .width('100%')
-    .height(PanelDimens.rowH)
+    .height(isFlag && this.specialAttack !== '' ? PanelDimens.rowH + 16 : PanelDimens.rowH)
     .backgroundColor(PanelColors.bgSection)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
@@ -314,12 +389,13 @@ export default struct BottomPanel {
     Column() {
       this.TabBar()
       this.StatusBar()
+      this.FleetStatsBar()
 
       Scroll() {
         Column() {
           if (this.ships.length > 0) {
-            ForEach(this.ships, (ship: ShipItem) => {
-              this.ShipRow(ship)
+            ForEach(this.ships, (ship: ShipItem, idx: number) => {
+              this.ShipRow(ship, idx === 0)
             }, (ship: ShipItem) => `ship-${ship.id}`)
           } else {
             this.EmptyState()
