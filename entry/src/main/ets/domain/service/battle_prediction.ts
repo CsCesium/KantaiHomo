@@ -130,59 +130,47 @@ function predictRank(
   friendEscort?: ShipPrediction[],
   enemyEscort?: ShipPrediction[]
 ): string {
-  // 全灭判定
-  if (friendSunk >= friendTotal && friendTotal > 0) {
-    return 'E';  // 我方全灭
+  // E: 旗舰击沉 (flagship sunk) — checked first, highest priority loss condition
+  if (friendMain.length > 0 && friendMain[0].isSunk) {
+    return 'E';
   }
 
+  // S / A: 敌方全灭
   if (enemySunk >= enemyTotal && enemyTotal > 0) {
-    // 敌方全灭
-    if (friendSunk === 0) {
-      return 'S';  // 完全胜利
-    }
-    return 'A';  // A胜利
+    return friendSunk === 0 ? 'S' : 'A';
   }
 
-  // 计算伤害比例
-  const friendDamageRatio = calculateDamageRatio([...friendMain, ...(friendEscort ?? [])]);
-  const enemyDamageRatio = calculateDamageRatio([...enemyMain, ...(enemyEscort ?? [])]);
-
-  // 旗舰击沉
-  const enemyFlagshipSunk = enemyMain.length > 0 && enemyMain[0]?.isSunk;
-
-  // 击沉过半
+  const enemyFlagshipSunk = enemyMain.length > 0 && enemyMain[0].isSunk;
   const enemySunkOverHalf = enemySunk > enemyTotal / 2;
 
-  // 敌方伤害 >= 2.5倍我方伤害
-  const damageAdvantage = enemyDamageRatio >= friendDamageRatio * 2.5;
-
-  if (enemyFlagshipSunk) {
-    if (friendSunk === 0 && enemySunkOverHalf) {
-      return 'A';
-    }
-    if (damageAdvantage) {
-      return 'B';
-    }
+  // A: 敌舰旗沉没 + 我方无沉没 + 敌过半沉没
+  if (enemyFlagshipSunk && friendSunk === 0 && enemySunkOverHalf) {
+    return 'A';
   }
 
+  // B: 敌旗舰沉没
+  if (enemyFlagshipSunk) {
+    return 'B';
+  }
+
+  // B: 敌过半沉没
   if (enemySunkOverHalf) {
     return 'B';
   }
 
-  // 敌方旗舰大破
-  const enemyFlagshipTaiha = enemyMain.length > 0 && enemyMain[0]?.isTaiha;
+  // B: 敌旗舰大破
+  const enemyFlagshipTaiha = enemyMain.length > 0 && enemyMain[0].isTaiha;
   if (enemyFlagshipTaiha) {
     return 'B';
   }
 
-  // 伤害判定
-  if (enemyDamageRatio > friendDamageRatio * 2.5) {
-    return 'B';
-  }
-  if (enemyDamageRatio > friendDamageRatio * 0.9) {
-    return 'C';
-  }
+  // 伤害比率: (我方对敌伤害/敌最大HP) / (敌方对我伤害/我最大HP)
+  const friendDamageRatio = calculateDamageRatio([...friendMain, ...(friendEscort ?? [])]);
+  const enemyDamageRatio = calculateDamageRatio([...enemyMain, ...(enemyEscort ?? [])]);
+  const ratio = friendDamageRatio > 0 ? enemyDamageRatio / friendDamageRatio : (enemyDamageRatio > 0 ? 99 : 1);
 
+  if (ratio >= 2.5) return 'B';
+  if (ratio > 1.0) return 'C';
   return 'D';
 }
 

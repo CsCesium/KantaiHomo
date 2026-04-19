@@ -65,18 +65,21 @@ function buildEnemyBattleStatus(
   if (!enemyInfo) {
     return {
       shipIds: [],
+      hpBefore: [],
       hpNow: [],
       hpMax: [],
       sunkCount: 0,
     };
   }
 
+  const hpBefore = predictions.map(p => p.hpBefore);
   const hpNow = predictions.map(p => p.hpAfter);
   const hpMax = predictions.map(p => p.hpMax);
   const sunkCount = predictions.filter(p => p.isSunk).length;
 
   return {
     shipIds: enemyInfo.shipIds,
+    hpBefore,
     hpNow,
     hpMax,
     sunkCount,
@@ -166,6 +169,12 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
     hasTaihaRisk: prediction.hasTaihaFriend,
     taihaShips,
     hasSunkRisk: hasSunkRiskNonFlagship(prediction.friendMain, prediction.friendEscort),
+
+    // 航空状态 (from merged battle segment meta)
+    airState: battleContext.merged?.meta.airState,
+    friendPlaneNow: battleContext.merged?.meta.friendPlaneNow,
+    friendPlaneMax: battleContext.merged?.meta.friendPlaneMax,
+    aaciTriggered: false,
 
     // 时间戳
     startedAt: battleContext.startedAt,
