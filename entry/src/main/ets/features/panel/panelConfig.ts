@@ -113,3 +113,48 @@ export function hpColor(hp: number, hpMax: number): string {
   if (ratio > HP_WARN_RATIO) { return PanelColors.hpWarn; }
   return PanelColors.hpCrit;
 }
+
+/** Maps SlotItemEquipType (api_type[2]) to a 1-character display label. */
+export function equipLabel(equipType: number): string {
+  switch (equipType) {
+    case 1: case 2: case 3: return '主';
+    case 4: return '副';
+    case 5: case 27: return '魚';
+    case 6: case 33: return '戦';
+    case 7: case 17: case 30: return '爆';
+    case 8: case 34: case 55: return '攻';
+    case 9: case 29: case 65: return '偵';
+    case 10: case 57: case 67: return '水';
+    case 11: case 64: case 66: return '電';
+    case 12: case 13: return '弾';
+    case 14: return '修';
+    case 15: return '銃';
+    case 16: case 69: return '高';
+    case 18: case 54: return 'ソ';
+    case 19: case 31: return '機';
+    case 20: return '舟';
+    case 21: return 'ジ';
+    case 22: case 28: case 60: return '哨';
+    case 23: return '装';
+    case 24: return '探';
+    case 25: return '輸';
+    case 26: return '施';
+    case 32: case 68: return '甲';
+    case 35: return '砲';
+    case 36: return '誘';
+    case 37: return '地';
+    case 38: return '司';
+    case 39: case 41: case 59: return '員';
+    case 40: return '給';
+    case 42: case 46: case 71: return '艇';
+    case 43: return '探';
+    case 44: return '食';
+    case 45: return '補';
+    case 47: case 49: return '陸';
+    case 48: return '局';
+    case 50: case 51: case 52: case 53: case 56: case 70: return '噴';
+    case 58: case 72: return '暗';
+    case 62: return '対';
+    default: return '？';
+  }
+}
