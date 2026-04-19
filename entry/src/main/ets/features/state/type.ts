@@ -83,8 +83,10 @@ export interface ShipState {
   ammoMax: number;
   /** 是否需要补给 */
   needsResupply: boolean;
-  /** 装备槽 (装备实例 UID 列表) */
+  /** 装备槽 (装备实例 UID 列表，长度5，-1=未装备) */
   slots: number[];
+  /** 实际装备槽数量 */
+  slotCount: number;
   /** 扩张装备槽 UID（0=未解锁，-1=未装备，>0=装备UID） */
   exSlot: number;
   /** HP 百分比 */

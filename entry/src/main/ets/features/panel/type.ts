@@ -22,4 +22,12 @@ export interface ShipItem {
   s2: number;
   s3: number;
   s4: number;
+  /** Active slot item UIDs; -1 = empty slot. Length = actual slot count. */
+  slots: number[];
+  /** SlotItemEquipType (api_type[2]) per slot, parallel to slots; 0 = empty. */
+  slotTypes: number[];
+  /** Ex-slot UID: 0 = locked, -1 = empty, >0 = equipped item uid. */
+  exSlot: number;
+  /** SlotItemEquipType of the ex-slot item; 0 = locked/empty. */
+  exSlotType: number;
 }

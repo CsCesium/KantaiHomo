@@ -1,13 +1,42 @@
+import promptAction from '@ohos.promptAction';
 import { ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, hpColor, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { FLEET_TAB_COLORS, hpColor, equipLabel, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
-  subscribeGameState, getDeckShips, getMaterials, getDecks,
+  subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   MaterialsSnapshot, DeckSnapshot, ShipState
 } from '../../../../../features/state';
+import { getPersistDeps } from '../../../../../infra/deps';
 
 const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具'];
 
-function shipStateToItem(s: ShipState): ShipItem {
+async function showEquipToast(slotUid: number): Promise<void> {
+  try {
+    const repo = getPersistDeps()?.repos?.slotitem;
+    if (!repo) return;
+    const row = await repo.getWithMaster(slotUid);
+    if (!row?.mst_name) return;
+    const stars = row.level ?? 0;
+    const msg = stars > 0 ? `${row.mst_name} ★${stars}` : row.mst_name;
+    promptAction.showToast({ message: msg, duration: 2000 });
+  } catch (_e) { /* ignore */ }
+}
+
+function shipStateToItem(
+  s: ShipState,
+  slotItemIndex: Map<number, number>,
+  slotItemEquipTypes: Map<number, number>
+): ShipItem {
+  const activeSlots = s.slots.slice(0, s.slotCount);
+  const slotTypes = activeSlots.map(uid => {
+    if (uid <= 0) return 0;
+    const mid = slotItemIndex.get(uid);
+    return mid !== undefined ? (slotItemEquipTypes.get(mid) ?? 0) : 0;
+  });
+  let exSlotType = 0;
+  if (s.exSlot > 0) {
+    const mid = slotItemIndex.get(s.exSlot);
+    if (mid !== undefined) exSlotType = slotItemEquipTypes.get(mid) ?? 0;
+  }
   return {
     id: s.uid,
     name: s.name,
@@ -19,6 +48,10 @@ function shipStateToItem(s: ShipState): ShipItem {
     s2: s.fuel,
     s3: s.ammo,
     s4: 0,
+    slots: activeSlots,
+    slotTypes,
+    exSlot: s.exSlot,
+    exSlotType,
   };
 }
 
@@ -79,7 +112,9 @@ export default struct BottomPanel {
 
   private refreshShips(): void {
     if (this.activeFleet < 4) {
-      this.ships = getDeckShips(this.activeFleet + 1).map(shipStateToItem);
+      const st = getGameState().getState();
+      this.ships = getDeckShips(this.activeFleet + 1).map(s =>
+        shipStateToItem(s, st.slotItemIndex, st.slotItemEquipTypes));
     } else {
       this.ships = [];
     }
@@ -161,7 +196,7 @@ export default struct BottomPanel {
   /**
    * 2-line ship row:
    *   [cond] | name              hp / hpMax  |
-   *          | Lv.xxx  [====HP bar====]  ◆cond |
+   *          | Lv.xxx  [====HP bar====]  ◆cond  [s1][s2]…[ex] |
    */
   @Builder ShipRow(ship: ShipItem) {
     Row() {
@@ -197,8 +232,8 @@ export default struct BottomPanel {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        // Line 2: Lv | HP bar | cond
-        Row({ space: 4 }) {
+        // Line 2: Lv | HP bar | cond | equipment slot icons
+        Row({ space: 3 }) {
           Text(`Lv.${ship.level}`)
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.txtSub)
@@ -211,8 +246,41 @@ export default struct BottomPanel {
           Text(`◆${ship.s1}`)
             .fontSize(PanelDimens.fontSm)
             .fontColor(condColor(ship.s1))
-            .width(PanelDimens.statW + 8)
+            .width(PanelDimens.statW)
             .textAlign(TextAlign.End)
+          // Slot icons (regular slots + ex slot)
+          Row({ space: 1 }) {
+            ForEach(ship.slots, (uid: number, idx: number) => {
+              Text(uid > 0 ? equipLabel(ship.slotTypes[idx] ?? 0) : '–')
+                .fontSize(9)
+                .fontColor(uid > 0 ? '#c8cce0' : PanelColors.txtFainter)
+                .textAlign(TextAlign.Center)
+                .width(14)
+                .height(14)
+                .borderRadius(2)
+                .backgroundColor(uid > 0 ? '#252940' : '#181b2e')
+                .onClick(() => {
+                  if (uid > 0) {
+                    showEquipToast(uid);
+                  }
+                })
+            }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
+            if (ship.exSlot > 0) {
+              Text(equipLabel(ship.exSlotType))
+                .fontSize(9)
+                .fontColor('#c8cce0')
+                .textAlign(TextAlign.Center)
+                .width(15)
+                .height(14)
+                .margin({ left: 2 })
+                .borderRadius(2)
+                .backgroundColor('#1a2855')
+                .onClick(() => {
+                  showEquipToast(ship.exSlot);
+                })
+            }
+          }
+          .alignItems(VerticalAlign.Center)
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)

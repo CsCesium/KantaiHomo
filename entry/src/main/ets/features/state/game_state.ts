@@ -243,6 +243,7 @@ class GameStateManager {
       : false;
 
     const slots: number[] = Array.isArray(ship.slots) ? [...ship.slots] : [];
+    const slotCount: number = typeof ship.slotCount === 'number' ? ship.slotCount : slots.length;
     const exSlot: number = typeof ship.exSlot === 'number' ? ship.exSlot : 0;
 
     this.state.ships.set(ship.uid, {
@@ -259,6 +260,7 @@ class GameStateManager {
       ammoMax,
       needsResupply,
       slots,
+      slotCount,
       exSlot,
       hpPercent,
       isTaiha: hpPercent <= 0.25,
