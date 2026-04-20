@@ -44,6 +44,7 @@ function applyBattleHp(
     needsResupply: base.needsResupply,
     slotCount:    base.slotCount,
     slots:        base.slots,
+    onslot:       base.onslot,
     exSlot:       base.exSlot,
     hpPercent:    bss.hpPercent,
     isTaiha:      bss.isTaiha,
