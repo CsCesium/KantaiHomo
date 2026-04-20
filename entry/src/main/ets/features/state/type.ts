@@ -135,6 +135,10 @@ export interface GameState {
   shipMasterMaxSupply: Map<number, { fuelMax: number; ammoMax: number }>;
   /** 装备图鉴类型缓存 (slotitem masterId → typeEquipType) */
   slotItemEquipTypes: Map<number, number>;
+  /** 装备图鉴图标缓存 (slotitem masterId → api_type[3]) */
+  slotItemIconTypes: Map<number, number>;
+  /** 装备图鉴航空器分类缓存 (slotitem masterId → api_type[4]) */
+  slotItemAircraftCategories: Map<number, number>;
   /** 装备实例索引 (slotitem uid → masterId) */
   slotItemIndex: Map<number, number>;
 }

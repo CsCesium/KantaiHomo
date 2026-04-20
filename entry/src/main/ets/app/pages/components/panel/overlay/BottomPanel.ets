@@ -1,6 +1,6 @@
 import promptAction from '@ohos.promptAction';
 import { ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, hpColor, equipLabel, isCarrierAircraftType, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftCategory, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   MaterialsSnapshot, DeckSnapshot, ShipState
@@ -29,7 +29,9 @@ async function showEquipToast(slotUid: number): Promise<void> {
 function shipStateToItem(
   s: ShipState,
   slotItemIndex: Map<number, number>,
-  slotItemEquipTypes: Map<number, number>
+  slotItemEquipTypes: Map<number, number>,
+  slotItemIconTypes: Map<number, number>,
+  slotItemAircraftCategories: Map<number, number>
 ): ShipItem {
   const activeSlots = s.slots.slice(0, s.slotCount);
   const activeOnslot = s.onslot.slice(0, s.slotCount);
@@ -38,10 +40,24 @@ function shipStateToItem(
     const mid = slotItemIndex.get(uid);
     return mid !== undefined ? (slotItemEquipTypes.get(mid) ?? 0) : 0;
   });
+  const slotIconTypes = activeSlots.map(uid => {
+    if (uid <= 0) return 0;
+    const mid = slotItemIndex.get(uid);
+    return mid !== undefined ? (slotItemIconTypes.get(mid) ?? 0) : 0;
+  });
+  const slotAircraftCats = activeSlots.map(uid => {
+    if (uid <= 0) return 0;
+    const mid = slotItemIndex.get(uid);
+    return mid !== undefined ? (slotItemAircraftCategories.get(mid) ?? 0) : 0;
+  });
   let exSlotType = 0;
+  let exSlotIconType = 0;
   if (s.exSlot > 0) {
     const mid = slotItemIndex.get(s.exSlot);
-    if (mid !== undefined) exSlotType = slotItemEquipTypes.get(mid) ?? 0;
+    if (mid !== undefined) {
+      exSlotType = slotItemEquipTypes.get(mid) ?? 0;
+      exSlotIconType = slotItemIconTypes.get(mid) ?? 0;
+    }
   }
   return {
     id: s.uid,
@@ -56,9 +72,12 @@ function shipStateToItem(
     s4: 0,
     slots: activeSlots,
     slotTypes,
+    slotIconTypes,
     slotAirs: activeOnslot,
+    slotAircraftCategories: slotAircraftCats,
     exSlot: s.exSlot,
     exSlotType,
+    exSlotIconType,
   };
 }
 
@@ -123,7 +142,13 @@ export default struct BottomPanel {
     if (this.activeFleet < 4) {
       const st = getGameState().getState();
       const rawShips = getDeckShips(this.activeFleet + 1);
-      this.ships = rawShips.map(s => shipStateToItem(s, st.slotItemIndex, st.slotItemEquipTypes));
+      this.ships = rawShips.map(s => shipStateToItem(
+        s,
+        st.slotItemIndex,
+        st.slotItemEquipTypes,
+        st.slotItemIconTypes,
+        st.slotItemAircraftCategories
+      ));
       const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
       this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
     } else {
@@ -336,11 +361,11 @@ export default struct BottomPanel {
             ForEach(ship.slots, (uid: number, idx: number) => {
               if (uid > 0) {
                 Stack({ alignContent: Alignment.BottomEnd }) {
-                  Image(equipLabel(ship.slotTypes[idx] ?? 0))
+                  Image(equipLabel(ship.slotIconTypes[idx] ?? 0))
                     .width(14)
                     .height(14)
                     .padding(1)
-                  if (isCarrierAircraftType(ship.slotTypes[idx] ?? 0)) {
+                  if (isAircraftCategory(ship.slotAircraftCategories[idx] ?? 0)) {
                     Text(`${ship.slotAirs[idx] ?? 0}`)
                       .fontSize(7)
                       .fontColor('#ffffff')
@@ -363,7 +388,7 @@ export default struct BottomPanel {
               }
             }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
             if (ship.exSlot > 0) {
-              Image(equipLabel(ship.exSlotType))
+              Image(equipLabel(ship.exSlotIconType))
                 .width(15)
                 .height(14)
                 .padding(1)

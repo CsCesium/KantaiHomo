@@ -125,10 +125,12 @@ class Start2Handler implements Handler {
   }
 
   private async handleSlotItemMaster(payload: ApiMstSlotitemRaw[], ts: number, deps: PersistDeps): Promise<void> {
-    // 更新内存缓存（装备类型）：api_type[2] = typeEquipType
+    // 更新内存缓存（装备类型/图标/航空器分类）：api_type[2]/[3]/[4]
     const equipTypeItems = payload.map(r => ({
       id: r.api_id,
       equipType: Array.isArray(r.api_type) ? (r.api_type[2] ?? 0) : 0,
+      iconType: Array.isArray(r.api_type) ? (r.api_type[3] ?? 0) : 0,
+      aircraftCategory: Array.isArray(r.api_type) ? (r.api_type[4] ?? 0) : 0,
     }));
     updateSlotItemEquipTypes(equipTypeItems);
 

@@ -115,56 +115,13 @@ export function hpColor(hp: number, hpMax: number): string {
 }
 
 const EQUIP_ICON_DIR = 'resource://RAWFILE/equip-icons/';
-const CARRIER_AIRCRAFT_TYPES: ReadonlySet<number> = new Set([
-  6, 7, 8, 9, 45, 56, 57, 58,
-]);
 
-/** Returns true if the equip type should display carried aircraft count. */
-export function isCarrierAircraftType(equipType: number): boolean {
-  return CARRIER_AIRCRAFT_TYPES.has(equipType);
+/** Returns true if slotitem belongs to aircraft category (api_type[4]). */
+export function isAircraftCategory(aircraftCategory: number): boolean {
+  return aircraftCategory > 0;
 }
 
-/** Maps SlotItemEquipType (api_type[2]) to an equipment icon svg path. */
-export function equipLabel(equipType: number): string {
-  switch (equipType) {
-    case 1: case 2: case 3: return `${EQUIP_ICON_DIR}main_gun.svg`;
-    case 4: return `${EQUIP_ICON_DIR}secondary_gun.svg`;
-    case 5: case 27: return `${EQUIP_ICON_DIR}torpedo.svg`;
-    case 6: case 33: return `${EQUIP_ICON_DIR}carrier_fighter.svg`;
-    case 7: case 17: case 30: return `${EQUIP_ICON_DIR}carrier_bomber.svg`;
-    case 8: case 34: case 55: return `${EQUIP_ICON_DIR}carrier_attacker.svg`;
-    case 9: case 29: case 65: return `${EQUIP_ICON_DIR}recon.svg`;
-    case 10: case 57: case 67: return `${EQUIP_ICON_DIR}seaplane.svg`;
-    case 11: case 64: case 66: return `${EQUIP_ICON_DIR}radar.svg`;
-    case 12: case 13: return `${EQUIP_ICON_DIR}shell.svg`;
-    case 14: return `${EQUIP_ICON_DIR}repair.svg`;
-    case 15: return `${EQUIP_ICON_DIR}aagun.svg`;
-    case 16: case 69: return `${EQUIP_ICON_DIR}high_angle.svg`;
-    case 18: case 54: return `${EQUIP_ICON_DIR}sonar.svg`;
-    case 19: case 31: return `${EQUIP_ICON_DIR}engine.svg`;
-    case 20: return `${EQUIP_ICON_DIR}landing_craft.svg`;
-    case 21: return `${EQUIP_ICON_DIR}autogyro.svg`;
-    case 22: case 28: case 60: return `${EQUIP_ICON_DIR}patrol.svg`;
-    case 23: return `${EQUIP_ICON_DIR}armor.svg`;
-    case 24: return `${EQUIP_ICON_DIR}searchlight.svg`;
-    case 25: return `${EQUIP_ICON_DIR}transport.svg`;
-    case 26: return `${EQUIP_ICON_DIR}facility.svg`;
-    case 32: case 68: return `${EQUIP_ICON_DIR}special_armor.svg`;
-    case 35: return `${EQUIP_ICON_DIR}special_gun.svg`;
-    case 36: return `${EQUIP_ICON_DIR}aamissile.svg`;
-    case 37: return `${EQUIP_ICON_DIR}land_attack.svg`;
-    case 38: return `${EQUIP_ICON_DIR}command.svg`;
-    case 39: case 41: case 59: return `${EQUIP_ICON_DIR}personnel.svg`;
-    case 40: return `${EQUIP_ICON_DIR}supply.svg`;
-    case 42: case 46: case 71: return `${EQUIP_ICON_DIR}boat.svg`;
-    case 43: return `${EQUIP_ICON_DIR}sub_radar.svg`;
-    case 44: return `${EQUIP_ICON_DIR}ration.svg`;
-    case 45: return `${EQUIP_ICON_DIR}replenish.svg`;
-    case 47: case 49: return `${EQUIP_ICON_DIR}land_plane.svg`;
-    case 48: return `${EQUIP_ICON_DIR}interceptor.svg`;
-    case 50: case 51: case 52: case 53: case 56: case 70: return `${EQUIP_ICON_DIR}jet.svg`;
-    case 58: case 72: return `${EQUIP_ICON_DIR}asw_patrol.svg`;
-    case 62: return `${EQUIP_ICON_DIR}antisurface.svg`;
-    default: return `${EQUIP_ICON_DIR}unknown.svg`;
-  }
+/** Maps api_type[3] icon id to an equipment icon svg path. */
+export function equipLabel(iconType: number): string {
+  return `${EQUIP_ICON_DIR}${iconType > 0 ? iconType : 0}.svg`;
 }
