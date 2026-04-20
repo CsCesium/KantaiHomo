@@ -63,13 +63,8 @@ export {
 } from './aaci_detector';
 
 export {
-  AaciRateResult,
-  FleetAaciRateResult,
   calcSingleAaciRate,
   calcCombinedAaciRate,
-  calcShipAaciRate,
-  calcFleetAaciRate,
-  calcExpectedShootdown,
   RADAR_RATE_BONUS,
   FLAGSHIP_RATE_BONUS,
   LUCK_RATE_COEFFICIENT,
