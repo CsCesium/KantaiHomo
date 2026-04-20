@@ -177,6 +177,108 @@ export const SPECIAL_ATTACK_FLAGSHIP_IDS: Record<SpecialAttackType, Set<number>>
   ]),
 };
 
+// ==================== Partner Ship Requirements ====================
+
+interface PartnerSpec {
+  /** 0-based fleet index of the required partner ship */
+  fleetIndex: number;
+  /** Allowed master IDs at this position; null = any ship is acceptable */
+  validMasterIds: Set<number> | null;
+}
+
+/**
+ * Required partner ships for each special attack type.
+ * Keyed by fleet index (0-based).  Empty array = no partner restriction.
+ */
+export const SPECIAL_ATTACK_PARTNER_SPECS: Record<SpecialAttackType, PartnerSpec[]> = {
+  [SpecialAttackType.NelsonTouch]: [
+    { fleetIndex: 2, validMasterIds: null }, // position 3: any ship
+    { fleetIndex: 4, validMasterIds: null }, // position 5: any ship
+  ],
+  [SpecialAttackType.NagatoTouch]: [
+    { fleetIndex: 1, validMasterIds: new Set([573]) }, // 陸奥改二
+  ],
+  [SpecialAttackType.MutsuTouch]: [
+    { fleetIndex: 1, validMasterIds: new Set([541]) }, // 長門改二
+  ],
+  [SpecialAttackType.ColoradoTouch]: [
+    { fleetIndex: 1, validMasterIds: new Set([601, 1496, 913, 918]) }, // US BB pos2
+    { fleetIndex: 2, validMasterIds: new Set([601, 1496, 913, 918]) }, // US BB pos3
+  ],
+  [SpecialAttackType.RichelieuTouch]: [
+    { fleetIndex: 1, validMasterIds: new Set([494, 1498]) }, // Jean Bart/改
+  ],
+  [SpecialAttackType.WarspiteTouch]: [
+    { fleetIndex: 1, validMasterIds: new Set([441]) }, // Valiant改
+  ],
+  [SpecialAttackType.YamatoTouch2]: [
+    { fleetIndex: 1, validMasterIds: new Set([546, 912]) }, // 武蔵改二
+  ],
+  [SpecialAttackType.YamatoTouch3]: [
+    { fleetIndex: 1, validMasterIds: new Set([546, 912]) }, // 武蔵改二
+    { fleetIndex: 2, validMasterIds: new Set([911, 916, 546, 912]) }, // Yamato/Musashi K2
+  ],
+  [SpecialAttackType.KongouNightAttack]: [
+    { fleetIndex: 1, validMasterIds: new Set([591, 593, 954, 1573, 995]) }, // 金剛型改二丙
+  ],
+};
+
+/** Ordered list used when iterating all types for detection. */
+const ALL_SPECIAL_ATTACK_TYPES: SpecialAttackType[] = [
+  SpecialAttackType.NagatoTouch,
+  SpecialAttackType.MutsuTouch,
+  SpecialAttackType.YamatoTouch3,
+  SpecialAttackType.YamatoTouch2,
+  SpecialAttackType.ColoradoTouch,
+  SpecialAttackType.NelsonTouch,
+  SpecialAttackType.RichelieuTouch,
+  SpecialAttackType.WarspiteTouch,
+  SpecialAttackType.KongouNightAttack,
+];
+
+/**
+ * Detect whether a fleet composition is eligible for a special attack.
+ * Ships must be in fleet order (index 0 = flagship).
+ * Returns the first matching SpecialAttackType, or null if none.
+ */
+export function detectFleetSpecialAttack(
+  ships: ReadonlyArray<{ masterId: number }>
+): SpecialAttackType | null {
+  if (ships.length === 0) return null;
+  const flagMid = ships[0].masterId;
+  for (const type of ALL_SPECIAL_ATTACK_TYPES) {
+    if (!SPECIAL_ATTACK_FLAGSHIP_IDS[type].has(flagMid)) continue;
+    const specs = SPECIAL_ATTACK_PARTNER_SPECS[type];
+    let eligible = true;
+    for (const spec of specs) {
+      const partner = ships[spec.fleetIndex];
+      if (!partner) { eligible = false; break; }
+      if (spec.validMasterIds !== null && !spec.validMasterIds.has(partner.masterId)) {
+        eligible = false;
+        break;
+      }
+    }
+    if (eligible) return type;
+  }
+  return null;
+}
+
+/** Short display label for use in compact UI badges. */
+export function getSpecialAttackShortLabel(type: SpecialAttackType): string {
+  switch (type) {
+    case SpecialAttackType.NelsonTouch:      return 'ネルソンタッチ';
+    case SpecialAttackType.NagatoTouch:      return '長門一斉射';
+    case SpecialAttackType.MutsuTouch:       return '陸奥一斉射';
+    case SpecialAttackType.ColoradoTouch:    return 'コロラドタッチ';
+    case SpecialAttackType.RichelieuTouch:   return 'リシュリュータッチ';
+    case SpecialAttackType.WarspiteTouch:    return '姉妹艦連携砲撃';
+    case SpecialAttackType.YamatoTouch2:     return '大和特殊砲撃(2連)';
+    case SpecialAttackType.YamatoTouch3:     return '大和特殊砲撃(3連)';
+    case SpecialAttackType.KongouNightAttack: return '金剛夜戦突撃';
+    default: return '';
+  }
+}
+
 // ==================== Rate Calculation ====================
 
 /**

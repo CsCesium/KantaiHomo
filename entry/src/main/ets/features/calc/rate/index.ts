@@ -109,10 +109,13 @@ export {
 
   // Data
   SPECIAL_ATTACK_FLAGSHIP_IDS,
+  SPECIAL_ATTACK_PARTNER_SPECS,
 
   // Functions
   getAttackPositions,
   allowsSpecialAttack,
+  detectFleetSpecialAttack,
+  getSpecialAttackShortLabel,
   calcNelsonTouchRate,
   calcNagatoTouchRate,
   calcColoradoTouchRate,

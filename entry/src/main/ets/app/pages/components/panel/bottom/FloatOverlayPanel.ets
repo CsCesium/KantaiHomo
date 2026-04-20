@@ -6,6 +6,11 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState
 } from '../../../../../features/state';
 import { getPersistDeps } from '../../../../../infra/deps';
+import {
+  getFleetFighterPower,
+  calcSingleFleetLoS,
+  detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
+} from '../../../../../features/calc';
 
 async function showEquipToast(slotUid: number): Promise<void> {
   try {
@@ -62,10 +67,7 @@ function condColor(cond: number): string {
 
 /**
  * Semi-transparent floating panel for COMPACT mode (landscape / small window).
- * Rendered on top of the game viewport via Stack in the parent.
- *
- * Displays the selected fleet's ships from live GameState.
- * Fleet selector is a compact row of numbered buttons at the top.
+ * Shows fleet air power, LoS(×3), and special attack eligibility.
  */
 @ComponentV2
 export default struct FloatOverlayPanel {
@@ -73,6 +75,9 @@ export default struct FloatOverlayPanel {
   @Local ships: ShipItem[] = [];
   @Local materials: MaterialsSnapshot | null = null;
   @Local decks: DeckSnapshot[] = [];
+  @Local airPower: number = 0;
+  @Local fleetLoS: number = 0;
+  @Local specialAttack: string = '';
 
   private unsubscribe: (() => void) | null = null;
 
@@ -98,21 +103,47 @@ export default struct FloatOverlayPanel {
     this.materials = getMaterials();
     this.decks = [...getDecks()];
     this.refreshShips();
+    this.loadCalcStats();
   }
 
   private refreshShips(): void {
     if (this.activeFleet < 4) {
       const st = getGameState().getState();
-      this.ships = getDeckShips(this.activeFleet + 1).map(s =>
-        shipStateToItem(s, st.slotItemIndex, st.slotItemEquipTypes));
+      const rawShips = getDeckShips(this.activeFleet + 1);
+      this.ships = rawShips.map(s => shipStateToItem(s, st.slotItemIndex, st.slotItemEquipTypes));
+      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
+      this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
     } else {
       this.ships = [];
+      this.specialAttack = '';
+    }
+  }
+
+  private async loadCalcStats(): Promise<void> {
+    if (this.activeFleet >= 4) {
+      this.airPower = 0;
+      this.fleetLoS = 0;
+      return;
+    }
+    const deckId = this.activeFleet + 1;
+    try {
+      const fpResult = await getFleetFighterPower(deckId);
+      this.airPower = fpResult?.totalFighterPower ?? 0;
+    } catch (_e) {
+      this.airPower = 0;
+    }
+    try {
+      const losResult = await calcSingleFleetLoS(deckId, 3);
+      this.fleetLoS = losResult?.losScore ?? 0;
+    } catch (_e) {
+      this.fleetLoS = 0;
     }
   }
 
   private selectFleet(idx: number): void {
     this.activeFleet = idx;
     this.refreshShips();
+    this.loadCalcStats();
   }
 
   private isOnExpedition(idx: number): boolean {
@@ -124,13 +155,28 @@ export default struct FloatOverlayPanel {
   // ── builders ──────────────────────────────────────────────────────────────
 
   /**
-   * Compact 2-line ship row:
+   * Compact 2-line (+ optional special-attack label) ship row:
    *
-   *   name (flex)               hp / hpMax
-   *   Lv.xxx  [=====HP bar=====]  ◆cond  [s1][s2]…[ex]
+   *   [⚡特殊攻撃名]             (flagship only, when eligible)
+   *   name (flex)   hp/hpMax
+   *   Lv.  [HP bar]  ◆cond  [s1][s2]…[ex]
    */
-  @Builder ShipRow(ship: ShipItem) {
-    Column({ space: 3 }) {
+  @Builder ShipRow(ship: ShipItem, isFlag: boolean) {
+    Column({ space: 2 }) {
+      // Special attack badge — flagship only
+      if (isFlag && this.specialAttack !== '') {
+        Row() {
+          Text(`⚡ ${this.specialAttack}`)
+            .fontSize(8)
+            .fontColor('#FFD700')
+            .backgroundColor('#1a1525')
+            .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+            .borderRadius(2)
+        }
+        .width('100%')
+        .height(12)
+      }
+
       // Line 1: name | HP fraction
       Row() {
         Text(ship.name)
@@ -175,11 +221,7 @@ export default struct FloatOverlayPanel {
               .height(12)
               .borderRadius(2)
               .backgroundColor(uid > 0 ? '#252940' : '#181b2e')
-              .onClick(() => {
-                if (uid > 0) {
-                  showEquipToast(uid);
-                }
-              })
+              .onClick(() => { if (uid > 0) showEquipToast(uid); })
           }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
           if (ship.exSlot > 0) {
             Text(equipLabel(ship.exSlotType))
@@ -191,9 +233,7 @@ export default struct FloatOverlayPanel {
               .margin({ left: 1 })
               .borderRadius(2)
               .backgroundColor('#1a2855')
-              .onClick(() => {
-                showEquipToast(ship.exSlot);
-              })
+              .onClick(() => { showEquipToast(ship.exSlot); })
           }
         }
         .alignItems(VerticalAlign.Center)
@@ -202,7 +242,7 @@ export default struct FloatOverlayPanel {
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .height(PanelDimens.rowCompH)
+    .height(isFlag && this.specialAttack !== '' ? PanelDimens.rowCompH + 14 : PanelDimens.rowCompH)
     .padding({ left: 8, right: 6, top: 4, bottom: 4 })
     .justifyContent(FlexAlign.Center)
     .borderWidth({ bottom: PanelDimens.borderW })
@@ -239,6 +279,35 @@ export default struct FloatOverlayPanel {
       .borderWidth({ bottom: PanelDimens.borderW })
       .borderColor(PanelColors.overlayHdr)
 
+      // Air power + LoS stats line
+      Row() {
+        Text('制空')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.overlayTxt)
+        Text(this.airPower > 0 ? `${this.airPower}` : '--')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.stat)
+          .margin({ left: 3 })
+        Blank().layoutWeight(1)
+        Text('索敵')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.overlayTxt)
+        Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.stat)
+          .margin({ left: 3 })
+        Text('(×3)')
+          .fontSize(PanelDimens.fontSm - 1)
+          .fontColor(PanelColors.txtFainter)
+          .margin({ left: 2 })
+      }
+      .width('100%')
+      .height(PanelDimens.statusBarH)
+      .padding({ left: 8, right: 8 })
+      .alignItems(VerticalAlign.Center)
+      .borderWidth({ bottom: PanelDimens.borderW })
+      .borderColor(PanelColors.overlayHdr)
+
       // Compact fleet selector row
       Row({ space: 2 }) {
         ForEach([0, 1, 2, 3], (idx: number) => {
@@ -264,8 +333,8 @@ export default struct FloatOverlayPanel {
       Scroll() {
         Column() {
           if (this.ships.length > 0) {
-            ForEach(this.ships, (ship: ShipItem) => {
-              this.ShipRow(ship)
+            ForEach(this.ships, (ship: ShipItem, idx: number) => {
+              this.ShipRow(ship, idx === 0)
             }, (ship: ShipItem) => `ship-${ship.id}`)
           } else {
             Text('データなし')
