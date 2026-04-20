@@ -26,6 +26,8 @@ export interface ShipItem {
   slots: number[];
   /** SlotItemEquipType (api_type[2]) per slot, parallel to slots; 0 = empty. */
   slotTypes: number[];
+  /** Current carried aircraft count per slot, parallel to slots. */
+  slotAirs: number[];
   /** Ex-slot UID: 0 = locked, -1 = empty, >0 = equipped item uid. */
   exSlot: number;
   /** SlotItemEquipType of the ex-slot item; 0 = locked/empty. */

@@ -244,6 +244,7 @@ class GameStateManager {
       : false;
 
     const slots: number[] = Array.isArray(ship.slots) ? [...ship.slots] : [];
+    const onslot: number[] = Array.isArray(ship.onslot) ? [...ship.onslot] : [];
     const slotCount: number = typeof ship.slotCount === 'number' ? ship.slotCount : slots.length;
     const exSlot: number = typeof ship.exSlot === 'number' ? ship.exSlot : 0;
 
@@ -261,6 +262,7 @@ class GameStateManager {
       ammoMax,
       needsResupply,
       slots,
+      onslot,
       slotCount,
       exSlot,
       hpPercent,

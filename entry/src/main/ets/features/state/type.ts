@@ -85,6 +85,8 @@ export interface ShipState {
   needsResupply: boolean;
   /** 装备槽 (装备实例 UID 列表，长度5，-1=未装备) */
   slots: number[];
+  /** 各槽当前搭载数（与 slots 并行） */
+  onslot: number[];
   /** 实际装备槽数量 */
   slotCount: number;
   /** 扩张装备槽 UID（0=未解锁，-1=未装备，>0=装备UID） */

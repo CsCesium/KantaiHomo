@@ -1,6 +1,6 @@
 import promptAction from '@ohos.promptAction';
 import { ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, hpColor, equipLabel, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { FLEET_TAB_COLORS, hpColor, equipLabel, isCarrierAircraftType, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   MaterialsSnapshot, DeckSnapshot, ShipState
@@ -32,6 +32,7 @@ function shipStateToItem(
   slotItemEquipTypes: Map<number, number>
 ): ShipItem {
   const activeSlots = s.slots.slice(0, s.slotCount);
+  const activeOnslot = s.onslot.slice(0, s.slotCount);
   const slotTypes = activeSlots.map(uid => {
     if (uid <= 0) return 0;
     const mid = slotItemIndex.get(uid);
@@ -55,6 +56,7 @@ function shipStateToItem(
     s4: 0,
     slots: activeSlots,
     slotTypes,
+    slotAirs: activeOnslot,
     exSlot: s.exSlot,
     exSlotType,
   };
@@ -332,23 +334,39 @@ export default struct BottomPanel {
           // Slot icons
           Row({ space: 1 }) {
             ForEach(ship.slots, (uid: number, idx: number) => {
-              Text(uid > 0 ? equipLabel(ship.slotTypes[idx] ?? 0) : '–')
-                .fontSize(9)
-                .fontColor(uid > 0 ? '#c8cce0' : PanelColors.txtFainter)
-                .textAlign(TextAlign.Center)
+              if (uid > 0) {
+                Stack({ alignContent: Alignment.BottomEnd }) {
+                  Image(equipLabel(ship.slotTypes[idx] ?? 0))
+                    .width(14)
+                    .height(14)
+                    .padding(1)
+                  if (isCarrierAircraftType(ship.slotTypes[idx] ?? 0)) {
+                    Text(`${ship.slotAirs[idx] ?? 0}`)
+                      .fontSize(7)
+                      .fontColor('#ffffff')
+                      .backgroundColor('#cc000000')
+                      .borderRadius(2)
+                      .padding({ left: 1, right: 1 })
+                  }
+                }
                 .width(14)
                 .height(14)
                 .borderRadius(2)
-                .backgroundColor(uid > 0 ? '#252940' : '#181b2e')
-                .onClick(() => { if (uid > 0) showEquipToast(uid); })
+                .backgroundColor('#252940')
+                .onClick(() => { showEquipToast(uid); })
+              } else {
+                Row()
+                  .width(14)
+                  .height(14)
+                  .borderRadius(2)
+                  .backgroundColor('#55c8cce0')
+              }
             }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
             if (ship.exSlot > 0) {
-              Text(equipLabel(ship.exSlotType))
-                .fontSize(9)
-                .fontColor('#c8cce0')
-                .textAlign(TextAlign.Center)
+              Image(equipLabel(ship.exSlotType))
                 .width(15)
                 .height(14)
+                .padding(1)
                 .margin({ left: 2 })
                 .borderRadius(2)
                 .backgroundColor('#1a2855')

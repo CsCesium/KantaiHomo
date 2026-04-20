@@ -114,47 +114,57 @@ export function hpColor(hp: number, hpMax: number): string {
   return PanelColors.hpCrit;
 }
 
-/** Maps SlotItemEquipType (api_type[2]) to a 1-character display label. */
+const EQUIP_ICON_DIR = 'resource://RAWFILE/equip-icons/';
+const CARRIER_AIRCRAFT_TYPES: ReadonlySet<number> = new Set([
+  6, 7, 8, 9, 45, 56, 57, 58,
+]);
+
+/** Returns true if the equip type should display carried aircraft count. */
+export function isCarrierAircraftType(equipType: number): boolean {
+  return CARRIER_AIRCRAFT_TYPES.has(equipType);
+}
+
+/** Maps SlotItemEquipType (api_type[2]) to an equipment icon svg path. */
 export function equipLabel(equipType: number): string {
   switch (equipType) {
-    case 1: case 2: case 3: return '主';
-    case 4: return '副';
-    case 5: case 27: return '魚';
-    case 6: case 33: return '戦';
-    case 7: case 17: case 30: return '爆';
-    case 8: case 34: case 55: return '攻';
-    case 9: case 29: case 65: return '偵';
-    case 10: case 57: case 67: return '水';
-    case 11: case 64: case 66: return '電';
-    case 12: case 13: return '弾';
-    case 14: return '修';
-    case 15: return '銃';
-    case 16: case 69: return '高';
-    case 18: case 54: return 'ソ';
-    case 19: case 31: return '機';
-    case 20: return '舟';
-    case 21: return 'ジ';
-    case 22: case 28: case 60: return '哨';
-    case 23: return '装';
-    case 24: return '探';
-    case 25: return '輸';
-    case 26: return '施';
-    case 32: case 68: return '甲';
-    case 35: return '砲';
-    case 36: return '誘';
-    case 37: return '地';
-    case 38: return '司';
-    case 39: case 41: case 59: return '員';
-    case 40: return '給';
-    case 42: case 46: case 71: return '艇';
-    case 43: return '探';
-    case 44: return '食';
-    case 45: return '補';
-    case 47: case 49: return '陸';
-    case 48: return '局';
-    case 50: case 51: case 52: case 53: case 56: case 70: return '噴';
-    case 58: case 72: return '暗';
-    case 62: return '対';
-    default: return '？';
+    case 1: case 2: case 3: return `${EQUIP_ICON_DIR}main_gun.svg`;
+    case 4: return `${EQUIP_ICON_DIR}secondary_gun.svg`;
+    case 5: case 27: return `${EQUIP_ICON_DIR}torpedo.svg`;
+    case 6: case 33: return `${EQUIP_ICON_DIR}carrier_fighter.svg`;
+    case 7: case 17: case 30: return `${EQUIP_ICON_DIR}carrier_bomber.svg`;
+    case 8: case 34: case 55: return `${EQUIP_ICON_DIR}carrier_attacker.svg`;
+    case 9: case 29: case 65: return `${EQUIP_ICON_DIR}recon.svg`;
+    case 10: case 57: case 67: return `${EQUIP_ICON_DIR}seaplane.svg`;
+    case 11: case 64: case 66: return `${EQUIP_ICON_DIR}radar.svg`;
+    case 12: case 13: return `${EQUIP_ICON_DIR}shell.svg`;
+    case 14: return `${EQUIP_ICON_DIR}repair.svg`;
+    case 15: return `${EQUIP_ICON_DIR}aagun.svg`;
+    case 16: case 69: return `${EQUIP_ICON_DIR}high_angle.svg`;
+    case 18: case 54: return `${EQUIP_ICON_DIR}sonar.svg`;
+    case 19: case 31: return `${EQUIP_ICON_DIR}engine.svg`;
+    case 20: return `${EQUIP_ICON_DIR}landing_craft.svg`;
+    case 21: return `${EQUIP_ICON_DIR}autogyro.svg`;
+    case 22: case 28: case 60: return `${EQUIP_ICON_DIR}patrol.svg`;
+    case 23: return `${EQUIP_ICON_DIR}armor.svg`;
+    case 24: return `${EQUIP_ICON_DIR}searchlight.svg`;
+    case 25: return `${EQUIP_ICON_DIR}transport.svg`;
+    case 26: return `${EQUIP_ICON_DIR}facility.svg`;
+    case 32: case 68: return `${EQUIP_ICON_DIR}special_armor.svg`;
+    case 35: return `${EQUIP_ICON_DIR}special_gun.svg`;
+    case 36: return `${EQUIP_ICON_DIR}aamissile.svg`;
+    case 37: return `${EQUIP_ICON_DIR}land_attack.svg`;
+    case 38: return `${EQUIP_ICON_DIR}command.svg`;
+    case 39: case 41: case 59: return `${EQUIP_ICON_DIR}personnel.svg`;
+    case 40: return `${EQUIP_ICON_DIR}supply.svg`;
+    case 42: case 46: case 71: return `${EQUIP_ICON_DIR}boat.svg`;
+    case 43: return `${EQUIP_ICON_DIR}sub_radar.svg`;
+    case 44: return `${EQUIP_ICON_DIR}ration.svg`;
+    case 45: return `${EQUIP_ICON_DIR}replenish.svg`;
+    case 47: case 49: return `${EQUIP_ICON_DIR}land_plane.svg`;
+    case 48: return `${EQUIP_ICON_DIR}interceptor.svg`;
+    case 50: case 51: case 52: case 53: case 56: case 70: return `${EQUIP_ICON_DIR}jet.svg`;
+    case 58: case 72: return `${EQUIP_ICON_DIR}asw_patrol.svg`;
+    case 62: return `${EQUIP_ICON_DIR}antisurface.svg`;
+    default: return `${EQUIP_ICON_DIR}unknown.svg`;
   }
 }
