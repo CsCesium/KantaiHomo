@@ -1,6 +1,6 @@
 import promptAction from '@ohos.promptAction';
 import { ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftCategory, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   MaterialsSnapshot, DeckSnapshot, ShipState
@@ -30,8 +30,7 @@ function shipStateToItem(
   s: ShipState,
   slotItemIndex: Map<number, number>,
   slotItemEquipTypes: Map<number, number>,
-  slotItemIconTypes: Map<number, number>,
-  slotItemAircraftCategories: Map<number, number>
+  slotItemIconTypes: Map<number, number>
 ): ShipItem {
   const activeSlots = s.slots.slice(0, s.slotCount);
   const activeOnslot = s.onslot.slice(0, s.slotCount);
@@ -44,11 +43,6 @@ function shipStateToItem(
     if (uid <= 0) return 0;
     const mid = slotItemIndex.get(uid);
     return mid !== undefined ? (slotItemIconTypes.get(mid) ?? 0) : 0;
-  });
-  const slotAircraftCats = activeSlots.map(uid => {
-    if (uid <= 0) return 0;
-    const mid = slotItemIndex.get(uid);
-    return mid !== undefined ? (slotItemAircraftCategories.get(mid) ?? 0) : 0;
   });
   let exSlotType = 0;
   let exSlotIconType = 0;
@@ -74,7 +68,6 @@ function shipStateToItem(
     slotTypes,
     slotIconTypes,
     slotAirs: activeOnslot,
-    slotAircraftCategories: slotAircraftCats,
     exSlot: s.exSlot,
     exSlotType,
     exSlotIconType,
@@ -146,8 +139,7 @@ export default struct BottomPanel {
         s,
         st.slotItemIndex,
         st.slotItemEquipTypes,
-        st.slotItemIconTypes,
-        st.slotItemAircraftCategories
+        st.slotItemIconTypes
       ));
       const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
       this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
@@ -365,7 +357,7 @@ export default struct BottomPanel {
                     .width(14)
                     .height(14)
                     .padding(1)
-                  if (isAircraftCategory(ship.slotAircraftCategories[idx] ?? 0)) {
+                  if (isAircraftEquipType(ship.slotTypes[idx] ?? 0)) {
                     Text(`${ship.slotAirs[idx] ?? 0}`)
                       .fontSize(7)
                       .fontColor('#ffffff')

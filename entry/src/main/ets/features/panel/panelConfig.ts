@@ -116,9 +116,13 @@ export function hpColor(hp: number, hpMax: number): string {
 
 const EQUIP_ICON_DIR = 'resource://RAWFILE/equip-icons/';
 
-/** Returns true if slotitem belongs to aircraft category (api_type[4]). */
-export function isAircraftCategory(aircraftCategory: number): boolean {
-  return aircraftCategory > 0;
+const AIRCRAFT_EQUIP_TYPES: ReadonlySet<number> = new Set([
+  6, 7, 8, 9, 10, 11, 25, 26, 41, 45, 47, 48, 49, 53, 56, 57, 58, 59, 94,
+]);
+
+/** Returns true if slotitem equip type (api_type[2]) is an aircraft category. */
+export function isAircraftEquipType(equipType: number): boolean {
+  return AIRCRAFT_EQUIP_TYPES.has(equipType);
 }
 
 /** Maps api_type[3] icon id to an equipment icon svg path. */
