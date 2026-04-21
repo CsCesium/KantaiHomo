@@ -23,3 +23,4 @@ export * as ExpeditionDao from './expedition';
 export * as ExpeditionResultDao from './expedition_result';
 export * as BattleDao from './battle';
 export * as SortieDao from './sortie';
+export * as ShipGraphDao from './ship_graph';

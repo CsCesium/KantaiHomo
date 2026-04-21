@@ -135,6 +135,10 @@ export interface GameState {
   slotItemEquipTypes: Map<number, number>;
   /** 装备实例索引 (slotitem uid → masterId) */
   slotItemIndex: Map<number, number>;
+  /** 舰娘图像文件名缓存 (masterId → api_filename) */
+  shipGraphFilenames: Map<number, string>;
+  /** 游戏服务器基础 URL（从 api_start2 请求中提取）*/
+  gameServerUrl: string | null;
 }
 
 /** 状态变更类型 */

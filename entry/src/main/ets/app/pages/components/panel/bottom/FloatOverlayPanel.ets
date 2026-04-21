@@ -3,8 +3,10 @@ import { ShipItem } from '../../../../../features/panel/type';
 import { hpColor, equipLabel, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
+  getShipGraphFilename, getGameServerUrl,
   MaterialsSnapshot, DeckSnapshot, ShipState
 } from '../../../../../features/state';
+import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
 import {
   getFleetFighterPower,
@@ -42,6 +44,7 @@ function shipStateToItem(
   }
   return {
     id: s.uid,
+    masterId: s.masterId,
     name: s.name,
     shipType: '',
     level: s.level,
@@ -177,8 +180,15 @@ export default struct FloatOverlayPanel {
         .height(12)
       }
 
-      // Line 1: name | HP fraction
-      Row() {
+      // Line 1: [avatar] name | HP fraction
+      Row({ space: 4 }) {
+        if (getShipGraphFilename(ship.masterId) && getGameServerUrl()) {
+          Image(getShipBannerUrl(ship.masterId, getShipGraphFilename(ship.masterId)!, getGameServerUrl()!))
+            .width(32)
+            .height(18)
+            .objectFit(ImageFit.Cover)
+            .borderRadius(2)
+        }
         Text(ship.name)
           .fontSize(PanelDimens.fontMd)
           .fontWeight(FontWeight.Medium)

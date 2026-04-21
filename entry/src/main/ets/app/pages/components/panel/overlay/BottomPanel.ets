@@ -3,8 +3,10 @@ import { ShipItem } from '../../../../../features/panel/type';
 import { FLEET_TAB_COLORS, hpColor, equipLabel, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
+  getShipGraphFilename, getGameServerUrl,
   MaterialsSnapshot, DeckSnapshot, ShipState
 } from '../../../../../features/state';
+import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
 import {
   getFleetFighterPower,
@@ -44,6 +46,7 @@ function shipStateToItem(
   }
   return {
     id: s.uid,
+    masterId: s.masterId,
     name: s.name,
     shipType: '',
     level: s.level,
@@ -267,18 +270,38 @@ export default struct BottomPanel {
    */
   @Builder ShipRow(ship: ShipItem, isFlag: boolean) {
     Row() {
-      // Cond (morale) indicator column
-      Column() {
+      // Ship banner / avatar column
+      Stack({ alignContent: Alignment.BottomEnd }) {
+        if (getShipGraphFilename(ship.masterId) && getGameServerUrl()) {
+          Image(getShipBannerUrl(ship.masterId, getShipGraphFilename(ship.masterId)!, getGameServerUrl()!))
+            .width(PanelDimens.avatarW)
+            .height('100%')
+            .objectFit(ImageFit.Cover)
+        } else {
+          Column() {
+            Text(condIcon(ship.s1))
+              .fontSize(PanelDimens.fontLg)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(condColor(ship.s1))
+          }
+          .width(PanelDimens.avatarW)
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+        }
+        // Cond badge (bottom-right corner overlay)
         Text(condIcon(ship.s1))
-          .fontSize(PanelDimens.fontLg)
-          .fontWeight(FontWeight.Bold)
+          .fontSize(8)
           .fontColor(condColor(ship.s1))
+          .backgroundColor('#CC000000')
+          .padding(1)
+          .borderRadius(2)
+          .margin({ right: 1, bottom: 1 })
       }
       .width(PanelDimens.avatarW)
       .height('100%')
       .backgroundColor(PanelColors.bgAvatar)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
+      .clip(true)
 
       // Info column
       Column({ space: 3 }) {

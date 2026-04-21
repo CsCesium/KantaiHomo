@@ -32,6 +32,8 @@ import type {
   BattleRecordRow,
   SortieRecordRepository,
   SortieRecordRow,
+  ShipGraphRow,
+  ShipGraphRepository,
 } from '../types';
 import {
   ShipDao,
@@ -47,6 +49,7 @@ import {
   ExpeditionResultDao,
   BattleDao,
   SortieDao,
+  ShipGraphDao,
 } from '../dao';
 
 // ==================== Admiral ====================
@@ -333,6 +336,22 @@ export class SortieRecordRepositoryImpl implements SortieRecordRepository {
 }
 
 
+// ==================== Ship Graph ====================
+
+export class ShipGraphRepositoryImpl implements ShipGraphRepository {
+  async upsertBatch(rows: readonly ShipGraphRow[]): Promise<void> {
+    await ShipGraphDao.upsertBatch(rows);
+  }
+
+  async get(id: number): Promise<ShipGraphRow | null> {
+    return ShipGraphDao.get(id);
+  }
+
+  async listAll(): Promise<ShipGraphRow[]> {
+    return ShipGraphDao.listAll();
+  }
+}
+
 // ==================== Repository Hub ====================
 
 class RepositoryHubImpl implements RepositoryHub {
@@ -349,6 +368,7 @@ class RepositoryHubImpl implements RepositoryHub {
   private _expeditionResult: ExpeditionResultRepository | null = null;
   private _battle: BattleRecordRepository | null = null;
   private _sortie: SortieRecordRepository | null = null;
+  private _shipGraph: ShipGraphRepository | null = null;
 
   get admiral(): AdmiralRepository {
     return this._admiral ??= new AdmiralRepositoryImpl();
@@ -402,6 +422,10 @@ class RepositoryHubImpl implements RepositoryHub {
     return this._sortie ??= new SortieRecordRepositoryImpl();
   }
 
+  get shipGraph(): ShipGraphRepository {
+    return this._shipGraph ??= new ShipGraphRepositoryImpl();
+  }
+
   reset(): void {
     this._admiral = null;
     this._material = null;
@@ -416,6 +440,7 @@ class RepositoryHubImpl implements RepositoryHub {
     this._expeditionResult = null;
     this._battle = null;
     this._sortie = null;
+    this._shipGraph = null;
   }
 }
 
@@ -445,5 +470,6 @@ export const repos = {
   get expeditionResult() { return getRepositoryHub().expeditionResult; },
   get battle() { return getRepositoryHub().battle; },
   get sortie() { return getRepositoryHub().sortie; },
+  get shipGraph() { return getRepositoryHub().shipGraph; },
 };
 

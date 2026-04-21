@@ -1,6 +1,6 @@
 import { webview } from "@kit.ArkWeb";
 import { HOME_URL } from "../config";
-import { createEmptyResp, shouldBlock } from "../interceptors/Interceptor";
+import { createEmptyResp, shouldBlock, shipAssetInterceptor } from "../interceptors/Interceptor";
 
 interface messages {
   message?: string;
@@ -24,10 +24,13 @@ export default struct GameWeb {
       .onControllerAttached(() => { this.onWebAttached?.(); })
       .onLoadIntercept(() => false)
       .onInterceptRequest((ev) => {
-        const url:string = ev&&ev.request? (ev.request.getRequestUrl()||''):'';
-        if(!url) return undefined;
-        if(!shouldBlock(url))return undefined;
-        return createEmptyResp();
+        if (!ev?.request) return undefined;
+        const reqUrl: string = ev.request.getRequestUrl() || '';
+        if (!reqUrl) return undefined;
+        if (shouldBlock(reqUrl)) return createEmptyResp();
+        const cached = shipAssetInterceptor(ev);
+        if (cached) return cached;
+        return undefined;
       })
       .onPageBegin(() => { this.onWebPageBegin?.(); })
       .onProgressChange(e => { this.onWebProgress?.(e?.newProgress ?? 0); })

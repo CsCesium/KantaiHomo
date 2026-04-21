@@ -89,6 +89,8 @@ class GameStateManager {
     shipMasterMaxSupply: new Map(),
     slotItemEquipTypes: new Map(),
     slotItemIndex: new Map(),
+    shipGraphFilenames: new Map(),
+    gameServerUrl: null,
   };
 
   private listeners: Set<StateChangeListener> = new Set();
@@ -651,6 +653,30 @@ class GameStateManager {
   }
 
   /**
+   * 更新舰娘图像文件名缓存（来自 api_start2 shipgraph 数据）
+   */
+  updateShipGraphFilenames(items: ReadonlyArray<{ id: number; filename: string }>): void {
+    for (const item of items) {
+      this.state.shipGraphFilenames.set(item.id, item.filename);
+    }
+  }
+
+  /** 按图鉴 ID 获取舰娘图像文件名 */
+  getShipGraphFilename(masterId: number): string | null {
+    return this.state.shipGraphFilenames.get(masterId) ?? null;
+  }
+
+  /** 设置游戏服务器基础 URL */
+  setGameServerUrl(url: string): void {
+    if (url) this.state.gameServerUrl = url;
+  }
+
+  /** 获取游戏服务器基础 URL */
+  getGameServerUrl(): string | null {
+    return this.state.gameServerUrl;
+  }
+
+  /**
    * 获取舰娘的特殊装备状态（损管/女神）
    * 检查舰娘装备槽（包括扩张槽）中是否有损管或女神
    */
@@ -794,6 +820,11 @@ export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equi
   gameStateManager.updateSlotItemEquipTypes(items);
 export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number }>) =>
   gameStateManager.updateSlotItemIndex(items);
+export const updateShipGraphFilenames = (items: ReadonlyArray<{ id: number; filename: string }>) =>
+  gameStateManager.updateShipGraphFilenames(items);
+export const getShipGraphFilename = (masterId: number) => gameStateManager.getShipGraphFilename(masterId);
+export const setGameServerUrl = (url: string) => gameStateManager.setGameServerUrl(url);
+export const getGameServerUrl = () => gameStateManager.getGameServerUrl();
 export const getShipSpecialEquip = (uid: number) => gameStateManager.getShipSpecialEquip(uid);
 export const getShipMasterName = (masterId: number) => gameStateManager.getShipMasterName(masterId);
 

@@ -1,8 +1,15 @@
 import type { ApiDump } from '../../../infra/web/types';
-import type { AnyStart2Evt, ShipMasterCatalogEvent, SlotItemMasterCatalogEvent, MissionMasterCatalogEvent } from '../../../domain/events/start2';
+import type {
+  AnyStart2Evt,
+  ShipMasterCatalogEvent,
+  SlotItemMasterCatalogEvent,
+  MissionMasterCatalogEvent,
+  ShipGraphCatalogEvent,
+} from '../../../domain/events/start2';
 import { ApiStart2DataRaw } from '../../../domain/models/api/start2';
 import { mkEvt, ParserCtx } from './common';
 import { parseSvdata } from '../../utils/common';
+import { extractServerBase } from '../../game/shipGraph';
 
 export function parseStart2(dump: ApiDump): AnyStart2Evt[] | null {
   if (!dump.url?.includes('/api_start2')) return null;
@@ -45,6 +52,16 @@ export function parseStart2(dump: ApiDump): AnyStart2Evt[] | null {
         ['mission-mst', data.api_mst_mission.length, ctx.ts],
         data.api_mst_mission
       ) as MissionMasterCatalogEvent
+    );
+  }
+
+  if (Array.isArray(data.api_mst_shipgraph) && data.api_mst_shipgraph.length > 0) {
+    const serverBase = extractServerBase(dump.url) ?? '';
+    out.push(
+      mkEvt(ctx, 'SHIP_GRAPH_CATALOG',
+        ['ship-graph-mst', data.api_mst_shipgraph.length, ctx.ts],
+        { graphs: data.api_mst_shipgraph, serverBase }
+      ) as ShipGraphCatalogEvent
     );
   }
 

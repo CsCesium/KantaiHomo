@@ -518,6 +518,20 @@ export interface SortieRecordRepository {
   delete(id: string): Promise<void>;
 }
 
+// ==================== Ship Graph Master ====================
+
+export interface ShipGraphRow {
+  id: number;       // masterId
+  filename: string; // api_filename from api_mst_shipgraph
+  updatedAt: number;
+}
+
+export interface ShipGraphRepository {
+  upsertBatch(rows: readonly ShipGraphRow[]): Promise<void>;
+  get(id: number): Promise<ShipGraphRow | null>;
+  listAll(): Promise<ShipGraphRow[]>;
+}
+
 // ==================== Repository Hub ====================
 
 export interface RepositoryHub {
@@ -534,4 +548,5 @@ export interface RepositoryHub {
   ship: ShipRepository;
   battle: BattleRecordRepository;
   sortie: SortieRecordRepository;
+  shipGraph: ShipGraphRepository;
 }

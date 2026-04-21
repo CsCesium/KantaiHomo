@@ -1,4 +1,6 @@
 import { ShipSpecialEquip, ShipState } from '../../../../features/state/type';
+import { getShipGraphFilename, getGameServerUrl } from '../../../../features/state';
+import { getShipBannerUrl } from '../../../../features/game/shipGraph';
 
 /**
  * HP 颜色常量（按损伤等级）
@@ -221,18 +223,27 @@ export default struct ShipStatusBadge {
           .height(this.ringDiam)
           .onReady(() => this.drawRing())
 
-        // 头像圆（名称文字占位符）
-        Text(this.ship.name)
-          .width(this.avatarDiam)
-          .height(this.avatarDiam)
-          .borderRadius(this.avatarDiam / 2)
-          .backgroundColor('#1e1e1e')
-          .fontColor('#cccccc')
-          .fontSize(this.nameFontSize)
-          .textAlign(TextAlign.Center)
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Clip })
-          .padding(2)
+        // 头像圆 — 舰娘 banner 图像或名称文字占位符
+        if (getShipGraphFilename(this.ship.masterId) && getGameServerUrl()) {
+          Image(getShipBannerUrl(this.ship.masterId, getShipGraphFilename(this.ship.masterId)!, getGameServerUrl()!))
+            .width(this.avatarDiam)
+            .height(this.avatarDiam)
+            .borderRadius(this.avatarDiam / 2)
+            .objectFit(ImageFit.Cover)
+            .clip(true)
+        } else {
+          Text(this.ship.name)
+            .width(this.avatarDiam)
+            .height(this.avatarDiam)
+            .borderRadius(this.avatarDiam / 2)
+            .backgroundColor('#1e1e1e')
+            .fontColor('#cccccc')
+            .fontSize(this.nameFontSize)
+            .textAlign(TextAlign.Center)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Clip })
+            .padding(2)
+        }
 
         // 损管/女神角标（右下角）
         if (this.hasEquip) {

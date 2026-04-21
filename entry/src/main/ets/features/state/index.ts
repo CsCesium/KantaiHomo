@@ -46,6 +46,12 @@ export {
   updateShipMasterMeta,
   updateSlotItemEquipTypes,
   updateSlotItemIndex,
+  updateShipGraphFilenames,
+  setGameServerUrl,
+
+  // 图像数据查询
+  getShipGraphFilename,
+  getGameServerUrl,
 
   // 查询方法
   getAdmiral,
