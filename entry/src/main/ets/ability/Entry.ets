@@ -17,6 +17,8 @@ import BuildProfile from 'BuildProfile';
 import { FairyService } from '../infra/fairy/service/FairyService';
 import { kvGetBool, kvGetString } from '../infra/storage/kv';
 import { loadSenkaFromKV } from '../features/state/senkaInit';
+import { initShipGraphCache } from '../infra/assets/shipGraphCache';
+import { updateShipGraphFilenames } from '../features/state';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -37,6 +39,7 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     setAppContext(this.context);
+    initShipGraphCache(this.context.filesDir);
 
     webview.WebCookieManager.putAcceptCookieEnabled(true);
     webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true);
@@ -113,6 +116,16 @@ export default class EntryAbility extends UIAbility {
 
       // 恢复战果跟踪数据（每日起点 + 战绩快照）
       void loadSenkaFromKV();
+
+      // 从 DB 恢复舰娘图像文件名到内存缓存
+      void getRepositoryHub().shipGraph.listAll().then(rows => {
+        if (rows.length > 0) {
+          updateShipGraphFilenames(rows.map(r => ({ id: r.id, filename: r.filename })));
+          hilog.info(HILOG_DOM, 'App', 'restored %{public}d ship graph filenames from DB', rows.length);
+        }
+      }).catch((_e: Error) => {
+        hilog.warn(HILOG_DOM, 'App', 'failed to restore ship graph filenames from DB');
+      });
 
       hilog.info(HILOG_DOM, 'App', 'deps+registry+alerts+scheduler initialized (stageCreate)');
     } catch (e) {

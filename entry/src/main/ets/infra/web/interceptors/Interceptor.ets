@@ -1,4 +1,6 @@
-import { url,util } from '@kit.ArkTS';
+import { url, util } from '@kit.ArkTS';
+import { tryServeCached, queueDownload, isShipAssetPath } from '../../assets/shipGraphCache';
+import { getGameServerUrl } from '../../../features/state';
 
 //reserved for future
 function shouldWrap(url: string): boolean {
@@ -163,6 +165,42 @@ export function shouldBlock(Url: string): boolean {
     return true;
   }
   return false;
+}
+
+export function shipAssetInterceptor(event: OnInterceptRequestEvent): WebResourceResponse | null {
+  const reqUrl: string = event.request.getRequestUrl();
+  if (!reqUrl) return null;
+
+  let urlPath: string;
+  try {
+    const parsed = url.URL.parseURL(reqUrl);
+    urlPath = parsed.pathname;
+  } catch (_e) {
+    return null;
+  }
+
+  if (!isShipAssetPath(urlPath)) return null;
+
+  const cached: Uint8Array | null = tryServeCached(urlPath);
+  if (cached) {
+    const resp = new WebResourceResponse();
+    resp.setResponseCode(200);
+    resp.setReasonMessage('OK');
+    resp.setResponseMimeType('image/png');
+    resp.setResponseEncoding('utf-8');
+    resp.setResponseData(cached);
+    const headers = new Array<Header>();
+    headers.push({ headerKey: 'Cache-Control', headerValue: 'max-age=86400' });
+    resp.setResponseHeader(headers);
+    return resp;
+  }
+
+  // Cache miss — let WebView fetch, and queue background download so next load hits cache
+  const serverBase = getGameServerUrl();
+  if (serverBase) {
+    queueDownload(`${serverBase}${urlPath}`, urlPath);
+  }
+  return null;
 }
 
 export function createEmptyResp():WebResourceResponse{

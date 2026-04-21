@@ -3,8 +3,10 @@ import { ShipItem } from '../../../../../features/panel/type';
 import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
-  getMapGauges, MaterialsSnapshot, DeckSnapshot, ShipState, MapGaugeSnapshot
+  getShipGraphFilename, getGameServerUrl,
+  MaterialsSnapshot, DeckSnapshot, ShipState
 } from '../../../../../features/state';
+import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
 import {
   getFleetFighterPower,
@@ -56,6 +58,7 @@ function shipStateToItem(
   }
   return {
     id: s.uid,
+    masterId: s.masterId,
     name: s.name,
     shipType: '',
     level: s.level,
@@ -290,18 +293,38 @@ export default struct BottomPanel {
    */
   @Builder ShipRow(ship: ShipItem, isFlag: boolean) {
     Row() {
-      // Cond (morale) indicator column
-      Column() {
+      // Ship banner / avatar column
+      Stack({ alignContent: Alignment.BottomEnd }) {
+        if (getShipGraphFilename(ship.masterId) && getGameServerUrl()) {
+          Image(getShipBannerUrl(ship.masterId, getShipGraphFilename(ship.masterId)!, getGameServerUrl()!))
+            .width(PanelDimens.avatarW)
+            .height('100%')
+            .objectFit(ImageFit.Cover)
+        } else {
+          Column() {
+            Text(condIcon(ship.s1))
+              .fontSize(PanelDimens.fontLg)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(condColor(ship.s1))
+          }
+          .width(PanelDimens.avatarW)
+          .height('100%')
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+        }
+        // Cond badge (bottom-right corner overlay)
         Text(condIcon(ship.s1))
-          .fontSize(PanelDimens.fontLg)
-          .fontWeight(FontWeight.Bold)
+          .fontSize(8)
           .fontColor(condColor(ship.s1))
+          .backgroundColor('#CC000000')
+          .padding(1)
+          .borderRadius(2)
+          .margin({ right: 1, bottom: 1 })
       }
       .width(PanelDimens.avatarW)
       .height('100%')
       .backgroundColor(PanelColors.bgAvatar)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
+      .clip(true)
 
       // Info column
       Column({ space: 3 }) {
@@ -413,7 +436,7 @@ export default struct BottomPanel {
 
   @Builder EmptyState() {
     Column() {
-      Text(this.activeFleet >= 4 && this.activeFleet < MAP_TAB_IDX ? '未実装' : '舰队データなし')
+      Text(this.activeFleet >= 4 && this.activeFleet < MAP_TAB_IDX ? '未実装' : 'NO Fleet info')
         .fontSize(PanelDimens.fontMd)
         .fontColor(PanelColors.txtMuted)
         .margin({ top: 24 })
@@ -522,11 +545,11 @@ export default struct BottomPanel {
               }, (gauge: MapGaugeSnapshot) => `gauge-${gauge.mapId}-${gauge.gaugeNum}`)
             } else {
               Column() {
-                Text('データなし')
+                Text('无数据')
                   .fontSize(PanelDimens.fontMd)
                   .fontColor(PanelColors.txtMuted)
                   .margin({ top: 24 })
-                Text('海域選択画面を開くとデータが更新されます')
+                Text('进入海域选择以获得数据')
                   .fontSize(PanelDimens.fontSm)
                   .fontColor(PanelColors.txtFainter)
                   .margin({ top: 6 })

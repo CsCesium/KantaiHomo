@@ -3,8 +3,8 @@ import { ApiMstMissionRaw, ApiMstShipRaw, ApiMstSlotitemRaw } from '../../../dom
 import { ApiMstSlotItemRaw } from '../../../domain/models/api/mst_slotitem';
 import { normalizeMstSlotItem } from '../../../domain/models/normalizer/mst_slotitem';
 import { slotItemMasterToRow } from '../../../domain/models/mapper/slotitem';
-import { MissionRow, ShipMasterRow } from '../../../infra/storage/types';
-import { updateShipMasterMeta, updateSlotItemEquipTypes } from '../../state';
+import { MissionRow, ShipGraphRow, ShipMasterRow } from '../../../infra/storage/types';
+import { updateShipGraphFilenames, updateShipMasterMeta, updateSlotItemEquipTypes, setGameServerUrl } from '../../state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -80,6 +80,9 @@ class Start2Handler implements Handler {
       case 'MISSION_MASTER_CATALOG':
         await this.handleMissionMaster(e.payload, ts, deps);
         break;
+      case 'SHIP_GRAPH_CATALOG':
+        await this.handleShipGraph(e.payload.graphs, e.payload.serverBase, ts, deps);
+        break;
     }
   }
 
@@ -124,6 +127,34 @@ class Start2Handler implements Handler {
     }
   }
 
+  private async handleShipGraph(
+    payload: { api_id: number; api_filename: string }[],
+    serverBase: string,
+    ts: number,
+    deps: PersistDeps,
+  ): Promise<void> {
+    if (serverBase) {
+      setGameServerUrl(serverBase);
+    }
+
+    // Update in-memory filename cache
+    const filenames = payload.map(r => ({ id: r.api_id, filename: r.api_filename }));
+    updateShipGraphFilenames(filenames);
+
+    if (!deps.repos?.shipGraph) return;
+    try {
+      const rows: ShipGraphRow[] = payload.map(r => ({
+        id: r.api_id,
+        filename: r.api_filename,
+        updatedAt: ts,
+      }));
+      await deps.repos.shipGraph.upsertBatch(rows);
+      console.info(`[persist][SHIP_GRAPH] upserted ${rows.length} ship graph entries`);
+    } catch (e) {
+      console.warn('[persist][SHIP_GRAPH] failed:', e);
+    }
+  }
+
   private async handleSlotItemMaster(payload: ApiMstSlotitemRaw[], ts: number, deps: PersistDeps): Promise<void> {
     // 更新内存缓存（装备类型/图标）：api_type[2]/[3]
     const equipTypeItems = payload.map(r => ({
@@ -156,3 +187,4 @@ const handler = new Start2Handler();
 registerHandler('SHIP_MASTER_CATALOG', handler);
 registerHandler('SLOTITEM_MASTER_CATALOG', handler);
 registerHandler('MISSION_MASTER_CATALOG', handler);
+registerHandler('SHIP_GRAPH_CATALOG', handler);

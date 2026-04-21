@@ -12,7 +12,8 @@ export interface PanelLayoutConfig {
 
 /** Single ship display state for panel rendering. */
 export interface ShipItem {
-  id: number;
+  id: number;       // ship uid
+  masterId: number; // ship master id (for image URL)
   name: string;
   shipType: string; // short type label, e.g. '駆', '戦', '空'
   level: number;
