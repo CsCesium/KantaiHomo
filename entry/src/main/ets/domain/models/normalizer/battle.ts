@@ -110,6 +110,16 @@ function normalizeDestructionBattle(apiPath: string, d: ApiDestructionBattleRaw,
 
 function buildMeta(apiPath: string, d: any, now: number) {
   const formation = parseFormation(d?.api_formation);
+
+  // Extract air state and plane counts from kouku stage1 (may be kouku or kouku2 for combined)
+  const stage1 = d?.api_kouku?.api_stage1 ?? d?.api_kouku2?.api_stage1;
+  const airState: number | undefined = typeof stage1?.api_disp_seiku === 'number' ? stage1.api_disp_seiku : undefined;
+  const friendPlaneMax: number | undefined = typeof stage1?.api_f_count === 'number' ? stage1.api_f_count : undefined;
+  const friendPlaneLost: number | undefined = typeof stage1?.api_f_lostcount === 'number' ? stage1.api_f_lostcount : undefined;
+  const friendPlaneNow: number | undefined = (friendPlaneMax !== undefined && friendPlaneLost !== undefined)
+    ? Math.max(0, friendPlaneMax - friendPlaneLost)
+    : undefined;
+
   const meta = {
     apiPath,
     deckId: typeof d?.api_deck_id === 'number' ? d.api_deck_id : undefined,
@@ -118,6 +128,9 @@ function buildMeta(apiPath: string, d: any, now: number) {
     search: Array.isArray(d?.api_search) ? d.api_search : undefined,
     stageFlag: Array.isArray(d?.api_stage_flag) ? d.api_stage_flag : undefined,
     smokeType: typeof d?.api_smoke_type === 'number' ? d.api_smoke_type : undefined,
+    airState,
+    friendPlaneNow,
+    friendPlaneMax,
     balloonCell: typeof d?.api_balloon_cell === 'number' ? d.api_balloon_cell : undefined,
     atollCell: typeof d?.api_atoll_cell === 'number' ? d.api_atoll_cell : undefined,
   };

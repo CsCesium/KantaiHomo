@@ -1,7 +1,8 @@
 import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getBattleStatus, getBattleResult,
-  BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus
+  BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus,
+  EnemyBattleStatus
 } from '../../../../../features/state';
 import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../../../../domain/models';
 
@@ -39,6 +40,24 @@ function phaseName(phase: 'day' | 'night' | 'day_to_night'): string {
   return '昼戦';
 }
 
+function airStateName(s: number | undefined): string {
+  if (s === 1) return '確保';
+  if (s === 2) return '優勢';
+  if (s === 3) return '均衡';
+  if (s === 4) return '劣勢';
+  if (s === 5) return '喪失';
+  return '';
+}
+
+function airStateColor(s: number | undefined): string {
+  if (s === 1) return '#43a047';
+  if (s === 2) return '#26c6da';
+  if (s === 3) return PanelColors.txtSub;
+  if (s === 4) return '#fb8c00';
+  if (s === 5) return PanelColors.hpCrit;
+  return PanelColors.txtMuted;
+}
+
 function shipBadgeText(ship: ShipBattleStatus): string {
   if (ship.isSunk) return '沈';
   if (ship.isTaiha) return '大破';
@@ -50,37 +69,26 @@ function shipBadgeText(ship: ShipBattleStatus): string {
 function shipBadgeColor(ship: ShipBattleStatus): string {
   if (ship.isSunk) return PanelColors.txtMuted;
   if (ship.isTaiha) return PanelColors.hpCrit;
-  if (ship.isChuuha) return PanelColors.hpWarn;
+  if (ship.isChuuha) return PanelColors.hpMid;
   return PanelColors.hpOk;
 }
 
-function enemyHpSummary(snap: BattleStatusSnapshot): string {
-  const m = snap.enemyMain;
-  const e = snap.enemyEscort;
-  const nowTotal = m.hpNow.reduce((a: number, b: number) => a + b, 0)
-    + (e ? e.hpNow.reduce((a: number, b: number) => a + b, 0) : 0);
-  const maxTotal = m.hpMax.reduce((a: number, b: number) => a + b, 0)
-    + (e ? e.hpMax.reduce((a: number, b: number) => a + b, 0) : 0);
-  const sunk = m.sunkCount + (e ? e.sunkCount : 0);
-  const total = m.shipIds.length + (e ? e.shipIds.length : 0);
-  return `撃沈${sunk}/${total}  残${nowTotal}/${maxTotal}`;
+function enemyBadgeText(hpNow: number, hpMax: number): string {
+  if (hpNow <= 0) return '沈';
+  const r = hpMax > 0 ? hpNow / hpMax : 1;
+  if (r <= 0.25) return '大破';
+  if (r <= 0.5) return '中破';
+  if (r <= 0.75) return '小破';
+  return '';
+}
+
+function enemyBadgeColor(hpNow: number, hpMax: number): string {
+  if (hpNow <= 0) return PanelColors.txtMuted;
+  return hpColor(hpNow, hpMax);
 }
 
 // ── BattlePreviewPanel ────────────────────────────────────────────────────
 
-/**
- * Battle preview panel — shown instead of the normal fleet panel while a
- * sortie battle is in progress or a battle result is waiting to be seen.
- *
- * Two display modes (switched automatically via GameState):
- *   Prediction  — status snapshot present, result absent:
- *                 predicted HP changes, estimated rank, taiha/sunk warnings.
- *   Result      — result snapshot present:
- *                 actual rank, MVP, drop info, final ship HP.
- *
- * Reverts to the normal panel when PanelHost detects that the battle state
- * has been cleared (sortie ended).
- */
 @ComponentV2
 export default struct BattlePreviewPanel {
   @Local statusSnap: BattleStatusSnapshot | null = null;
@@ -106,17 +114,68 @@ export default struct BattlePreviewPanel {
     }
   }
 
-  // ── instance builders ──────────────────────────────────────────────────────
+  // ── HP bar with damage indicator and threshold ticks ──────────────────────
 
   /**
-   * Compact 2-line battle ship row.
+   * HP bar with:
+   *   - damage value on the left (fixed width)
+   *   - tick marks at 25% and 50% thresholds
+   *   - color: green >50%, orange 25-50%, red ≤25%, empty if sunk
+   */
+  @Builder HpBarRow(hpAfter: number, hpMax: number, damage: number) {
+    Row({ space: 4 }) {
+      // Damage indicator (left, fixed width)
+      if (damage > 0) {
+        Text(`-${damage}`)
+          .fontSize(9)
+          .fontColor(PanelColors.hpCrit)
+          .width(26)
+          .textAlign(TextAlign.End)
+      } else {
+        Blank().width(26)
+      }
+
+      // HP bar with threshold tick marks at 25% and 50%
+      Stack() {
+        Progress({
+          value: hpAfter > 0 ? hpAfter : 0,
+          total: hpMax > 0 ? hpMax : 1,
+          type: ProgressType.Linear
+        })
+          .width('100%')
+          .height(PanelDimens.hpBarH)
+          .color(hpColor(hpAfter, hpMax))
+          .backgroundColor(PanelColors.bgHpTrack)
+
+        // Tick marks: weights 1 | tick | 1 | tick | 2 → ticks at 25% and 50%
+        Row() {
+          Blank().layoutWeight(1)
+          Column().width(1).height('100%').backgroundColor('#ffffff44')
+          Blank().layoutWeight(1)
+          Column().width(1).height('100%').backgroundColor('#ffffff44')
+          Blank().layoutWeight(2)
+        }
+        .width('100%')
+        .height(PanelDimens.hpBarH)
+      }
+      .layoutWeight(1)
+      .height(PanelDimens.hpBarH)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+  // ── Friendly ship row ─────────────────────────────────────────────────────
+
+  /**
+   * Compact 2-line friendly ship row.
    *
-   *   name (flex)    beforeHP → afterHP  (-dmg)   [badge]
-   *   [====HP bar (after ratio)====]
+   *   name (flex)   beforeHP→afterHP   [badge]
+   *   [-dmg fixed]  [====HP bar with ticks====]
    */
   @Builder BattleShipRow(ship: ShipBattleStatus) {
     Column({ space: 2 }) {
-      // Line 1: name | HP transition | damage | status badge
+      // Line 1: name | HP transition | status badge
       Row({ space: 3 }) {
         Text(ship.name)
           .fontSize(PanelDimens.fontMd)
@@ -132,12 +191,6 @@ export default struct BattlePreviewPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(hpColor(ship.hpAfter, ship.hpMax))
 
-        if (ship.hpBefore > ship.hpAfter) {
-          Text(`(-${ship.hpBefore - ship.hpAfter})`)
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.hpCrit)
-        }
-
         Text(shipBadgeText(ship))
           .fontSize(PanelDimens.fontSm)
           .fontColor(shipBadgeColor(ship))
@@ -148,16 +201,49 @@ export default struct BattlePreviewPanel {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      // Line 2: HP bar showing the after-battle state
-      Progress({
-        value: ship.hpAfter,
-        total: ship.hpMax > 0 ? ship.hpMax : 1,
-        type: ProgressType.Linear
-      })
-        .width('100%')
-        .height(PanelDimens.hpBarH)
-        .color(hpColor(ship.hpAfter, ship.hpMax))
-        .backgroundColor(PanelColors.bgHpTrack)
+      // Line 2: damage on left + HP bar with threshold ticks
+      this.HpBarRow(ship.hpAfter, ship.hpMax, ship.damageReceived)
+    }
+    .width('100%')
+    .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
+  }
+
+  // ── Enemy ship row ────────────────────────────────────────────────────────
+
+  /**
+   * Compact 2-line enemy ship row.
+   *
+   *   敵N (idx)   beforeHP→afterHP   [badge]
+   *   [-dmg]      [====HP bar====]
+   */
+  @Builder EnemyShipRow(idx: number, hpBefore: number, hpAfter: number, hpMax: number) {
+    Column({ space: 2 }) {
+      Row({ space: 3 }) {
+        Text(`敵${idx + 1}`)
+          .fontSize(PanelDimens.fontMd)
+          .fontColor(hpAfter <= 0 ? PanelColors.txtMuted : PanelColors.txtSub)
+          .layoutWeight(1)
+          .decoration({
+            type: hpAfter <= 0 ? TextDecorationType.LineThrough : TextDecorationType.None
+          })
+
+        Text(`${hpBefore}→${hpAfter > 0 ? hpAfter : 0}`)
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(hpColor(hpAfter, hpMax))
+
+        Text(enemyBadgeText(hpAfter, hpMax))
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(enemyBadgeColor(hpAfter, hpMax))
+          .fontWeight(FontWeight.Bold)
+          .width(28)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      this.HpBarRow(hpAfter > 0 ? hpAfter : 0, hpMax, Math.max(0, hpBefore - hpAfter))
     }
     .width('100%')
     .padding({ left: 10, right: 10, top: 5, bottom: 5 })
@@ -167,44 +253,92 @@ export default struct BattlePreviewPanel {
 
   // ── prediction view builders ───────────────────────────────────────────────
 
-  /** Header: map location, phase, formation, engagement, predicted rank. */
+  /**
+   * Header: two rows.
+   *
+   *   Row 1: [map+cell+phase (left)] [rank+engagement (center)] [air state+CI (right)]
+   *   Row 2: [friend formation vs enemy formation]
+   */
   @Builder PredictHeader(snap: BattleStatusSnapshot) {
     Column({ space: 0 }) {
-      // Row 1: map + phase + predicted rank (right)
-      Row({ space: 4 }) {
-        Text(`${snap.mapAreaId}-${snap.mapInfoNo}`)
-          .fontSize(PanelDimens.fontLg)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(PanelColors.txtPrimary)
+      // Row 1: three-column layout for centering
+      Row() {
+        // Left: map location + cell + phase
+        Row({ space: 4 }) {
+          Text(`${snap.mapAreaId}-${snap.mapInfoNo}`)
+            .fontSize(PanelDimens.fontLg)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(PanelColors.txtPrimary)
 
-        Text(snap.isBoss ? 'Boss' : `${snap.cellId}点`)
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(snap.isBoss ? '#FFD700' : PanelColors.txtSub)
-          .padding({ left: 4, right: 4, top: 2, bottom: 2 })
-          .backgroundColor(snap.isBoss ? '#3d2e00' : PanelColors.bgTabInactive)
-          .borderRadius(2)
+          Text(snap.isBoss ? 'Boss' : `${snap.cellId}`)
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(snap.isBoss ? '#FFD700' : PanelColors.txtSub)
+            .padding({ left: 3, right: 3, top: 1, bottom: 1 })
+            .backgroundColor(snap.isBoss ? '#3d2e00' : PanelColors.bgTabInactive)
+            .borderRadius(2)
 
-        Text(phaseName(snap.battlePhase))
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtSub)
+          Text(phaseName(snap.battlePhase))
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtSub)
+        }
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
 
-        Blank().layoutWeight(1)
+        // Center: predicted rank + engagement (航向)
+        Row({ space: 6 }) {
+          Text('予')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtMuted)
+          Text(snap.predictedRank)
+            .fontSize(22)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(rankColor(snap.predictedRank))
 
-        Text('予測')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtMuted)
-        Text(snap.predictedRank)
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(rankColor(snap.predictedRank))
-          .margin({ left: 2 })
+          if (snap.engagement) {
+            Text(engagementName(snap.engagement))
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(engagementColor(snap.engagement))
+              .fontWeight(FontWeight.Medium)
+          }
+        }
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+
+        // Right: air state + plane count + AACI
+        Row({ space: 4 }) {
+          if (snap.airState) {
+            Text(airStateName(snap.airState))
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(airStateColor(snap.airState))
+              .fontWeight(FontWeight.Medium)
+          }
+
+          if (snap.friendPlaneMax !== undefined && snap.friendPlaneMax > 0) {
+            Text(`✈${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtSub)
+          }
+
+          if (snap.aaciTriggered) {
+            Text('CI')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor('#FFD700')
+              .fontWeight(FontWeight.Bold)
+              .padding({ left: 3, right: 3, top: 1, bottom: 1 })
+              .backgroundColor('#3d2e00')
+              .borderRadius(2)
+          }
+        }
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.End)
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .height(30)
+      .height(34)
       .padding({ left: 10, right: 10 })
       .alignItems(VerticalAlign.Center)
 
-      // Row 2: friend formation vs enemy + engagement
+      // Row 2: formation info
       Row({ space: 6 }) {
         Text(formationName(snap.friendFormation))
           .fontSize(PanelDimens.fontSm)
@@ -215,13 +349,6 @@ export default struct BattlePreviewPanel {
         Text(formationName(snap.enemyFormation))
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtSub)
-        Blank().layoutWeight(1)
-        if (snap.engagement) {
-          Text(engagementName(snap.engagement))
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(engagementColor(snap.engagement))
-            .fontWeight(FontWeight.Medium)
-        }
       }
       .width('100%')
       .height(20)
@@ -247,7 +374,7 @@ export default struct BattlePreviewPanel {
           .fontWeight(FontWeight.Bold)
         Text(snap.taihaShips.map(s => s.name).join('、'))
           .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.hpWarn)
+          .fontColor(PanelColors.hpMid)
           .layoutWeight(1)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -296,57 +423,85 @@ export default struct BattlePreviewPanel {
     }, (ship: ShipBattleStatus) => `bship-${ship.uid}`)
   }
 
-  /** Enemy HP/sunk summary footer. */
-  @Builder EnemySummary(snap: BattleStatusSnapshot) {
-    Row({ space: 6 }) {
-      Text('敵')
+  /** Enemy fleet ship list with HP bars. */
+  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string) {
+    Row() {
+      Text(label || '敵方')
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.txtFainter)
-      Text(enemyHpSummary(snap))
+        .padding({ left: 10 })
+      Text(`撃沈 ${enemy.sunkCount}/${enemy.shipIds.length}`)
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.txtMuted)
+        .padding({ right: 10 })
+        .layoutWeight(1)
+        .textAlign(TextAlign.End)
     }
     .width('100%')
-    .height(22)
-    .padding({ left: 10, right: 10 })
+    .height(PanelDimens.listHdrH)
     .backgroundColor(PanelColors.bgHeader)
     .alignItems(VerticalAlign.Center)
     .borderWidth({ top: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
+
+    ForEach(enemy.hpNow, (_: number, idx: number) => {
+      if (enemy.hpMax[idx] > 0) {
+        this.EnemyShipRow(
+          idx,
+          enemy.hpBefore[idx] ?? enemy.hpMax[idx],
+          enemy.hpNow[idx] ?? 0,
+          enemy.hpMax[idx]
+        )
+      }
+    }, (_: number, idx: number) => `erow-${idx}`)
   }
 
   // ── result view builders ───────────────────────────────────────────────────
 
-  /** Result header: actual rank, MVP, drop, base exp. */
+  /**
+   * Result header: actual rank (large, game-style), MVP, drop, base exp.
+   *
+   *   Row 1: [map+cell (left)] [rank letter (center, large+bold)] [air state (right)]
+   *   Row 2: [MVP]  [drop]  [exp (right)]
+   */
   @Builder ResultHeader(snap: BattleResultSnapshot) {
     Column({ space: 0 }) {
-      // Row 1: map location + actual rank (right)
-      Row({ space: 6 }) {
-        Text(`${snap.mapAreaId}-${snap.mapInfoNo}`)
-          .fontSize(PanelDimens.fontLg)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(PanelColors.txtPrimary)
+      // Row 1: three-column centering for rank
+      Row() {
+        // Left: map + cell
+        Row({ space: 4 }) {
+          Text(`${snap.mapAreaId}-${snap.mapInfoNo}`)
+            .fontSize(PanelDimens.fontLg)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(PanelColors.txtPrimary)
 
-        Text(snap.isBoss ? 'Boss' : `${snap.cellId}点`)
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(snap.isBoss ? '#FFD700' : PanelColors.txtSub)
-          .padding({ left: 4, right: 4, top: 2, bottom: 2 })
-          .backgroundColor(snap.isBoss ? '#3d2e00' : PanelColors.bgTabInactive)
-          .borderRadius(2)
+          Text(snap.isBoss ? 'Boss' : `${snap.cellId}`)
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(snap.isBoss ? '#FFD700' : PanelColors.txtSub)
+            .padding({ left: 3, right: 3, top: 1, bottom: 1 })
+            .backgroundColor(snap.isBoss ? '#3d2e00' : PanelColors.bgTabInactive)
+            .borderRadius(2)
+        }
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+
+        // Center: actual rank — large, game-style letter
+        Row({ space: 3 }) {
+          Text('戦果')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtMuted)
+          Text(snap.rank)
+            .fontSize(32)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(rankColor(snap.rank))
+        }
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
 
         Blank().layoutWeight(1)
-
-        Text('戦果')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtMuted)
-        Text(snap.rank)
-          .fontSize(22)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(rankColor(snap.rank))
-          .margin({ left: 2 })
       }
       .width('100%')
-      .height(34)
+      .height(44)
       .padding({ left: 10, right: 10 })
       .alignItems(VerticalAlign.Center)
 
@@ -395,6 +550,10 @@ export default struct BattlePreviewPanel {
             if (this.resultSnap.friendEscort) {
               this.FleetShipList(this.resultSnap.friendEscort, '護衛')
             }
+            this.EnemyFleetList(this.resultSnap.enemyMain, '敵主力')
+            if (this.resultSnap.enemyEscort) {
+              this.EnemyFleetList(this.resultSnap.enemyEscort, '敵護衛')
+            }
           }
           .width('100%')
         }
@@ -419,14 +578,16 @@ export default struct BattlePreviewPanel {
             if (this.statusSnap.friendEscort) {
               this.FleetShipList(this.statusSnap.friendEscort, '護衛')
             }
+            this.EnemyFleetList(this.statusSnap.enemyMain, '敵主力')
+            if (this.statusSnap.enemyEscort) {
+              this.EnemyFleetList(this.statusSnap.enemyEscort, '敵護衛')
+            }
           }
           .width('100%')
         }
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.None)
-
-        this.EnemySummary(this.statusSnap)
 
       } else {
         // ── Empty / loading ──────────────────────────────────────────────

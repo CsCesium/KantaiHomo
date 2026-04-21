@@ -87,6 +87,13 @@ export interface BattleMeta {
   stageFlag?: number[];
   smokeType?: number;
 
+  /** 制空状態 (1=確保, 2=優勢, 3=均衡, 4=劣勢, 5=喪失) */
+  airState?: number;
+  /** 友方残機数 (after air battle) */
+  friendPlaneNow?: number;
+  /** 友方初期機数 (before air battle) */
+  friendPlaneMax?: number;
+
   /** optional: for later advanced UI */
   balloonCell?: number;
   atollCell?: number;

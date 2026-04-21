@@ -37,7 +37,8 @@ export const PanelColors = {
 
   // HP states
   hpOk:          '#43a047',   // hp ratio > 50%  — green
-  hpWarn:        '#fdd835',   // hp ratio 25-50% — yellow
+  hpMid:         '#fb8c00',   // hp ratio 25-50% — orange (中破)
+  hpWarn:        '#fdd835',   // warning yellow (engagement, condition — NOT hp bars)
   hpCrit:        '#e53935',   // hp ratio ≤ 25%  — red
 
   // Row separators
@@ -111,7 +112,7 @@ const HP_WARN_RATIO = 0.25;
 export function hpColor(hp: number, hpMax: number): string {
   const ratio = hpMax > 0 ? hp / hpMax : 0;
   if (ratio > HP_OK_RATIO)   { return PanelColors.hpOk; }
-  if (ratio > HP_WARN_RATIO) { return PanelColors.hpWarn; }
+  if (ratio > HP_WARN_RATIO) { return PanelColors.hpMid; }
   return PanelColors.hpCrit;
 }
 
