@@ -7,9 +7,11 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { setAppContext, setMainWindow } from '../infra/appContext'
 import { initPersistDeps } from '../infra/deps';
 import { initHandlerRegistry } from '../features/router/persist/registry';
-import { initAlerts, initExpeditionScheduler, getExpeditionScheduler, setAlertConfig } from '../features/alerts';
+import { initAlerts, initExpeditionScheduler, getExpeditionScheduler, setAlertConfig,
+  initRepairScheduler, getRepairScheduler } from '../features/alerts';
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
 import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
+import { addOnNdockChanged } from '../features/alerts/module/ndockTrigger';
 import { getRepositoryHub } from '../infra/storage/repo';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
@@ -114,6 +116,11 @@ export default class EntryAbility extends UIAbility {
       addOnExpeditionChanged(() => { void getExpeditionScheduler()?.poke(); });
       void scheduler.start();
 
+      // 启动入渠修理完成调度器
+      const repairScheduler = initRepairScheduler(getRepositoryHub().repair);
+      addOnNdockChanged(() => { void getRepairScheduler()?.poke(); });
+      void repairScheduler.start();
+
       // 恢复战果跟踪数据（每日起点 + 战绩快照）
       void loadSenkaFromKV();
 
@@ -173,6 +180,7 @@ export default class EntryAbility extends UIAbility {
 
   onWindowStageDestroy(): void {
     getExpeditionScheduler()?.stop();
+    getRepairScheduler()?.stop();
     getExpeditionLiveNotificationService().stop();
     this.mainWindow?.disableLandscapeMultiWindow().catch((error: BusinessError): void => {
       hilog.error(HILOG_DOM, 'App', 'disableLandscapeMultiWindow failed: %{public}s', JSON.stringify(error));

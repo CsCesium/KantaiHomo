@@ -22,9 +22,12 @@ export type {
   SortieNextAlert,
   BattleResultAlert,
   FleetStatusAlert,
+  RepairCompleteAlert,
   AlertConfig,
   ExpeditionNext,
   ExpeditionDaoLike,
+  RepairNext,
+  RepairDaoLike,
   Clock,
   Cancelable,
 } from './type';
@@ -65,6 +68,15 @@ export {
   cacheMissionNames,
   getMissionName,
 } from './module/missionCache';
+
+// ========== RepairScheduler ==========
+
+export {
+  RepairCompleteScheduler,
+  getRepairScheduler,
+  initRepairScheduler,
+  type RepairSchedulerOptions,
+} from './module/repair';
 
 // ========== 统一初始化 ==========
 
