@@ -90,7 +90,6 @@ class GameStateManager {
     shipMasterMaxSupply: new Map(),
     slotItemEquipTypes: new Map(),
     slotItemIconTypes: new Map(),
-    slotItemAircraftCategories: new Map(),
     slotItemIndex: new Map(),
   };
 
@@ -622,7 +621,6 @@ class GameStateManager {
       shipMasterMaxSupply: new Map(),
       slotItemEquipTypes: new Map(),
       slotItemIconTypes: new Map(),
-      slotItemAircraftCategories: new Map(),
       slotItemIndex: new Map(),
     };
     this.expHistory = [];
@@ -652,11 +650,10 @@ class GameStateManager {
   /**
    * 更新装备图鉴类型缓存（来自 api_start2 装备图鉴，masterId → typeEquipType）
    */
-  updateSlotItemEquipTypes(items: ReadonlyArray<{ id: number; equipType: number; iconType: number; aircraftCategory: number }>): void {
+  updateSlotItemEquipTypes(items: ReadonlyArray<{ id: number; equipType: number; iconType: number }>): void {
     for (const item of items) {
       this.state.slotItemEquipTypes.set(item.id, item.equipType);
       this.state.slotItemIconTypes.set(item.id, item.iconType);
-      this.state.slotItemAircraftCategories.set(item.id, item.aircraftCategory);
     }
   }
 
@@ -809,7 +806,7 @@ export function getGameState(): GameStateManager {
 // 便捷函数
 export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number }>) =>
   gameStateManager.updateShipMasterMeta(items);
-export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number; aircraftCategory: number }>) =>
+export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number }>) =>
   gameStateManager.updateSlotItemEquipTypes(items);
 export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number }>) =>
   gameStateManager.updateSlotItemIndex(items);
