@@ -20,6 +20,7 @@ import type {
   TaihaWarningAlert,
   SortieNextAlert,
   BattleResultAlert,
+  RepairCompleteAlert,
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
@@ -32,6 +33,7 @@ const NOTIFICATION_ID_YASEN = 2000;
 const NOTIFICATION_ID_TAIHA = 2001;
 const NOTIFICATION_ID_SORTIE_NEXT = 2002;
 const NOTIFICATION_ID_BATTLE_RESULT = 2003;
+const NOTIFICATION_ID_REPAIR_BASE = 3000;
 
 /** 根据 deckId / combinedType 生成舰队标签 */
 function formatFleetLabel(deckId: number, combinedType: number): string {
@@ -251,6 +253,30 @@ async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
   }
 }
 
+async function handleRepairComplete(alert: RepairCompleteAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableRepairAlert) return;
+
+  const body = `第 ${alert.dockId} 船坞修理完成`;
+
+  if (config.enableToast) {
+    await executeToast(body);
+  }
+
+  if (config.enableVibrate) {
+    await executeVibrate(config.vibrateDurationMs);
+  }
+
+  if (config.enableNotification) {
+    await executeNotification(
+      NOTIFICATION_ID_REPAIR_BASE + alert.dockId,
+      '修理完成',
+      body,
+      new Date(alert.timestamp).toLocaleTimeString()
+    );
+  }
+}
+
 // ========== 主处理函数 ==========
 
 async function handleAlert(alert: AnyAlert): Promise<void> {
@@ -269,6 +295,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'battle_result':
       await handleBattleResult(alert);
+      break;
+    case 'repair_complete':
+      await handleRepairComplete(alert);
       break;
   }
 }

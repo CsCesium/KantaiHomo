@@ -21,6 +21,7 @@ import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdoc
 import { clearSortieContext } from '../../../domain/service';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
+import { triggerNdockChanged } from '../../../features/alerts/module/ndockTrigger';
 
 class PortPersistHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
@@ -111,6 +112,7 @@ class PortPersistHandler implements Handler {
     }
     const rows = payload.map(ndockToRow);
     await deps.repos.repair.upsertBatch(rows);
+    triggerNdockChanged();
   }
 
   private async handleKdock(payload: Kdock[], ts: number, deps: PersistDeps): Promise<void> {

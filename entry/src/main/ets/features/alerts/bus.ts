@@ -7,7 +7,7 @@
  * - 支持多订阅者
  */
 
-import type { AnyAlert, AlertType, AlertConfig } from './type';
+import type { AnyAlert, AlertType, AlertConfig, RepairCompleteAlert } from './type';
 import { DEFAULT_ALERT_CONFIG } from './type';
 
 type AlertHandler<T extends AnyAlert = AnyAlert> = (alert: T) => void | Promise<void>;
@@ -112,6 +112,8 @@ class AlertBusImpl {
         return `sortie:${alert.mapAreaId}-${alert.mapInfoNo}:${alert.cellId}`;
       case 'battle_result':
         return `bresult:${alert.cellId}`;
+      case 'repair_complete':
+        return `repair:${(alert as RepairCompleteAlert).dockId}`;
       default:
         return `unknown`;
     }

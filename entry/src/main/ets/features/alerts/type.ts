@@ -22,7 +22,8 @@ export type AlertType =
   | 'yasen_prompt'
   | 'taiha_warning'
   | 'sortie_next'
-  | 'battle_result';
+  | 'battle_result'
+  | 'repair_complete';
 
 export interface BaseAlert {
   type: AlertType;
@@ -84,12 +85,20 @@ export interface BattleResultAlert extends BaseAlert {
   hasTaihaRisk: boolean;
 }
 
+/** 入渠修理完成提醒 */
+export interface RepairCompleteAlert extends BaseAlert {
+  type: 'repair_complete';
+  dockId: number;
+  shipUid: number;
+}
+
 export type AnyAlert =
   | ExpeditionReturnAlert
   | YasenPromptAlert
   | TaihaWarningAlert
   | SortieNextAlert
-  | BattleResultAlert;
+  | BattleResultAlert
+  | RepairCompleteAlert;
 
 // ========== Alert Config ==========
 
@@ -103,6 +112,8 @@ export interface AlertConfig {
   enableYasenAlert: boolean;
   /** 是否启用战斗结算提醒 (battle_result) */
   enableBattleResultAlert: boolean;
+  /** 是否启用入渠修理完成提醒 (repair_complete) */
+  enableRepairAlert: boolean;
 }
 
 export const DEFAULT_ALERT_CONFIG: AlertConfig = {
@@ -113,6 +124,7 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   debounceMs: 1200,
   enableYasenAlert: true,
   enableBattleResultAlert: true,
+  enableRepairAlert: true,
 };
 
 // ========== Expedition DAO interface ==========
@@ -125,4 +137,16 @@ export interface ExpeditionNext {
 
 export interface ExpeditionDaoLike {
   getNextAfter(nowMs: number): Promise<ExpeditionNext | null>;
+}
+
+// ========== Repair DAO interface ==========
+
+export interface RepairNext {
+  dockId: number;
+  shipUid: number;
+  completeTime: number;
+}
+
+export interface RepairDaoLike {
+  getNextAfter(nowMs: number): Promise<RepairNext | null>;
 }
