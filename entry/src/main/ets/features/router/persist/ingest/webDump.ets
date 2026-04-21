@@ -11,6 +11,7 @@ import '../../handlers/start2';
 import '../../handlers/battle';
 import '../../handlers/sortie';
 import '../../handlers/ranking';
+import '../../handlers/mapinfo';
 import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';

@@ -112,6 +112,8 @@ class AlertBusImpl {
         return `sortie:${alert.mapAreaId}-${alert.mapInfoNo}:${alert.cellId}`;
       case 'battle_result':
         return `bresult:${alert.cellId}`;
+      case 'fleet_status':
+        return `fstatus:${alert.unsuppliedDecks.join(',')}:${alert.idleDecks.join(',')}`;
       default:
         return `unknown`;
     }

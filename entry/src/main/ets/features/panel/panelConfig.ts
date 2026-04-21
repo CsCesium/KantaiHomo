@@ -63,6 +63,7 @@ export const FLEET_TAB_COLORS: readonly string[] = [
   '#263238',  // Fleet IV  — dark blue-grey
   '#4e342e',  // 基地       — warm brown (base air corps)
   '#4a148c',  // 道具       — deep purple (supplies)
+  '#1a3a5c',  // 地図       — dark navy (map info)
 ];
 
 // ── Dimensions ─────────────────────────────────────────────────────────────

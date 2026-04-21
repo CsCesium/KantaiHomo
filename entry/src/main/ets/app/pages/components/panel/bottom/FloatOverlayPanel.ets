@@ -3,7 +3,7 @@ import { ShipItem } from '../../../../../features/panel/type';
 import { hpColor, equipLabel, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
-  MaterialsSnapshot, DeckSnapshot, ShipState
+  getMapGauges, MaterialsSnapshot, DeckSnapshot, ShipState, MapGaugeSnapshot
 } from '../../../../../features/state';
 import { getPersistDeps } from '../../../../../infra/deps';
 import {
@@ -11,6 +11,8 @@ import {
   calcSingleFleetLoS,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
+
+const OVERLAY_MAP_TAB_IDX = 4;
 
 async function showEquipToast(slotUid: number): Promise<void> {
   try {
@@ -78,6 +80,7 @@ export default struct FloatOverlayPanel {
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
   @Local specialAttack: string = '';
+  @Local mapGauges: MapGaugeSnapshot[] = [];
 
   private unsubscribe: (() => void) | null = null;
 
@@ -86,7 +89,8 @@ export default struct FloatOverlayPanel {
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
-          changeType === 'admiral' || changeType === 'quests') {
+          changeType === 'admiral' || changeType === 'quests' ||
+          changeType === 'mapinfo') {
         this.loadState();
       }
     });
@@ -102,6 +106,7 @@ export default struct FloatOverlayPanel {
   private loadState(): void {
     this.materials = getMaterials();
     this.decks = [...getDecks()];
+    this.mapGauges = [...getMapGauges()];
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -120,7 +125,7 @@ export default struct FloatOverlayPanel {
   }
 
   private async loadCalcStats(): Promise<void> {
-    if (this.activeFleet >= 4) {
+    if (this.activeFleet >= 4 || this.activeFleet === OVERLAY_MAP_TAB_IDX) {
       this.airPower = 0;
       this.fleetLoS = 0;
       return;
@@ -249,6 +254,57 @@ export default struct FloatOverlayPanel {
     .borderColor(PanelColors.overlayRow)
   }
 
+  /** Compact map gauge row for FloatOverlay mode */
+  @Builder MapGaugeRow(gauge: MapGaugeSnapshot) {
+    const areaNo = Math.floor(gauge.mapId / 10);
+    const mapNo = gauge.mapId % 10;
+    const label = `${areaNo}-${mapNo}`;
+    const gaugeLabel = gauge.gaugeType === 2 ? 'TP' : 'HP';
+    const hpNow = gauge.hpNow ?? 0;
+    const hpMax = gauge.hpMax ?? 1;
+    const ratio = hpMax > 0 ? hpNow / hpMax : 0;
+    const barColor = ratio > 0.5 ? PanelColors.hpOk : ratio > 0.25 ? PanelColors.hpWarn : PanelColors.hpCrit;
+
+    Column({ space: 3 }) {
+      Row() {
+        Text(label)
+          .fontSize(PanelDimens.fontMd)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(gauge.cleared ? PanelColors.txtMuted : PanelColors.txtPrimary)
+          .layoutWeight(1)
+        if (gauge.hpMax !== null) {
+          Text(`${hpNow}/${hpMax}`)
+            .fontSize(PanelDimens.fontMd)
+            .fontColor(barColor)
+        } else {
+          Text(`x${gauge.defeatCount}`)
+            .fontSize(PanelDimens.fontMd)
+            .fontColor(PanelColors.stat)
+        }
+        Text(gauge.cleared ? ' ✓' : ` ${gaugeLabel}`)
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(gauge.cleared ? PanelColors.stat : PanelColors.txtSub)
+          .margin({ left: 4 })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      if (gauge.hpMax !== null && gauge.hpMax > 0) {
+        Progress({ value: hpNow, total: hpMax, type: ProgressType.Linear })
+          .width('100%')
+          .height(PanelDimens.hpBarCompH)
+          .color(barColor)
+          .backgroundColor(PanelColors.overlayRow)
+      }
+    }
+    .width('100%')
+    .height(PanelDimens.rowCompH)
+    .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+    .justifyContent(FlexAlign.Center)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.overlayRow)
+  }
+
   build() {
     Column() {
       // Compact resource status line
@@ -279,36 +335,38 @@ export default struct FloatOverlayPanel {
       .borderWidth({ bottom: PanelDimens.borderW })
       .borderColor(PanelColors.overlayHdr)
 
-      // Air power + LoS stats line
-      Row() {
-        Text('制空')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.overlayTxt)
-        Text(this.airPower > 0 ? `${this.airPower}` : '--')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.stat)
-          .margin({ left: 3 })
-        Blank().layoutWeight(1)
-        Text('索敵')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.overlayTxt)
-        Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.stat)
-          .margin({ left: 3 })
-        Text('(×3)')
-          .fontSize(PanelDimens.fontSm - 1)
-          .fontColor(PanelColors.txtFainter)
-          .margin({ left: 2 })
+      // Air power + LoS stats line (hidden on map tab)
+      if (this.activeFleet !== OVERLAY_MAP_TAB_IDX) {
+        Row() {
+          Text('制空')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.overlayTxt)
+          Text(this.airPower > 0 ? `${this.airPower}` : '--')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.stat)
+            .margin({ left: 3 })
+          Blank().layoutWeight(1)
+          Text('索敵')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.overlayTxt)
+          Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.stat)
+            .margin({ left: 3 })
+          Text('(×3)')
+            .fontSize(PanelDimens.fontSm - 1)
+            .fontColor(PanelColors.txtFainter)
+            .margin({ left: 2 })
+        }
+        .width('100%')
+        .height(PanelDimens.statusBarH)
+        .padding({ left: 8, right: 8 })
+        .alignItems(VerticalAlign.Center)
+        .borderWidth({ bottom: PanelDimens.borderW })
+        .borderColor(PanelColors.overlayHdr)
       }
-      .width('100%')
-      .height(PanelDimens.statusBarH)
-      .padding({ left: 8, right: 8 })
-      .alignItems(VerticalAlign.Center)
-      .borderWidth({ bottom: PanelDimens.borderW })
-      .borderColor(PanelColors.overlayHdr)
 
-      // Compact fleet selector row
+      // Compact fleet selector row (fleets 1-4 + 地図 tab)
       Row({ space: 2 }) {
         ForEach([0, 1, 2, 3], (idx: number) => {
           Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
@@ -321,6 +379,15 @@ export default struct FloatOverlayPanel {
             .onClick(() => { this.selectFleet(idx); })
         }, (idx: number) => `ftab-${idx}`)
 
+        Text('地図')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.txtTabOn)
+          .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
+          .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
+          .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+          .borderRadius(PanelDimens.radius)
+          .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
+
         Blank().layoutWeight(1)
       }
       .width('100%')
@@ -329,10 +396,22 @@ export default struct FloatOverlayPanel {
       .backgroundColor(PanelColors.bgTabs)
       .alignItems(VerticalAlign.Center)
 
-      // Ship list
+      // Content area: map gauges or ship list
       Scroll() {
         Column() {
-          if (this.ships.length > 0) {
+          if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {
+            if (this.mapGauges.length > 0) {
+              ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
+                this.MapGaugeRow(gauge)
+              }, (gauge: MapGaugeSnapshot) => `gauge-${gauge.mapId}-${gauge.gaugeNum}`)
+            } else {
+              Text('データなし')
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.txtMuted)
+                .margin({ top: 16 })
+                .alignSelf(ItemAlign.Center)
+            }
+          } else if (this.ships.length > 0) {
             ForEach(this.ships, (ship: ShipItem, idx: number) => {
               this.ShipRow(ship, idx === 0)
             }, (ship: ShipItem) => `ship-${ship.id}`)

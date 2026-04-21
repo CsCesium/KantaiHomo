@@ -21,7 +21,8 @@ import {
   BattleResultSnapshot,
   FleetBattleStatus,
   EnemyBattleStatus,
-  ShipBattleStatus
+  ShipBattleStatus,
+  MapGaugeSnapshot
 } from "./type";
 
 /**
@@ -85,6 +86,7 @@ class GameStateManager {
       result: null,
       lastUpdatedAt: 0,
     },
+    mapGauges: [],
     lastUpdatedAt: 0,
     shipMasterNames: new Map(),
     shipMasterMaxSupply: new Map(),
@@ -550,6 +552,24 @@ class GameStateManager {
     void kvSet('senka.daily.v1', payload);
   }
 
+  // ==================== 地图血量 ====================
+
+  /**
+   * 更新地图血量快照（来自 api_get_member/mapinfo）
+   */
+  updateMapGauges(gauges: MapGaugeSnapshot[]): void {
+    this.state.mapGauges = gauges;
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('mapinfo');
+  }
+
+  /**
+   * 获取地图血量快照列表
+   */
+  getMapGauges(): readonly MapGaugeSnapshot[] {
+    return this.state.mapGauges;
+  }
+
   // ==================== 订阅机制 ====================
 
   /**
@@ -613,6 +633,7 @@ class GameStateManager {
         result: null,
         lastUpdatedAt: 0,
       },
+      mapGauges: [],
       lastUpdatedAt: 0,
       shipMasterNames: new Map(),
       shipMasterMaxSupply: new Map(),
@@ -839,6 +860,9 @@ export const initRanking = (snapshot: RankingSnapshot) => gameStateManager.initR
 export const clearGameState = () => gameStateManager.clear();
 export const subscribeGameState = (listener: StateChangeListener) => gameStateManager.subscribe(listener);
 export const exportGameStateSnapshot = () => gameStateManager.exportSnapshot();
+
+export const updateMapGauges = (gauges: MapGaugeSnapshot[]) => gameStateManager.updateMapGauges(gauges);
+export const getMapGauges = () => gameStateManager.getMapGauges();
 
 // 战斗状态便捷函数
 export const updateBattleStatus = (status: BattleStatusSnapshot) => gameStateManager.updateBattleStatus(status);

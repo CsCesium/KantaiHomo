@@ -23,7 +23,8 @@ export type {
   BattleResultSnapshot,
   FleetBattleStatus,
   ShipBattleStatus,
-  QuestSnapshot
+  QuestSnapshot,
+  MapGaugeSnapshot
 } from './type';
 
 // ========== GameState 导出 ==========
@@ -89,6 +90,10 @@ export {
   // 工具
   clearGameState,
   exportGameStateSnapshot,
+
+  // 地图血量
+  updateMapGauges,
+  getMapGauges,
 } from './game_state';
 
 // ========== State Extractor 导出 ==========

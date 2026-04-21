@@ -20,6 +20,7 @@ import type {
   TaihaWarningAlert,
   SortieNextAlert,
   BattleResultAlert,
+  FleetStatusAlert,
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
@@ -32,6 +33,7 @@ const NOTIFICATION_ID_YASEN = 2000;
 const NOTIFICATION_ID_TAIHA = 2001;
 const NOTIFICATION_ID_SORTIE_NEXT = 2002;
 const NOTIFICATION_ID_BATTLE_RESULT = 2003;
+const NOTIFICATION_ID_FLEET_STATUS = 2004;
 
 /** 根据 deckId / combinedType 生成舰队标签 */
 function formatFleetLabel(deckId: number, combinedType: number): string {
@@ -204,6 +206,36 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   }
 }
 
+async function handleFleetStatus(alert: FleetStatusAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+
+  const parts: string[] = [];
+  if (alert.unsuppliedDecks.length > 0) {
+    const labels = alert.unsuppliedDecks.map(id => `第${id}舰队`).join('、');
+    parts.push(`${labels}需要补给`);
+  }
+  if (alert.idleDecks.length > 0) {
+    const labels = alert.idleDecks.map(id => `第${id}舰队`).join('、');
+    parts.push(`${labels}未远征`);
+  }
+  if (parts.length === 0) return;
+
+  const body = parts.join('，');
+  console.info(`[AlertExecutor] fleet status: ${body}`);
+
+  if (config.enableToast) {
+    await executeToast(body, 3000);
+  }
+
+  if (config.enableVibrate) {
+    await executeVibrate(config.vibrateDurationMs);
+  }
+
+  if (config.enableNotification) {
+    await executeNotification(NOTIFICATION_ID_FLEET_STATUS, '舰队状态提醒', body);
+  }
+}
+
 async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
   const config = getAlertBus().getConfig();
   if (!config.enableBattleResultAlert) return;
@@ -269,6 +301,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'battle_result':
       await handleBattleResult(alert);
+      break;
+    case 'fleet_status':
+      await handleFleetStatus(alert);
       break;
   }
 }
