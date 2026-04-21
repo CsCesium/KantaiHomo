@@ -23,7 +23,7 @@ import { startSortie, moveToNextCell } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
 import { SortieNextAlert, TaihaWarningAlert } from '../../alerts/type';
 import { getLastBattleHasTaihaRisk, resetLastBattleState } from '../../alerts/lastBattleState';
-import { getShipMasterName } from '../../state/game_state';
+import { getShipMasterName, clearBattleState } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -116,6 +116,9 @@ class SortieHandler implements Handler {
     PersistDeps: PersistDeps
   ): Promise<void> {
     const { cell } = payload;
+
+    // Clear any battle state from the previous cell so the normal panel is restored.
+    clearBattleState();
 
     // 1. 调用 Service 更新节点
     const context = moveToNextCell({
