@@ -22,7 +22,8 @@ export type AlertType =
   | 'yasen_prompt'
   | 'taiha_warning'
   | 'sortie_next'
-  | 'battle_result';
+  | 'battle_result'
+  | 'fleet_status';
 
 export interface BaseAlert {
   type: AlertType;
@@ -84,12 +85,22 @@ export interface BattleResultAlert extends BaseAlert {
   hasTaihaRisk: boolean;
 }
 
+/** 舰队状态提醒（由 api_get_member/mapinfo 触发） */
+export interface FleetStatusAlert extends BaseAlert {
+  type: 'fleet_status';
+  /** 有未补给舰船的舰队 ID 列表 */
+  unsuppliedDecks: number[];
+  /** 未出击远征的舰队 ID 列表（第 2-4 舰队） */
+  idleDecks: number[];
+}
+
 export type AnyAlert =
   | ExpeditionReturnAlert
   | YasenPromptAlert
   | TaihaWarningAlert
   | SortieNextAlert
-  | BattleResultAlert;
+  | BattleResultAlert
+  | FleetStatusAlert;
 
 // ========== Alert Config ==========
 

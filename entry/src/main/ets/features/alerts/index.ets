@@ -21,6 +21,7 @@ export type {
   TaihaWarningAlert,
   SortieNextAlert,
   BattleResultAlert,
+  FleetStatusAlert,
   AlertConfig,
   ExpeditionNext,
   ExpeditionDaoLike,

@@ -125,6 +125,8 @@ export interface GameState {
   ships: Map<number, ShipState>;
   /** 当前战斗状态 (暂态) */
   currentBattle: CurrentBattleState;
+  /** 地图血量快照（来自 api_get_member/mapinfo） */
+  mapGauges: MapGaugeSnapshot[];
   /** 上次更新时间 */
   lastUpdatedAt: number;
 
@@ -141,6 +143,27 @@ export interface GameState {
   slotItemIndex: Map<number, number>;
 }
 
+/** 地图血量/进度快照（来自 api_get_member/mapinfo） */
+export interface MapGaugeSnapshot {
+  /** 地图复合 ID：海域*10+地图编号（如 15=1-5, 25=2-5） */
+  mapId: number;
+  /** 是否已通关 */
+  cleared: boolean;
+  /** 击破 Boss 次数 */
+  defeatCount: number;
+  /** 血量条类型：1=HP, 2=TP, null=无血量条 */
+  gaugeType: number | null;
+  /** 血量条序号（同一地图多条血量时使用） */
+  gaugeNum: number;
+  /** 当前血量（无血量条时为 null） */
+  hpNow: number | null;
+  /** 最大血量（无血量条时为 null） */
+  hpMax: number | null;
+  /** 所需击破次数（EO 地图专用） */
+  requiredDefeats: number | null;
+  capturedAt: number;
+}
+
 /** 状态变更类型 */
 export type StateChangeType =
   | 'admiral'
@@ -151,6 +174,7 @@ export type StateChangeType =
     | 'quests'
     | 'ships'
     | 'battle'
+    | 'mapinfo'
     | 'all';
 
 /** 状态变更监听器 */

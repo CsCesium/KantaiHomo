@@ -3,7 +3,7 @@ import { ShipItem } from '../../../../../features/panel/type';
 import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
-  MaterialsSnapshot, DeckSnapshot, ShipState
+  getMapGauges, MaterialsSnapshot, DeckSnapshot, ShipState, MapGaugeSnapshot
 } from '../../../../../features/state';
 import { getPersistDeps } from '../../../../../infra/deps';
 import {
@@ -12,7 +12,8 @@ import {
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
 
-const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具'];
+const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図'];
+const MAP_TAB_IDX = 6;
 
 async function showEquipToast(slotUid: number): Promise<void> {
   try {
@@ -103,6 +104,7 @@ export default struct BottomPanel {
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
   @Local specialAttack: string = '';
+  @Local mapGauges: MapGaugeSnapshot[] = [];
 
   private unsubscribe: (() => void) | null = null;
 
@@ -111,7 +113,8 @@ export default struct BottomPanel {
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
-          changeType === 'admiral' || changeType === 'quests') {
+          changeType === 'admiral' || changeType === 'quests' ||
+          changeType === 'mapinfo') {
         this.loadState();
       }
     });
@@ -127,6 +130,7 @@ export default struct BottomPanel {
   private loadState(): void {
     this.materials = getMaterials();
     this.decks = [...getDecks()];
+    this.mapGauges = [...getMapGauges()];
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -150,7 +154,7 @@ export default struct BottomPanel {
   }
 
   private async loadCalcStats(): Promise<void> {
-    if (this.activeFleet >= 4) {
+    if (this.activeFleet >= 4 || this.activeFleet === MAP_TAB_IDX) {
       this.airPower = 0;
       this.fleetLoS = 0;
       return;
@@ -244,7 +248,7 @@ export default struct BottomPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
-  /** Fleet-level calc stats: air power and LoS (branch ×3). */
+  /** Fleet-level calc stats: air power and LoS (branch ×3). Hidden on map tab. */
   @Builder FleetStatsBar() {
     if (this.activeFleet < 4) {
       Row() {
@@ -409,13 +413,96 @@ export default struct BottomPanel {
 
   @Builder EmptyState() {
     Column() {
-      Text(this.activeFleet >= 4 ? '未実装' : '舰队データなし')
+      Text(this.activeFleet >= 4 && this.activeFleet < MAP_TAB_IDX ? '未実装' : '舰队データなし')
         .fontSize(PanelDimens.fontMd)
         .fontColor(PanelColors.txtMuted)
         .margin({ top: 24 })
     }
     .width('100%')
     .alignItems(HorizontalAlign.Center)
+  }
+
+  /** Single map gauge row: mapId label | HP bar | fraction */
+  @Builder MapGaugeRow(gauge: MapGaugeSnapshot) {
+    const areaNo = Math.floor(gauge.mapId / 10);
+    const mapNo = gauge.mapId % 10;
+    const label = `${areaNo}-${mapNo}`;
+    const gaugeLabel = gauge.gaugeType === 2 ? 'TP' : 'HP';
+    const hpNow = gauge.hpNow ?? 0;
+    const hpMax = gauge.hpMax ?? 1;
+    const ratio = hpMax > 0 ? hpNow / hpMax : 0;
+    const barColor = ratio > 0.5 ? PanelColors.hpOk : ratio > 0.25 ? PanelColors.hpWarn : PanelColors.hpCrit;
+
+    Row() {
+      // Map label
+      Column() {
+        Text(label)
+          .fontSize(PanelDimens.fontLg)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(gauge.cleared ? PanelColors.txtMuted : PanelColors.txtPrimary)
+          .textAlign(TextAlign.Center)
+        Text(gauge.cleared ? '通関' : gaugeLabel)
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(gauge.cleared ? PanelColors.stat : PanelColors.txtSub)
+          .textAlign(TextAlign.Center)
+      }
+      .width(PanelDimens.avatarW)
+      .height('100%')
+      .backgroundColor(PanelColors.bgAvatar)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+
+      // Info column
+      Column({ space: 4 }) {
+        // HP fraction
+        Row() {
+          if (gauge.hpMax !== null) {
+            Text(`${hpNow}`)
+              .fontSize(PanelDimens.fontMd)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(barColor)
+            Text(` / ${hpMax}`)
+              .fontSize(PanelDimens.fontMd)
+              .fontColor(PanelColors.txtSub)
+            Blank().layoutWeight(1)
+            if (gauge.requiredDefeats !== null) {
+              Text(`击破: ${gauge.defeatCount}/${gauge.requiredDefeats}`)
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.txtMuted)
+            } else {
+              Text(`${Math.round(ratio * 100)}%`)
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(barColor)
+            }
+          } else {
+            Text(`撃破: ${gauge.defeatCount}`)
+              .fontSize(PanelDimens.fontMd)
+              .fontColor(PanelColors.stat)
+            Blank().layoutWeight(1)
+          }
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        // HP bar (only when gauge has HP)
+        if (gauge.hpMax !== null && gauge.hpMax > 0) {
+          Progress({ value: hpNow, total: hpMax, type: ProgressType.Linear })
+            .width('100%')
+            .height(PanelDimens.hpBarH)
+            .color(barColor)
+            .backgroundColor(PanelColors.bgHpTrack)
+        }
+      }
+      .layoutWeight(1)
+      .padding({ left: 10, right: 10 })
+      .justifyContent(FlexAlign.Center)
+    }
+    .width('100%')
+    .height(PanelDimens.rowH)
+    .backgroundColor(PanelColors.bgSection)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
+    .alignItems(VerticalAlign.Center)
   }
 
   // ── build ─────────────────────────────────────────────────────────────────
@@ -428,7 +515,26 @@ export default struct BottomPanel {
 
       Scroll() {
         Column() {
-          if (this.ships.length > 0) {
+          if (this.activeFleet === MAP_TAB_IDX) {
+            if (this.mapGauges.length > 0) {
+              ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
+                this.MapGaugeRow(gauge)
+              }, (gauge: MapGaugeSnapshot) => `gauge-${gauge.mapId}-${gauge.gaugeNum}`)
+            } else {
+              Column() {
+                Text('データなし')
+                  .fontSize(PanelDimens.fontMd)
+                  .fontColor(PanelColors.txtMuted)
+                  .margin({ top: 24 })
+                Text('海域選択画面を開くとデータが更新されます')
+                  .fontSize(PanelDimens.fontSm)
+                  .fontColor(PanelColors.txtFainter)
+                  .margin({ top: 6 })
+              }
+              .width('100%')
+              .alignItems(HorizontalAlign.Center)
+            }
+          } else if (this.ships.length > 0) {
             ForEach(this.ships, (ship: ShipItem, idx: number) => {
               this.ShipRow(ship, idx === 0)
             }, (ship: ShipItem) => `ship-${ship.id}`)

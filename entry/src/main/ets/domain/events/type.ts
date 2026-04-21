@@ -31,6 +31,8 @@ export type EventType =
     | 'BATTLE_RESULT'
   // Ranking
     | 'RANKING_SNAPSHOT'
+  // Map Info
+    | 'MAP_INFO_UPDATE'
   // UI
     | 'YASEN_DETECTED'
     | 'TAIHA_WARNING';
