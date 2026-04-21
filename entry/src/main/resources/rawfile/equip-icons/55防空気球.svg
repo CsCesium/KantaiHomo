@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 27.5.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="图层_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 288.1 256.4" style="enable-background:new 0 0 288.1 256.4;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#999A99;}
+	.st1{fill:none;stroke:#999A99;stroke-width:6;stroke-linecap:round;stroke-miterlimit:10;}
+	.st2{fill:none;stroke:#999A99;stroke-width:5;stroke-linecap:round;stroke-miterlimit:10;}
+</style>
+<g id="气球机身">
+	<circle class="st0" cx="231.9" cy="78.8" r="56.2"/>
+	<circle class="st0" cx="50.7" cy="83.6" r="17.4"/>
+	<path class="st0" d="M226.6,22.8c-60.8,0-166.4,36.9-180,43.4c-13.5,6.5,0,34.8,0,34.8c87.8,32.7,121.2,34,185.3,34
+		C231.9,135,287.4,22.8,226.6,22.8z"/>
+</g>
+<g id="垂尾">
+	<path class="st0" d="M134.5,55.5c1.2-6.7-0.9-13.5-5.8-18.2C117.3,26.4,95.8,7,81.5,1.9C72.1-1.4,61,0.1,51.8,2.6
+		C41.2,5.5,34.9,16.3,37.6,26.9l12.1,48c0.6,2.6,0.8,5.2,0.4,7.8L43,131.2c-1.4,9.9,4.6,19.4,14.2,22.2c8.8,2.6,19.4,4.3,27.7,1.5
+		c12.4-4.3,26.3-18.4,32.8-25.7c2.5-2.7,4.1-6.1,4.8-9.7L134.5,55.5z"/>
+	<path class="st0" d="M120.3,62.7c3.6-6.3-1-14.1-8.2-14l-95.5,1.7C-9,50.3,0.3,71.1,9.6,75S98,89.3,98,89.3
+		c3.8,0.6,7.6-1.2,9.6-4.5L120.3,62.7z"/>
+</g>
+<g id="系绳">
+	<line class="st1" x1="147.9" y1="119.7" x2="147.9" y2="253.4"/>
+	<polyline class="st2" points="93,150.9 147.9,219.4 218.2,126.3 	"/>
+</g>
+</svg>
