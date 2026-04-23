@@ -21,6 +21,8 @@ import { kvGetBool, kvGetString } from '../infra/storage/kv';
 import { loadSenkaFromKV } from '../features/state/senkaInit';
 import { initShipGraphCache } from '../infra/assets/shipGraphCache';
 import { updateShipGraphFilenames } from '../features/state';
+import { ShipGraphRow } from '../infra/storage/types';
+import { shipGraphFilename } from '../features/state/type';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -127,7 +129,10 @@ export default class EntryAbility extends UIAbility {
       // 从 DB 恢复舰娘图像文件名到内存缓存
       void getRepositoryHub().shipGraph.listAll().then(rows => {
         if (rows.length > 0) {
-          updateShipGraphFilenames(rows.map(r => ({ id: r.id, filename: r.filename })));
+          updateShipGraphFilenames(rows.map(r=>{
+            const i:shipGraphFilename = {id:r.id,filename:r.filename};
+            return i;
+          }));
           hilog.info(HILOG_DOM, 'App', 'restored %{public}d ship graph filenames from DB', rows.length);
         }
       }).catch((_e: Error) => {

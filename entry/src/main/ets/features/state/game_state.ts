@@ -645,6 +645,8 @@ class GameStateManager {
       slotItemEquipTypes: new Map(),
       slotItemIconTypes: new Map(),
       slotItemIndex: new Map(),
+      shipGraphFilenames:new Map(),
+      gameServerUrl:null,
     };
     this.expHistory = [];
     this.dailySenkaStart = null;

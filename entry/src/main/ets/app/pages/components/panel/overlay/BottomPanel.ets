@@ -1,10 +1,12 @@
 import promptAction from '@ohos.promptAction';
-import { ShipItem } from '../../../../../features/panel/type';
+import { MapGaugeInfo, ShipItem } from '../../../../../features/panel/type';
 import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   getShipGraphFilename, getGameServerUrl,
-  MaterialsSnapshot, DeckSnapshot, ShipState
+  MaterialsSnapshot, DeckSnapshot, ShipState,
+  getMapGauges,
+  MapGaugeSnapshot
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
@@ -192,6 +194,22 @@ export default struct BottomPanel {
     return `${idx + 1}`;
   }
 
+  private getMapGaugeInfo(gauge: MapGaugeSnapshot): MapGaugeInfo {
+    const areaNo = Math.floor(gauge.mapId / 10);
+    const mapNo = gauge.mapId % 10;
+    const hpNow = gauge.hpNow ?? 0;
+    const hpMax = gauge.hpMax ?? 1;
+    const ratio = hpMax > 0 ? hpNow / hpMax : 0;
+    const info: MapGaugeInfo = {
+      label: `${areaNo}-${mapNo}`,
+      gaugeLabel: gauge.gaugeType === 2 ? 'TP' : 'HP',
+      hpNow: hpNow,
+      hpMax: hpMax,
+      ratio: ratio,
+      barColor: ratio > 0.5 ? PanelColors.hpOk : ratio > 0.25 ? PanelColors.hpWarn : PanelColors.hpCrit,
+    };
+    return info;
+  }
   // ── builders ──────────────────────────────────────────────────────────────
 
   @Builder TabBar() {
@@ -447,24 +465,15 @@ export default struct BottomPanel {
 
   /** Single map gauge row: mapId label | HP bar | fraction */
   @Builder MapGaugeRow(gauge: MapGaugeSnapshot) {
-    const areaNo = Math.floor(gauge.mapId / 10);
-    const mapNo = gauge.mapId % 10;
-    const label = `${areaNo}-${mapNo}`;
-    const gaugeLabel = gauge.gaugeType === 2 ? 'TP' : 'HP';
-    const hpNow = gauge.hpNow ?? 0;
-    const hpMax = gauge.hpMax ?? 1;
-    const ratio = hpMax > 0 ? hpNow / hpMax : 0;
-    const barColor = ratio > 0.5 ? PanelColors.hpOk : ratio > 0.25 ? PanelColors.hpWarn : PanelColors.hpCrit;
-
     Row() {
       // Map label
       Column() {
-        Text(label)
+        Text(this.getMapGaugeInfo(gauge).label)
           .fontSize(PanelDimens.fontLg)
           .fontWeight(FontWeight.Bold)
           .fontColor(gauge.cleared ? PanelColors.txtMuted : PanelColors.txtPrimary)
           .textAlign(TextAlign.Center)
-        Text(gauge.cleared ? '通関' : gaugeLabel)
+        Text(gauge.cleared ? '通関' : this.getMapGaugeInfo(gauge).gaugeLabel)
           .fontSize(PanelDimens.fontSm)
           .fontColor(gauge.cleared ? PanelColors.stat : PanelColors.txtSub)
           .textAlign(TextAlign.Center)
@@ -480,11 +489,11 @@ export default struct BottomPanel {
         // HP fraction
         Row() {
           if (gauge.hpMax !== null) {
-            Text(`${hpNow}`)
+            Text(`${this.getMapGaugeInfo(gauge).hpNow}`)
               .fontSize(PanelDimens.fontMd)
               .fontWeight(FontWeight.Medium)
-              .fontColor(barColor)
-            Text(` / ${hpMax}`)
+              .fontColor(this.getMapGaugeInfo(gauge).barColor)
+            Text(` / ${this.getMapGaugeInfo(gauge).hpMax}`)
               .fontSize(PanelDimens.fontMd)
               .fontColor(PanelColors.txtSub)
             Blank().layoutWeight(1)
@@ -493,9 +502,9 @@ export default struct BottomPanel {
                 .fontSize(PanelDimens.fontSm)
                 .fontColor(PanelColors.txtMuted)
             } else {
-              Text(`${Math.round(ratio * 100)}%`)
+              Text(`${Math.round(this.getMapGaugeInfo(gauge).ratio * 100)}%`)
                 .fontSize(PanelDimens.fontSm)
-                .fontColor(barColor)
+                .fontColor(this.getMapGaugeInfo(gauge).barColor)
             }
           } else {
             Text(`撃破: ${gauge.defeatCount}`)
@@ -509,10 +518,14 @@ export default struct BottomPanel {
 
         // HP bar (only when gauge has HP)
         if (gauge.hpMax !== null && gauge.hpMax > 0) {
-          Progress({ value: hpNow, total: hpMax, type: ProgressType.Linear })
+          Progress({
+            value: this.getMapGaugeInfo(gauge).hpNow,
+            total: this.getMapGaugeInfo(gauge).hpMax,
+            type: ProgressType.Linear
+          })
             .width('100%')
             .height(PanelDimens.hpBarH)
-            .color(barColor)
+            .color(this.getMapGaugeInfo(gauge).barColor)
             .backgroundColor(PanelColors.bgHpTrack)
         }
       }

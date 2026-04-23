@@ -6,6 +6,7 @@ export type EventType =
   |  'SHIP_MASTER_CATALOG'
   |  'SLOTITEM_MASTER_CATALOG'
   |  'MISSION_MASTER_CATALOG'
+  |  'SHIP_GRAPH_CATALOG'
   // Port
     | 'PORT_SNAPSHOT'
     | 'PORT_BASIC'

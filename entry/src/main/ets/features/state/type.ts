@@ -410,3 +410,9 @@ export interface CurrentBattleState {
   /** 最后更新时间 */
   lastUpdatedAt: number;
 }
+
+// ==================== utils ====================
+export interface shipGraphFilename{
+  id: number;
+  filename: string;
+}

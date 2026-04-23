@@ -1,3 +1,5 @@
+import { Color } from "@ohos.graphics.scene";
+
 export const enum PanelMode {
   Hidden       = 'HIDDEN',
   FloatOverlay = 'FLOAT_OVERLAY',
@@ -37,4 +39,13 @@ export interface ShipItem {
   exSlotType: number;
   /** Ex-slot icon id (api_type[3]). */
   exSlotIconType: number;
+}
+
+export interface MapGaugeInfo {
+  label: string;
+  gaugeLabel: string;
+  hpNow: number;
+  hpMax: number;
+  ratio: number;
+  barColor: string;
 }
