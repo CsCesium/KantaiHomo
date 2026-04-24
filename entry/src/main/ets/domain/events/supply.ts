@@ -17,3 +17,4 @@ export interface ChargeResult {
 }
 
 export type SupplyChargeEvent = PayloadEvent<'SUPPLY_CHARGE', ChargeResult>;
+export type AnySupplyEvt = SupplyChargeEvent;

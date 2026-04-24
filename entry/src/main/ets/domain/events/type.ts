@@ -30,6 +30,8 @@ export type EventType =
     | 'BATTLE_DAY'
     | 'BATTLE_NIGHT'
     | 'BATTLE_RESULT'
+  // Supply
+    | 'SUPPLY_CHARGE'
   // Ranking
     | 'RANKING_SNAPSHOT'
   // Map Info

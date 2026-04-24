@@ -98,7 +98,7 @@ export default struct ShipStatusBadge {
 
   @Computed
   get badgeBgColor(): string {
-    return '#8b1a1a';
+    return '#0EA5E921';
   }
 
   @Computed

@@ -2,7 +2,8 @@
 import type { AnyBattleEvt, AnyExpEvt,
     AnyMapInfoEvt,
     AnyPortEvt, AnyQuestEvt, AnySortieEvt,
-  SessionBindEvent } from '../../../domain/events';
+    AnySupplyEvt,
+    SessionBindEvent } from '../../../domain/events';
 import type { AnyStart2Evt } from '../../../domain/events/start2';
 import type { AnyRankingEvt } from '../../../domain/events/ranking';
 
@@ -19,6 +20,7 @@ export type HandlerEvent =
     | AnySortieEvt
     | AnyBattleEvt
     | AnyRankingEvt
+    | AnySupplyEvt
     | AnyMapInfoEvt;
 
 export interface Handler {
