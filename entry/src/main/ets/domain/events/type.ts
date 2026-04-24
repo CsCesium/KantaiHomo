@@ -34,6 +34,8 @@ export type EventType =
     | 'RANKING_SNAPSHOT'
   // Map Info
     | 'MAP_INFO_UPDATE'
+  // Supply
+    | 'SUPPLY_CHARGE'
   // UI
     | 'YASEN_DETECTED'
     | 'TAIHA_WARNING';

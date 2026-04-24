@@ -207,6 +207,20 @@ export async function upsertBatch(rows: readonly ShipRow[]): Promise<void> {
   });
 }
 
+export async function patchSupplyBatch(
+  updates: readonly { uid: number; fuel: number; bull: number; onslotJson: string; updatedAt: number }[]
+): Promise<void> {
+  if (!updates.length) return;
+  await withTransaction(async (db) => {
+    for (const u of updates) {
+      await db.executeSql(
+        `UPDATE ships SET fuel=?, bull=?, onslotJson=?, updatedAt=? WHERE uid=?`,
+        [u.fuel, u.bull, u.onslotJson, u.updatedAt, u.uid]
+      );
+    }
+  });
+}
+
 export async function get(uid: number): Promise<ShipRow | null> {
   const rs = await query(
     `SELECT * FROM ships WHERE uid = ? LIMIT 1`,

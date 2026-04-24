@@ -12,6 +12,7 @@ import '../../handlers/battle';
 import '../../handlers/sortie';
 import '../../handlers/ranking';
 import '../../handlers/mapinfo';
+import '../../handlers/supply';
 import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';
@@ -76,18 +77,21 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
   const size: number = totalSize(dump)
 
   let result: ParseResult = { preEvents: [], mainEvents: [] };
-  // 提取状态
-  try {
-  const apiData = parseSvdataAndUnwrap<ApiStateFields>(dump.responseText);
-  if(apiData) {
-      const fields = detectStateFields(apiData);
-      if(fields.any){
-      const isPort = dump.url?.includes('./api_port/port');
-      extractAndUpdateState(apiData,{batchUpdate: isPort});
+  // 提取状态（补给 API 的 api_material 为 number[] 格式，由专用 pipeline 处理，跳过通用提取）
+  const isCharge = dump.url?.includes('/api_req_hokyu/charge');
+  if (!isCharge) {
+    try {
+      const apiData = parseSvdataAndUnwrap<ApiStateFields>(dump.responseText);
+      if(apiData) {
+        const fields = detectStateFields(apiData);
+        if(fields.any){
+          const isPort = dump.url?.includes('./api_port/port');
+          extractAndUpdateState(apiData,{batchUpdate: isPort});
+        }
       }
-  }
-  }catch (e) {
-    console.debug('[ingest] state extract skipped:', String(e));
+    } catch (e) {
+      console.debug('[ingest] state extract skipped:', String(e));
+    }
   }
 
   // 过大：不进 worker, 仍然允许主线程尝试解析；
