@@ -12,7 +12,6 @@ export type {
   MasterDataProvider,
   ShipMasterEntry,
   SlotItemMasterEntry,
-  SimulatorOpts,
 } from './type';
 
 export {

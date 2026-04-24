@@ -22,7 +22,6 @@
  * ```
  */
 
-import AppStorage from '@ohos.app.ability.common'; // 按项目实际路径调整
 import { BattleSimulator, SimulatorOpts } from '../simulator/core';
 import { BattlePrediction, Rank, SimResult, SimShip, SimStage } from '../simulator/type';
 import {
@@ -75,22 +74,42 @@ export interface BattlePredictionSnapshot {
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function toHPSnapshot(ships: (SimShip | null)[] | null | undefined): ShipHPSnapshot[] {
-  return (ships ?? [])
-    .filter((s): s is SimShip => s != null)
-    .map(s => {
+  //
+  // return (ships ?? [])
+  //   .filter((s): s is SimShip => s != null)
+  //   .map(s => {
+  //     const nowHP = Math.max(0, s.nowHP);
+  //     return {
+  //       shipId:  s.id,
+  //       pos:     s.pos,
+  //       maxHP:   s.maxHP,
+  //       nowHP,
+  //       initHP:  s.initHP,
+  //       isTaiha: nowHP > 0 && nowHP * 4 <= s.maxHP,
+  //       isChuha: nowHP > 0 && nowHP * 4 > s.maxHP && nowHP * 2 <= s.maxHP,
+  //       isShipa: nowHP > 0 && nowHP * 2 > s.maxHP && nowHP * 4 <= s.maxHP * 3,
+  //       isSunk:  nowHP <= 0,
+  //     };
+  //   });
+  return (ships ?? new Array<SimShip | null>())
+    .reduce((arr:ShipHPSnapshot[],s:SimShip|null):ShipHPSnapshot[]=>{
+      if (s === null) return arr;
       const nowHP = Math.max(0, s.nowHP);
-      return {
-        shipId:  s.id,
-        pos:     s.pos,
-        maxHP:   s.maxHP,
-        nowHP,
-        initHP:  s.initHP,
-        isTaiha: nowHP > 0 && nowHP * 4 <= s.maxHP,
-        isChuha: nowHP > 0 && nowHP * 4 > s.maxHP && nowHP * 2 <= s.maxHP,
-        isShipa: nowHP > 0 && nowHP * 2 > s.maxHP && nowHP * 4 <= s.maxHP * 3,
-        isSunk:  nowHP <= 0,
-      };
-    });
+      arr.push(
+        {
+                shipId:  s.id,
+                pos:     s.pos,
+                maxHP:   s.maxHP,
+                nowHP,
+                initHP:  s.initHP,
+                isTaiha: nowHP > 0 && nowHP * 4 <= s.maxHP,
+                isChuha: nowHP > 0 && nowHP * 4 > s.maxHP && nowHP * 2 <= s.maxHP,
+                isShipa: nowHP > 0 && nowHP * 2 > s.maxHP && nowHP * 4 <= s.maxHP * 3,
+                isSunk:  nowHP <= 0,
+              }
+      );
+      return arr;
+    }, new Array<ShipHPSnapshot>())
 }
 
 /** 从 battle API response body（svdata= 格式或已解析对象）中提取 api_deck_id */

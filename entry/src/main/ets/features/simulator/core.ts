@@ -34,6 +34,17 @@ const HalfSunkNumber: Record<number, number> = {
   2:1, 3:2, 4:2, 5:3, 6:3, 7:4,
 };
 
+// ── helper ──────────────────────────────────────────────────────────────────
+function compactStages(stages: Array<SimStage | null> | null | undefined): SimStage[] {
+  return (stages ?? new Array<SimStage | null>())
+    .reduce((arr: SimStage[], s: SimStage | null): SimStage[] => {
+      if (s !== null) {
+        arr.push(s);
+      }
+      return arr;
+    }, new Array<SimStage>());
+}
+
 // ─── 消耗品处理 ───────────────────────────────────────────────────────────────
 
 function damageShip(
@@ -939,6 +950,7 @@ export class BattleSimulator {
     });
   }
 
+
   // ── result ──────────────────────────────────────────────────────────────────
 
   get result(): SimResult {
@@ -954,7 +966,7 @@ export class BattleSimulator {
 
   getPrediction(): BattlePrediction {
     return {
-      stages:      this.stages.filter((s): s is SimStage => s != null),
+      stages:      compactStages(this.stages),
       mainFleet:   this.mainFleet,
       escortFleet: this.escortFleet,
       enemyFleet:  this.enemyFleet,
