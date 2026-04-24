@@ -1,5 +1,7 @@
 // src/main/ets/features/router/persist/type.ets
-import type { AnyBattleEvt, AnyExpEvt, AnyPortEvt, AnyQuestEvt, AnySortieEvt,
+import type { AnyBattleEvt, AnyExpEvt,
+    AnyMapInfoEvt,
+    AnyPortEvt, AnyQuestEvt, AnySortieEvt,
   SessionBindEvent } from '../../../domain/events';
 import type { AnyStart2Evt } from '../../../domain/events/start2';
 import type { AnyRankingEvt } from '../../../domain/events/ranking';
@@ -16,8 +18,8 @@ export type HandlerEvent =
     | AnyExpEvt
     | AnySortieEvt
     | AnyBattleEvt
-    | AnyRankingEvt;
-  ;
+    | AnyRankingEvt
+    | AnyMapInfoEvt;
 
 export interface Handler {
   handle(ev: HandlerEvent, deps: PersistDeps): Promise<void>;

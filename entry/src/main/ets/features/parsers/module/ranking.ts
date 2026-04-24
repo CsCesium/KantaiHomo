@@ -20,7 +20,7 @@ const RULES: EndpointRule[] = [
 //                  Update this array when the game ships a new client bundle.
 // RANK_SEED      — inline array in __drawRanking, stable across releases.
 // ─────────────────────────────────────────────────────────────────────────────
-const PORT_API_SEED = [6713, 4576, 8196, 6225, 2604, 8105, 9414, 2531, 2589, 3497]
+const PORT_API_SEED = [3676, 3331, 2169, 4479, 8306, 4265, 4207, 2470, 9987, 2953]
 const RANK_SEED     = [8931, 1201, 1156, 5061, 4569, 4732, 3779, 4568, 5695, 4619, 4912, 5669, 6586]
 
 // Confirmed obfuscated field names from RecordRankingModel.SetAll (current client):
