@@ -80,11 +80,11 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
     };
   }
 
-  // Split mode: any non-narrow window shows the game at full width with panel below.
-  // Narrow split windows (phone top/bottom split, or very small split) keep the full
-  // game canvas without a panel.
+  // Portrait split (left/right split on an unfolded foldable produces a wide portrait window):
+  // scale game to full width and dock panel below.  Narrow portrait windows (phone top/bottom
+  // split) and all landscape split windows keep the full game canvas without a panel.
   if (scene === WindowScene.SPLIT) {
-    if (!narrow) {
+    if (portrait && !narrow) {
       const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
       return {
         mode: HostMode.EXPANDED,
@@ -98,7 +98,7 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
         sidebarWidthVp: 0,
       };
     }
-    // Narrow split window: maximize game canvas, no panel.
+    // Landscape split or narrow portrait split: maximize game canvas, no panel.
     return {
       mode: HostMode.COMPACT,
       policy: 'height',
