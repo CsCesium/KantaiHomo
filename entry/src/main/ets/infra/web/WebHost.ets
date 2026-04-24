@@ -2,7 +2,7 @@ import { webview } from "@kit.ArkWeb";
 import { kvDelete, kvGetBool, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
-import { decideLayout, FitPolicy, HostMode, LayoutDecision, WideSplitMode, WindowScene } from "./layout/responsive";
+import { decideLayout, FitPolicy, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
@@ -22,8 +22,6 @@ interface RpcPayload {
   value?: string;
   def?: string;
 }
-
-const LAYOUT_WIDE_SPLIT_MODE_KEY = 'layout.wideSplitMode';
 
 @Component
 export default struct WebHost {
@@ -46,7 +44,6 @@ export default struct WebHost {
   @State private viewportWidthVp: number = 0;
   @State private viewportHeightVp: number = 0;
   @State private scene: WindowScene = WindowScene.FULLSCREEN;
-  @State private wideSplitMode: WideSplitMode = WideSplitMode.PORTRAIT_FILL;
   @State private panelConfig: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
   @State private sidebarWidthVp: number = 0;
   /** Mirrors ui.showSidebar AppStorage preference; updates immediately when user toggles in Settings. */
@@ -132,13 +129,6 @@ export default struct WebHost {
     return byStatus;
   }
 
-  private parseWideSplitMode(raw: string): WideSplitMode {
-    if (raw === WideSplitMode.LANDSCAPE_WITH_DASHBOARD) {
-      return WideSplitMode.LANDSCAPE_WITH_DASHBOARD;
-    }
-    return WideSplitMode.PORTRAIT_FILL;
-  }
-
   private applyImmersiveLayoutForScene(win: window.Window): void {
     // Split windows share system bars with other apps; keep non-immersive.
     // Fullscreen and floating are edge-to-edge: immersive layout required so
@@ -156,7 +146,6 @@ export default struct WebHost {
       widthVp,
       heightVp,
       scene: this.scene,
-      wideSplitMode: this.wideSplitMode,
     });
     let nextMode: HostMode = decision.mode;
     let nextFit: FitPolicy = decision.policy;
@@ -297,13 +286,6 @@ export default struct WebHost {
     this.host.bindDisplay();
     void this.host.applyOrientationByMode(true);
     void this.loadRuntimeConfig();
-
-    // Preload split policy for wide left/right mode.
-    void kvGetString(LAYOUT_WIDE_SPLIT_MODE_KEY, WideSplitMode.PORTRAIT_FILL)
-      .then((v) => {
-        this.wideSplitMode = this.parseWideSplitMode(v);
-        this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
-      });
 
     const mainWin = getMainWindowCached();
     if (mainWin) {
