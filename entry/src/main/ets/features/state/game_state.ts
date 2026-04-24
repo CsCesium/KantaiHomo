@@ -282,6 +282,28 @@ class GameStateManager {
   }
 
   /**
+   * 批量更新舰船补给字段（补给 API 专用，仅修改 fuel/ammo/onslot，不覆盖其他字段）
+   */
+  patchShipsSupply(updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>): void {
+    for (const u of updates) {
+      const existing = this.state.ships.get(u.uid);
+      if (!existing) continue;
+      const fuelMax = existing.fuelMax;
+      const ammoMax = existing.ammoMax;
+      const needsResupply = fuelMax > 0 ? (u.fuel < fuelMax || u.ammo < ammoMax) : false;
+      this.state.ships.set(u.uid, {
+        ...existing,
+        fuel: u.fuel,
+        ammo: u.ammo,
+        onslot: [...u.onslot],
+        needsResupply,
+      });
+    }
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  /**
    * 删除舰船（解体/近代化改修消耗）
    */
   removeShips(uids: number[]): void {
@@ -874,6 +896,8 @@ export const updateKdocks = (kdocks:Kdock[]) => gameStateManager.updateKDocks(kd
 export const updateDecks = (decks: Deck[]) => gameStateManager.updateDecks(decks);
 export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(quests);
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
+export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>
+  gameStateManager.patchShipsSupply(updates);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>
 gameStateManager.updateFromPort(data);
 

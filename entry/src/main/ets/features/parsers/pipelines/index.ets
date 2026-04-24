@@ -6,6 +6,7 @@ import { questPipeline } from './quest';
 import { rankingPipeline } from './ranking';
 import { mapinfoPipeline } from './mapinfo';
 import { ndockPipeline } from './ndock';
+import { supplyPipeline } from './supply';
 import { DUMP_PIPELINES, registerPipeline, DumpPipeline } from '../pipeline';
 
 export * from './port';
@@ -16,6 +17,7 @@ export * from './quest';
 export * from './ranking';
 export * from './ndock';
 export * from './mapinfo';
+export * from './supply';
 
 /** 所有 pipeline，按需维护。新增 pipeline 时在此数组添加即可。 */
 const ALL_PIPELINES: DumpPipeline[] = [
@@ -27,6 +29,7 @@ const ALL_PIPELINES: DumpPipeline[] = [
   rankingPipeline,
   ndockPipeline,
   mapinfoPipeline,
+  supplyPipeline,
 ];
 
 /**

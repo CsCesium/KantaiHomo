@@ -42,6 +42,7 @@ export {
   updateDecks,
   updateQuests,
   updateShips,
+  patchShipsSupply,
   updateFromPort,
 
   // 派生数据缓存更新
