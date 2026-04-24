@@ -89,8 +89,26 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
     };
   }
 
-  // In split mode, stacked windows (top/bottom split) should maximize game area.
+  // Portrait split: covers both top/bottom split on phones and left/right split on unfolded
+  // foldable devices (the latter produces a wide-but-tall portrait window).
   if (scene === WindowScene.SPLIT && portrait) {
+    // Wide portrait window (left/right split on unfolded foldable): treat like tablet portrait —
+    // fill width with the game, put the panel below.
+    if (!narrow) {
+      const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
+      return {
+        mode: HostMode.EXPANDED,
+        policy: 'width',
+        lockFit: false,
+        showSideButtons: false,
+        showBottomTools: true,
+        gameWidthVp: widthVp,
+        gameHeightVp: Math.floor(contentH),
+        gameLeftMarginVp: 0,
+        sidebarWidthVp: 0,
+      };
+    }
+    // Narrow portrait window (top/bottom split on a phone): maximize game canvas.
     return {
       mode: HostMode.COMPACT,
       policy: 'height',
