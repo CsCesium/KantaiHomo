@@ -1,6 +1,8 @@
 import { ShipSpecialEquip, ShipState } from '../../../../features/state/type';
 import { getShipGraphFilename, getGameServerUrl } from '../../../../features/state';
 import { getShipBannerUrl } from '../../../../features/game/shipGraph';
+import { equipLabel } from '../../../../features/panel/panelConfig';
+import { SlotItemIconId } from '../../../../domain/models/struct/slotitem';
 
 /**
  * HP 颜色常量（按损伤等级）
@@ -17,6 +19,7 @@ const TICK_COLOR = '#ffffff';
 const TICK_OUTER_PAD = 2;
 const TICK_INNER_PAD = 2;
 const STATUS_PANEL_WIDTH = 24;
+const DAMAGE_CONTROL_ICON_ID = SlotItemIconId.DamageControl;
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
@@ -89,23 +92,18 @@ export default struct ShipStatusBadge {
   }
 
   @Computed
-  get badgeLabel(): string {
-    return this.equip.hasGoddess ? '神' : '損';
+  get badgeIconPath(): string {
+    return equipLabel(DAMAGE_CONTROL_ICON_ID);
   }
 
   @Computed
   get badgeBgColor(): string {
-    return this.equip.hasGoddess ? '#c0a000' : '#8b1a1a';
+    return '#8b1a1a';
   }
 
   @Computed
   get nameFontSize(): number {
     return Math.max(Math.floor(this.avatarDiam * 0.22), 7);
-  }
-
-  @Computed
-  get badgeFontSize(): number {
-    return Math.max(Math.floor(this.badgeSize * 0.55), 6);
   }
 
   @Computed
@@ -128,15 +126,15 @@ export default struct ShipStatusBadge {
 
   private condVisual(cond: number): CondVisual {
     if (cond > 50) {
-      return new CondVisual('😼', '#F6C64A')
+      return new CondVisual('😎', '#F6C64A')
     }
     if (cond > 30) {
-      return new CondVisual('😺', '#FFFFFF')
+      return new CondVisual('😊', '#FFFFFF')
     }
     if (cond >= 20) {
-      return new CondVisual('😾', '#FF9F43')
+      return new CondVisual('🙃', '#FF9F43')
     }
-    return new CondVisual('🙀', '#FF5A5A')
+    return new CondVisual('😡', '#FF5A5A')
   }
   /** 绘制 HP 环到 Canvas */
   private drawRing(): void {
@@ -245,16 +243,15 @@ export default struct ShipStatusBadge {
             .padding(2)
         }
 
-        // 损管/女神角标（右下角）
+        // 损管/女神角标（右下角，统一损管 icon）
         if (this.hasEquip) {
-          Text(this.badgeLabel)
+          Image(this.badgeIconPath)
             .width(this.badgeSize)
             .height(this.badgeSize)
             .borderRadius(this.badgeSize / 2)
             .backgroundColor(this.badgeBgColor)
-            .fontColor($r('sys.color.comp_background_secondary'))
-            .fontSize(this.badgeFontSize)
-            .textAlign(TextAlign.Center)
+            .objectFit(ImageFit.Contain)
+            .padding(1)
             .align(Alignment.BottomEnd)
             .offset({ x: this.badgeOffsetX, y: this.badgeOffsetY })
         }
