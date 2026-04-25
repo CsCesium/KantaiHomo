@@ -439,7 +439,7 @@ export interface FleetInput {
 }
 
 /** 经过处理的模拟器可用舰队快照（按 stage 聚合后供 UI 消费） */
-export interface BattlePrediction {
+export interface SimPrediction {
   stages:      SimStage[];
   mainFleet:   (SimShip | null)[] | undefined;
   escortFleet: (SimShip | null)[] | undefined;

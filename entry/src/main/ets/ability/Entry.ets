@@ -23,6 +23,7 @@ import { initShipGraphCache } from '../infra/assets/shipGraphCache';
 import { updateShipGraphFilenames } from '../features/state';
 import { ShipGraphRow } from '../infra/storage/types';
 import { shipGraphFilename } from '../features/state/type';
+import { initBattlePredictionService, gameStateAdapter } from '../features/simulator';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -138,6 +139,8 @@ export default class EntryAbility extends UIAbility {
       }).catch((_e: Error) => {
         hilog.warn(HILOG_DOM, 'App', 'failed to restore ship graph filenames from DB');
       });
+
+      initBattlePredictionService(gameStateAdapter);
 
       hilog.info(HILOG_DOM, 'App', 'deps+registry+alerts+scheduler initialized (stageCreate)');
     } catch (e) {

@@ -6,7 +6,7 @@
 
 // 核心类型
 export type {
-  BattlePrediction,
+  SimPrediction,
   FleetInput,
   RawFleetShip,
   MasterDataProvider,
@@ -61,3 +61,6 @@ export type {
   ShipHPSnapshot,
   GameStateFacade,
 } from './battle_prediction_service';
+
+// GameState 适配器
+export { gameStateAdapter } from './state_adapter';

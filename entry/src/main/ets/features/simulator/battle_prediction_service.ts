@@ -22,13 +22,13 @@
  * ```
  */
 
-import { BattleSimulator, SimulatorOpts } from '../simulator/core';
-import { BattlePrediction, Rank, SimResult, SimShip, SimStage } from '../simulator/type';
+import { BattleSimulator, SimulatorOpts } from './core';
+import { SimPrediction, Rank, SimShip } from './type';
 import {
   buildFleetInputFromApiPacket,
   DeckSnapshotLike,
   ShipStateLike,
-} from '../simulator/fleet_builder';
+} from './fleet_builder';
 
 // ─── AppStorage key ───────────────────────────────────────────────────────────
 
@@ -38,19 +38,19 @@ export const BATTLE_PREDICTION_KEY = 'battlePrediction';
 
 /** HP 状态快照（用于 UI 展示） */
 export interface ShipHPSnapshot {
-  shipId:  number;
-  pos:     number;
-  maxHP:   number;
-  nowHP:   number;
-  initHP:  number;
-  /** 是否大破 */
-  isTaiha: boolean;
-  /** 是否中破 */
-  isChuha: boolean;
-  /** 是否小破 */
-  isShipa: boolean;
+  shipId:   number;
+  pos:      number;
+  maxHP:    number;
+  nowHP:    number;
+  initHP:   number;
+  /** 是否大破 (≤25%) */
+  isTaiha:  boolean;
+  /** 是否中破 (≤50%) */
+  isChuuha: boolean;
+  /** 是否小破 (≤75%) */
+  isShouha: boolean;
   /** 是否击沉 */
-  isSunk:  boolean;
+  isSunk:   boolean;
 }
 
 export interface BattlePredictionSnapshot {
@@ -92,22 +92,20 @@ function toHPSnapshot(ships: (SimShip | null)[] | null | undefined): ShipHPSnaps
   //     };
   //   });
   return (ships ?? new Array<SimShip | null>())
-    .reduce((arr:ShipHPSnapshot[],s:SimShip|null):ShipHPSnapshot[]=>{
+    .reduce((arr: ShipHPSnapshot[], s: SimShip | null): ShipHPSnapshot[] => {
       if (s === null) return arr;
       const nowHP = Math.max(0, s.nowHP);
-      arr.push(
-        {
-                shipId:  s.id,
-                pos:     s.pos,
-                maxHP:   s.maxHP,
-                nowHP,
-                initHP:  s.initHP,
-                isTaiha: nowHP > 0 && nowHP * 4 <= s.maxHP,
-                isChuha: nowHP > 0 && nowHP * 4 > s.maxHP && nowHP * 2 <= s.maxHP,
-                isShipa: nowHP > 0 && nowHP * 2 > s.maxHP && nowHP * 4 <= s.maxHP * 3,
-                isSunk:  nowHP <= 0,
-              }
-      );
+      arr.push({
+        shipId:   s.id,
+        pos:      s.pos,
+        maxHP:    s.maxHP,
+        nowHP,
+        initHP:   s.initHP,
+        isTaiha:  nowHP > 0 && nowHP * 4 <= s.maxHP,
+        isChuuha: nowHP > 0 && nowHP * 4 > s.maxHP && nowHP * 2 <= s.maxHP,
+        isShouha: nowHP > 0 && nowHP * 2 > s.maxHP && nowHP * 4 <= s.maxHP * 3,
+        isSunk:   nowHP <= 0,
+      });
       return arr;
     }, new Array<ShipHPSnapshot>())
 }
@@ -236,7 +234,7 @@ export class BattlePredictionService {
   }
 
   private _buildSnapshot(isActual: boolean): BattlePredictionSnapshot {
-    const pred   = this.simulator!.getPrediction();
+    const pred: SimPrediction = this.simulator!.getPrediction();
     const result = pred.result;
 
     return {

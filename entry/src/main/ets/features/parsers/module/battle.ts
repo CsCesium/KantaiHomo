@@ -15,6 +15,7 @@ import { predictBattle } from "../../../domain/service/battle_prediction";
 import { ApiDump } from "../../../infra/web/types";
 import { parseSvdata, parseFormBody, extractApiPath, matchAnyPattern } from "../../utils/common";
 import { ParserCtx, mkEvt } from "./common";
+import { getBattlePredictionService } from "../../simulator/battle_prediction_service";
 
 const PATTERNS = {
   // 出击/地图
@@ -107,12 +108,28 @@ function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
 
   const apiPath = extractApiPath(dump.url) as BattleApiPath;
   const isPractice = dump.url.includes('practice');
+  const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
+
+  // 每场新的昼战重置模拟器，然后喂入首个数据包
+  try {
+    const svc = getBattlePredictionService();
+    svc.reset();
+    svc.onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+  } catch (_) { /* service 未初始化时静默跳过 */ }
 
   const segment = normalizeBattleSegment(apiPath, raw);
   if (!segment) return [];
 
-  // 计算预测
+  // 基础预测（HP 值来自 API，始终准确）
   const prediction = predictBattle(segment);
+
+  // 用模拟器的精确等级覆盖预测等级
+  try {
+    const snap = getBattlePredictionService().getCurrentSnapshot();
+    if (snap) {
+      prediction.predictedRank = snap.rank;
+    }
+  } catch (_) { /* ignore */ }
 
   const event: BattleDayEvent = mkEvt(
     ctx,
@@ -138,11 +155,25 @@ function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
 
   const apiPath = extractApiPath(dump.url) as BattleApiPath;
   const isPractice = dump.url.includes('practice');
+  const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
+
+  // 夜战累计到当前模拟器（不 reset）
+  try {
+    getBattlePredictionService().onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+  } catch (_) { /* ignore */ }
 
   const segment = normalizeBattleSegment(apiPath, raw);
   if (!segment) return [];
 
   const prediction = predictBattle(segment);
+
+  // 覆盖等级（夜战后等级可能与昼战不同）
+  try {
+    const snap = getBattlePredictionService().getCurrentSnapshot();
+    if (snap) {
+      prediction.predictedRank = snap.rank;
+    }
+  } catch (_) { /* ignore */ }
 
   const event: BattleNightEvent = mkEvt(
     ctx,
@@ -168,6 +199,12 @@ function parseBattleResultDump(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
 
   const apiPath = extractApiPath(dump.url);
   const isPractice = dump.url.includes('practice');
+  const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
+
+  // 将实际结果喂给模拟器（使其发布最终快照）
+  try {
+    getBattlePredictionService().onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+  } catch (_) { /* ignore */ }
 
   const result = normalizeBattleResult(raw);
 

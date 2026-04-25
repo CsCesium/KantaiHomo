@@ -9,7 +9,7 @@ import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../
 // ── pure helpers (no ArkUI APIs) ──────────────────────────────────────────
 
 function rankColor(rank: string): string {
-  if (rank === 'S') return '#FFD700';
+  if (rank === 'SS' || rank === 'S') return '#FFD700';
   if (rank === 'A') return '#43a047';
   if (rank === 'B') return '#1e88e5';
   if (rank === 'C') return '#fdd835';

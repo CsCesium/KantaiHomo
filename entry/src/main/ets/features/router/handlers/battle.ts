@@ -8,6 +8,7 @@ import {
   createBattleContext,
 } from '../../../domain/models';
 import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
+import { getBattlePredictionService } from '../../simulator/battle_prediction_service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
 import { updateBattleStatus, updateBattleResult, getShipSpecialEquip } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
@@ -272,6 +273,11 @@ class BattleHandler implements Handler {
     if (context) {
       context.pendingBattle = null;
     }
+
+    // 7. 重置模拟器，为下一场战斗做准备
+    try {
+      getBattlePredictionService().reset();
+    } catch (_) { /* ignore if not initialised */ }
 
     console.info('[battle] result processed, rank:', record.rank, 'drop:', record.dropShipName ?? 'none');
   }

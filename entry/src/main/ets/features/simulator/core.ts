@@ -12,7 +12,7 @@ import {
   MultiTargetAttackType, MultiTargetAttackOrder,
   DayAttackTypeMap, NightAttackTypeMap, AirControlMap, DetectionMap,
   FormationMap, EngagementMap, SupportTypeMap, BattleRankMap,
-  FleetInput, RawFleetShip, MasterDataProvider, BattlePrediction,
+  FleetInput, RawFleetShip, MasterDataProvider, SimPrediction,
 } from './type';
 
 // ─── 内部工具 ─────────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ function generateAerialInfo(
     o.fPlaneInit2 = fc; o.fPlaneNow2 = fc - fl;
     o.ePlaneInit2 = ec; o.ePlaneNow2 = ec - el;
 
-    const fire = isRecord(s2.api_air_fire) ? s2.api_fire as Record<string,unknown> : null;
+    const fire = isRecord(s2.api_air_fire) ? s2.api_air_fire as Record<string,unknown> : null;
     if (fire != null) {
       o.aaciKind  = typeof fire.api_kind === 'number' ? fire.api_kind : null;
       const idx   = typeof fire.api_idx  === 'number' ? fire.api_idx  : -1;
@@ -590,7 +590,7 @@ function simulateFleetNightMVP(stages: (SimStage|null)[]): number {
       const ship = atk.fromShip;
       if (ship == null || ship.owner !== ShipOwner.Ours) continue;
       if (6 <= ship.pos && ship.pos <= 11)
-        sum[ship.pos - 7] += (atk.damage ?? []).reduce((x,y)=>x+y, 0);
+        sum[ship.pos - 6] += (atk.damage ?? []).reduce((x,y)=>x+y, 0);
     }
   }
   return sum.reduce((m, v, i) => (v > sum[m] ? i : m), 0);
@@ -964,7 +964,7 @@ export class BattleSimulator {
     return new SimResult({ rank, mvp });
   }
 
-  getPrediction(): BattlePrediction {
+  getPrediction(): SimPrediction {
     return {
       stages:      compactStages(this.stages),
       mainFleet:   this.mainFleet,
