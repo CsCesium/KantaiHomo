@@ -12,10 +12,13 @@ import {
 import { BattleApiPath, normalizeBattleSegment, normalizeBattleResult } from "../../../domain/models";
 import { normalizeSortieCell } from "../../../domain/models/normalizer/map";
 import { predictBattle } from "../../../domain/service/battle_prediction";
+import { getSortieContext } from "../../../domain/service";
+import type { BattlePrediction, ShipPrediction } from "../../../domain/models/struct/battle_record";
 import { ApiDump } from "../../../infra/web/types";
 import { parseSvdata, parseFormBody, extractApiPath, matchAnyPattern } from "../../utils/common";
 import { ParserCtx, mkEvt } from "./common";
 import { getBattlePredictionService } from "../../simulator/battle_prediction_service";
+import type { BattlePredictionSnapshot, ShipHPSnapshot } from "../../simulator/battle_prediction_service";
 
 const PATTERNS = {
   // 出击/地图
@@ -99,6 +102,68 @@ function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
   return [event];
 }
 
+// ==================== 模拟器结果转换 ====================
+
+/**
+ * 将模拟器快照转换为领域层 BattlePrediction。
+ * friendShips / friendEscortShips 来自出击上下文的舰队快照，用于填充 uid/name。
+ */
+function simSnapshotToDomainPrediction(
+  snap: BattlePredictionSnapshot,
+  friendShips?: { uid: number; name: string }[],
+  friendEscortShips?: { uid: number; name: string }[],
+): BattlePrediction {
+  function toShipPred(
+    s: ShipHPSnapshot,
+    ships: { uid: number; name: string }[] | undefined,
+    posOffset: number,
+  ): ShipPrediction {
+    const hpAfter = Math.max(0, s.nowHP);
+    const damageReceived = Math.max(0, s.initHP - hpAfter);
+    const idx = s.pos - posOffset;
+    return {
+      uid:            ships?.[idx]?.uid  ?? 0,
+      name:           ships?.[idx]?.name ?? '',
+      hpBefore:       s.initHP,
+      hpAfter,
+      hpMax:          s.maxHP,
+      damageReceived,
+      damageTaken:    s.maxHP > 0 ? Math.round((1 - hpAfter / s.maxHP) * 100) : 0,
+      isSunk:         s.isSunk,
+      isTaiha:        s.isTaiha,
+      isChuuha:       s.isChuuha,
+      isShouha:       s.isShouha,
+    };
+  }
+
+  const friendMain   = snap.mainFleet.map(s => toShipPred(s, friendShips, 0));
+  const friendEscort = snap.escortFleet.length > 0
+    ? snap.escortFleet.map(s => toShipPred(s, friendEscortShips, 6))
+    : undefined;
+  const enemyMain    = snap.enemyFleet.map(s => toShipPred(s, undefined, 0));
+  const enemyEscort  = snap.enemyEscort.length > 0
+    ? snap.enemyEscort.map(s => toShipPred(s, undefined, 0))
+    : undefined;
+
+  const friendSunkCount  = friendMain.filter(s => s.isSunk).length  + (friendEscort?.filter(s => s.isSunk).length  ?? 0);
+  const friendTaihaCount = friendMain.filter(s => s.isTaiha).length + (friendEscort?.filter(s => s.isTaiha).length ?? 0);
+  const enemySunkCount   = enemyMain.filter(s => s.isSunk).length   + (enemyEscort?.filter(s => s.isSunk).length   ?? 0);
+
+  return {
+    friendMain,
+    friendEscort,
+    enemyMain,
+    enemyEscort,
+    predictedRank:  snap.rank,
+    friendSunkCount,
+    friendTaihaCount,
+    enemySunkCount,
+    hasTaihaFriend: friendTaihaCount > 0,
+    hasSunkFriend:  friendSunkCount  > 0,
+    calculatedAt:   snap.updatedAt,
+  };
+}
+
 /**
  * 解析昼战
  */
@@ -120,16 +185,23 @@ function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const segment = normalizeBattleSegment(apiPath, raw);
   if (!segment) return [];
 
-  // 基础预测（HP 值来自 API，始终准确）
-  const prediction = predictBattle(segment);
-
-  // 用模拟器的精确等级覆盖预测等级
+  // 优先使用模拟器结果（含精确敌我 HP）；失败时退回到基于 segment 的预测
+  let prediction: BattlePrediction;
   try {
     const snap = getBattlePredictionService().getCurrentSnapshot();
     if (snap) {
-      prediction.predictedRank = snap.rank;
+      const context = getSortieContext();
+      prediction = simSnapshotToDomainPrediction(
+        snap,
+        context?.fleetSnapshot?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+        context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+      );
+    } else {
+      prediction = predictBattle(segment);
     }
-  } catch (_) { /* ignore */ }
+  } catch (_) {
+    prediction = predictBattle(segment);
+  }
 
   const event: BattleDayEvent = mkEvt(
     ctx,
@@ -165,15 +237,22 @@ function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const segment = normalizeBattleSegment(apiPath, raw);
   if (!segment) return [];
 
-  const prediction = predictBattle(segment);
-
-  // 覆盖等级（夜战后等级可能与昼战不同）
+  let prediction: BattlePrediction;
   try {
     const snap = getBattlePredictionService().getCurrentSnapshot();
     if (snap) {
-      prediction.predictedRank = snap.rank;
+      const context = getSortieContext();
+      prediction = simSnapshotToDomainPrediction(
+        snap,
+        context?.fleetSnapshot?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+        context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+      );
+    } else {
+      prediction = predictBattle(segment);
     }
-  } catch (_) { /* ignore */ }
+  } catch (_) {
+    prediction = predictBattle(segment);
+  }
 
   const event: BattleNightEvent = mkEvt(
     ctx,
