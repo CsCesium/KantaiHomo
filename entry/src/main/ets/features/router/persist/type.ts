@@ -6,6 +6,7 @@ import type { AnyBattleEvt, AnyExpEvt,
     SessionBindEvent } from '../../../domain/events';
 import type { AnyStart2Evt } from '../../../domain/events/start2';
 import type { AnyRankingEvt } from '../../../domain/events/ranking';
+import type { AnyLbasEvt } from '../../../domain/events/lbas';
 
 import type { PersistDeps } from '../../../infra/deps/index';
 
@@ -21,7 +22,8 @@ export type HandlerEvent =
     | AnyBattleEvt
     | AnyRankingEvt
     | AnySupplyEvt
-    | AnyMapInfoEvt;
+    | AnyMapInfoEvt
+    | AnyLbasEvt;
 
 export interface Handler {
   handle(ev: HandlerEvent, deps: PersistDeps): Promise<void>;

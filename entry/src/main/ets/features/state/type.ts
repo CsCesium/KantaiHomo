@@ -127,6 +127,8 @@ export interface GameState {
   currentBattle: CurrentBattleState;
   /** 地图血量快照（来自 api_get_member/mapinfo） */
   mapGauges: MapGaugeSnapshot[];
+  /** 基地航空队状态（来自 api_get_member/base_air_corps 等） */
+  lbases: import('../../domain/models/struct/lbas').LbasBase[];
   /** 上次更新时间 */
   lastUpdatedAt: number;
 
@@ -179,6 +181,7 @@ export type StateChangeType =
     | 'ships'
     | 'battle'
     | 'mapinfo'
+    | 'lbas'
     | 'all';
 
 /** 状态变更监听器 */

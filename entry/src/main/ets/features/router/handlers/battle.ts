@@ -44,7 +44,7 @@ class BattleHandler implements Handler {
     payload: BattleDayPayload,
     deps: PersistDeps
   ): Promise<void> {
-    const { apiPath, segment, isPractice } = payload;
+    const { apiPath, segment, isPractice, isAirRaid } = payload;
     let { prediction } = payload;
 
     // 1. 获取出击上下文，更新内存状态
@@ -57,9 +57,7 @@ class BattleHandler implements Handler {
         context.fleetSnapshotEscort?.ships.map(s => ({ uid: s.uid, name: s.name }))
       );
 
-      // 首节点战斗时 pendingBattle 为 null（api_req_map/start 直接进入战斗，
-      // 没有经过 api_req_map/next 触发的 handleSortieNext 来创建战斗上下文），
-      // 避免后续 handleBattleResult 无法写入结果快照。
+      // 首节点战斗或基地空袭时 pendingBattle 为 null，按当前节点补建。
       if (!context.pendingBattle && context.currentCell) {
         context.pendingBattle = createBattleContext(
           context.currentCell,
@@ -74,6 +72,9 @@ class BattleHandler implements Handler {
         context.pendingBattle.merged = segment;
         context.pendingBattle.prediction = prediction;
         context.pendingBattle.isPractice = isPractice;
+        if (isAirRaid) {
+          context.pendingBattle.isAirRaid = true;
+        }
 
         // 填充敌方舰队信息（供 UI 显示敌舰 ID）
         if (segment.enemyMain) {

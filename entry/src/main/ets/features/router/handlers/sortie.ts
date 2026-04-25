@@ -19,13 +19,32 @@ import {
   createBattleContext,
   safeParseJsonArray
 } from '../../../domain/models';
+import type { AirBaseSnapshot, AirBaseSquadronSnapshot } from '../../../domain/models/struct/battle_record';
 import { startSortie, moveToNextCell } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
 import { SortieNextAlert, TaihaWarningAlert } from '../../alerts/type';
 import { getLastBattleHasTaihaRisk, resetLastBattleState } from '../../alerts/lastBattleState';
-import { getShipMasterName, clearBattleState } from '../../state/game_state';
+import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
+
+/** 将 LbasBase 转换为出击快照格式（解析 slotId → masterId） */
+function captureLbasSnapshot(): AirBaseSnapshot[] {
+  return getLbas()
+    .filter(base => base.actionKind === 1 || base.actionKind === 2)  // 出击 or 防空
+    .map(base => ({
+      baseId: base.baseId,
+      name: base.name,
+      actionKind: base.actionKind,
+      squadrons: base.squadrons
+        .filter(sq => sq.slotId > 0)
+        .map((sq): AirBaseSquadronSnapshot => ({
+          masterId: getSlotItemMasterId(sq.slotId) ?? 0,
+          count: sq.count,
+          cond: sq.cond,
+        })),
+    }));
+}
 
 function isSortieStartEvent(ev: HandlerEvent): ev is SortieStartEvent {
   return ev.type === 'SORTIE_START';
@@ -70,7 +89,14 @@ class SortieHandler implements Handler {
       actualFleetSnapshotEscort
     );
 
-    console.info('[sortie] started:', context.sortieId, 'map:', `${mapAreaId}-${mapInfoNo}`);
+    // 3. 捕获基地航空队快照（仅出击/防空状态的基地）
+    const airBases = captureLbasSnapshot();
+    if (airBases.length > 0) {
+      context.airBases = airBases;
+    }
+
+    console.info('[sortie] started:', context.sortieId, 'map:', `${mapAreaId}-${mapInfoNo}`,
+      'airBases:', airBases.length);
 
     // 3. 持久化出击记录
     if (PersistDeps.repos?.sortie) {

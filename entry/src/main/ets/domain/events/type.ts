@@ -36,6 +36,8 @@ export type EventType =
     | 'RANKING_SNAPSHOT'
   // Map Info
     | 'MAP_INFO_UPDATE'
+  // LBAS
+    | 'LBAS_UPDATE'
   // Supply
     | 'SUPPLY_CHARGE'
   // UI
