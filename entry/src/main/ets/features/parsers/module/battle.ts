@@ -10,8 +10,8 @@ import {
   AnyBattleModuleEvt
 } from "../../../domain/events";
 import { BattleApiPath, normalizeBattleSegment, normalizeBattleResult } from "../../../domain/models";
+import type { BattleSegment } from "../../../domain/models/struct/battle";
 import { normalizeSortieCell } from "../../../domain/models/normalizer/map";
-import { predictBattle } from "../../../domain/service/battle_prediction";
 import { getSortieContext } from "../../../domain/service";
 import type { BattlePrediction, ShipPrediction } from "../../../domain/models/struct/battle_record";
 import { ApiDump } from "../../../infra/web/types";
@@ -165,6 +165,35 @@ function simSnapshotToDomainPrediction(
 }
 
 /**
+ * 模拟器未就绪时的占位预测：使用战斗开始前的 HP，不计算伤害。
+ * 仅作为数据缺失时的安全占位，不应被 UI 当作真实结算结果展示。
+ */
+function buildFallbackPrediction(segment: BattleSegment): BattlePrediction {
+  function fromFleet(fleet: { now: number[]; max: number[] } | undefined): ShipPrediction[] {
+    if (!fleet) return [];
+    return fleet.now
+      .map((hp, i) => ({ hp, max: fleet.max[i] ?? 0 }))
+      .filter(({ max }) => max > 0)
+      .map(({ hp, max }) => ({
+        uid: 0, name: '',
+        hpBefore: hp, hpAfter: hp, hpMax: max,
+        damageReceived: 0, damageTaken: 0,
+        isSunk: false, isTaiha: false, isChuuha: false, isShouha: false,
+      }));
+  }
+  return {
+    friendMain:      fromFleet(segment.start.friend.main),
+    friendEscort:    segment.start.friend.escort ? fromFleet(segment.start.friend.escort) : undefined,
+    enemyMain:       fromFleet(segment.start.enemy.main),
+    enemyEscort:     segment.start.enemy.escort  ? fromFleet(segment.start.enemy.escort)  : undefined,
+    predictedRank:   'D',
+    friendSunkCount: 0, friendTaihaCount: 0, enemySunkCount: 0,
+    hasTaihaFriend:  false, hasSunkFriend: false,
+    calculatedAt:    Date.now(),
+  };
+}
+
+/**
  * 解析昼战
  */
 function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
@@ -176,16 +205,18 @@ function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
 
   // 每场新的昼战重置模拟器，然后喂入首个数据包
+  // 注意：simulator 内部路径格式为 '/kcsapi/...'，而 extractApiPath 返回短格式
+  const simPath = '/kcsapi/' + apiPath;
   try {
     const svc = getBattlePredictionService();
     svc.reset();
-    svc.onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+    svc.onBattlePacket(simPath, { ...apiData, _path: simPath });
   } catch (_) { /* service 未初始化时静默跳过 */ }
 
   const segment = normalizeBattleSegment(apiPath, raw);
   if (!segment) return [];
 
-  // 优先使用模拟器结果（含精确敌我 HP）；失败时退回到基于 segment 的预测
+  // 优先使用模拟器结果（含精确敌我 HP）；模拟器未就绪时使用开战前 HP 占位
   let prediction: BattlePrediction;
   try {
     const snap = getBattlePredictionService().getCurrentSnapshot();
@@ -197,10 +228,10 @@ function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
         context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
       );
     } else {
-      prediction = predictBattle(segment);
+      prediction = buildFallbackPrediction(segment);
     }
   } catch (_) {
-    prediction = predictBattle(segment);
+    prediction = buildFallbackPrediction(segment);
   }
 
   const event: BattleDayEvent = mkEvt(
@@ -230,8 +261,9 @@ function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
 
   // 夜战累计到当前模拟器（不 reset）
+  const simPath = '/kcsapi/' + apiPath;
   try {
-    getBattlePredictionService().onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+    getBattlePredictionService().onBattlePacket(simPath, { ...apiData, _path: simPath });
   } catch (_) { /* ignore */ }
 
   const segment = normalizeBattleSegment(apiPath, raw);
@@ -248,10 +280,10 @@ function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
         context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
       );
     } else {
-      prediction = predictBattle(segment);
+      prediction = buildFallbackPrediction(segment);
     }
   } catch (_) {
-    prediction = predictBattle(segment);
+    prediction = buildFallbackPrediction(segment);
   }
 
   const event: BattleNightEvent = mkEvt(
@@ -281,8 +313,9 @@ function parseBattleResultDump(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
 
   // 将实际结果喂给模拟器（使其发布最终快照）
+  const simPath = '/kcsapi/' + apiPath;
   try {
-    getBattlePredictionService().onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+    getBattlePredictionService().onBattlePacket(simPath, { ...apiData, _path: simPath });
   } catch (_) { /* ignore */ }
 
   const result = normalizeBattleResult(raw);
