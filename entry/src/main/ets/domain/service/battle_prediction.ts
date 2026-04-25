@@ -4,7 +4,7 @@
  */
 
 import type { BattleSegment, BattleHpSnapshot, BattleHpFleet } from '../models/struct/battle';
-import type { BattlePrediction, ShipPrediction } from '../models/struct/battle_record';
+import type { BattlePrediction, ShipPrediction, Rank } from '../models/struct/battle_record';
 
 /**
  * 根据战斗段计算预测
@@ -129,7 +129,7 @@ function predictRank(
   enemyMain: ShipPrediction[],
   friendEscort?: ShipPrediction[],
   enemyEscort?: ShipPrediction[]
-): string {
+): Rank {
   // E: 旗舰击沉 (flagship sunk) — checked first, highest priority loss condition
   if (friendMain.length > 0 && friendMain[0].isSunk) {
     return 'E';

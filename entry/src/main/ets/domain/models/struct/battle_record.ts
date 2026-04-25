@@ -3,7 +3,8 @@
  * 完整记录一场战斗的所有信息
  */
 
-import type { BattleHpSnapshot } from './battle';
+import type { BattleHpSnapshot, EnemyFleetInfo } from './battle';
+export type { EnemyFleetInfo };
 
 // ==================== 快照类型 ====================
 
@@ -48,17 +49,6 @@ export interface FleetSnapshot {
   name: string;
   ships: ShipSnapshot[];
   capturedAt: number;
-}
-
-/** 敌方舰队信息 */
-export interface EnemyFleetInfo {
-  shipIds: number[];      // master id (api_ship_ke)
-  levels: number[];       // api_ship_lv
-  slots?: number[][];     // api_eSlot
-  params?: number[][];    // api_eParam [火力, 雷装, 对空, 装甲]
-
-  hpNow: number[];
-  hpMax: number[];
 }
 
 /** 基地航空队快照 */
@@ -138,6 +128,9 @@ export interface BattleRecord {
 
 // ==================== 战斗预测 ====================
 
+/** 战斗评级 (SS 仅由模拟器生成，实际 API 只返回 S–E) */
+export type Rank = 'SS' | 'S' | 'A' | 'B' | 'C' | 'D' | 'E';
+
 export interface ShipPrediction {
   uid: number;
   name: string;
@@ -163,7 +156,7 @@ export interface BattlePrediction {
   enemyEscort?: ShipPrediction[];
 
   // 预测胜负等级
-  predictedRank: string;
+  predictedRank: Rank;
 
   // 友军状态统计
   friendSunkCount: number;

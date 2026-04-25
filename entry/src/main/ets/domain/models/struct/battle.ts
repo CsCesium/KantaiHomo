@@ -70,12 +70,14 @@ export interface BattleFormation {
 }
 
 
-export interface BattleEnemyInfo {
-  /** master ids (api_ship_ke) */
-  mainKe?: number[];
-  mainLv?: number[];
-  escortKe?: number[];
-  escortLv?: number[];
+/** 敌方舰队信息（含 master id、等级、装备、HP） */
+export interface EnemyFleetInfo {
+  shipIds: number[];      // master id (api_ship_ke)
+  levels: number[];       // api_ship_lv
+  slots?: number[][];     // api_eSlot
+  params?: number[][];    // api_eParam [火力, 雷装, 对空, 装甲]
+  hpNow: number[];
+  hpMax: number[];
 }
 
 export interface BattleMeta {
@@ -112,7 +114,8 @@ export interface BattleSegment {
   /** end HP after applying all damages in phases */
   end: BattleHpSnapshot;
 
-  enemy?: BattleEnemyInfo;
+  enemyMain?: EnemyFleetInfo;
+  enemyEscort?: EnemyFleetInfo;
 
   createdAt: number;
 }
@@ -134,7 +137,8 @@ export function mergeBattleSegments(a: BattleSegment, b: BattleSegment, opt: Mer
     start: keepStart ? a.start : b.start,
     phases: [...a.phases, ...b.phases].map((p, i) => ({ ...p, seq: i + 1 })),
     end: b.end,
-    enemy: b.enemy ?? a.enemy,
+    enemyMain:   b.enemyMain   ?? a.enemyMain,
+    enemyEscort: b.enemyEscort ?? a.enemyEscort,
     createdAt: Math.min(a.createdAt, b.createdAt),
   };
   return merged;

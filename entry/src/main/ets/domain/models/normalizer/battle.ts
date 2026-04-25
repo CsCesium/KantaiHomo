@@ -16,7 +16,7 @@ import { ApiMaybeEnvelope } from "../common";
 import {
   BattleSegment,
   BattleFormation,
-  BattleEnemyInfo,
+  EnemyFleetInfo,
   BattleHpSnapshot,
   BattlePhase,
   AttackEvent,
@@ -74,36 +74,36 @@ function isNightBattleData(x: any): x is ApiNightBattleDataRaw {
 function normalizeDayBattle(apiPath: string, d: ApiDayBattleDataRaw, now: number): BattleSegment {
   const meta = buildMeta(apiPath, d, now);
   const start = buildHpSnapshot(d);
-  const enemy = buildEnemyInfo(d);
+  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
 
   const phases = extractDayPhases(d, start);
   const end = applyPhases(start, phases);
 
-  return { meta, start, phases, end, enemy, createdAt: now };
+  return { meta, start, phases, end, enemyMain, enemyEscort, createdAt: now };
 }
 
 
 function normalizeNightBattle(apiPath: string, d: ApiNightBattleDataRaw, now: number): BattleSegment {
   const meta = buildMeta(apiPath, d, now);
   const start = buildHpSnapshot(d);
-  const enemy = buildEnemyInfo(d);
+  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
 
   const phases = extractNightPhases(d, start);
   const end = applyPhases(start, phases);
 
-  return { meta, start, phases, end, enemy, createdAt: now };
+  return { meta, start, phases, end, enemyMain, enemyEscort, createdAt: now };
 }
 
 function normalizeDestructionBattle(apiPath: string, d: ApiDestructionBattleRaw, now: number): BattleSegment {
   const meta = buildMeta(apiPath, d, now);
   const start = buildHpSnapshot(d);
-  const enemy = buildEnemyInfo(d);
+  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
 
   // treat it like a day battle subset
   const phases = extractDestructionPhases(d, start);
   const end = applyPhases(start, phases);
 
-  return { meta, start, phases, end, enemy, createdAt: now };
+  return { meta, start, phases, end, enemyMain, enemyEscort, createdAt: now };
 }
 
 /** ---------- Meta / Snapshot ---------- */
@@ -142,13 +142,31 @@ function parseFormation(arr?: number[]): BattleFormation | undefined {
   return { friend: arr[0], enemy: arr[1], engagement: arr[2] };
 }
 
-function buildEnemyInfo(d: any): BattleEnemyInfo | undefined {
-  const mainKe = toNumArray(d?.api_ship_ke);
-  const mainLv = toNumArray(d?.api_ship_lv);
+function buildEnemyInfo(d: any, hpSnap: BattleHpSnapshot): { enemyMain?: EnemyFleetInfo; enemyEscort?: EnemyFleetInfo } {
+  const mainKe   = toNumArray(d?.api_ship_ke);
+  const mainLv   = toNumArray(d?.api_ship_lv);
   const escortKe = toNumArray(d?.api_ship_ke_combined);
   const escortLv = toNumArray(d?.api_ship_lv_combined);
-  if (!mainKe && !escortKe) return undefined;
-  return { mainKe: mainKe ?? undefined, mainLv: mainLv ?? undefined, escortKe: escortKe ?? undefined, escortLv: escortLv ?? undefined };
+
+  const enemyMain: EnemyFleetInfo | undefined = mainKe ? {
+    shipIds: mainKe,
+    levels:  mainLv ?? [],
+    slots:   d?.api_eSlot   ?? undefined,
+    params:  d?.api_eParam  ?? undefined,
+    hpNow:   hpSnap.enemy.main.now,
+    hpMax:   hpSnap.enemy.main.max,
+  } : undefined;
+
+  const enemyEscort: EnemyFleetInfo | undefined = escortKe ? {
+    shipIds: escortKe,
+    levels:  escortLv ?? [],
+    slots:   d?.api_eSlot_combined  ?? undefined,
+    params:  d?.api_eParam_combined ?? undefined,
+    hpNow:   hpSnap.enemy.escort?.now ?? [],
+    hpMax:   hpSnap.enemy.escort?.max ?? [],
+  } : undefined;
+
+  return { enemyMain, enemyEscort };
 }
 
 function buildHpSnapshot(d: any): BattleHpSnapshot {

@@ -161,13 +161,13 @@ export function processBattleResult(
     friendFleetEscort: context.fleetSnapshotEscort,
 
     // 敌方信息
-    enemyFleet: battleContext.enemyFleet ?? {
-      shipIds: segment.enemy?.mainKe ?? [],
-      levels: segment.enemy?.mainLv ?? [],
-      hpNow: segment.end.enemy.main.now,
-      hpMax: segment.end.enemy.main.max,
+    enemyFleet: battleContext.enemyFleet ?? segment.enemyMain ?? {
+      shipIds: [],
+      levels:  [],
+      hpNow:   segment.end.enemy.main.now,
+      hpMax:   segment.end.enemy.main.max,
     },
-    enemyFleetEscort: battleContext.enemyFleetEscort,
+    enemyFleetEscort: battleContext.enemyFleetEscort ?? segment.enemyEscort,
 
     // 基地航空队
     airBases: context.airBases,

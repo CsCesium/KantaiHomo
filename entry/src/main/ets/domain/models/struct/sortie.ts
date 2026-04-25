@@ -5,7 +5,8 @@
  */
 
 import type { BattleSegment } from './battle';
-import type { FleetSnapshot, BattlePrediction, EnemyFleetInfo, AirBaseSnapshot } from './battle_record';
+import type { EnemyFleetInfo } from './battle';
+import type { FleetSnapshot, BattlePrediction, AirBaseSnapshot } from './battle_record';
 import type { SortieCell } from './map';
 
 // ==================== 出击上下文 ====================

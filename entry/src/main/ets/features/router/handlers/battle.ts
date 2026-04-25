@@ -75,6 +75,12 @@ class BattleHandler implements Handler {
         context.pendingBattle.prediction = prediction;
         context.pendingBattle.isPractice = isPractice;
 
+        // 填充敌方舰队信息（供 UI 显示敌舰 ID）
+        if (segment.enemyMain) {
+          context.pendingBattle.enemyFleet = segment.enemyMain;
+          context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
+        }
+
         // 更新战斗状态快照 (供前端显示)
         const battleStatus = buildDayBattleStatus(context, context.pendingBattle, prediction);
         updateBattleStatus(battleStatus);
