@@ -176,10 +176,12 @@ function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
 
   // 每场新的昼战重置模拟器，然后喂入首个数据包
+  // 注意：simulator 内部路径格式为 '/kcsapi/...'，而 extractApiPath 返回短格式
+  const simPath = '/kcsapi/' + apiPath;
   try {
     const svc = getBattlePredictionService();
     svc.reset();
-    svc.onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+    svc.onBattlePacket(simPath, { ...apiData, _path: simPath });
   } catch (_) { /* service 未初始化时静默跳过 */ }
 
   const segment = normalizeBattleSegment(apiPath, raw);
@@ -230,8 +232,9 @@ function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
 
   // 夜战累计到当前模拟器（不 reset）
+  const simPath = '/kcsapi/' + apiPath;
   try {
-    getBattlePredictionService().onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+    getBattlePredictionService().onBattlePacket(simPath, { ...apiData, _path: simPath });
   } catch (_) { /* ignore */ }
 
   const segment = normalizeBattleSegment(apiPath, raw);
@@ -281,8 +284,9 @@ function parseBattleResultDump(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
 
   // 将实际结果喂给模拟器（使其发布最终快照）
+  const simPath = '/kcsapi/' + apiPath;
   try {
-    getBattlePredictionService().onBattlePacket(apiPath, { ...apiData, _path: apiPath });
+    getBattlePredictionService().onBattlePacket(simPath, { ...apiData, _path: simPath });
   } catch (_) { /* ignore */ }
 
   const result = normalizeBattleResult(raw);
