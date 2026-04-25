@@ -7,7 +7,8 @@
 
 import { getDecks, getShip } from '../state/game_state';
 import { getSortieContext } from '../../domain/service/sortie';
-import type { GameStateFacade, DeckSnapshotLike, ShipStateLike } from './battle_prediction_service';
+import type { GameStateFacade } from './battle_prediction_service';
+import { DeckSnapshotLike, ShipStateLike } from './fleet_builder';
 
 class GameStateAdapterImpl implements GameStateFacade {
   getDecks(): DeckSnapshotLike[] {
