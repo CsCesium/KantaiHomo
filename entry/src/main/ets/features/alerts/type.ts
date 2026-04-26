@@ -24,6 +24,7 @@ export type AlertType =
   | 'sortie_next'
   | 'battle_result'
   | 'fleet_status'
+  | 'sortie_advance'
   | 'repair_complete';
 
 export interface BaseAlert {
@@ -93,6 +94,13 @@ export interface RepairCompleteAlert extends BaseAlert {
   shipUid: number;
 }
 
+/** 进击选择提醒（进击/撤退按钮出现时触发） */
+export interface SortieAdvanceAlert extends BaseAlert {
+  type: 'sortie_advance';
+  /** 是否存在大破无损管击沉风险 */
+  hasTaihaRisk: boolean;
+}
+
 /** 舰队状态提醒（由 api_get_member/mapinfo 触发） */
 export interface FleetStatusAlert extends BaseAlert {
   type: 'fleet_status';
@@ -108,6 +116,7 @@ export type AnyAlert =
   | TaihaWarningAlert
   | SortieNextAlert
   | BattleResultAlert
+  | SortieAdvanceAlert
   | RepairCompleteAlert
   | FleetStatusAlert;
 
@@ -125,6 +134,8 @@ export interface AlertConfig {
   enableBattleResultAlert: boolean;
   /** 是否启用入渠修理完成提醒 (repair_complete) */
   enableRepairAlert: boolean;
+  /** 是否启用进击选择提醒 (sortie_advance) */
+  enableAdvanceAlert: boolean;
 }
 
 export const DEFAULT_ALERT_CONFIG: AlertConfig = {
@@ -136,6 +147,7 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   enableYasenAlert: true,
   enableBattleResultAlert: true,
   enableRepairAlert: true,
+  enableAdvanceAlert: true,
 };
 
 // ========== Expedition DAO interface ==========
