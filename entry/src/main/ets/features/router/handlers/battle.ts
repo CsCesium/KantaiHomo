@@ -7,13 +7,13 @@ import {
   battleRecordToRow,
   createBattleContext,
 } from '../../../domain/models';
-import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
+import { getSortieContext, enrichPredictionWithShipInfo } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
 import { updateBattleStatus, updateBattleResult, getShipSpecialEquip } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
-import { setLastBattleHasTaihaRisk } from '../../alerts/lastBattleState';
+import { setLastBattleHasTaihaRisk, setLastBattleTaihaShips } from '../../alerts/lastBattleState';
 import type { BattleResultAlert } from '../../alerts/type';
 
 
@@ -222,38 +222,43 @@ class BattleHandler implements Handler {
     }
     // 5a. 战斗结算提醒
     try {
-      // 计算大破无损管击沉风险
+      // 计算大破无损管击沉风险（旗舰 i=0 不会击沉，从 i=1 开始）
       let hasTaihaRisk = false;
+      const taihaShipsList: { uid: number; name: string }[] = [];
       const mainShips = context?.fleetSnapshot?.ships ?? [];
       const nowArr = record.hpEnd.friend.main.now;
       const maxArr = record.hpEnd.friend.main.max;
-      for (let i = 0; i < mainShips.length && i < nowArr.length; i++) {
-        if (maxArr[i] > 0 && nowArr[i] > 0 && nowArr[i] / maxArr[i] <= 0.25) {
+      for (let i = 1; i < mainShips.length && i < nowArr.length; i++) {
+        // 优先使用战斗结算的最大值，降级到出击快照的最大值（防止 api_f_maxhps 缺失）
+        const maxHp = maxArr[i] > 0 ? maxArr[i] : mainShips[i].hpMax;
+        if (maxHp > 0 && nowArr[i] > 0 && nowArr[i] / maxHp <= 0.25) {
           const equip = getShipSpecialEquip(mainShips[i].uid);
           if (!equip.hasDamageControl && !equip.hasGoddess) {
             hasTaihaRisk = true;
-            break;
+            taihaShipsList.push({ uid: mainShips[i].uid, name: mainShips[i].name || `#${mainShips[i].uid}` });
           }
         }
       }
-      // 联合舰队时检查护卫舰队
-      if (!hasTaihaRisk && context && context.combinedType > 0) {
+      // 联合舰队时检查护卫舰队（护卫队所有舰位均可击沉）
+      if (context && context.combinedType > 0) {
         const escortShips = context.fleetSnapshotEscort?.ships ?? [];
         const escortNow = record.hpEnd.friend.escort?.now ?? [];
         const escortMax = record.hpEnd.friend.escort?.max ?? [];
         for (let i = 0; i < escortShips.length && i < escortNow.length; i++) {
-          if (escortMax[i] > 0 && escortNow[i] > 0 && escortNow[i] / escortMax[i] <= 0.25) {
+          const maxHp = escortMax[i] > 0 ? escortMax[i] : escortShips[i].hpMax;
+          if (maxHp > 0 && escortNow[i] > 0 && escortNow[i] / maxHp <= 0.25) {
             const equip = getShipSpecialEquip(escortShips[i].uid);
             if (!equip.hasDamageControl && !equip.hasGoddess) {
               hasTaihaRisk = true;
-              break;
+              taihaShipsList.push({ uid: escortShips[i].uid, name: escortShips[i].name || `#${escortShips[i].uid}` });
             }
           }
         }
       }
 
-      // 保存本次大破风险，供进击选择提醒使用
+      // 保存本次大破风险及大破舰娘列表，供下一节点进击提醒使用
       setLastBattleHasTaihaRisk(hasTaihaRisk);
+      setLastBattleTaihaShips(taihaShipsList);
 
       const battleResultAlert: BattleResultAlert = {
         type: 'battle_result',

@@ -24,7 +24,6 @@ export type AlertType =
   | 'sortie_next'
   | 'battle_result'
   | 'fleet_status'
-  | 'battle_result'
   | 'repair_complete';
 
 export interface BaseAlert {
@@ -110,7 +109,6 @@ export type AnyAlert =
   | SortieNextAlert
   | BattleResultAlert
   | RepairCompleteAlert
-  | BattleResultAlert
   | FleetStatusAlert;
 
 // ========== Alert Config ==========

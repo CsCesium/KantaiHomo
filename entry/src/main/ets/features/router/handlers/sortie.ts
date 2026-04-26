@@ -15,14 +15,13 @@ import {
   sortieRecordToRow,
   getFullEventDesc,
   isBattleEventId,
-  isBattleEvent,
   createBattleContext,
   safeParseJsonArray
 } from '../../../domain/models';
 import { startSortie, moveToNextCell } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
 import { SortieNextAlert, TaihaWarningAlert } from '../../alerts/type';
-import { getLastBattleHasTaihaRisk, resetLastBattleState } from '../../alerts/lastBattleState';
+import { getLastBattleHasTaihaRisk, getLastBattleTaihaShips, resetLastBattleState } from '../../alerts/lastBattleState';
 import { getShipMasterName, clearBattleState } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -133,7 +132,7 @@ class SortieHandler implements Handler {
     // 2. 发布 SortieNextAlert（所有节点类型均触发，含战斗节点）
     // 尝试从 /next 响应的 api_enemy_info 中提取敌方旗舰名称（仅战斗节点有效）
     let enemyFlagshipName: string | undefined;
-    if (isBattleEvent(cell.eventId)) {
+    if (isBattleEventId(cell.eventId)) {
       try {
         const extras = cell.extras as Record<string, unknown> | undefined;
         const enemyInfo = extras?.api_enemy_info as Record<string, unknown> | undefined;
@@ -167,13 +166,13 @@ class SortieHandler implements Handler {
     };
     publishAlert(sortieNextAlert);
 
-    // 3. 检查大破状态（仅在战斗节点前检查）
+    // 3. 检查大破状态（仅在战斗节点前检查，使用上次战斗结算保存的大破信息）
     if (isBattleEventId(cell.eventId)) {
-      await this.checkTaihaAndAlert(context.deckId, PersistDeps);
+      this.checkTaihaAndAlert();
     }
 
     // 4. 检查是否是战斗节点，创建战斗上下文
-    if (isBattleEvent(cell.eventId)) {
+    if (isBattleEventId(cell.eventId)) {
       context.pendingBattle = createBattleContext(cell, false, context.combinedType > 0);
       console.info('[sortie] battle context created');
     }
@@ -199,52 +198,24 @@ class SortieHandler implements Handler {
   }
 
   /**
-   * 检查舰队大破状态并发布警告
+   * 检查大破状态并发布警告
+   *
+   * 使用上一场战斗结算时保存的大破舰娘信息（post-battle HP），
+   * 避免读取 DB 中已过期的出击前 HP 数据。
    */
-  private async checkTaihaAndAlert(deckId: number, PersistDeps: PersistDeps): Promise<void> {
-    if (!PersistDeps.repos?.deck || !PersistDeps.repos?.ship) {
-      return;
-    }
+  private checkTaihaAndAlert(): void {
+    const taihaShips = getLastBattleTaihaShips();
+    if (taihaShips.length === 0) return;
 
-    try {
-      const deck = await PersistDeps.repos.deck.get(deckId);
-      if (!deck) return;
+    console.warn('[sortie] TAIHA detected (from last battle):', taihaShips.map(s => s.name).join(', '));
 
-      const shipUidsJson = deck.shipUidsJson;
-      const shipUids: number[] = shipUidsJson ? JSON.parse(shipUidsJson) : [];
-
-      const taihaShips: { uid: number; name: string }[] = [];
-
-      for (const uid of shipUids) {
-        if (uid <= 0) continue;
-
-        const shipWithMaster = await PersistDeps.repos.ship.getWithMaster(uid);
-        if (!shipWithMaster) continue;
-
-        const { nowHp, maxHp } = shipWithMaster;
-        const hpPercent = maxHp > 0 ? (nowHp / maxHp) : 1;
-
-        // 大破判定: HP <= 25%
-        if (hpPercent <= 0.25) {
-          const name = shipWithMaster.mst_name ?? `Ship#${uid}`;
-          taihaShips.push({ uid, name });
-        }
-      }
-
-      if (taihaShips.length > 0) {
-        console.warn('[sortie] TAIHA detected:', taihaShips.map(s => s.name).join(', '));
-
-        const taihaAlert: TaihaWarningAlert = {
-          type: 'taiha_warning',
-          timestamp: Date.now(),
-          shipUids: taihaShips.map(s => s.uid),
-          shipNames: taihaShips.map(s => s.name),
-        };
-        publishAlert(taihaAlert);
-      }
-    } catch (e) {
-      console.error('[sortie] check taiha failed:', String(e));
-    }
+    const taihaAlert: TaihaWarningAlert = {
+      type: 'taiha_warning',
+      timestamp: Date.now(),
+      shipUids: taihaShips.map(s => s.uid),
+      shipNames: taihaShips.map(s => s.name),
+    };
+    publishAlert(taihaAlert);
   }
 
   // ==================== 辅助方法 ====================
