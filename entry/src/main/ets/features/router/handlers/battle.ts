@@ -15,6 +15,7 @@ import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
 import { setLastBattleHasTaihaRisk, setLastBattleTaihaShips } from '../../alerts/lastBattleState';
 import type { BattleResultAlert } from '../../alerts/type';
+import { getBattlePredictionService } from '../../simulator';
 
 
 class BattleHandler implements Handler {

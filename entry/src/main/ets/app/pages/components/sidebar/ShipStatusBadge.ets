@@ -20,12 +20,14 @@ const TICK_OUTER_PAD = 2;
 const TICK_INNER_PAD = 2;
 const STATUS_PANEL_WIDTH = 24;
 const DAMAGE_CONTROL_ICON_ID = SlotItemIconId.DamageControl;
+const DAMAGE_BADGE_BG = '#00000088';
+const DAMAGE_BADGE_BORDER = '#FFFFFFCC';
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
  *
  * 布局（横向）：
- *   [HP环 + 头像圆 + 装备角标] [补给⚠(按需) + Cond emoji+数值]
+ *   [HP环 + 头像圆] [损管/女神(按需) + 补给⚠(按需) + Cond emoji+数值]
  *
  * @param ship        舰娘状态数据
  * @param equip       特殊装备状态（损管/女神）
@@ -98,22 +100,17 @@ export default struct ShipStatusBadge {
 
   @Computed
   get badgeBgColor(): string {
-    return '#0EA5E921';
+    return DAMAGE_BADGE_BG;
+  }
+
+  @Computed
+  get badgeBorderColor(): string {
+    return DAMAGE_BADGE_BORDER;
   }
 
   @Computed
   get nameFontSize(): number {
     return Math.max(Math.floor(this.avatarDiam * 0.22), 7);
-  }
-
-  @Computed
-  get badgeOffsetX(): number {
-    return this.ringDiam / 2 - this.badgeSize / 2 - 1;
-  }
-
-  @Computed
-  get badgeOffsetY(): number {
-    return this.ringDiam / 2 - this.badgeSize / 2 - 1;
   }
 
   /** HP 颜色 */
@@ -122,6 +119,18 @@ export default struct ShipStatusBadge {
     if (pct > 0.5) return HP_COLOR_GREEN;
     if (pct > 0.25) return HP_COLOR_YELLOW;
     return HP_COLOR_RED;
+  }
+
+  @Builder
+  private damageControlBadge(): void {
+    Image(this.badgeIconPath)
+      .width(this.badgeSize)
+      .height(this.badgeSize)
+      .borderRadius(this.badgeSize / 2)
+      .backgroundColor(this.badgeBgColor)
+      .border({ width: 1, color: this.badgeBorderColor })
+      .objectFit(ImageFit.Contain)
+      .padding(1)
   }
 
   private condVisual(cond: number): CondVisual {
@@ -187,6 +196,11 @@ export default struct ShipStatusBadge {
   @Builder
   private statusPanel(): void {
     Column({ space: 3 }) {
+      // 损管/女神标记放在状态列中，避免遮挡 HP 环。
+      if (this.hasEquip) {
+        this.damageControlBadge()
+      }
+
       // 补给不足图标（仅在需要补给时显示）
       if (this.ship.needsResupply) {
         Text('⚠')
@@ -207,13 +221,13 @@ export default struct ShipStatusBadge {
       .alignItems(VerticalAlign.Center)
     }
     .width(STATUS_PANEL_WIDTH)
-    .alignItems(HorizontalAlign.Start)
+    .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
   }
 
   build() {
     Row({ space: 3 }) {
-      // 主体：HP 环（Canvas）+ 头像圆 + 装备角标，重叠在 Stack 内
+      // 主体：HP 环（Canvas）+ 头像圆
       Stack({ alignContent: Alignment.Center }) {
         // HP 环 Canvas（最底层）
         Canvas(this.context)
@@ -243,18 +257,6 @@ export default struct ShipStatusBadge {
             .padding(2)
         }
 
-        // 损管/女神角标（右下角，统一损管 icon）
-        if (this.hasEquip) {
-          Image(this.badgeIconPath)
-            .width(this.badgeSize)
-            .height(this.badgeSize)
-            .borderRadius(this.badgeSize / 2)
-            .backgroundColor(this.badgeBgColor)
-            .objectFit(ImageFit.Contain)
-            .padding(1)
-            .align(Alignment.BottomEnd)
-            .offset({ x: this.badgeOffsetX, y: this.badgeOffsetY })
-        }
       }
       .width(this.ringDiam)
       .height(this.ringDiam)

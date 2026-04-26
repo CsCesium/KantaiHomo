@@ -64,6 +64,22 @@ function buildHpOverrideMap(fleet: FleetBattleStatus | undefined): Map<number, S
   return m;
 }
 
+function shipEntryKey(entry: ShipEntry): string {
+  const ship = entry.ship;
+  const equip = entry.equip;
+  return [
+    ship.uid,
+    ship.hpNow,
+    ship.hpMax,
+    ship.cond,
+    ship.fuel,
+    ship.ammo,
+    ship.needsResupply ? 1 : 0,
+    equip.hasDamageControl ? 1 : 0,
+    equip.hasGoddess ? 1 : 0,
+  ].join('_');
+}
+
 /**
  * 舰队状态侧边栏 — 在 compact 全屏模式下展示在游戏画面右侧黑边区域。
  *
@@ -158,7 +174,7 @@ export default struct FleetStatusSidebar {
             })
               .layoutWeight(1)
           },
-          (entry: ShipEntry) => `${entry.ship.uid}_${entry.ship.hpNow}_${entry.ship.hpMax}_${entry.ship.cond}`
+          (entry: ShipEntry) => shipEntryKey(entry)
         )
       }
     }
