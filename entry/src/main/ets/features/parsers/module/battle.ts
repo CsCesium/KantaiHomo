@@ -84,22 +84,69 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
 
 /**
  * 解析 api_req_map/next (进入下一节点)
+ * 若响应包含 api_destruction_battle（基地空袭），同时emit BATTLE_DAY 事件。
  */
-function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
+function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnyBattleModuleEvt[] {
   const raw = parseSvdata<any>(dump.responseText);
   if (!raw) return [];
 
   const apiData = raw.api_data ?? raw;
   const cell = normalizeSortieCell(apiData);
 
-  const event: SortieNextEvent = mkEvt(
+  const nextEvent: SortieNextEvent = mkEvt(
     ctx,
     'SORTIE_NEXT',
     ['SORTIE_NEXT', cell.mapAreaId, cell.mapInfoNo, cell.cellId, ctx.ts],
     { cell }
   );
 
-  return [event];
+  // 基地空袭：api_destruction_battle 内嵌在 /next 响应中
+  if (apiData.api_destruction_battle) {
+    const destructionSegment = normalizeBattleSegment('api_req_map/next', raw);
+    if (destructionSegment) {
+      // 模拟器处理
+      const simPath = '/kcsapi/api_req_map/next';
+      try {
+        const svc = getBattlePredictionService();
+        svc.reset();
+        svc.onBattlePacket(simPath, { ...(apiData as Record<string, unknown>), _path: simPath });
+      } catch (_) { /* ignore */ }
+
+      let prediction: BattlePrediction;
+      try {
+        const snap = getBattlePredictionService().getCurrentSnapshot();
+        if (snap) {
+          const context = getSortieContext();
+          prediction = simSnapshotToDomainPrediction(
+            snap,
+            context?.fleetSnapshot?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+            context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+          );
+        } else {
+          prediction = buildFallbackPrediction(destructionSegment);
+        }
+      } catch (_) {
+        prediction = buildFallbackPrediction(destructionSegment);
+      }
+
+      const airRaidEvent: BattleDayEvent = mkEvt(
+        ctx,
+        'BATTLE_DAY',
+        ['BATTLE_DAY', 'api_destruction_battle', ctx.ts],
+        {
+          apiPath: 'api_destruction_battle',
+          segment: destructionSegment,
+          prediction,
+          isPractice: false,
+          isAirRaid: true,
+        }
+      );
+
+      return [nextEvent, airRaidEvent];
+    }
+  }
+
+  return [nextEvent];
 }
 
 // ==================== 模拟器结果转换 ====================

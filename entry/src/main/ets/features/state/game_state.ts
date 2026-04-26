@@ -1,6 +1,7 @@
 
 // ==================== 状态管理类 ====================
 import { Admiral, Materials, Deck, Ship, Ndock, Kdock, Quest } from "../../domain/models";
+import type { LbasBase } from '../../domain/models/struct/lbas';
 import { kvSet } from "../../infra/storage/kv";
 import {
   GameState,
@@ -87,6 +88,7 @@ class GameStateManager {
       lastUpdatedAt: 0,
     },
     mapGauges: [],
+    lbases: [],
     lastUpdatedAt: 0,
     shipMasterNames: new Map(),
     shipMasterMaxSupply: new Map(),
@@ -597,6 +599,45 @@ class GameStateManager {
     return this.state.mapGauges;
   }
 
+  // ==================== 基地航空队 ====================
+
+  /**
+   * 更新基地航空队状态。
+   * 若 bases 包含所有已知基地，全量替换；
+   * 若只包含部分基地（如 api_req_air_corps/* 操作响应），则逐条合并。
+   */
+  updateLbas(bases: LbasBase[]): void {
+    if (bases.length === 0) return;
+
+    if (this.state.lbases.length === 0) {
+      this.state.lbases = [...bases];
+    } else {
+      const updated = [...this.state.lbases];
+      for (const b of bases) {
+        const idx = updated.findIndex(e => e.baseId === b.baseId);
+        if (idx >= 0) {
+          updated[idx] = b;
+        } else {
+          updated.push(b);
+        }
+      }
+      this.state.lbases = updated;
+    }
+
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('lbas');
+  }
+
+  /** 获取当前基地航空队状态（只读） */
+  getLbas(): readonly LbasBase[] {
+    return this.state.lbases;
+  }
+
+  /** 按实例 UID 查询装备 masterId */
+  getSlotItemMasterId(slotUid: number): number | undefined {
+    return this.state.slotItemIndex.get(slotUid);
+  }
+
   // ==================== 订阅机制 ====================
 
   /**
@@ -661,6 +702,7 @@ class GameStateManager {
         lastUpdatedAt: 0,
       },
       mapGauges: [],
+      lbases: [],
       lastUpdatedAt: 0,
       shipMasterNames: new Map(),
       shipMasterMaxSupply: new Map(),
@@ -857,6 +899,7 @@ class GameStateManager {
       Kdocks: this.state.Kdocks,
       quests: this.state.quests,
       ships: Array.from(this.state.ships.values()),
+      lbases: this.state.lbases,
       currentBattle: this.state.currentBattle,
       lastUpdatedAt: this.state.lastUpdatedAt,
       expHistory: this.expHistory,
@@ -925,6 +968,10 @@ export const exportGameStateSnapshot = () => gameStateManager.exportSnapshot();
 
 export const updateMapGauges = (gauges: MapGaugeSnapshot[]) => gameStateManager.updateMapGauges(gauges);
 export const getMapGauges = () => gameStateManager.getMapGauges();
+
+export const updateLbas = (bases: LbasBase[]) => gameStateManager.updateLbas(bases);
+export const getLbas = () => gameStateManager.getLbas();
+export const getSlotItemMasterId = (slotUid: number) => gameStateManager.getSlotItemMasterId(slotUid);
 
 // 战斗状态便捷函数
 export const updateBattleStatus = (status: BattleStatusSnapshot) => gameStateManager.updateBattleStatus(status);

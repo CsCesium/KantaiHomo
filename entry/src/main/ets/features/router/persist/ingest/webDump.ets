@@ -13,6 +13,7 @@ import '../../handlers/sortie';
 import '../../handlers/ranking';
 import '../../handlers/mapinfo';
 import '../../handlers/supply';
+import '../../handlers/lbas';
 import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';

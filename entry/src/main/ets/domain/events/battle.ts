@@ -47,6 +47,8 @@ export interface BattleDayPayload {
   segment: BattleSegment;
   prediction: BattlePrediction;
   isPractice: boolean;
+  /** 基地空袭战（api_req_map/next 中的 api_destruction_battle） */
+  isAirRaid?: boolean;
 }
 
 /** 夜战 payload */

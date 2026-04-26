@@ -1,5 +1,8 @@
 import type { ApiDump } from '../../../infra/web/types';
 import type { MapInfoUpdateEvent, AnyMapInfoEvt, MapGaugeRaw } from '../../../domain/events/mapinfo';
+import type { LbasUpdateEvent } from '../../../domain/events/lbas';
+import type { ApiBaseAirCorpsRaw } from '../../../domain/models/api/member';
+import type { LbasBase, LbasSquadron } from '../../../domain/models/struct/lbas';
 import { EndpointRule, ParserCtx, mkEvt, detectEndpoint } from './common';
 import { parseSvdata } from '../../utils/common';
 
@@ -49,7 +52,36 @@ function parseMapInfoData(ctx: ParserCtx): MapInfoUpdateEvent[] | null {
   return [evt];
 }
 
-export function parseMapInfo(dump: ApiDump): AnyMapInfoEvt[] | null {
+function normalizeMapinfoLbas(
+  raw: ApiBaseAirCorpsRaw[],
+  ctx: ParserCtx,
+): LbasUpdateEvent | null {
+  if (!raw.length) return null;
+
+  const bases: LbasBase[] = raw
+    .filter(d => typeof d.api_rid === 'number')
+    .map(d => ({
+      baseId:        d.api_rid,
+      areaId:        d.api_area_id,
+      name:          d.api_name,
+      distanceBase:  d.api_distance.api_base,
+      distanceBonus: d.api_distance.api_bonus,
+      actionKind:    d.api_action_kind,
+      squadrons:     (d.api_plane_info ?? []).map((p): LbasSquadron => ({
+        squadronId: p.api_squadron_id,
+        state:      p.api_state,
+        slotId:     p.api_slotid ?? 0,
+        count:      p.api_count    ?? 0,
+        maxCount:   p.api_max_count ?? 0,
+        cond:       p.api_cond     ?? 1,
+      })),
+    }));
+
+  if (bases.length === 0) return null;
+  return mkEvt(ctx, 'LBAS_UPDATE', ['LBAS', ctx.endpoint, ctx.ts], bases) as LbasUpdateEvent;
+}
+
+export function parseMapInfo(dump: ApiDump): (AnyMapInfoEvt | LbasUpdateEvent)[] | null {
   const endpoint = detectEndpoint(dump.url, RULES);
   if (!endpoint) return null;
 
@@ -61,5 +93,20 @@ export function parseMapInfo(dump: ApiDump): AnyMapInfoEvt[] | null {
     responseText: dump.responseText,
   };
 
-  return parseMapInfoData(ctx);
+  const out: (AnyMapInfoEvt | LbasUpdateEvent)[] = [];
+
+  const mapInfoEvts = parseMapInfoData(ctx);
+  if (mapInfoEvts) out.push(...mapInfoEvts);
+
+  // 活动海图中 api_air_base 包含当前基地航空队状态
+  try {
+    const js = parseSvdata<Record<string, unknown>>(dump.responseText);
+    const airBaseArr = (js?.api_data as Record<string, unknown>)?.api_air_base;
+    if (Array.isArray(airBaseArr) && airBaseArr.length > 0) {
+      const lbasEvt = normalizeMapinfoLbas(airBaseArr as ApiBaseAirCorpsRaw[], ctx);
+      if (lbasEvt) out.push(lbasEvt);
+    }
+  } catch (_) { /* ignore */ }
+
+  return out.length > 0 ? out : null;
 }
