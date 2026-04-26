@@ -21,6 +21,7 @@ export type {
   TaihaWarningAlert,
   SortieNextAlert,
   BattleResultAlert,
+  SortieAdvanceAlert,
   FleetStatusAlert,
   RepairCompleteAlert,
   AlertConfig,

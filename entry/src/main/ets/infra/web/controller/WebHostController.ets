@@ -17,7 +17,7 @@ import { getPersistDeps } from '../../deps/index';
 import { PERMISSION_JSON, USER_AGENT } from '../config';
 import { Orientation } from '../layout/orientation';
 import hilog from '@ohos.hilog';
-import { YasenPromptAlert, publishAlert } from '../../../features/alerts';
+import { YasenPromptAlert, SortieAdvanceAlert, publishAlert } from '../../../features/alerts';
 import { getBattleResult, getBattleStatus, getShipSpecialEquip, ShipBattleStatus } from '../../../features/state';
 
 const HILOG_DOM: number = 0x1357;
@@ -235,8 +235,19 @@ export class WebHostController {
   private handleAdvanceMessage(_msg: SortieAdvanceUiEvent): void {
     hilog.info(HILOG_DOM, 'Bridge', '[ADVANCE] sortie advance UI detected');
     const warning = this.buildAdvanceRiskMessage();
-    if (warning && this.advanceWarningHandler) {
-      this.advanceWarningHandler(warning);
+    const hasTaihaRisk = warning !== null;
+
+    // 始终通过 AlertBus 触发振动/Toast 提醒
+    const advanceAlert: SortieAdvanceAlert = {
+      type: 'sortie_advance',
+      timestamp: Date.now(),
+      hasTaihaRisk,
+    };
+    publishAlert(advanceAlert);
+
+    // 有击沉风险时额外弹窗（由 WebHost 负责显示 Dialog）
+    if (hasTaihaRisk && this.advanceWarningHandler) {
+      this.advanceWarningHandler(warning!);
     }
   }
 

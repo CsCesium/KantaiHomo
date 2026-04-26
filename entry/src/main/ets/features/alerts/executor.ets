@@ -4,9 +4,10 @@
  * 订阅 AlertBus，根据配置执行 Toast / 震动 / 系统通知
  *
  * 提醒触发时机：
- * 1. yasen_prompt   — 夜战选择 UI 出现（YasenDetect 注入）
- * 2. battle_result  — 收到 /battleresult API
- * 3. sortie_next    — 收到 api_req_map/next（所有节点类型，含战斗节点）
+ * 1. yasen_prompt    — 夜战选择 UI 出现（YasenDetect 注入）
+ * 2. battle_result   — 收到 /battleresult API
+ * 3. sortie_next     — 收到 api_req_map/next（所有节点类型，含战斗节点）
+ * 4. sortie_advance  — 进击/撤退按钮出现（AdvanceDetect 注入）
  */
 
 import promptAction from '@ohos.promptAction';
@@ -20,6 +21,7 @@ import type {
   TaihaWarningAlert,
   SortieNextAlert,
   BattleResultAlert,
+  SortieAdvanceAlert,
   FleetStatusAlert,
   RepairCompleteAlert,
 } from './type';
@@ -35,6 +37,7 @@ const NOTIFICATION_ID_TAIHA = 2001;
 const NOTIFICATION_ID_SORTIE_NEXT = 2002;
 const NOTIFICATION_ID_BATTLE_RESULT = 2003;
 const NOTIFICATION_ID_FLEET_STATUS = 2004;
+const NOTIFICATION_ID_SORTIE_ADVANCE = 2005;
 const NOTIFICATION_ID_REPAIR_BASE = 3000;
 
 /** 根据 deckId / combinedType 生成舰队标签 */
@@ -285,6 +288,36 @@ async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
   }
 }
 
+/**
+ * 进击选择出现提醒
+ * - 始终振动提醒玩家注意
+ * - 无击沉风险时显示 Toast
+ * - 有击沉风险时由 WebHostController 的回调负责弹窗，此处仅振动（避免重复覆盖对话框）
+ */
+async function handleSortieAdvance(alert: SortieAdvanceAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableAdvanceAlert) return;
+
+  if (config.enableVibrate) {
+    await executeVibrate(config.vibrateDurationMs);
+    // 双击振动增强感知
+    setTimeout(() => {
+      void executeVibrate(config.vibrateDurationMs);
+    }, config.vibrateDurationMs + 100);
+  }
+
+  if (!alert.hasTaihaRisk) {
+    // 无风险：Toast 提示进击选择出现
+    if (config.enableToast) {
+      await executeToast('⚔️ 进击选择', 2000);
+    }
+    if (config.enableNotification) {
+      await executeNotification(NOTIFICATION_ID_SORTIE_ADVANCE, '进击选择', '进击/撤退按钮已出现');
+    }
+  }
+  // 有击沉风险时对话框由 WebHostController.advanceWarningHandler 处理，此处不重复提示
+}
+
 async function handleRepairComplete(alert: RepairCompleteAlert): Promise<void> {
   const config = getAlertBus().getConfig();
   if (!config.enableRepairAlert) return;
@@ -327,6 +360,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'battle_result':
       await handleBattleResult(alert);
+      break;
+    case 'sortie_advance':
+      await handleSortieAdvance(alert);
       break;
     case 'fleet_status':
       await handleFleetStatus(alert);
