@@ -3,6 +3,8 @@ import {
   getShipSpecialEquip,
   subscribeGameState,
   getCurrentBattle,
+  getShipGraphFilename,
+  getGameServerUrl,
 } from '../../../../features/state';
 import {
   ShipSpecialEquip,
@@ -67,8 +69,11 @@ function buildHpOverrideMap(fleet: FleetBattleStatus | undefined): Map<number, S
 function shipEntryKey(entry: ShipEntry): string {
   const ship = entry.ship;
   const equip = entry.equip;
+  const avatarFilename = getShipGraphFilename(ship.masterId) ?? '';
+  const gameServerUrl = getGameServerUrl() ?? '';
   return [
     ship.uid,
+    ship.masterId,
     ship.hpNow,
     ship.hpMax,
     ship.cond,
@@ -77,6 +82,8 @@ function shipEntryKey(entry: ShipEntry): string {
     ship.needsResupply ? 1 : 0,
     equip.hasDamageControl ? 1 : 0,
     equip.hasGoddess ? 1 : 0,
+    avatarFilename,
+    gameServerUrl,
   ].join('_');
 }
 

@@ -70,7 +70,7 @@ class SortieHandler implements Handler {
     payload: SortieStartPayload,
     PersistDeps: PersistDeps
   ): Promise<void> {
-    const { mapAreaId, mapInfoNo, cellId, deckId, combinedType, fleetSnapshot, fleetSnapshotEscort } = payload;
+    const { mapAreaId, mapInfoNo, cellId, cell, deckId, combinedType, fleetSnapshot, fleetSnapshotEscort } = payload;
     // 新出击：重置上次战斗的大破风险状态
     resetLastBattleState();
 
@@ -82,7 +82,16 @@ class SortieHandler implements Handler {
 
     // 2. 调用 Service 创建出击上下文
     const context = startSortie(
-      { api_maparea_id: mapAreaId, api_mapinfo_no: mapInfoNo, api_cell_id: cellId } as any,
+      {
+        api_maparea_id: mapAreaId,
+        api_mapinfo_no: mapInfoNo,
+        api_cell_id: cellId,
+        api_event_id: cell.eventId,
+        api_event_kind: cell.eventKind,
+        api_next: cell.next,
+        api_color_no: cell.colorNo,
+        api_bosscell_no: cell.bossCellNo,
+      } as any,
       deckId,
       actualFleetSnapshot,
       combinedType,
@@ -146,6 +155,7 @@ class SortieHandler implements Handler {
       api_event_id: cell.eventId,
       api_event_kind: cell.eventKind,
       api_next: cell.next,
+      api_color_no: cell.colorNo,
       api_bosscell_no: cell.bossCellNo,
     } as any);
 
@@ -154,7 +164,9 @@ class SortieHandler implements Handler {
       return;
     }
 
-    console.info('[sortie] moved to cell:', cell.cellId, 'event:', cell.eventId, 'boss:', cell.isBoss);
+    const currentCell = context.currentCell ?? cell;
+
+    console.info('[sortie] moved to cell:', currentCell.cellId, 'event:', currentCell.eventId, 'boss:', currentCell.isBoss);
 
     // 2. 发布 SortieNextAlert（所有节点类型均触发，含战斗节点）
     // 尝试从 /next 响应的 api_enemy_info 中提取敌方旗舰名称（仅战斗节点有效）
@@ -180,27 +192,28 @@ class SortieHandler implements Handler {
       timestamp: Date.now(),
       mapAreaId: cell.mapAreaId,
       mapInfoNo: cell.mapInfoNo,
-      cellId: cell.cellId,
-      eventId: cell.eventId,
-      eventKind: cell.eventKind,
-      isBoss: cell.isBoss ?? false,
-      eventDesc: getFullEventDesc(cell.eventId, cell.eventKind),
+      cellId: currentCell.cellId,
+      eventId: currentCell.eventId,
+      eventKind: currentCell.eventKind,
+      isBoss: currentCell.isBoss ?? false,
+      eventDesc: getFullEventDesc(currentCell.eventId, currentCell.eventKind),
       deckId: context.deckId,
       combinedType: context.combinedType,
       fleetName: context.fleetSnapshot.name,
       hasTaihaRisk: getLastBattleHasTaihaRisk(),
       enemyFlagshipName,
+      resourceGains: cell.resourceGains,
     };
     publishAlert(sortieNextAlert);
 
     // 3. 检查大破状态（仅在战斗节点前检查，使用上次战斗结算保存的大破信息）
-    if (isBattleEventId(cell.eventId)) {
+    if (isBattleEventId(currentCell.eventId)) {
       this.checkTaihaAndAlert();
     }
 
     // 4. 检查是否是战斗节点，创建战斗上下文
-    if (isBattleEventId(cell.eventId)) {
-      context.pendingBattle = createBattleContext(cell, false, context.combinedType > 0);
+    if (isBattleEventId(currentCell.eventId)) {
+      context.pendingBattle = createBattleContext(currentCell, false, context.combinedType > 0);
       console.info('[sortie] battle context created');
     }
 
@@ -210,7 +223,7 @@ class SortieHandler implements Handler {
         const existing = await PersistDeps.repos.sortie.get(context.sortieId);
         if (existing) {
           const route: number[] = JSON.parse(existing.routeJson);
-          route.push(cell.cellId);
+          route.push(currentCell.cellId);
 
           await PersistDeps.repos.sortie.update({
             ...existing,

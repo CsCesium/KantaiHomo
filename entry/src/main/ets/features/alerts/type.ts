@@ -1,6 +1,8 @@
 
 // ========== Basic Tool ==========
 
+import type { MapResourceGain } from '../../domain/models/struct/map';
+
 export interface Cancelable {
   cancel(): void;
 }
@@ -75,6 +77,8 @@ export interface SortieNextAlert extends BaseAlert {
   hasTaihaRisk: boolean;
   /** 敌方旗舰名称（来自 /next api_enemy_info，仅战斗节点且数据存在时） */
   enemyFlagshipName?: string;
+  /** 资源点获得的资源信息（来自 /next api_itemget） */
+  resourceGains?: MapResourceGain[];
 }
 
 /** 战斗结算提醒 */

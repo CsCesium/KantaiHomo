@@ -66,6 +66,13 @@ export function moveToNextCell(data: ApiMapNextRespRaw): SortieContext | null {
   if (!_currentContext) return null;
 
   const nextCell = mapRawToCell(data);
+  const knownBossCellNo = nextCell.bossCellNo
+    ?? _currentContext.cellHistory.find(cell => cell.bossCellNo !== undefined)?.bossCellNo;
+  if (knownBossCellNo !== undefined) {
+    nextCell.bossCellNo = knownBossCellNo;
+    nextCell.isBoss = nextCell.isBoss || knownBossCellNo === nextCell.cellId;
+  }
+
   _currentContext.currentCell = nextCell;
   _currentContext.cellHistory.push(nextCell);
 
@@ -268,15 +275,20 @@ export function createShipSnapshotWithMaster(
 // ==================== 辅助函数 ====================
 
 function mapRawToCell(raw: ApiMapStartRespRaw | ApiMapNextRespRaw): SortieCell {
+  const cellId = raw.api_cell_id ?? raw.api_no ?? 0;
+  const bossCellNo = raw.api_bosscell_no;
+  const colorNo = raw.api_color_no;
+
   return {
     mapAreaId: raw.api_maparea_id,
     mapInfoNo: raw.api_mapinfo_no,
-    cellId: raw.api_cell_id,
-    eventId: raw.api_event_id,
-    eventKind: raw.api_event_kind,
-    next: raw.api_next,
-    isBoss: raw.api_event_id === 5,  // Boss 事件
-    bossCellNo: raw.api_bosscell_no,
+    cellId,
+    eventId: raw.api_event_id ?? 0,
+    eventKind: raw.api_event_kind ?? 0,
+    next: raw.api_next ?? 0,
+    isBoss: colorNo === 5 || (bossCellNo !== undefined && bossCellNo === cellId),
+    bossCellNo,
+    colorNo,
     updatedAt: Date.now(),
   };
 }

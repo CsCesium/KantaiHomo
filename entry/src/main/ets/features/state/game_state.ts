@@ -762,6 +762,8 @@ class GameStateManager {
     for (const item of items) {
       this.state.shipGraphFilenames.set(item.id, item.filename);
     }
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('all');
   }
 
   /** 按图鉴 ID 获取舰娘图像文件名 */
@@ -771,7 +773,11 @@ class GameStateManager {
 
   /** 设置游戏服务器基础 URL */
   setGameServerUrl(url: string): void {
-    if (url) this.state.gameServerUrl = url;
+    if (url && this.state.gameServerUrl !== url) {
+      this.state.gameServerUrl = url;
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('all');
+    }
   }
 
   /** 获取游戏服务器基础 URL */

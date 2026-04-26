@@ -22,6 +22,7 @@ const STATUS_PANEL_WIDTH = 24;
 const DAMAGE_CONTROL_ICON_ID = SlotItemIconId.DamageControl;
 const DAMAGE_BADGE_BG = '#00000088';
 const DAMAGE_BADGE_BORDER = '#FFFFFFCC';
+const SHIP_BANNER_ASPECT_RATIO = 4;
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
@@ -56,6 +57,7 @@ export default struct ShipStatusBadge {
   @Param equip: ShipSpecialEquip = { hasDamageControl: false, hasGoddess: false };
   @Param totalHeight: number = 48;
   @Param totalWidth: number = 60;
+  @Local private failedAvatarUrl: string = '';
 
   // Canvas 渲染上下文，在整个组件生命周期内复用
   private context: CanvasRenderingContext2D =
@@ -81,6 +83,11 @@ export default struct ShipStatusBadge {
   @Computed
   get avatarDiam(): number {
     return this.ringDiam - RING_STROKE_WIDTH * 2 - 4;
+  }
+
+  @Computed
+  get avatarBannerWidth(): number {
+    return Math.ceil(this.avatarDiam * SHIP_BANNER_ASPECT_RATIO);
   }
 
   @Computed
@@ -113,6 +120,19 @@ export default struct ShipStatusBadge {
     return Math.max(Math.floor(this.avatarDiam * 0.22), 7);
   }
 
+  @Computed
+  get avatarUrl(): string {
+    const filename = getShipGraphFilename(this.ship.masterId);
+    const serverBase = getGameServerUrl();
+    if (!filename || !serverBase) return '';
+    return getShipBannerUrl(this.ship.masterId, filename, serverBase);
+  }
+
+  @Computed
+  get shouldShowAvatarImage(): boolean {
+    return this.avatarUrl.length > 0 && this.failedAvatarUrl !== this.avatarUrl;
+  }
+
   /** HP 颜色 */
   private hpColor(): string {
     const pct = this.ship.hpMax > 0 ? this.ship.hpNow / this.ship.hpMax : 1;
@@ -131,6 +151,21 @@ export default struct ShipStatusBadge {
       .border({ width: 1, color: this.badgeBorderColor })
       .objectFit(ImageFit.Contain)
       .padding(1)
+  }
+
+  @Builder
+  private avatarFallback(): void {
+    Text(this.ship.name)
+      .width(this.avatarDiam)
+      .height(this.avatarDiam)
+      .borderRadius(this.avatarDiam / 2)
+      .backgroundColor('#1e1e1e')
+      .fontColor('#cccccc')
+      .fontSize(this.nameFontSize)
+      .textAlign(TextAlign.Center)
+      .maxLines(2)
+      .textOverflow({ overflow: TextOverflow.Clip })
+      .padding(2)
   }
 
   private condVisual(cond: number): CondVisual {
@@ -235,26 +270,24 @@ export default struct ShipStatusBadge {
           .height(this.ringDiam)
           .onReady(() => this.drawRing())
 
-        // 头像圆 — 舰娘 banner 图像或名称文字占位符
-        if (getShipGraphFilename(this.ship.masterId) && getGameServerUrl()) {
-          Image(getShipBannerUrl(this.ship.masterId, getShipGraphFilename(this.ship.masterId)!, getGameServerUrl()!))
-            .width(this.avatarDiam)
-            .height(this.avatarDiam)
-            .borderRadius(this.avatarDiam / 2)
-            .objectFit(ImageFit.Cover)
-            .clip(true)
-        } else {
-          Text(this.ship.name)
+        // 头像圆 — 图片不可用时回退到舰名文字。
+        if (this.shouldShowAvatarImage) {
+          Stack({ alignContent: Alignment.TopStart }) {
+            Image(this.avatarUrl)
+              .width(this.avatarBannerWidth)
+              .height(this.avatarDiam)
+              .objectFit(ImageFit.Fill)
+              .onError(() => {
+                this.failedAvatarUrl = this.avatarUrl;
+              })
+          }
             .width(this.avatarDiam)
             .height(this.avatarDiam)
             .borderRadius(this.avatarDiam / 2)
             .backgroundColor('#1e1e1e')
-            .fontColor('#cccccc')
-            .fontSize(this.nameFontSize)
-            .textAlign(TextAlign.Center)
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Clip })
-            .padding(2)
+            .clip(true)
+        } else {
+          this.avatarFallback()
         }
 
       }

@@ -73,6 +73,7 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
       mapAreaId: normalized.mapAreaId,
       mapInfoNo: normalized.mapInfoNo,
       cellId: normalized.cellId,
+      cell: normalized,
       deckId,
       combinedType: 0, // 由 Handler 从内存状态获取
       fleetSnapshot,

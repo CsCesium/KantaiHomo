@@ -22,6 +22,7 @@ export interface SortieStartPayload {
   mapAreaId: number;
   mapInfoNo: number;
   cellId: number;
+  cell: SortieCell;
   deckId: number;
   combinedType: number;
   fleetSnapshot: FleetSnapshot;

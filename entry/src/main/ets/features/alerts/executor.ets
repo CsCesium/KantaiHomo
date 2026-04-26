@@ -50,6 +50,29 @@ function formatFleetLabel(deckId: number, combinedType: number): string {
   }
 }
 
+function formatCellCode(cellId: number): string {
+  if (!Number.isFinite(cellId) || cellId <= 0) return '未知点';
+
+  let n = Math.floor(cellId);
+  let code = '';
+  while (n > 0) {
+    n -= 1;
+    code = String.fromCharCode(65 + (n % 26)) + code;
+    n = Math.floor(n / 26);
+  }
+  return `${code}(${cellId})`;
+}
+
+function formatResourceLine(alert: SortieNextAlert): string {
+  const gains = alert.resourceGains ?? [];
+  if (gains.length === 0) return '';
+
+  const text = gains
+    .map(gain => `${gain.name}+${gain.count}`)
+    .join('、');
+  return `获得：${text}`;
+}
+
 // ========== 执行函数 ==========
 
 async function executeToast(message: string, duration: number = 2000, textColor?: string): Promise<void> {
@@ -184,9 +207,14 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   const fleetLabel = formatFleetLabel(alert.deckId, alert.combinedType);
   const bossStr = alert.isBoss ? '[BOSS]' : '';
   const taihaStr = alert.hasTaihaRisk ? ' - ⚠大破警告！' : '';
-  const line1 = `${fleetLabel} → ${alert.cellId}${bossStr}: ${alert.eventDesc}${taihaStr}`;
-  const line2 = alert.enemyFlagshipName ? `敌旗舰：[${alert.enemyFlagshipName}]` : '';
-  const message = line2 ? `${line1}\n${line2}` : line1;
+  const cellLabel = formatCellCode(alert.cellId);
+  const line1 = `${fleetLabel} → ${cellLabel}${bossStr}: ${alert.eventDesc}${taihaStr}`;
+  const details = [
+    formatResourceLine(alert),
+    alert.enemyFlagshipName ? `敌旗舰：[${alert.enemyFlagshipName}]` : '',
+  ].filter(line => line.length > 0);
+  const detailText = details.join('\n');
+  const message = detailText ? `${line1}\n${detailText}` : line1;
 
   console.info(`[AlertExecutor] sortie next: ${line1}`);
 
@@ -206,7 +234,7 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
       NOTIFICATION_ID_SORTIE_NEXT,
       alert.isBoss ? '到达 BOSS 点' : '进击中',
       line1,
-      line2 || undefined
+      detailText || undefined
     );
   }
 }
@@ -246,9 +274,10 @@ async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
   if (!config.enableBattleResultAlert) return;
 
   const bossStr = alert.isBoss ? '[BOSS]' : '';
+  const cellLabel = formatCellCode(alert.cellId);
 
   if (alert.hasTaihaRisk) {
-    const message = `[${alert.cellId}${bossStr}]战斗结束 - ⚠大破警告！`;
+    const message = `[${cellLabel}${bossStr}]战斗结束 - ⚠大破警告！`;
     console.warn(`[AlertExecutor] battle result (taiha risk): ${message}`);
 
     if (config.enableToast) {
@@ -267,7 +296,7 @@ async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
       );
     }
   } else {
-    const message = `[${alert.cellId}${bossStr}]战斗结束`;
+    const message = `[${cellLabel}${bossStr}]战斗结束`;
     console.info(`[AlertExecutor] battle result: ${message} rank=${alert.rank}`);
 
     if (config.enableToast) {

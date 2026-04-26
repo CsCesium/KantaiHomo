@@ -1,3 +1,10 @@
+export interface MapResourceGain {
+  name: string;
+  count: number;
+  itemId?: number;
+  iconId?: number;
+}
+
 export interface SortieCell {
   mapAreaId: number;
   mapInfoNo: number;
@@ -7,6 +14,8 @@ export interface SortieCell {
   next: number;
   isBoss?: boolean;
   bossCellNo?: number;
+  colorNo?: number;
+  resourceGains?: MapResourceGain[];
   updatedAt: number;
   extras?: Record<string, unknown>;
 }
