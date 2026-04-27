@@ -10,7 +10,7 @@ import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../
 
 function rankColor(rank: string): string {
   if (rank === 'SS' || rank === 'S') return '#FFD700';
-  if (rank === 'A') return '#43a047';
+  if (rank === 'A') return '#ffdd1212';
   if (rank === 'B') return '#1e88e5';
   if (rank === 'C') return '#fdd835';
   if (rank === 'D') return '#fb8c00';
@@ -59,7 +59,7 @@ function airStateColor(s: number | undefined): string {
 }
 
 function shipBadgeText(ship: ShipBattleStatus): string {
-  if (ship.isSunk) return '沈';
+  if (ship.isSunk) return '轰沈';
   if (ship.isTaiha) return '大破';
   if (ship.isChuuha) return '中破';
   if (ship.isShouha) return '小破';
@@ -392,7 +392,7 @@ export default struct BattlePreviewPanel {
   /** Non-flagship sunk-risk warning banner. */
   @Builder SunkWarning() {
     Row() {
-      Text('⚠ 非旗艦撃沈リスク')
+      Text('⚠ 非旗艦撃沈风险：')
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.hpCrit)
     }
@@ -592,7 +592,7 @@ export default struct BattlePreviewPanel {
       } else {
         // ── Empty / loading ──────────────────────────────────────────────
         Column() {
-          Text('戦闘データなし')
+          Text('NO BATTLE DATA')
             .fontSize(PanelDimens.fontMd)
             .fontColor(PanelColors.txtMuted)
         }
