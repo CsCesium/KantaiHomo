@@ -11,9 +11,9 @@ import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../
 function rankColor(rank: string): string {
   if (rank === 'SS' || rank === 'S') return '#FFD700';
   if (rank === 'A') return '#ffdd1212';
-  if (rank === 'B') return '#1e88e5';
-  if (rank === 'C') return '#fdd835';
-  if (rank === 'D') return '#fb8c00';
+  if (rank === 'B') return '#ffcb6d22';
+  if (rank === 'C') return '#ff917c25';
+  if (rank === 'D') return '#ff198311';
   return PanelColors.hpCrit;
 }
 

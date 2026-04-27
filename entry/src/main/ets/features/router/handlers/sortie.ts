@@ -171,7 +171,7 @@ class SortieHandler implements Handler {
     // 2. 发布 SortieNextAlert（所有节点类型均触发，含战斗节点）
     // 尝试从 /next 响应的 api_enemy_info 中提取敌方旗舰名称（仅战斗节点有效）
     let enemyFlagshipName: string | undefined;
-    if (isBattleEventId(cell.eventId)) {
+    if (isBattleEventId(currentCell.eventId)) {
       try {
         const extras = cell.extras as Record<string, unknown> | undefined;
         const enemyInfo = extras?.api_enemy_info as Record<string, unknown> | undefined;

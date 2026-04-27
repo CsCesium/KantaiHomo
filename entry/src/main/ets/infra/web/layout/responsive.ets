@@ -29,7 +29,7 @@ export interface LayoutDecision {
 const NARROW_SHORT_SIDE_VP = 420;
 const GAME_HEIGHT_WIDTH_RATIO = 720 / 1200;
 /** 游戏画面宽高比（宽/高） */
-const GAME_ASPECT_RATIO = 1200 / 720;
+export const GAME_ASPECT_RATIO = 1200 / 720;
 /** 侧边栏最小宽度（vp），低于此值不显示侧边栏 */
 const MIN_SIDEBAR_VP = 44;
 /** 侧边栏最大宽度（vp） */

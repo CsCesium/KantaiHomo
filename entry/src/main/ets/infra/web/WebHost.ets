@@ -2,7 +2,7 @@ import { webview } from "@kit.ArkWeb";
 import { kvDelete, kvGetBool, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
-import { decideLayout, FitPolicy, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
+import { decideLayout, FitPolicy, GAME_ASPECT_RATIO, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
@@ -373,6 +373,18 @@ export default struct WebHost {
     return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
   }
 
+  /**
+   * Actual on-screen game canvas width (vp).
+   * Compact landscape uses height-fit: visible game = gameHeightVp × aspect.
+   * Width-fit modes use the full container width.
+   */
+  private getGameCanvasWidthVp(): number {
+    if (this.fit === 'height') {
+      return Math.min(this.gameWidthVp, Math.floor(this.gameHeightVp * GAME_ASPECT_RATIO));
+    }
+    return this.gameWidthVp;
+  }
+
   private shouldShowFloatingButtons(): boolean {
     const fullscreen: boolean = this.scene === WindowScene.FULLSCREEN;
     if (!fullscreen) {
@@ -448,12 +460,13 @@ export default struct WebHost {
             .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
         }
 
-        // FloatOverlay panel — overlaid on the game viewport, full game width.
+        // FloatOverlay panel — overlaid on the game canvas only (matches its width).
         // Only shown when explicitly triggered (overlayForced / fairy ball event).
         if (this.overlayForced) {
           PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
-            .width('100%')
+            .width(this.getGameCanvasWidthVp())
             .height('100%')
+            .position({ x: this.gameLeftMarginVp, y: 0 })
         }
       }
       .height(this.showBottomTools ? this.gameHeightVp : '100%')

@@ -211,7 +211,7 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   const line1 = `${fleetLabel} → ${cellLabel}${bossStr}: ${alert.eventDesc}${taihaStr}`;
   const details = [
     formatResourceLine(alert),
-    alert.enemyFlagshipName ? `敌旗舰：[${alert.enemyFlagshipName}]` : '',
+    alert.enemyFlagshipName ? `敌舰队：${alert.enemyFlagshipName}` : '',
   ].filter(line => line.length > 0);
   const detailText = details.join('\n');
   const message = detailText ? `${line1}\n${detailText}` : line1;
