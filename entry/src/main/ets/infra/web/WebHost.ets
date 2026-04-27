@@ -448,8 +448,9 @@ export default struct WebHost {
             .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
         }
 
-        // FloatOverlay panel — overlaid on the game viewport, full game width.
+        // FloatOverlay panel — overlaid on the game viewport.
         // Only shown when explicitly triggered (overlayForced / fairy ball event).
+        // Side margins act as dismiss areas; tapping outside panel hides it.
         if (this.overlayForced) {
           Row() {
             Column()
