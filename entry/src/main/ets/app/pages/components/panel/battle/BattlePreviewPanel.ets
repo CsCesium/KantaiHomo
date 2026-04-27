@@ -286,9 +286,9 @@ export default struct BattlePreviewPanel {
 
         // Center: predicted rank + engagement (航向)
         Row({ space: 6 }) {
-          Text('予')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.txtMuted)
+          // Text('预测')
+          //   .fontSize(PanelDimens.fontSm)
+          //   .fontColor(PanelColors.txtMuted)
           Text(snap.predictedRank)
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
