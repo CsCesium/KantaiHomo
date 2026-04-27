@@ -380,9 +380,21 @@ export default struct WebHost {
    */
   private getGameCanvasWidthVp(): number {
     if (this.fit === 'height') {
-      return Math.min(this.gameWidthVp, Math.floor(this.gameHeightVp * GAME_ASPECT_RATIO));
+      return Math.min(this.viewportWidthVp, Math.floor(this.gameHeightVp * GAME_ASPECT_RATIO));
     }
     return this.gameWidthVp;
+  }
+
+  /**
+   * X offset of the game canvas within the WebView container.
+   * Height-fit: game is centered → offset = (containerWidth - canvasWidth) / 2.
+   * Width-fit: game starts at left edge → offset = 0.
+   */
+  private getGameCanvasOffsetVp(): number {
+    if (this.fit === 'height') {
+      return Math.max(0, Math.floor((this.viewportWidthVp - this.getGameCanvasWidthVp()) / 2));
+    }
+    return 0;
   }
 
   private shouldShowFloatingButtons(): boolean {
@@ -460,13 +472,13 @@ export default struct WebHost {
             .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
         }
 
-        // FloatOverlay panel — overlaid on the game canvas only (matches its width).
+        // FloatOverlay panel — covers the game canvas exactly (centered, same width).
         // Only shown when explicitly triggered (overlayForced / fairy ball event).
         if (this.overlayForced) {
           PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
             .width(this.getGameCanvasWidthVp())
             .height('100%')
-            .position({ x: this.gameLeftMarginVp, y: 0 })
+            .position({ x: this.getGameCanvasOffsetVp(), y: 0 })
         }
       }
       .height(this.showBottomTools ? this.gameHeightVp : '100%')
