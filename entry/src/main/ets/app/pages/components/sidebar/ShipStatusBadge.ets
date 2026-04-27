@@ -23,12 +23,13 @@ const DAMAGE_CONTROL_ICON_ID = SlotItemIconId.DamageControl;
 const DAMAGE_BADGE_BG = '#00000088';
 const DAMAGE_BADGE_BORDER = '#FFFFFFCC';
 const SHIP_BANNER_ASPECT_RATIO = 4;
+const DAMAGE_BADGE_INSET = RING_STROKE_WIDTH + 2;
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
  *
  * 布局（横向）：
- *   [HP环 + 头像圆] [损管/女神(按需) + 补给⚠(按需) + Cond emoji+数值]
+ *   [HP环 + 头像圆 + 损管/女神(按需)] [补给⚠(按需) + Cond emoji+数值]
  *
  * @param ship        舰娘状态数据
  * @param equip       特殊装备状态（损管/女神）
@@ -133,6 +134,16 @@ export default struct ShipStatusBadge {
     return this.avatarUrl.length > 0 && this.failedAvatarUrl !== this.avatarUrl;
   }
 
+  @Computed
+  get badgeOffsetX(): number {
+    return -DAMAGE_BADGE_INSET;
+  }
+
+  @Computed
+  get badgeOffsetY(): number {
+    return -DAMAGE_BADGE_INSET;
+  }
+
   /** HP 颜色 */
   private hpColor(): string {
     const pct = this.ship.hpMax > 0 ? this.ship.hpNow / this.ship.hpMax : 1;
@@ -231,11 +242,6 @@ export default struct ShipStatusBadge {
   @Builder
   private statusPanel(): void {
     Column({ space: 3 }) {
-      // 损管/女神标记放在状态列中，避免遮挡 HP 环。
-      if (this.hasEquip) {
-        this.damageControlBadge()
-      }
-
       // 补给不足图标（仅在需要补给时显示）
       if (this.ship.needsResupply) {
         Text('⚠')
@@ -290,6 +296,16 @@ export default struct ShipStatusBadge {
           this.avatarFallback()
         }
 
+        // 损管/女神标记留在头像框内，沿右下角向内贴住 HP 环。
+        if (this.hasEquip) {
+          Stack() {
+            this.damageControlBadge()
+          }
+            .width(this.badgeSize)
+            .height(this.badgeSize)
+            .align(Alignment.BottomEnd)
+            .offset({ x: this.badgeOffsetX, y: this.badgeOffsetY })
+        }
       }
       .width(this.ringDiam)
       .height(this.ringDiam)

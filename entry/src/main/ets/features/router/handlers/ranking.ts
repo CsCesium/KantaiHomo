@@ -35,8 +35,8 @@ class RankingPersistHandler implements Handler {
       capturedAt: ev.timestamp,
     };
 
-    updateRanking(snapshot);
-    await kvSet(KV_RANKING_KEY, JSON.stringify(snapshot));
+    const normalized = updateRanking(snapshot);
+    await kvSet(KV_RANKING_KEY, JSON.stringify(normalized));
   }
 }
 

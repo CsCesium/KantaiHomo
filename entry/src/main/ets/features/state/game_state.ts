@@ -29,10 +29,8 @@ import {
 /**
  * 获取战果统计周期 ID（CST UTC+8 基准）。
  *
- * 战果统计时间为 01:00 和 13:00 (CST)，更新时间为 02:00 和 14:00 (CST)。
- * 按统计时间划分计日周期：
- *   - AM 周期：01:00 ≤ CST < 13:00  → "YYYY-MM-DD-AM"
- *   - PM 周期：13:00 ≤ CST < 01:00(次日) → "YYYY-MM-DD-PM"（日期为 PM 开始当天）
+ * 今日周期为 01:00 ≤ CST < 次日 01:00。
+ * 00:xx CST 仍归属前一天周期。
  */
 function getCSTSenkaPeriodId(ts?: number): string {
   const ms = ts !== undefined ? ts : Date.now();
@@ -40,34 +38,29 @@ function getCSTSenkaPeriodId(ts?: number): string {
   const d = new Date(cstMs);
   const h = d.getUTCHours();
 
-  let y: number;
-  let mo: number;
-  let day: number;
-  let period: string;
+  const periodDate = h >= 1 ? d : new Date(cstMs - 24 * 60 * 60 * 1000);
+  const y = periodDate.getUTCFullYear();
+  const mo = periodDate.getUTCMonth() + 1;
+  const day = periodDate.getUTCDate();
 
-  if (h >= 13) {
-    // PM 周期：从当天 13:00 开始
-    y = d.getUTCFullYear();
-    mo = d.getUTCMonth() + 1;
-    day = d.getUTCDate();
-    period = 'PM';
-  } else if (h >= 1) {
-    // AM 周期：从当天 01:00 开始
-    y = d.getUTCFullYear();
-    mo = d.getUTCMonth() + 1;
-    day = d.getUTCDate();
-    period = 'AM';
-  } else {
-    // 00:xx CST：属于前一天的 PM 周期
-    const yesterday = new Date(cstMs - 24 * 60 * 60 * 1000);
-    y = yesterday.getUTCFullYear();
-    mo = yesterday.getUTCMonth() + 1;
-    day = yesterday.getUTCDate();
-    period = 'PM';
-  }
-
-  return `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}-${period}`;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
+
+/**
+ * 获取战果月份 ID（CST UTC+8，01:00 为月内日界线）。
+ */
+function getCSTSenkaMonthId(ts?: number): string {
+  const ms = ts !== undefined ? ts : Date.now();
+  const cstMs = ms + 8 * 60 * 60 * 1000;
+  const d = new Date(cstMs);
+  const periodDate = d.getUTCHours() >= 1 ? d : new Date(cstMs - 24 * 60 * 60 * 1000);
+  const y = periodDate.getUTCFullYear();
+  const mo = periodDate.getUTCMonth() + 1;
+
+  return `${y}-${String(mo).padStart(2, '0')}`;
+}
+
+const SENKA_EXP_PER_POINT = 1428;
 
 /** 损管/女神 master ID 常量 */
 const DAMAGE_CONTROL_MASTER_ID = 42;
@@ -491,12 +484,12 @@ class GameStateManager {
     const rs = this.rankingSnapshot;
     if (rs) {
       const expSinceRanking = Math.max(0, currentExp - rs.exp);
-      estimatedMonthlySenka = rs.senka + Math.floor(expSinceRanking / 1428);
+      estimatedMonthlySenka = rs.senka + Math.floor(expSinceRanking / SENKA_EXP_PER_POINT);
     }
 
     return {
       todayExp,
-      estimatedTodaySenka: Math.floor(todayExp / 1428),
+      estimatedTodaySenka: Math.floor(todayExp / SENKA_EXP_PER_POINT),
       rankingSnapshot: rs,
       estimatedMonthlySenka,
       startTime,
@@ -507,9 +500,11 @@ class GameStateManager {
   /**
    * 更新战绩排行快照（访问战绩表示页面时调用）
    */
-  updateRanking(snapshot: RankingSnapshot): void {
-    this.rankingSnapshot = snapshot;
+  updateRanking(snapshot: RankingSnapshot): RankingSnapshot {
+    const normalized = this.normalizeRankingSnapshot(snapshot);
+    this.rankingSnapshot = normalized;
     this.notifyListeners('admiral');
+    return normalized;
   }
 
   /**
@@ -561,18 +556,45 @@ class GameStateManager {
   }
 
   /**
-   * 确保战果起点已初始化；周期切换（01:00 / 13:00 CST）时自动重置。
+   * 确保战果起点已初始化；周期切换（01:00 CST）时自动重置。
    */
   private ensureDailySenka(currentExp: number): void {
     if (currentExp <= 0) return;
     const period = getCSTSenkaPeriodId();
     if (!this.dailySenkaStart) {
       this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: period };
+      this.persistDailySenka();
     } else if (this.dailySenkaStart.date !== period) {
-      // CST 周期切换（01:00 或 13:00）：重置起点
+      // CST 01:00 周期切换：重置起点
       this.dailySenkaStart = { exp: currentExp, time: Date.now(), date: period };
       this.persistDailySenka();
     }
+  }
+
+  /**
+   * 访问战绩页时服务端战果可能仍停留在上次统计点。
+   * 若本地已有本月记录，先按提督经验增量推进记录，再与新快照取较新的战果。
+   */
+  private normalizeRankingSnapshot(snapshot: RankingSnapshot): RankingSnapshot {
+    const prev = this.rankingSnapshot;
+    if (!prev || prev.memberId !== snapshot.memberId) {
+      return snapshot;
+    }
+    if (getCSTSenkaMonthId(prev.capturedAt) !== getCSTSenkaMonthId(snapshot.capturedAt)) {
+      return snapshot;
+    }
+
+    const deltaExp = Math.max(0, snapshot.exp - prev.exp);
+    const gainedSenka = Math.floor(deltaExp / SENKA_EXP_PER_POINT);
+    const carried: RankingSnapshot = {
+      rank: snapshot.rank,
+      senka: prev.senka + gainedSenka,
+      exp: prev.exp + gainedSenka * SENKA_EXP_PER_POINT,
+      memberId: snapshot.memberId,
+      capturedAt: snapshot.capturedAt,
+    };
+
+    return carried.senka >= snapshot.senka ? carried : snapshot;
   }
 
   private persistDailySenka(): void {
