@@ -448,27 +448,12 @@ export default struct WebHost {
             .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
         }
 
-        // FloatOverlay panel — overlaid on the game viewport.
+        // FloatOverlay panel — overlaid on the game viewport, full game width.
         // Only shown when explicitly triggered (overlayForced / fairy ball event).
-        // Side margins act as dismiss areas; tapping outside panel hides it.
         if (this.overlayForced) {
-          Row() {
-            Column()
-              .width(PanelDimens.overlaySideGap)
-              .height('100%')
-              .backgroundColor(Color.Transparent)
-              .onClick(() => { this.overlayForced = false; })
-            PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
-              .layoutWeight(1)
-              .height('100%')
-            Column()
-              .width(PanelDimens.overlaySideGap)
-              .height('100%')
-              .backgroundColor(Color.Transparent)
-              .onClick(() => { this.overlayForced = false; })
-          }
-          .width('100%')
-          .height('100%')
+          PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
+            .width('100%')
+            .height('100%')
         }
       }
       .height(this.showBottomTools ? this.gameHeightVp : '100%')

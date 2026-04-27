@@ -1,5 +1,5 @@
 import { PanelLayoutConfig, PanelMode } from '../../../../features/panel/type';
-import { subscribeGameState, isInBattle, hasBattleResult } from '../../../../features/state';
+import { subscribeGameState, isInBattle } from '../../../../features/state';
 import BottomPanel from './overlay/BottomPanel';
 import FloatOverlayPanel from './bottom/FloatOverlayPanel';
 import BattlePreviewPanel from './battle/BattlePreviewPanel';
@@ -8,9 +8,10 @@ import BattlePreviewPanel from './battle/BattlePreviewPanel';
  * Panel host — dispatches to the correct panel variant.
  *
  * Battle state takes priority: when a sortie battle is in progress
- * (prediction computed or result received), BattlePreviewPanel is shown
- * in place of the normal fleet panel.  The transition back happens
- * automatically when the battle state is cleared after the sortie ends.
+ * (prediction phase only), BattlePreviewPanel is shown in place of the
+ * normal fleet panel.  Once the battle result API fires, the panel
+ * immediately reverts to the fleet panel.  The battle result is still
+ * accessible via BattlePreviewPanel in the BottomPanel / full-screen paths.
  *
  * Normal layout dispatch:
  *   BottomPanel  → full-width panel docked below game area  (EXPANDED mode)
@@ -25,10 +26,10 @@ export default struct PanelHost {
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
-    this.battleActive = isInBattle() || hasBattleResult();
+    this.battleActive = isInBattle();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'battle' || changeType === 'all') {
-        this.battleActive = isInBattle() || hasBattleResult();
+        this.battleActive = isInBattle();
       }
     });
   }
