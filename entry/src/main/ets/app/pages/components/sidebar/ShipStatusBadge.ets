@@ -23,7 +23,6 @@ const DAMAGE_CONTROL_ICON_ID = SlotItemIconId.DamageControl;
 const DAMAGE_BADGE_BG = '#00000088';
 const DAMAGE_BADGE_BORDER = '#FFFFFFCC';
 const SHIP_BANNER_ASPECT_RATIO = 4;
-const DAMAGE_BADGE_INSET = RING_STROKE_WIDTH + 2;
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
@@ -135,13 +134,13 @@ export default struct ShipStatusBadge {
   }
 
   @Computed
-  get badgeOffsetX(): number {
-    return -DAMAGE_BADGE_INSET;
+  get badgePositionX(): number {
+    return this.ringDiam - RING_STROKE_WIDTH - this.badgeSize-2;
   }
 
   @Computed
-  get badgeOffsetY(): number {
-    return -DAMAGE_BADGE_INSET;
+  get badgePositionY(): number {
+    return this.ringDiam - RING_STROKE_WIDTH - this.badgeSize-2;
   }
 
   /** HP 颜色 */
@@ -303,8 +302,7 @@ export default struct ShipStatusBadge {
           }
             .width(this.badgeSize)
             .height(this.badgeSize)
-            .align(Alignment.BottomEnd)
-            .offset({ x: this.badgeOffsetX, y: this.badgeOffsetY })
+            .position({ x: this.badgePositionX, y: this.badgePositionY })
         }
       }
       .width(this.ringDiam)
