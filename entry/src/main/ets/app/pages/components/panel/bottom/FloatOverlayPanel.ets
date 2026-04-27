@@ -70,8 +70,6 @@ function shipStateToItem(
     s2: s.fuel,
     s3: s.ammo,
     s4: 0,
-    fuelMax: s.fuelMax,
-    ammoMax: s.ammoMax,
     slots: activeSlots,
     slotTypes,
     slotIconTypes,
@@ -206,9 +204,9 @@ export default struct FloatOverlayPanel {
   /**
    * Compact 2-line (+ optional special-attack label) ship row:
    *
-   *   [⚡特殊攻撃名]                  (flagship only, when eligible)
-   *   [avatar] name (flex)  hp/hpMax
-   *   [left col: Lv ◆cond / fuel ammo bars]  [right: HP bar + slot icons]
+   *   [⚡特殊攻撃名]             (flagship only, when eligible)
+   *   name (flex)   hp/hpMax
+   *   Lv.  [HP bar]  ◆cond  [s1][s2]…[ex]
    */
   @Builder ShipRow(ship: ShipItem, isFlag: boolean) {
     Column({ space: 2 }) {
@@ -250,100 +248,65 @@ export default struct FloatOverlayPanel {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      // Line 2: [left col: Lv+cond / fuel+ammo] | [right: HP bar / slot icons]
-      Row({ space: 4 }) {
-        // Left column: level+cond on top, fuel/ammo bars below
-        Column({ space: 3 }) {
-          Row({ space: 4 }) {
-            Text(`Lv.${ship.level}`)
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.txtSub)
-            Text(`◆${ship.s1}`)
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(condColor(ship.s1))
-          }
-          .alignItems(VerticalAlign.Center)
-
-          // Fuel and ammo bars side by side
-          Row({ space: 2 }) {
-            Progress({
-              value: ship.s2,
-              total: ship.fuelMax > 0 ? ship.fuelMax : 1,
-              type: ProgressType.Linear
-            })
-              .layoutWeight(1)
-              .height(PanelDimens.supplyBarH)
-              .color('#4caf50')
-              .backgroundColor(PanelColors.overlayRow)
-            Progress({
-              value: ship.s3,
-              total: ship.ammoMax > 0 ? ship.ammoMax : 1,
-              type: ProgressType.Linear
-            })
-              .layoutWeight(1)
-              .height(PanelDimens.supplyBarH)
-              .color('#ff9800')
-              .backgroundColor(PanelColors.overlayRow)
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
-        }
-        .width(PanelDimens.leftColW)
-        .alignItems(HorizontalAlign.Start)
-
-        // Right section: HP bar on top, slot icons below
-        Column({ space: 3 }) {
-          Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
-            .width('100%')
-            .height(PanelDimens.hpBarCompH)
-            .color(hpColor(ship.hp, ship.hpMax))
-            .backgroundColor(PanelColors.overlayRow)
-
-          // Slot icons row
-          Row({ space: PanelDimens.slotSpaceComp }) {
-            ForEach(ship.slots, (uid: number, idx: number) => {
-              if (uid > 0) {
-                Stack({ alignContent: Alignment.BottomEnd }) {
-                  Image(equipLabel(ship.slotIconTypes[idx] ?? 0))
-                    .width(PanelDimens.slotIconComp)
-                    .height(PanelDimens.slotIconComp)
-                    .padding(1)
-                  if (isAircraftEquipType(ship.slotTypes[idx] ?? 0)) {
-                    Text(`${ship.slotAirs[idx] ?? 0}`)
-                      .fontSize(7)
-                      .fontColor('#ffffff')
-                      .backgroundColor('#cc000000')
-                      .borderRadius(2)
-                      .padding({ left: 1, right: 1 })
-                  }
+      // Line 2: Lv | HP bar | cond | slot icons
+      Row({ space: 2 }) {
+        Text(`Lv.${ship.level}`)
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.txtSub)
+          .width(PanelDimens.levelW)
+        Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
+          .layoutWeight(1)
+          .height(PanelDimens.hpBarCompH)
+          .color(hpColor(ship.hp, ship.hpMax))
+          .backgroundColor(PanelColors.overlayRow)
+        Text(`◆${ship.s1}`)
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(condColor(ship.s1))
+          .width(PanelDimens.statCompW)
+          .textAlign(TextAlign.End)
+        // Slot icons (compact)
+        Row({ space: 1 }) {
+          ForEach(ship.slots, (uid: number, idx: number) => {
+            if (uid > 0) {
+              Stack({ alignContent: Alignment.BottomEnd }) {
+                Image(equipLabel(ship.slotIconTypes[idx] ?? 0))
+                  .width(12)
+                  .height(12)
+                  .padding(1)
+                if (isAircraftEquipType(ship.slotTypes[idx] ?? 0)) {
+                  Text(`${ship.slotAirs[idx] ?? 0}`)
+                    .fontSize(6)
+                    .fontColor('#ffffff')
+                    .backgroundColor('#cc000000')
+                    .borderRadius(2)
+                    .padding({ left: 1, right: 1 })
                 }
-                .width(PanelDimens.slotIconComp)
-                .height(PanelDimens.slotIconComp)
-                .borderRadius(2)
-                .backgroundColor('#252940')
-                .onClick(() => { showEquipToast(uid); })
-              } else {
-                Row()
-                  .width(PanelDimens.slotIconComp)
-                  .height(PanelDimens.slotIconComp)
-                  .borderRadius(2)
-                  .backgroundColor('#55c8cce0')
               }
-            }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
-            if (ship.exSlot > 0) {
-              Image(equipLabel(ship.exSlotIconType))
-                .width(PanelDimens.slotIconComp)
-                .height(PanelDimens.slotIconComp)
-                .padding(1)
+              .width(12)
+              .height(12)
+              .borderRadius(2)
+              .backgroundColor('#252940')
+              .onClick(() => { showEquipToast(uid); })
+            } else {
+              Row()
+                .width(12)
+                .height(12)
                 .borderRadius(2)
-                .backgroundColor('#1a2855')
-                .onClick(() => { showEquipToast(ship.exSlot); })
+                .backgroundColor('#55c8cce0')
             }
+          }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
+          if (ship.exSlot > 0) {
+            Image(equipLabel(ship.exSlotIconType))
+              .width(13)
+              .height(12)
+              .padding(1)
+              .margin({ left: 1 })
+              .borderRadius(2)
+              .backgroundColor('#1a2855')
+              .onClick(() => { showEquipToast(ship.exSlot); })
           }
-          .alignItems(VerticalAlign.Center)
         }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

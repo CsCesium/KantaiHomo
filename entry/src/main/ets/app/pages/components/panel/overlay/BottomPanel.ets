@@ -70,8 +70,6 @@ function shipStateToItem(
     s2: s.fuel,
     s3: s.ammo,
     s4: 0,
-    fuelMax: s.fuelMax,
-    ammoMax: s.ammoMax,
     slots: activeSlots,
     slotTypes,
     slotIconTypes,

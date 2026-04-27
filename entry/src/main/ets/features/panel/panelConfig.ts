@@ -75,10 +75,9 @@ export const PanelDimens = {
   statusBarH:  22,
   listHdrH:    24,
   rowH:        54,   // ship row — expanded 2-line layout (BottomPanel)
-  rowCompH:    52,   // ship row — compact 2-line layout (FloatOverlay)
+  rowCompH:    44,   // ship row — compact 2-line layout (FloatOverlay)
   hpBarH:       5,   // HP bar height — expanded
   hpBarCompH:   4,   // HP bar height — compact
-  supplyBarH:   3,   // fuel/ammo supply bar height
   btnH:        28,
   btnCompH:    24,
 
@@ -87,9 +86,6 @@ export const PanelDimens = {
   levelW:      36,   // Lv. label fixed width
   statW:       32,   // stat number column (expanded)
   statCompW:   22,   // stat number column (compact)
-  leftColW:    44,   // left column width: level+cond+supply bars (FloatOverlay)
-  slotIconComp: 16,  // equipment icon size — compact (FloatOverlay)
-  slotSpaceComp: 3,  // spacing between slot icons — compact
   btnW:        44,
   btnCompW:    40,
 
@@ -104,7 +100,7 @@ export const PanelDimens = {
   btnRadius:      4,   // button border radius
   overlayBlur:   12,   // backdropBlur radius for FloatOverlay glass effect
   overlayPanelW: 220,  // FloatOverlay panel width when overlaid on game (vp)
-  overlaySideGap: 30,  // left/right dismiss area in compact overlay (vp)
+  overlaySideGap: 60,  // left/right dismiss area in compact overlay (vp)
 } as const;
 
 // ── HP color helper ────────────────────────────────────────────────────────
