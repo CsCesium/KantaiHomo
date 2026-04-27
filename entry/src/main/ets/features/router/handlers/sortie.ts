@@ -22,9 +22,9 @@ import {
 import type { AirBaseSnapshot, AirBaseSquadronSnapshot } from '../../../domain/models/struct/battle_record';
 import { startSortie, moveToNextCell } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
-import { SortieNextAlert, TaihaWarningAlert } from '../../alerts/type';
+import { SortieNextAlert, TaihaWarningAlert, SortieStartTaihaAlert } from '../../alerts/type';
 import { getLastBattleHasTaihaRisk, getLastBattleTaihaShips, resetLastBattleState } from '../../alerts/lastBattleState';
-import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId } from '../../state/game_state';
+import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId, getDeckShips, getShipSpecialEquip } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -132,7 +132,53 @@ class SortieHandler implements Handler {
       }
     }
 
+    // 4. GameState 双保险：出击瞬间扫描出击编队，捕捉带伤强行出击
+    //    （此时 GameState.ships 仍反映港内最新 HP；进入战斗后该数据会失效，
+    //    后续节点检查由 lastBattleState 接管）
+    this.checkSortieStartTaiha(deckId, combinedType);
+  }
 
+  /**
+   * 出击瞬间基于 GameState 检查整个出击编队是否存在大破舰
+   *
+   * 跳过主队旗舰（i=0，旗舰不会击沉），联合舰队护卫队所有舰位都参与检查
+   */
+  private checkSortieStartTaiha(deckId: number, combinedType: number): void {
+    const risky: { uid: number; name: string; hpNow: number; hpMax: number }[] = [];
+
+    const main = getDeckShips(deckId);
+    for (let i = 1; i < main.length; i++) {
+      const s = main[i];
+      if (!s.isTaiha) continue;
+      if (s.hpNow <= 0) continue; // 已击沉的不参与（不可能出击但作防御性判断）
+      const equip = getShipSpecialEquip(s.uid);
+      if (equip.hasDamageControl || equip.hasGoddess) continue;
+      risky.push({ uid: s.uid, name: s.name || `#${s.uid}`, hpNow: s.hpNow, hpMax: s.hpMax });
+    }
+
+    if (combinedType > 0) {
+      const escort = getDeckShips(2);
+      for (let i = 0; i < escort.length; i++) {
+        const s = escort[i];
+        if (!s.isTaiha) continue;
+        if (s.hpNow <= 0) continue;
+        const equip = getShipSpecialEquip(s.uid);
+        if (equip.hasDamageControl || equip.hasGoddess) continue;
+        risky.push({ uid: s.uid, name: s.name || `#${s.uid}`, hpNow: s.hpNow, hpMax: s.hpMax });
+      }
+    }
+
+    if (risky.length === 0) return;
+
+    console.warn('[sortie] SORTIE START taiha (GameState):', risky.map(r => r.name).join(', '));
+
+    const alert: SortieStartTaihaAlert = {
+      type: 'sortie_start_taiha',
+      timestamp: Date.now(),
+      deckId,
+      ships: risky,
+    };
+    publishAlert(alert);
   }
 
   /**

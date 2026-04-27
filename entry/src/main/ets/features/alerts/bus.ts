@@ -108,6 +108,8 @@ class AlertBusImpl {
         return `yasen:${alert.yesTex}:${alert.noTex}`;
       case 'taiha_warning':
         return `taiha:${alert.shipUids.slice().sort((a, b) => a - b).join(',')}`;
+      case 'sortie_start_taiha':
+        return `sortie_start_taiha:${alert.deckId}:${alert.ships.map(s => s.uid).sort((a, b) => a - b).join(',')}`;
       case 'sortie_next':
         return `sortie:${alert.mapAreaId}-${alert.mapInfoNo}:${alert.cellId}`;
       case 'sortie_advance':

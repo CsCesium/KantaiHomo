@@ -19,6 +19,7 @@ import type {
   ExpeditionReturnAlert,
   YasenPromptAlert,
   TaihaWarningAlert,
+  SortieStartTaihaAlert,
   SortieNextAlert,
   BattleResultAlert,
   SortieAdvanceAlert,
@@ -35,6 +36,7 @@ const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
 const NOTIFICATION_ID_YASEN = 2000;
 const NOTIFICATION_ID_TAIHA = 2001;
 const NOTIFICATION_ID_SORTIE_NEXT = 2002;
+const NOTIFICATION_ID_SORTIE_START_TAIHA = 2006;
 const NOTIFICATION_ID_BATTLE_RESULT = 2003;
 const NOTIFICATION_ID_FLEET_STATUS = 2004;
 const NOTIFICATION_ID_SORTIE_ADVANCE = 2005;
@@ -169,6 +171,32 @@ async function handleYasenPrompt(alert: YasenPromptAlert): Promise<void> {
       '夜战选择出现',
       '请选择：夜战突入 / 追撃せず',
       alert.containerName || undefined
+    );
+  }
+}
+
+async function handleSortieStartTaiha(alert: SortieStartTaihaAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  const names = alert.ships.map(s => s.name).join('、');
+
+  console.warn(`[AlertExecutor] SORTIE START taiha (deck ${alert.deckId}): ${names}`);
+
+  if (config.enableToast) {
+    await executeToast(`⚠️ 出击警告：${names} 已大破`, 4000, '#FF4444');
+  }
+
+  if (config.enableVibrate) {
+    await executeVibrate(config.vibrateDurationMs);
+    setTimeout(() => {
+      void executeVibrate(config.vibrateDurationMs);
+    }, config.vibrateDurationMs + 100);
+  }
+
+  if (config.enableNotification) {
+    await executeNotification(
+      NOTIFICATION_ID_SORTIE_START_TAIHA,
+      '⚠️ 出击大破警告',
+      `${names} 已大破出击，存在击沉风险`
     );
   }
 }
@@ -383,6 +411,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'taiha_warning':
       await handleTaihaWarning(alert);
+      break;
+    case 'sortie_start_taiha':
+      await handleSortieStartTaiha(alert);
       break;
     case 'sortie_next':
       await handleSortieNext(alert);

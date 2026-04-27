@@ -19,6 +19,7 @@ export type {
   ExpeditionReturnAlert,
   YasenPromptAlert,
   TaihaWarningAlert,
+  SortieStartTaihaAlert,
   SortieNextAlert,
   BattleResultAlert,
   SortieAdvanceAlert,

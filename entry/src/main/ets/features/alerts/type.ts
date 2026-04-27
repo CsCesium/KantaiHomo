@@ -23,6 +23,7 @@ export type AlertType =
   | 'expedition_return'
   | 'yasen_prompt'
   | 'taiha_warning'
+  | 'sortie_start_taiha'
   | 'sortie_next'
   | 'battle_result'
   | 'fleet_status'
@@ -54,6 +55,14 @@ export interface TaihaWarningAlert extends BaseAlert {
   type: 'taiha_warning';
   shipUids: number[];
   shipNames?: string[];
+}
+
+/** 出击瞬间检测到的大破舰 — 基于 GameState 的双保险（弹窗 + 振动） */
+export interface SortieStartTaihaAlert extends BaseAlert {
+  type: 'sortie_start_taiha';
+  deckId: number;
+  /** 大破且无损管/女神的舰娘列表（已排除主队旗舰，已排除已沉没/0 HP） */
+  ships: { uid: number; name: string; hpNow: number; hpMax: number }[];
 }
 
 /** 出击下一节点提醒（api_req_map/next 触发，适用于所有节点类型） */
@@ -118,6 +127,7 @@ export type AnyAlert =
   | ExpeditionReturnAlert
   | YasenPromptAlert
   | TaihaWarningAlert
+  | SortieStartTaihaAlert
   | SortieNextAlert
   | BattleResultAlert
   | SortieAdvanceAlert
