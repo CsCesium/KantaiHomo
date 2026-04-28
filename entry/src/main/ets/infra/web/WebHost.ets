@@ -15,6 +15,7 @@ import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "..
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
+import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 
 interface RpcPayload {
   op: string;
@@ -61,6 +62,7 @@ export default struct WebHost {
   @State private overlayForced: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
+  private unsubSortieStartTaiha?: () => void;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
     channelName: defaultInjectOptions.channelName,
@@ -279,10 +281,24 @@ export default struct WebHost {
     }).catch((_e: Error) => {});
   }
 
+  private showSortieStartTaihaDialog(alert: SortieStartTaihaAlert): void {
+    const lines = alert.ships.map(s => `${s.name} (${s.hpNow}/${s.hpMax})`).join('\n');
+    promptAction.showDialog({
+      title: '⚠️ 出击大破警告',
+      message: `第${alert.deckId}舰队以下舰娘大破出击，存在击沉风险：\n${lines}`,
+      buttons: [
+        { text: '已知悉', color: '#e53935' },
+      ],
+    }).catch((_e: Error) => {});
+  }
+
   aboutToAppear() {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
     this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
+    this.unsubSortieStartTaiha = subscribeAlert<SortieStartTaihaAlert>('sortie_start_taiha', (a) => {
+      this.showSortieStartTaihaDialog(a);
+    });
     this.host.bindDisplay();
     void this.host.applyOrientationByMode(true);
     void this.loadRuntimeConfig();
@@ -310,6 +326,11 @@ export default struct WebHost {
 
   aboutToDisappear() {
     this.host.unbindDisplay();
+
+    if (this.unsubSortieStartTaiha) {
+      this.unsubSortieStartTaiha();
+      this.unsubSortieStartTaiha = undefined;
+    }
 
     if (this.windowStatusCb) {
       const mainWin = getMainWindowCached();

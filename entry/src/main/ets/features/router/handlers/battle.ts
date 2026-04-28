@@ -232,7 +232,7 @@ class BattleHandler implements Handler {
     try {
       // 计算大破无损管击沉风险（旗舰 i=0 不会击沉，从 i=1 开始）
       let hasTaihaRisk = false;
-      const taihaShipsList: { uid: number; name: string }[] = [];
+      const taihaShipsList: { uid: number; name: string; hpAfter: number; hpMax: number }[] = [];
       const mainShips = context?.fleetSnapshot?.ships ?? [];
       const nowArr = record.hpEnd.friend.main.now;
       const maxArr = record.hpEnd.friend.main.max;
@@ -243,7 +243,12 @@ class BattleHandler implements Handler {
           const equip = getShipSpecialEquip(mainShips[i].uid);
           if (!equip.hasDamageControl && !equip.hasGoddess) {
             hasTaihaRisk = true;
-            taihaShipsList.push({ uid: mainShips[i].uid, name: mainShips[i].name || `#${mainShips[i].uid}` });
+            taihaShipsList.push({
+              uid: mainShips[i].uid,
+              name: mainShips[i].name || `#${mainShips[i].uid}`,
+              hpAfter: nowArr[i],
+              hpMax: maxHp,
+            });
           }
         }
       }
@@ -258,7 +263,12 @@ class BattleHandler implements Handler {
             const equip = getShipSpecialEquip(escortShips[i].uid);
             if (!equip.hasDamageControl && !equip.hasGoddess) {
               hasTaihaRisk = true;
-              taihaShipsList.push({ uid: escortShips[i].uid, name: escortShips[i].name || `#${escortShips[i].uid}` });
+              taihaShipsList.push({
+                uid: escortShips[i].uid,
+                name: escortShips[i].name || `#${escortShips[i].uid}`,
+                hpAfter: escortNow[i],
+                hpMax: maxHp,
+              });
             }
           }
         }

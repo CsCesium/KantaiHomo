@@ -18,6 +18,7 @@ import { PERMISSION_JSON, USER_AGENT } from '../config';
 import { Orientation } from '../layout/orientation';
 import hilog from '@ohos.hilog';
 import { YasenPromptAlert, SortieAdvanceAlert, publishAlert } from '../../../features/alerts';
+import { getLastBattleTaihaShips } from '../../../features/alerts/lastBattleState';
 import { getBattleResult, getBattleStatus, getShipSpecialEquip, ShipBattleStatus } from '../../../features/state';
 
 const HILOG_DOM: number = 0x1357;
@@ -252,7 +253,17 @@ export class WebHostController {
   }
 
   private buildAdvanceRiskMessage(): string | null {
-    // Prefer result snapshot (post-battle), fall back to status snapshot (in-battle prediction)
+    // Authoritative source: post-battleresult taiha list captured in lastBattleState.
+    // It survives clearBattleState() on sortie_next, so the dialog still fires when
+    // 進撃/撤退 appears at a non-battle node (compass dance, resource cell, …).
+    const persisted = getLastBattleTaihaShips();
+    if (persisted.length > 0) {
+      const lines = persisted.map(s => `${s.name} (${s.hpAfter}/${s.hpMax})`);
+      return `以下舰娘大破且无损管，进击有击沉风险：\n${lines.join('\n')}`;
+    }
+
+    // Fallback: live snapshots (covers the case where AdvanceDetect fires before
+    // BATTLE_RESULT has been processed, e.g. mid-battle prediction-only state).
     const result = getBattleResult();
     const status = getBattleStatus();
 

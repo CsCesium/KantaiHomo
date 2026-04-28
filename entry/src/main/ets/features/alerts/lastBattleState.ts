@@ -5,8 +5,15 @@
  * WebHostController（进击提醒）读取。
  */
 
+export interface LastBattleTaihaShip {
+  uid: number;
+  name: string;
+  hpAfter: number;
+  hpMax: number;
+}
+
 let _lastBattleHasTaihaRisk = false;
-let _lastBattleTaihaShips: { uid: number; name: string }[] = [];
+let _lastBattleTaihaShips: LastBattleTaihaShip[] = [];
 
 /** 战斗结算后写入本次大破击沉风险 */
 export function setLastBattleHasTaihaRisk(risk: boolean): void {
@@ -19,12 +26,12 @@ export function getLastBattleHasTaihaRisk(): boolean {
 }
 
 /** 战斗结算后写入大破舰娘列表（用于下一节点的 TaihaWarningAlert） */
-export function setLastBattleTaihaShips(ships: { uid: number; name: string }[]): void {
+export function setLastBattleTaihaShips(ships: LastBattleTaihaShip[]): void {
   _lastBattleTaihaShips = ships;
 }
 
 /** 读取上一场战斗大破舰娘列表 */
-export function getLastBattleTaihaShips(): { uid: number; name: string }[] {
+export function getLastBattleTaihaShips(): LastBattleTaihaShip[] {
   return _lastBattleTaihaShips;
 }
 
