@@ -593,7 +593,7 @@ export default struct BattlePreviewPanel {
               // Single fleet: left = friendly, right = enemy
               Row() {
                 Column() {
-                  this.FleetShipList(this.resultSnap.friendMain, '')
+                  this.FleetShipList(this.resultSnap.friendMain, '我方')
                 }
                 .layoutWeight(1)
                 .borderWidth({ right: PanelDimens.borderW })
