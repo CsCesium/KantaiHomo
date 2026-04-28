@@ -21,10 +21,12 @@ export interface ShipItem {
   level: number;
   hp: number;
   hpMax: number;
-  s1: number;
-  s2: number;
-  s3: number;
+  s1: number;   // cond
+  s2: number;   // fuel current
+  s3: number;   // ammo current
   s4: number;
+  fuelMax: number;
+  ammoMax: number;
   /** Active slot item UIDs; -1 = empty slot. Length = actual slot count. */
   slots: number[];
   /** SlotItemEquipType (api_type[2]) per slot, parallel to slots; 0 = empty. */

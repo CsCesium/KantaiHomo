@@ -196,7 +196,7 @@ export class WebHostController {
     // 处理进击提醒
     if (isSortieAdvanceUiEvent(msg)) {
       this.handleAdvanceMessage(msg);
-      return;
+     return;
     }
 
     // 处理 API Dump

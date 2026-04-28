@@ -20,11 +20,12 @@ import {
   safeParseJsonArray
 } from '../../../domain/models';
 import type { AirBaseSnapshot, AirBaseSquadronSnapshot } from '../../../domain/models/struct/battle_record';
+import type { FleetSnapshot, ShipSnapshot, SlotItemSnapshot } from '../../../domain/models/struct/battle_record';
 import { startSortie, moveToNextCell } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
 import { SortieNextAlert, TaihaWarningAlert } from '../../alerts/type';
 import { getLastBattleHasTaihaRisk, getLastBattleTaihaShips, resetLastBattleState } from '../../alerts/lastBattleState';
-import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId } from '../../state/game_state';
+import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId, getDeck, getDeckShips } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -75,9 +76,9 @@ class SortieHandler implements Handler {
     resetLastBattleState();
 
     // 1. 尝试从 Repository 获取更完整的舰队快照
-    const actualFleetSnapshot = await this.captureFleetSnapshot(deckId, PersistDeps) || fleetSnapshot;
+    const actualFleetSnapshot = (await this.captureFleetSnapshot(deckId, PersistDeps)) ?? fleetSnapshot;
     const actualFleetSnapshotEscort = combinedType > 0
-      ? await this.captureFleetSnapshot(2, PersistDeps)
+      ? (await this.captureFleetSnapshot(2, PersistDeps)) ?? fleetSnapshotEscort
       : fleetSnapshotEscort;
 
     // 2. 调用 Service 创建出击上下文
@@ -267,13 +268,18 @@ class SortieHandler implements Handler {
   private async captureFleetSnapshot(
     deckId: number,
     PersistDeps: PersistDeps
-  ): Promise<{ deckId: number; name: string; ships: any[]; capturedAt: number }> {
+  ): Promise<FleetSnapshot | null> {
+    const memorySnapshot = this.captureFleetSnapshotFromState(deckId);
+    if (memorySnapshot && memorySnapshot.ships.length > 0) {
+      return memorySnapshot;
+    }
+
     // 尝试从 Repository 获取
     if (PersistDeps.repos?.deck && PersistDeps.repos?.ship) {
       try {
         const deck = await PersistDeps.repos.deck.get(deckId);
         if (deck) {
-          const ships: any[] = [];
+          const ships: ShipSnapshot[] = [];
           const shipUids = safeParseJsonArray(deck.shipUidsJson)
 
           for (const uid of shipUids) {
@@ -293,31 +299,74 @@ class SortieHandler implements Handler {
                   fuelMax: 100, // TODO: 从 master 获取
                   ammoMax: 100,
                   cond: row.cond,
-                  slots: row.slotsJson ? JSON.parse(row.slotsJson) : [],
+                  slots: this.slotUidArrayToSnapshots(row.slotsJson ? JSON.parse(row.slotsJson) : []),
+                  slotEx: this.slotUidToSnapshot(row.slotEx ?? 0),
                   onslot: row.onslotJson ? JSON.parse(row.onslotJson) : [],
                 });
               }
             }
           }
 
-          return {
-            deckId,
-            name: deck.name,
-            ships,
-            capturedAt: Date.now(),
-          };
+          if (ships.length > 0) {
+            return {
+              deckId,
+              name: deck.name,
+              ships,
+              capturedAt: Date.now(),
+            };
+          }
         }
       } catch (e) {
         console.warn('[sortie] failed to capture fleet snapshot:', String(e));
       }
     }
 
-    // 返回空快照
+    return null;
+  }
+
+  private captureFleetSnapshotFromState(deckId: number): FleetSnapshot | null {
+    const deck = getDeck(deckId);
+    if (!deck) return null;
+
+    const ships: ShipSnapshot[] = getDeckShips(deckId).map((ship): ShipSnapshot => ({
+      uid: ship.uid,
+      masterId: ship.masterId,
+      name: ship.name,
+      shipType: 0,
+      level: ship.level,
+      hpNow: ship.hpNow,
+      hpMax: ship.hpMax,
+      fuel: ship.fuel,
+      ammo: ship.ammo,
+      fuelMax: ship.fuelMax,
+      ammoMax: ship.ammoMax,
+      cond: ship.cond,
+      slots: this.slotUidArrayToSnapshots(ship.slots.slice(0, ship.slotCount)),
+      slotEx: this.slotUidToSnapshot(ship.exSlot),
+      onslot: [...ship.onslot],
+    }));
+
+    if (ships.length === 0) return null;
+
     return {
       deckId,
-      name: `Fleet ${deckId}`,
-      ships: [],
+      name: deck.name,
+      ships,
       capturedAt: Date.now(),
+    };
+  }
+
+  private slotUidArrayToSnapshots(slotUids: number[]): (SlotItemSnapshot | null)[] {
+    return slotUids.map(uid => this.slotUidToSnapshot(uid));
+  }
+
+  private slotUidToSnapshot(slotUid: number): SlotItemSnapshot | null {
+    if (slotUid <= 0) return null;
+    return {
+      uid: slotUid,
+      masterId: getSlotItemMasterId(slotUid) ?? 0,
+      name: '',
+      level: 0,
     };
   }
 }

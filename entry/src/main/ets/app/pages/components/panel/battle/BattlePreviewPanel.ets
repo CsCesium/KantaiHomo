@@ -74,7 +74,7 @@ function shipBadgeColor(ship: ShipBattleStatus): string {
 }
 
 function enemyBadgeText(hpNow: number, hpMax: number): string {
-  if (hpNow <= 0) return '沈';
+  if (hpNow <= 0) return '轰沈';
   const r = hpMax > 0 ? hpNow / hpMax : 1;
   if (r <= 0.25) return '大破';
   if (r <= 0.5) return '中破';
@@ -420,7 +420,7 @@ export default struct BattlePreviewPanel {
       .alignItems(VerticalAlign.Center)
     }
 
-    ForEach(fleet.ships, (ship: ShipBattleStatus) => {
+      ForEach(fleet.ships, (ship: ShipBattleStatus) => {
       this.BattleShipRow(ship)
     }, (ship: ShipBattleStatus) => `bship-${ship.uid}`)
   }
@@ -514,7 +514,7 @@ export default struct BattlePreviewPanel {
             .fontSize(PanelDimens.fontSm)
             .fontColor('#FFD700')
         }
-        Text(snap.dropShipName ? `ドロップ: ${snap.dropShipName}` : 'ドロップ: なし')
+        Text(snap.dropShipName ? `掉落: ${snap.dropShipName}` : '掉落: 无')
           .fontSize(PanelDimens.fontSm)
           .fontColor(snap.dropShipName ? PanelColors.hpOk : PanelColors.txtMuted)
         Blank().layoutWeight(1)

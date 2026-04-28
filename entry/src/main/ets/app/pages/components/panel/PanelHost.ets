@@ -1,5 +1,5 @@
 import { PanelLayoutConfig, PanelMode } from '../../../../features/panel/type';
-import { subscribeGameState, isInBattle, hasBattleResult } from '../../../../features/state';
+import { subscribeGameState, isInBattle } from '../../../../features/state';
 import BottomPanel from './overlay/BottomPanel';
 import FloatOverlayPanel from './bottom/FloatOverlayPanel';
 import BattlePreviewPanel from './battle/BattlePreviewPanel';
@@ -25,10 +25,10 @@ export default struct PanelHost {
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
-    this.battleActive = isInBattle() || hasBattleResult();
+    this.battleActive = isInBattle();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'battle' || changeType === 'all') {
-        this.battleActive = isInBattle() || hasBattleResult();
+        this.battleActive = isInBattle() ;
       }
     });
   }
