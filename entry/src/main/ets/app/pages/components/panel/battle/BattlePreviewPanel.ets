@@ -663,7 +663,7 @@ export default struct BattlePreviewPanel {
               // Single fleet: left = friendly, right = enemy
               Row() {
                 Column() {
-                  this.FleetShipList(this.statusSnap.friendMain, '')
+                  this.FleetShipList(this.statusSnap.friendMain, '我方')
                 }
                 .layoutWeight(1)
                 .borderWidth({ right: PanelDimens.borderW })
@@ -699,7 +699,8 @@ export default struct BattlePreviewPanel {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(PanelColors.bg)
+    .backgroundColor(PanelColors.overlayBg)
+    .backdropBlur(PanelDimens.overlayBlur)
     .clip(true)
   }
 }

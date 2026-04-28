@@ -2,7 +2,6 @@
 /oh_modules
 /local.properties
 /.idea
-**/build
 /.hvigor
 .cxx
 /.clangd
@@ -12,3 +11,17 @@
 /.appanalyzer
 /change.patch
 /docs/apilist.txt
+
+# OHOS signing
+.ci/
+signing/
+*.p12
+*.jks
+*.keystore
+*.cer
+*.csr
+*.p7b
+
+# build outputs
+dist/
+**/build/
