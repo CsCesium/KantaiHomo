@@ -1,6 +1,6 @@
 import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel/panelConfig';
 import {
-  subscribeGameState, getBattleStatus, getBattleResult,
+  subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName,
   BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus,
   EnemyBattleStatus
 } from '../../../../../features/state';
@@ -215,16 +215,20 @@ export default struct BattlePreviewPanel {
   /**
    * Compact 2-line enemy ship row.
    *
-   *   敵N (idx)   beforeHP→afterHP   [badge]
-   *   [-dmg]      [====HP bar====]
+   *   <name>   beforeHP→afterHP   [badge]
+   *   [-dmg]   [====HP bar====]
+   *
+   * 敵舰 master id 在图鉴缓存中通常含日文舰名，未命中时回退为 `敵N`。
    */
-  @Builder EnemyShipRow(idx: number, hpBefore: number, hpAfter: number, hpMax: number) {
+  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number) {
     Column({ space: 2 }) {
       Row({ space: 3 }) {
-        Text(`敵${idx + 1}`)
+        Text(getShipMasterName(masterId) || `敵${idx + 1}`)
           .fontSize(PanelDimens.fontMd)
           .fontColor(hpAfter <= 0 ? PanelColors.txtMuted : PanelColors.txtSub)
           .layoutWeight(1)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
           .decoration({
             type: hpAfter <= 0 ? TextDecorationType.LineThrough : TextDecorationType.None
           })
@@ -450,6 +454,7 @@ export default struct BattlePreviewPanel {
       if (enemy.hpMax[idx] > 0) {
         this.EnemyShipRow(
           idx,
+          enemy.shipIds[idx] ?? 0,
           enemy.hpBefore[idx] ?? enemy.hpMax[idx],
           enemy.hpNow[idx] ?? 0,
           enemy.hpMax[idx]

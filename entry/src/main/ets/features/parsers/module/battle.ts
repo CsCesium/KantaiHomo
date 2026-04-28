@@ -13,36 +13,100 @@ import { BattleApiPath, normalizeBattleSegment, normalizeBattleResult } from "..
 import type { BattleSegment } from "../../../domain/models/struct/battle";
 import { normalizeSortieCell } from "../../../domain/models/normalizer/map";
 import { getSortieContext } from "../../../domain/service";
-import type { BattlePrediction, ShipPrediction } from "../../../domain/models/struct/battle_record";
+import type {
+  BattlePrediction,
+  ShipPrediction,
+  ShipSnapshot,
+  SlotItemSnapshot,
+  FleetSnapshot
+} from "../../../domain/models/struct/battle_record";
 import { ApiDump } from "../../../infra/web/types";
 import { parseSvdata, parseFormBody, extractApiPath, matchAnyPattern } from "../../utils/common";
 import { ParserCtx, mkEvt } from "./common";
 import { getBattlePredictionService } from "../../simulator/battle_prediction_service";
 import type { BattlePredictionSnapshot, ShipHPSnapshot } from "../../simulator/battle_prediction_service";
+import { getDeck, getDeckShips, getSlotItemMasterId } from "../../state/game_state";
+import type { ShipState } from "../../state/type";
 
 const PATTERNS = {
   // 出击/地图
-  MAP_START: /api_req_map\/start/,
-  MAP_NEXT: /api_req_map\/next/,
+  MAP_START: /api_req_map\/start(?:[/?]|$)/,
+  MAP_NEXT: /api_req_map\/next(?:[/?]|$)/,
 
   // 昼战
-  DAY_BATTLE: /api_req_(sortie|combined_battle)\/(battle|airbattle|ld_airbattle|battle_water|each_battle|each_battle_water|ec_battle)/,
+  // 注意：动作名后必须紧跟 `?`、`/` 或字符串结尾，
+  // 否则 `battle` 会错误匹配 `battleresult`，导致 /battleresult 被当成昼战处理。
+  DAY_BATTLE: /api_req_(?:sortie|combined_battle)\/(?:battle|airbattle|ld_airbattle|battle_water|each_battle|each_battle_water|ec_battle)(?:[/?]|$)/,
 
   // 夜战
-  NIGHT_BATTLE: /api_req_(battle_midnight|combined_battle)\/(battle|sp_midnight|midnight_battle|ec_midnight_battle)/,
+  NIGHT_BATTLE: /api_req_(?:battle_midnight|combined_battle)\/(?:battle|sp_midnight|midnight_battle|ec_midnight_battle)(?:[/?]|$)/,
 
   // 战斗结果
-  BATTLE_RESULT: /api_req_(sortie|combined_battle)\/battleresult/,
+  BATTLE_RESULT: /api_req_(?:sortie|combined_battle)\/battleresult(?:[/?]|$)/,
 
   // 演习
-  PRACTICE_BATTLE: /api_req_practice\/battle/,
-  PRACTICE_NIGHT: /api_req_practice\/midnight_battle/,
-  PRACTICE_RESULT: /api_req_practice\/battle_result/,
+  PRACTICE_BATTLE: /api_req_practice\/battle(?:[/?]|$)/,
+  PRACTICE_NIGHT: /api_req_practice\/midnight_battle(?:[/?]|$)/,
+  PRACTICE_RESULT: /api_req_practice\/battle_result(?:[/?]|$)/,
 };
 
 const ALL_PATTERNS = Object.values(PATTERNS);
 
 // ==================== 解析函数 ====================
+
+/**
+ * 同步从 GameState 抓取舰队快照。
+ * Port 处理后 GameState 已含完整 deck/ship 信息，直接同步读取避免
+ * Handler 异步流程中 fleetSnapshot.ships 取空导致 Prediction 渲染异常。
+ */
+function captureFleetSnapshotFromGameState(
+  deckId: number,
+  ts: number
+): FleetSnapshot | null {
+  const deck = getDeck(deckId);
+  if (!deck) return null;
+
+  const ships: ShipSnapshot[] = getDeckShips(deckId).map((s: ShipState): ShipSnapshot => ({
+    uid: s.uid,
+    masterId: s.masterId,
+    name: s.name,
+    shipType: 0,
+    level: s.level,
+    hpNow: s.hpNow,
+    hpMax: s.hpMax,
+    fuel: s.fuel,
+    ammo: s.ammo,
+    fuelMax: s.fuelMax,
+    ammoMax: s.ammoMax,
+    cond: s.cond,
+    slots: slotUidsToSnapshots(s.slots.slice(0, s.slotCount)),
+    slotEx: slotUidToSnapshot(s.exSlot),
+    onslot: [...s.onslot],
+  }));
+
+  if (ships.length === 0) return null;
+
+  return {
+    deckId,
+    name: deck.name,
+    ships,
+    capturedAt: ts,
+  };
+}
+
+function slotUidsToSnapshots(uids: number[]): (SlotItemSnapshot | null)[] {
+  return uids.map(slotUidToSnapshot);
+}
+
+function slotUidToSnapshot(slotUid: number): SlotItemSnapshot | null {
+  if (slotUid <= 0) return null;
+  return {
+    uid: slotUid,
+    masterId: getSlotItemMasterId(slotUid) ?? 0,
+    name: '',
+    level: 0,
+  };
+}
 
 /**
  * 解析 api_req_map/start (出击开始)
@@ -57,8 +121,10 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
   const apiData = raw.api_data ?? raw;
   const normalized = normalizeSortieCell(apiData);
 
-  // 舰队快照需要在 Handler 中从 Repository 获取
-  const fleetSnapshot = {
+  // 出击瞬间 GameState 应已含舰队信息（来自最近的 port snapshot），
+  // 同步抓取以避免 Handler 异步路径下 ships 为空。
+  // 抓取失败时回退到占位空快照，由 Handler 再行从 Repository 兜底。
+  const fleetSnapshot: FleetSnapshot = captureFleetSnapshotFromGameState(deckId, ctx.ts) ?? {
     deckId,
     name: `Fleet ${deckId}`,
     ships: [],
@@ -412,16 +478,17 @@ export function parseBattle(dump: ApiDump): AnyBattleModuleEvt[] | null {
     return parseMapNext(dump, ctx);
   }
 
+  // 战斗结果优先检查：避免 `battle*` 前缀匹配把 /battleresult 误判为昼战。
+  if (PATTERNS.BATTLE_RESULT.test(url) || PATTERNS.PRACTICE_RESULT.test(url)) {
+    return parseBattleResultDump(dump, ctx);
+  }
+
   if (PATTERNS.DAY_BATTLE.test(url) || PATTERNS.PRACTICE_BATTLE.test(url)) {
     return parseDayBattle(dump, ctx);
   }
 
   if (PATTERNS.NIGHT_BATTLE.test(url) || PATTERNS.PRACTICE_NIGHT.test(url)) {
     return parseNightBattle(dump, ctx);
-  }
-
-  if (PATTERNS.BATTLE_RESULT.test(url) || PATTERNS.PRACTICE_RESULT.test(url)) {
-    return parseBattleResultDump(dump, ctx);
   }
 
   return null;
