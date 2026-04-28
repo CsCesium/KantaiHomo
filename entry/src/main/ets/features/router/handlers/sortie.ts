@@ -23,9 +23,12 @@ import type { AirBaseSnapshot, AirBaseSquadronSnapshot } from '../../../domain/m
 import type { FleetSnapshot, ShipSnapshot, SlotItemSnapshot } from '../../../domain/models/struct/battle_record';
 import { startSortie, moveToNextCell } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
-import { SortieNextAlert, TaihaWarningAlert } from '../../alerts/type';
+import { SortieNextAlert, SortieStartTaihaAlert, TaihaWarningAlert } from '../../alerts/type';
 import { getLastBattleHasTaihaRisk, getLastBattleTaihaShips, resetLastBattleState } from '../../alerts/lastBattleState';
-import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId } from '../../state/game_state';
+import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId,
+  getDeck,
+  getDeckShips,
+  getShipSpecialEquip } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
