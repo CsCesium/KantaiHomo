@@ -279,6 +279,9 @@ async function handleFleetStatus(alert: FleetStatusAlert): Promise<void> {
     const labels = alert.idleDecks.map(id => `第${id}舰队`).join('、');
     parts.push(`${labels}未远征`);
   }
+  if (alert.fleet1LowCondShipUids.length > 0) {
+    parts.push(`第1舰队 ${alert.fleet1LowCondShipUids.length} 艘舰娘 cond<30`);
+  }
   if (parts.length === 0) return;
 
   const body = parts.join('，');
