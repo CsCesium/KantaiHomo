@@ -11,6 +11,7 @@
 /.appanalyzer
 /change.patch
 /docs/apilist.txt
+build-profile.json5
 
 # OHOS signing
 .ci/

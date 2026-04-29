@@ -1,19 +1,7 @@
 {
   "app": {
     "signingConfigs": [
-      {
-        "name": "default",
-        "type": "HarmonyOS",
-        "material": {
-          "certpath": "C:\\Users\\ROG\\.ohos\\config\\default_app_D4c4f_uUO_p8qV4XqaTiGWiwfFClFHIQ_seHj36NKZY=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "0000001B28A69599F926ABEEDFD47222215C3FB71F77E5E26ECD3018F396436828FC2D3EAC5DB183D8912C",
-          "profile": "C:\\Users\\ROG\\.ohos\\config\\default_app_D4c4f_uUO_p8qV4XqaTiGWiwfFClFHIQ_seHj36NKZY=.p7b",
-          "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\ROG\\.ohos\\config\\default_app_D4c4f_uUO_p8qV4XqaTiGWiwfFClFHIQ_seHj36NKZY=.p12",
-          "storePassword": "0000001BA5C6ED2A003B5E1D5A817F4CAA5DE9E55E40DF93F0B816F3652C2E8B65406BFA00992CEBBD3CC3"
-        }
-      }
+    
     ],
     "products": [
       {
