@@ -117,7 +117,7 @@ class AlertBusImpl {
       case 'battle_result':
         return `bresult:${alert.cellId}`;
       case 'fleet_status':
-        return `fstatus:${alert.unsuppliedDecks.join(',')}:${alert.idleDecks.join(',')}`;
+        return `fstatus:${alert.unsuppliedDecks.join(',')}:${alert.idleDecks.join(',')}:${alert.fleet1LowCondShipUids.slice().sort((a, b) => a - b).join(',')}`;
       case 'repair_complete':
         return `repair:${(alert as RepairCompleteAlert).dockId}`;
       default:

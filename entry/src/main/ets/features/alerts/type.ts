@@ -121,6 +121,8 @@ export interface FleetStatusAlert extends BaseAlert {
   unsuppliedDecks: number[];
   /** 未出击远征的舰队 ID 列表（第 2-4 舰队） */
   idleDecks: number[];
+  /** 第 1 舰队中 cond < 30 的舰船 UID 列表 */
+  fleet1LowCondShipUids: number[];
 }
 
 export type AnyAlert =
