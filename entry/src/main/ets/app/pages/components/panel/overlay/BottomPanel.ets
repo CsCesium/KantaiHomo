@@ -1,11 +1,13 @@
 import { MapGaugeInfo, PanelPopupStateChangeEvent, ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon, PanelColors, PanelDimens, questCategoryStyle, questResetTypeLabel, questProgressLabel } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   getShipGraphFilename, getGameServerUrl,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
-  MapGaugeSnapshot
+  MapGaugeSnapshot,
+  getQuests,
+  QuestSnapshot
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
@@ -18,8 +20,11 @@ import { SlotItemJoinedRow } from '../../../../../infra/storage/types';
 import { EquipDetailPanel } from '../EquipDetailPanel';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
 
-const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図'];
+const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任務'];
 const MAP_TAB_IDX = 6;
+const QUEST_TAB_IDX = 7;
+/** QuestState.ACTIVE — duplicated to keep this UI file decoupled from domain enum import. */
+const QUEST_STATE_ACTIVE = 2;
 
 function shipStateToItem(
   s: ShipState,
@@ -114,6 +119,7 @@ export default struct BottomPanel {
   @Local fleetLoS: number = 0;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  @Local activeQuests: QuestSnapshot[] = [];
   /** UID of slot whose detail popup is currently open; 0 = none. */
   @Local detailUid: number = 0;
   /** Loaded equipment row for the open detail popup. */
@@ -156,6 +162,7 @@ export default struct BottomPanel {
     this.materials = getMaterials();
     this.decks = [...getDecks()];
     this.mapGauges = [...getMapGauges()];
+    this.activeQuests = getQuests().filter(q => q.state === QUEST_STATE_ACTIVE);
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -181,7 +188,7 @@ export default struct BottomPanel {
   }
 
   private async loadCalcStats(): Promise<void> {
-    if (this.activeFleet >= 4 || this.activeFleet === MAP_TAB_IDX) {
+    if (this.activeFleet >= 4) {
       this.airPower = 0;
       this.fleetLoS = 0;
       return;
@@ -551,6 +558,58 @@ export default struct BottomPanel {
     .alignItems(VerticalAlign.Center)
   }
 
+  /**
+   * Single quest row:
+   *   [category icon] | [period chip] | [title] | [progress]
+   */
+  @Builder QuestRow(quest: QuestSnapshot) {
+    Row() {
+      // Column 1: category icon (colored text placeholder)
+      Column() {
+        Text(questCategoryStyle(quest.category).label)
+          .fontSize(PanelDimens.fontMd)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#ffffff')
+      }
+      .width(PanelDimens.avatarW)
+      .height('100%')
+      .backgroundColor(questCategoryStyle(quest.category).color)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+
+      // Column 2: period chip
+      Text(questResetTypeLabel(quest.type))
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.txtSub)
+        .width(72)
+        .textAlign(TextAlign.Center)
+
+      // Column 3: title (description)
+      Text(quest.title)
+        .fontSize(PanelDimens.fontMd)
+        .fontColor(PanelColors.txtPrimary)
+        .layoutWeight(1)
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .padding({ left: 8, right: 8 })
+
+      // Column 4: progress
+      Text(questProgressLabel(quest.progress, quest.state))
+        .fontSize(PanelDimens.fontMd)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(PanelColors.stat)
+        .width(56)
+        .textAlign(TextAlign.End)
+        .padding({ right: 8 })
+    }
+    .width('100%')
+    .height(PanelDimens.rowH)
+    .backgroundColor(PanelColors.bgSection)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
+    .alignItems(VerticalAlign.Center)
+  }
+
   @Builder EmptyState() {
     Column() {
       Text(this.activeFleet >= 4 && this.activeFleet < MAP_TAB_IDX ? '未実装' : 'NO Fleet info')
@@ -650,7 +709,26 @@ export default struct BottomPanel {
 
       Scroll() {
         Column() {
-          if (this.activeFleet === MAP_TAB_IDX) {
+          if (this.activeFleet === QUEST_TAB_IDX) {
+            if (this.activeQuests.length > 0) {
+              ForEach(this.activeQuests, (quest: QuestSnapshot) => {
+                this.QuestRow(quest)
+              }, (quest: QuestSnapshot) => `quest-${quest.questId}`)
+            } else {
+              Column() {
+                Text('未受領の任務')
+                  .fontSize(PanelDimens.fontMd)
+                  .fontColor(PanelColors.txtMuted)
+                  .margin({ top: 24 })
+                Text('任務一覧を開くとデータが取得されます')
+                  .fontSize(PanelDimens.fontSm)
+                  .fontColor(PanelColors.txtFainter)
+                  .margin({ top: 6 })
+              }
+              .width('100%')
+              .alignItems(HorizontalAlign.Center)
+            }
+          } else if (this.activeFleet === MAP_TAB_IDX) {
             if (this.mapGauges.length > 0) {
               ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
                 this.MapGaugeRow(gauge)

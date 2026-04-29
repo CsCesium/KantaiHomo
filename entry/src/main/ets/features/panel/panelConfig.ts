@@ -65,7 +65,66 @@ export const FLEET_TAB_COLORS: readonly string[] = [
   '#4e342e',  // 基地       — warm brown (base air corps)
   '#4a148c',  // 道具       — deep purple (supplies)
   '#1a3a5c',  // 地図       — dark navy (map info)
+  '#37474f',  // 任務       — slate grey (quest list)
 ];
+
+// ── Quest category visual mapping (panel) ──────────────────────────────────
+
+/**
+ * Color and short-label placeholders for the quest category icon column.
+ * These values are intentionally distinct from the domain-level
+ * QuestCategoryColor map so the panel can apply its own visual style.
+ */
+export interface QuestCategoryStyle {
+  label: string;
+  color: string;
+}
+
+const QUEST_CATEGORY_FALLBACK: QuestCategoryStyle = { label: '他', color: '#606478' };
+
+const QUEST_CATEGORY_STYLES: Record<number, QuestCategoryStyle> = {
+  1: { label: '編成', color: '#1b5e20' },  // COMPOSITION — 深绿
+  2: { label: '出撃', color: '#cc4444' },  // SORTIE      — 红
+  3: { label: '演習', color: '#66cc66' },  // PRACTICE    — 浅绿
+  4: { label: '遠征', color: '#44aaaa' },  // EXPEDITION
+  5: { label: '補給', color: '#aaaa44' },  // SUPPLY
+  6: { label: '工廠', color: '#8b5a2b' },  // ARSENAL     — 棕
+  7: { label: '改装', color: '#aa44aa' },  // MODERNIZATION
+  8: { label: '出撃', color: '#cc4444' },  // SORTIE_2    — 红
+  9: { label: '出撃', color: '#cc4444' },  // SORTIE_3    — 红
+};
+
+export function questCategoryStyle(category: number): QuestCategoryStyle {
+  return QUEST_CATEGORY_STYLES[category] ?? QUEST_CATEGORY_FALLBACK;
+}
+
+const QUEST_RESET_TYPE_LABELS: Record<number, string> = {
+  1: '単発',   // ONCE
+  2: 'デイリー',   // DAILY
+  3: 'ウィークリー', // WEEKLY
+  4: 'マンスリー',  // MONTHLY_3
+  5: 'マンスリー',  // MONTHLY_2
+  6: 'マンスリー',  // MONTHLY
+  7: 'クォータリー', // QUARTERLY
+  8: 'イヤーリー',   // YEARLY_FEB
+  9: 'イヤーリー',   // YEARLY_AUG
+  10: 'イヤーリー',  // YEARLY_MAR
+  11: 'イヤーリー',  // YEARLY_SEP
+};
+
+export function questResetTypeLabel(type: number): string {
+  return QUEST_RESET_TYPE_LABELS[type] ?? '－';
+}
+
+/** Maps QuestProgress flag (0/1/2) to a display label. */
+export function questProgressLabel(progress: number | undefined, state: number): string {
+  if (state === 3) return '100%';
+  switch (progress) {
+    case 1: return '50%+';
+    case 2: return '80%+';
+    default: return '–';
+  }
+}
 
 // ── Dimensions ─────────────────────────────────────────────────────────────
 
