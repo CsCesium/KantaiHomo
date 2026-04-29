@@ -495,7 +495,7 @@ export default struct BottomPanel {
             .fontColor(PanelColors.txtSub)
             .width(PanelDimens.levelW)
           Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
-            .layoutWeight(1)
+            .width(PanelDimens.hpBarW)
             .height(PanelDimens.hpBarH)
             .color(hpColor(ship.hp, ship.hpMax))
             .backgroundColor(PanelColors.bgHpTrack)
@@ -504,6 +504,7 @@ export default struct BottomPanel {
             .fontColor(condColor(ship.s1))
             .width(PanelDimens.statW)
             .textAlign(TextAlign.End)
+          Blank().layoutWeight(1)
           // Slot icons
           Row({ space: 1 }) {
             ForEach(ship.slots, (uid: number, idx: number) => {

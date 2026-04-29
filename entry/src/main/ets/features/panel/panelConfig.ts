@@ -78,6 +78,8 @@ export const PanelDimens = {
   rowCompH:    44,   // ship row — compact 2-line layout (FloatOverlay)
   hpBarH:       5,   // HP bar height — expanded
   hpBarCompH:   4,   // HP bar height — compact
+  hpBarW:    '45%',  // HP bar width — expanded; fixed so equipment column aligns
+  hpBarCompW: '40%', // HP bar width — compact; fixed so equipment column aligns
   btnH:        28,
   btnCompH:    24,
 

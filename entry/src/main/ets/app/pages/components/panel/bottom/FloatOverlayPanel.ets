@@ -362,7 +362,7 @@ export default struct FloatOverlayPanel {
           .fontColor(PanelColors.txtSub)
           .width(PanelDimens.levelW)
         Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
-          .layoutWeight(1)
+          .width(PanelDimens.hpBarCompW)
           .height(PanelDimens.hpBarCompH)
           .color(hpColor(ship.hp, ship.hpMax))
           .backgroundColor(PanelColors.overlayRow)
@@ -371,6 +371,7 @@ export default struct FloatOverlayPanel {
           .fontColor(condColor(ship.s1))
           .width(PanelDimens.statCompW)
           .textAlign(TextAlign.End)
+        Blank().layoutWeight(1)
         // Slot icons (compact)
         Row({ space: 1 }) {
           ForEach(ship.slots, (uid: number, idx: number) => {
