@@ -12,6 +12,10 @@ export interface PanelLayoutConfig {
   bottomPanelHeight: number;
 }
 
+export interface PanelPopupStateChangeEvent {
+  isVisible: boolean;
+}
+
 /** Single ship display state for panel rendering. */
 export interface ShipItem {
   id: number;       // ship uid

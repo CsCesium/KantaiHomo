@@ -1,4 +1,4 @@
-import { MapGaugeInfo, ShipItem } from '../../../../../features/panel/type';
+import { MapGaugeInfo, PanelPopupStateChangeEvent, ShipItem } from '../../../../../features/panel/type';
 import { hpColor, equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
@@ -297,7 +297,7 @@ export default struct FloatOverlayPanel {
       builder: this.EquipPopup,
       placement: Placement.Top,
       enableArrow: true,
-      onStateChange: (e: { isVisible: boolean }) => {
+      onStateChange: (e: PanelPopupStateChangeEvent) => {
         if (!e.isVisible && this.detailUid === uid) {
           this.detailUid = 0;
           this.detailRow = null;
