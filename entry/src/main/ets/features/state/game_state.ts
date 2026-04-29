@@ -88,6 +88,8 @@ class GameStateManager {
     slotItemEquipTypes: new Map(),
     slotItemIconTypes: new Map(),
     slotItemIndex: new Map(),
+    slotItemLevels: new Map(),
+    slotItemAlvs: new Map(),
     shipGraphFilenames: new Map(),
     gameServerUrl: null,
   };
@@ -731,6 +733,8 @@ class GameStateManager {
       slotItemEquipTypes: new Map(),
       slotItemIconTypes: new Map(),
       slotItemIndex: new Map(),
+      slotItemLevels: new Map(),
+      slotItemAlvs: new Map(),
       shipGraphFilenames:new Map(),
       gameServerUrl:null,
     };
@@ -769,12 +773,28 @@ class GameStateManager {
   }
 
   /**
-   * 更新装备实例索引（来自 api_port/api_slot_item，uid → masterId）
+   * 更新装备实例索引（来自 api_port/api_slot_item，uid → masterId/level/alv）
    */
-  updateSlotItemIndex(items: ReadonlyArray<{ uid: number; masterId: number }>): void {
+  updateSlotItemIndex(items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>): void {
     for (const item of items) {
       this.state.slotItemIndex.set(item.uid, item.masterId);
+      if (item.level !== undefined) {
+        this.state.slotItemLevels.set(item.uid, item.level);
+      }
+      if (item.alv !== undefined) {
+        this.state.slotItemAlvs.set(item.uid, item.alv);
+      }
     }
+  }
+
+  /** 按 slot uid 查询改修度（无数据时返回 0） */
+  getSlotItemLevel(uid: number): number {
+    return this.state.slotItemLevels.get(uid) ?? 0;
+  }
+
+  /** 按 slot uid 查询熟练度（无数据时返回 0） */
+  getSlotItemAlv(uid: number): number {
+    return this.state.slotItemAlvs.get(uid) ?? 0;
   }
 
   /**
@@ -950,8 +970,10 @@ export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: st
   gameStateManager.updateShipMasterMeta(items);
 export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number }>) =>
   gameStateManager.updateSlotItemEquipTypes(items);
-export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number }>) =>
+export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>) =>
   gameStateManager.updateSlotItemIndex(items);
+export const getSlotItemLevel = (uid: number): number => gameStateManager.getSlotItemLevel(uid);
+export const getSlotItemAlv = (uid: number): number => gameStateManager.getSlotItemAlv(uid);
 export const updateShipGraphFilenames = (items: ReadonlyArray<{ id: number; filename: string }>) =>
   gameStateManager.updateShipGraphFilenames(items);
 export const getShipGraphFilename = (masterId: number) => gameStateManager.getShipGraphFilename(masterId);

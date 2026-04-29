@@ -38,6 +38,9 @@ export const APP_STORAGE_INJECT_FPS = 'inject.fps';
 export const APP_STORAGE_INJECT_TOUCH_PATCH = 'inject.touchPatch';
 export const APP_STORAGE_INJECT_TICKER_RAF = 'inject.tickerRaf';
 export const APP_STORAGE_INJECT_PIXI_PATCH = 'inject.pixiPatch';
+/** AppStorage keys for equipment label badge overlays in the main panel */
+export const APP_STORAGE_PANEL_SHOW_KAISYUU = 'panel.equip.showKaisyuu';
+export const APP_STORAGE_PANEL_SHOW_PROFICIENCY = 'panel.equip.showProficiency';
 
 export default class EntryAbility extends UIAbility {
   private mainWindow?: window.Window;
@@ -87,6 +90,17 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_INJECT_PIXI_PATCH, false);
     void kvGetBool(APP_STORAGE_INJECT_PIXI_PATCH, false).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_INJECT_PIXI_PATCH, v);
+    });
+
+    // Equipment badge overlays in main panel — both default on.
+    AppStorage.setOrCreate(APP_STORAGE_PANEL_SHOW_KAISYUU, true);
+    void kvGetBool(APP_STORAGE_PANEL_SHOW_KAISYUU, true).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_PANEL_SHOW_KAISYUU, v);
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_PANEL_SHOW_PROFICIENCY, true);
+    void kvGetBool(APP_STORAGE_PANEL_SHOW_PROFICIENCY, true).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_PANEL_SHOW_PROFICIENCY, v);
     });
   }
 

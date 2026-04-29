@@ -143,6 +143,10 @@ export interface GameState {
   slotItemIconTypes: Map<number, number>;
   /** 装备实例索引 (slotitem uid → masterId) */
   slotItemIndex: Map<number, number>;
+  /** 装备改修度 (slotitem uid → api_level, 0..10) */
+  slotItemLevels: Map<number, number>;
+  /** 装备熟练度 (slotitem uid → api_alv, 0..7) */
+  slotItemAlvs: Map<number, number>;
   /** 舰娘图像文件名缓存 (masterId → api_filename) */
   shipGraphFilenames: Map<number, string>;
   /** 游戏服务器基础 URL（从 api_start2 请求中提取）*/
