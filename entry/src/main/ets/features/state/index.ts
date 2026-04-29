@@ -49,6 +49,8 @@ export {
   updateShipMasterMeta,
   updateSlotItemEquipTypes,
   updateSlotItemIndex,
+  getSlotItemLevel,
+  getSlotItemAlv,
   updateShipGraphFilenames,
   setGameServerUrl,
 

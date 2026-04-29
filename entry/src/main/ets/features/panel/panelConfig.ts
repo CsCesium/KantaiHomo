@@ -131,3 +131,26 @@ export function isAircraftEquipType(equipType: number): boolean {
 export function equipLabel(iconType: number): string {
   return `${EQUIP_ICON_DIR}${iconType > 0 ? iconType : 0}.svg`;
 }
+
+const KAISYUU_ICON_DIR = 'resource://RAWFILE/icons/kaisyuu/';
+const AIR_MASTERY_ICON_DIR = 'resource://RAWFILE/icons/air_mastery/';
+
+/**
+ * Returns the kaisyuu (improvement) star icon path for a given level (1..10).
+ * Returns null when level is 0 (no improvement).
+ */
+export function kaisyuuIcon(level: number): string | null {
+  if (level <= 0) return null;
+  const lv = level > 10 ? 10 : level;
+  return `${KAISYUU_ICON_DIR}starts_${lv}.png`;
+}
+
+/**
+ * Returns the aircraft proficiency icon path for alv (1..7).
+ * Maps alv 1..7 → sally_airunit_128..134.png. Returns null when alv is 0.
+ */
+export function airMasteryIcon(alv: number): string | null {
+  if (alv <= 0) return null;
+  const a = alv > 7 ? 7 : alv;
+  return `${AIR_MASTERY_ICON_DIR}sally_airunit_${127 + a}.png`;
+}
