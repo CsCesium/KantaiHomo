@@ -120,7 +120,7 @@ export default struct BattlePreviewPanel {
    * HP bar with:
    *   - damage value on the left (fixed width)
    *   - tick marks at 25% and 50% thresholds
-   *   - color: green >50%, orange 25-50%, red ≤25%, empty if sunk
+   *   - color: green >50%, orange 25-50%, red ≤25%, empty if sunk, gray for hp lost in this battle
    */
   @Builder HpBarRow(hpAfter: number, hpMax: number, damage: number) {
     Row({ space: 4 }) {
@@ -137,16 +137,26 @@ export default struct BattlePreviewPanel {
 
       // HP bar with threshold tick marks at 25% and 50%
       Stack() {
-        Progress({
-          value: hpAfter > 0 ? hpAfter : 0,
-          total: hpMax > 0 ? hpMax : 1,
-          type: ProgressType.Linear
-        })
-          .width('100%')
-          .height(PanelDimens.hpBarH)
-          .color(hpColor(hpAfter, hpMax))
-          .backgroundColor(PanelColors.bgHpTrack)
-
+        Row() {
+          if (hpAfter > 0) {
+            Column()
+              .layoutWeight(hpAfter)
+              .height('100%')
+              .backgroundColor(hpColor(hpAfter, hpMax))
+          }
+          if (damage > 0) {
+            Column()
+              .layoutWeight(damage)
+              .height('100%')
+              .backgroundColor(PanelColors.hpDamage)
+          }
+          if (hpMax - Math.max(hpAfter, 0) - Math.max(damage, 0) > 0) {
+            Blank().layoutWeight(hpMax - Math.max(hpAfter, 0) - Math.max(damage, 0))
+          }
+        }
+        .width('100%')
+        .height(PanelDimens.hpBarH)
+        .backgroundColor(PanelColors.bgHpTrack)
         // Tick marks: weights 1 | tick | 1 | tick | 2 → ticks at 25% and 50%
         Row() {
           Blank().layoutWeight(1)

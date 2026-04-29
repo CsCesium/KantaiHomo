@@ -40,7 +40,7 @@ export const PanelColors = {
   hpMid:         '#fb8c00',   // hp ratio 25-50% — orange (中破)
   hpWarn:        '#fdd835',   // warning yellow (engagement, condition — NOT hp bars)
   hpCrit:        '#e53935',   // hp ratio ≤ 25%  — red
-
+  hpDamage:      '#6b6f7e',   // hp lost in batle
   // Row separators
   rowBorder:     '#20243a',
 
