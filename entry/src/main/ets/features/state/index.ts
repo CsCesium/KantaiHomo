@@ -98,6 +98,12 @@ export {
   updateBattleResult,
   clearBattleState,
 
+  // 退避状态
+  markShipsEscaped,
+  clearEscapedShips,
+  isShipEscaped,
+  getEscapedShipUids,
+
   // 工具
   clearGameState,
   exportGameStateSnapshot,

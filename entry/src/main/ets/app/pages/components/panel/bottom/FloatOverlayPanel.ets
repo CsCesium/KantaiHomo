@@ -6,7 +6,8 @@ import {
   MapGaugeSnapshot,
   getGameServerUrl,
   getMapGauges,
-  getShipGraphFilename
+  getShipGraphFilename,
+  isShipEscaped
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
@@ -351,6 +352,13 @@ export default struct FloatOverlayPanel {
           .fontSize(PanelDimens.fontMd)
           .fontColor(hpColor(ship.hp, ship.hpMax))
           .margin({ left: 4 })
+        if (isShipEscaped(ship.id)) {
+          Text('退避')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.escapeLabel)
+            .fontWeight(FontWeight.Bold)
+            .margin({ left: 4 })
+        }
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

@@ -99,6 +99,11 @@ class GameStateManager {
   private expHistory: ExpChange[] = [];
   private readonly MAX_EXP_HISTORY = 100;
 
+  /** 当前出击中已使用退避机制的舰娘 UID 集合。
+   * 由 /api_req_combined_battle/goback_port 标记，回港时（PortHandler）清除。
+   * 这些舰娘不计入大破警告，UI 会以蓝色"退避"标签显示。 */
+  private escapedShipUids: Set<number> = new Set();
+
   /** 每日战果追踪（含 CST 周期 ID，用于跨周期重置） */
   private dailySenkaStart: { exp: number; time: number; date: string } | null = null;
 
@@ -928,6 +933,41 @@ class GameStateManager {
     this.notifyListeners('battle');
   }
 
+  // ==================== 退避状态 ====================
+
+  /** 标记舰娘已退避（使用 goback_port 机制）。多次调用会累加。 */
+  markShipsEscaped(uids: ReadonlyArray<number>): void {
+    let added = false;
+    for (const uid of uids) {
+      if (uid > 0 && !this.escapedShipUids.has(uid)) {
+        this.escapedShipUids.add(uid);
+        added = true;
+      }
+    }
+    if (added) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('ships');
+    }
+  }
+
+  /** 清空退避集合（出击结束/回港时调用）。 */
+  clearEscapedShips(): void {
+    if (this.escapedShipUids.size === 0) return;
+    this.escapedShipUids.clear();
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  /** 判断指定舰娘是否已退避。 */
+  isShipEscaped(uid: number): boolean {
+    return this.escapedShipUids.has(uid);
+  }
+
+  /** 获取所有已退避的舰娘 UID（只读副本）。 */
+  getEscapedShipUids(): ReadonlyArray<number> {
+    return Array.from(this.escapedShipUids);
+  }
+
   /**
    * 获取当前战斗状态
    */
@@ -1063,3 +1103,9 @@ export const getBattleStatus = () => gameStateManager.getBattleStatus();
 export const getBattleResult = () => gameStateManager.getBattleResult();
 export const isInBattle = () => gameStateManager.isInBattle();
 export const hasBattleResult = () => gameStateManager.hasBattleResult();
+
+// 退避状态便捷函数
+export const markShipsEscaped = (uids: ReadonlyArray<number>) => gameStateManager.markShipsEscaped(uids);
+export const clearEscapedShips = () => gameStateManager.clearEscapedShips();
+export const isShipEscaped = (uid: number) => gameStateManager.isShipEscaped(uid);
+export const getEscapedShipUids = () => gameStateManager.getEscapedShipUids();

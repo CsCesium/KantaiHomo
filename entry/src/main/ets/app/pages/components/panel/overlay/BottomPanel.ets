@@ -5,7 +5,8 @@ import {
   getShipGraphFilename, getGameServerUrl,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
-  MapGaugeSnapshot
+  MapGaugeSnapshot,
+  isShipEscaped
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
@@ -471,7 +472,7 @@ export default struct BottomPanel {
           .height(14)
         }
 
-        // Line 1: name | HP fraction
+        // Line 1: name | HP fraction | 退避 label
         Row() {
           Text(ship.name)
             .fontSize(PanelDimens.fontMd)
@@ -484,6 +485,13 @@ export default struct BottomPanel {
             .fontSize(PanelDimens.fontMd)
             .fontColor(hpColor(ship.hp, ship.hpMax))
             .margin({ left: 8 })
+          if (isShipEscaped(ship.id)) {
+            Text('退避')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.escapeLabel)
+              .fontWeight(FontWeight.Bold)
+              .margin({ left: 6 })
+          }
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)

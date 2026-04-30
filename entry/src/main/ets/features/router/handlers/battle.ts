@@ -9,7 +9,7 @@ import {
 } from '../../../domain/models';
 import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
-import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, patchShipsHp } from '../../state/game_state';
+import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, patchShipsHp, isShipEscaped } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
@@ -268,6 +268,8 @@ class BattleHandler implements Handler {
       const nowArr = record.hpEnd.friend.main.now;
       const maxArr = record.hpEnd.friend.main.max;
       for (let i = 1; i < mainShips.length && i < nowArr.length; i++) {
+        // 已使用退避机制的舰娘不再参与大破判定（已离队）
+        if (isShipEscaped(mainShips[i].uid)) continue;
         // 优先使用战斗结算的最大值，降级到出击快照的最大值（防止 api_f_maxhps 缺失）
         const maxHp = maxArr[i] > 0 ? maxArr[i] : mainShips[i].hpMax;
         if (maxHp > 0 && nowArr[i] > 0 && nowArr[i] / maxHp <= 0.25) {
@@ -289,6 +291,7 @@ class BattleHandler implements Handler {
         const escortNow = record.hpEnd.friend.escort?.now ?? [];
         const escortMax = record.hpEnd.friend.escort?.max ?? [];
         for (let i = 0; i < escortShips.length && i < escortNow.length; i++) {
+          if (isShipEscaped(escortShips[i].uid)) continue;
           const maxHp = escortMax[i] > 0 ? escortMax[i] : escortShips[i].hpMax;
           if (maxHp > 0 && escortNow[i] > 0 && escortNow[i] / maxHp <= 0.25) {
             const equip = getShipSpecialEquip(escortShips[i].uid);

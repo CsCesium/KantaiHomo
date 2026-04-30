@@ -20,7 +20,9 @@ import { parseDump, ParseResult } from '../../../parsers/pipeline';
 import { dispatchEvent } from '../executor';
 import { parseSvdata, parseSvdataAndUnwrap } from '../../../utils/common';
 import { ApiStateFields, detectStateFields } from '../../../../domain/models/api/response';
-import { extractAndUpdateState } from '../../../state';
+import { extractAndUpdateState, markShipsEscaped } from '../../../state';
+import { getSortieContext } from '../../../../domain/service';
+import { parseFormBody } from '../../../utils/common';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
 const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB
@@ -92,6 +94,38 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
       }
     } catch (e) {
       console.debug('[ingest] state extract skipped:', String(e));
+    }
+  }
+
+  // 退避（联合舰队护卫 + 拖船）：解析请求体的 api_escape_idx，
+  // 把对应位置的舰娘 UID 标记为已退避。1-6 → 主力，7-12 → 护卫。
+  // 大破警告会跳过这些 UID，主面板/侧边栏会以蓝色"退避"标签显示。
+  if (dump.url?.includes('/api_req_combined_battle/goback_port')) {
+    try {
+      const params = parseFormBody(dump.requestBody);
+      const idxRaw = params.getString('api_escape_idx');
+      if (idxRaw) {
+        const positions = idxRaw.split(',')
+          .map(s => parseInt(s.trim(), 10))
+          .filter(n => Number.isFinite(n) && n >= 1 && n <= 12);
+        const ctx = getSortieContext();
+        const uids: number[] = [];
+        for (const pos of positions) {
+          if (pos <= 6) {
+            const uid = ctx?.fleetSnapshot?.ships?.[pos - 1]?.uid ?? 0;
+            if (uid > 0) uids.push(uid);
+          } else {
+            const uid = ctx?.fleetSnapshotEscort?.ships?.[pos - 7]?.uid ?? 0;
+            if (uid > 0) uids.push(uid);
+          }
+        }
+        if (uids.length > 0) {
+          markShipsEscaped(uids);
+          console.info('[ingest] escaped ships:', uids.join(','));
+        }
+      }
+    } catch (e) {
+      console.warn('[ingest] goback_port parse failed:', String(e));
     }
   }
 
