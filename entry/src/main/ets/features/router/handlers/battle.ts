@@ -9,7 +9,7 @@ import {
 } from '../../../domain/models';
 import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
-import { updateBattleStatus, updateBattleResult, getShipSpecialEquip } from '../../state/game_state';
+import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, patchShipsHp } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
@@ -216,6 +216,37 @@ class BattleHandler implements Handler {
         baseExp: normalizedResult.exp.base,
       });
       updateBattleResult(resultSnapshot);
+    }
+
+    // 3b. 把战后 HP 写回 GameState.ships，使主面板与侧边栏在
+    // 下一次 /api_port/port 之前就反映真实战后 HP（与侧边栏 BATTLE_RESULT
+    // 覆盖逻辑保持一致）。BattleResult 响应不含 api_ship_data，
+    // 故依赖战斗段（来自模拟器或包结算）的 hpEnd。
+    if (context) {
+      const hpPatches: { uid: number; hpNow: number; hpMax: number }[] = [];
+      const mainShips = context.fleetSnapshot?.ships ?? [];
+      const mainNow = record.hpEnd.friend.main.now;
+      const mainMax = record.hpEnd.friend.main.max;
+      for (let i = 0; i < mainShips.length && i < mainNow.length; i++) {
+        const uid = mainShips[i].uid;
+        if (!uid) continue;
+        const hpMax = mainMax[i] > 0 ? mainMax[i] : mainShips[i].hpMax;
+        hpPatches.push({ uid, hpNow: mainNow[i], hpMax });
+      }
+      if (context.combinedType > 0) {
+        const escortShips = context.fleetSnapshotEscort?.ships ?? [];
+        const escortNow = record.hpEnd.friend.escort?.now ?? [];
+        const escortMax = record.hpEnd.friend.escort?.max ?? [];
+        for (let i = 0; i < escortShips.length && i < escortNow.length; i++) {
+          const uid = escortShips[i].uid;
+          if (!uid) continue;
+          const hpMax = escortMax[i] > 0 ? escortMax[i] : escortShips[i].hpMax;
+          hpPatches.push({ uid, hpNow: escortNow[i], hpMax });
+        }
+      }
+      if (hpPatches.length > 0) {
+        patchShipsHp(hpPatches);
+      }
     }
 
     // 4. 持久化（非演习才存储）

@@ -301,6 +301,35 @@ class GameStateManager {
   }
 
   /**
+   * 批量更新舰船 HP（战斗结算专用，仅覆盖 hpNow/hpMax 与派生伤害状态字段，
+   * 其他字段保持不变）。BATTLE_RESULT 之后调用，以便主面板与侧边栏在
+   * 下一次 /api_port/port 之前就反映真实战后 HP。
+   */
+  patchShipsHp(updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>): void {
+    let changed = false;
+    for (const u of updates) {
+      const existing = this.state.ships.get(u.uid);
+      if (!existing) continue;
+      const hpMax = u.hpMax > 0 ? u.hpMax : existing.hpMax;
+      const hpNow = Math.max(0, u.hpNow);
+      const hpPercent = hpMax > 0 ? hpNow / hpMax : 0;
+      this.state.ships.set(u.uid, {
+        ...existing,
+        hpNow,
+        hpMax,
+        hpPercent,
+        isTaiha: hpPercent <= 0.25,
+        isChuuha: hpPercent <= 0.5,
+      });
+      changed = true;
+    }
+    if (changed) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('ships');
+    }
+  }
+
+  /**
    * 删除舰船（解体/近代化改修消耗）
    */
   removeShips(uids: number[]): void {
@@ -991,6 +1020,8 @@ export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(q
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>
   gameStateManager.patchShipsSupply(updates);
+export const patchShipsHp = (updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>) =>
+  gameStateManager.patchShipsHp(updates);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>
 gameStateManager.updateFromPort(data);
 

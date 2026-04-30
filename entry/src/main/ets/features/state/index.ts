@@ -43,6 +43,7 @@ export {
   updateQuests,
   updateShips,
   patchShipsSupply,
+  patchShipsHp,
   updateFromPort,
 
   // 派生数据缓存更新
