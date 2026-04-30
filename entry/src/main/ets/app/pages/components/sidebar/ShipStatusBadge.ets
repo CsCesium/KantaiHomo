@@ -1,5 +1,5 @@
 import { ShipSpecialEquip, ShipState } from '../../../../features/state/type';
-import { getShipGraphFilename, getGameServerUrl } from '../../../../features/state';
+import { getShipGraphFilename, getGameServerUrl, isShipEscaped } from '../../../../features/state';
 import { getShipBannerUrl } from '../../../../features/game/shipGraph';
 import { equipLabel } from '../../../../features/panel/panelConfig';
 import { SlotItemIconId } from '../../../../domain/models/struct/slotitem';
@@ -14,6 +14,7 @@ const HP_COLOR_GREEN = '#4caf50';
 const HP_COLOR_YELLOW = '#ffeb3b';
 const HP_COLOR_RED = '#f44336';
 const HP_COLOR_BG = '#2a2a2a';
+const ESCAPE_LABEL_COLOR = '#42a5f5';
 const RING_STROKE_WIDTH = 3.5;
 const TICK_COLOR = '#ffffff';
 const TICK_OUTER_PAD = 2;
@@ -303,6 +304,17 @@ export default struct ShipStatusBadge {
             .width(this.badgeSize)
             .height(this.badgeSize)
             .position({ x: this.badgePositionX, y: this.badgePositionY })
+        }
+
+        // 退避（goback_port）标签 — 蓝色，盖在头像下沿
+        if (isShipEscaped(this.ship.uid)) {
+          Text('退避')
+            .fontSize(this.nameFontSize + 1)
+            .fontColor(ESCAPE_LABEL_COLOR)
+            .fontWeight(FontWeight.Bold)
+            .backgroundColor('#CC000000')
+            .padding({ left: 2, right: 2 })
+            .borderRadius(2)
         }
       }
       .width(this.ringDiam)

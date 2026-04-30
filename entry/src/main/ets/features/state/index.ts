@@ -43,6 +43,7 @@ export {
   updateQuests,
   updateShips,
   patchShipsSupply,
+  patchShipsHp,
   updateFromPort,
 
   // 派生数据缓存更新
@@ -96,6 +97,12 @@ export {
   updateBattleStatus,
   updateBattleResult,
   clearBattleState,
+
+  // 退避状态
+  markShipsEscaped,
+  clearEscapedShips,
+  isShipEscaped,
+  getEscapedShipUids,
 
   // 工具
   clearGameState,

@@ -99,6 +99,14 @@ class GameStateManager {
   private expHistory: ExpChange[] = [];
   private readonly MAX_EXP_HISTORY = 100;
 
+  /** 当前出击中已使用退避机制的舰娘 UID 集合。
+   * 由 /api_req_(combined_battle|sortie)/goback_port 的 api_escape_idx 标记，
+   * 列表里出现的所有位置（联合舰队 1-12 / 单舰队 1-6）都会被加入；
+   * 故"联合舰队退避 + 拖船"和"单舰退避（无拖船）"两种场景都覆盖。
+   * 回港时（PortHandler）清除。
+   * 这些舰娘不计入大破警告，UI 会以蓝色"退避"标签显示。 */
+  private escapedShipUids: Set<number> = new Set();
+
   /** 每日战果追踪（含 CST 周期 ID，用于跨周期重置） */
   private dailySenkaStart: { exp: number; time: number; date: string } | null = null;
 
@@ -298,6 +306,35 @@ class GameStateManager {
     }
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('ships');
+  }
+
+  /**
+   * 批量更新舰船 HP（战斗结算专用，仅覆盖 hpNow/hpMax 与派生伤害状态字段，
+   * 其他字段保持不变）。BATTLE_RESULT 之后调用，以便主面板与侧边栏在
+   * 下一次 /api_port/port 之前就反映真实战后 HP。
+   */
+  patchShipsHp(updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>): void {
+    let changed = false;
+    for (const u of updates) {
+      const existing = this.state.ships.get(u.uid);
+      if (!existing) continue;
+      const hpMax = u.hpMax > 0 ? u.hpMax : existing.hpMax;
+      const hpNow = Math.max(0, u.hpNow);
+      const hpPercent = hpMax > 0 ? hpNow / hpMax : 0;
+      this.state.ships.set(u.uid, {
+        ...existing,
+        hpNow,
+        hpMax,
+        hpPercent,
+        isTaiha: hpPercent <= 0.25,
+        isChuuha: hpPercent <= 0.5,
+      });
+      changed = true;
+    }
+    if (changed) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('ships');
+    }
   }
 
   /**
@@ -899,6 +936,41 @@ class GameStateManager {
     this.notifyListeners('battle');
   }
 
+  // ==================== 退避状态 ====================
+
+  /** 标记舰娘已退避（使用 goback_port 机制）。多次调用会累加。 */
+  markShipsEscaped(uids: ReadonlyArray<number>): void {
+    let added = false;
+    for (const uid of uids) {
+      if (uid > 0 && !this.escapedShipUids.has(uid)) {
+        this.escapedShipUids.add(uid);
+        added = true;
+      }
+    }
+    if (added) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('ships');
+    }
+  }
+
+  /** 清空退避集合（出击结束/回港时调用）。 */
+  clearEscapedShips(): void {
+    if (this.escapedShipUids.size === 0) return;
+    this.escapedShipUids.clear();
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  /** 判断指定舰娘是否已退避。 */
+  isShipEscaped(uid: number): boolean {
+    return this.escapedShipUids.has(uid);
+  }
+
+  /** 获取所有已退避的舰娘 UID（只读副本）。 */
+  getEscapedShipUids(): ReadonlyArray<number> {
+    return Array.from(this.escapedShipUids);
+  }
+
   /**
    * 获取当前战斗状态
    */
@@ -991,6 +1063,8 @@ export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(q
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>
   gameStateManager.patchShipsSupply(updates);
+export const patchShipsHp = (updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>) =>
+  gameStateManager.patchShipsHp(updates);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>
 gameStateManager.updateFromPort(data);
 
@@ -1032,3 +1106,9 @@ export const getBattleStatus = () => gameStateManager.getBattleStatus();
 export const getBattleResult = () => gameStateManager.getBattleResult();
 export const isInBattle = () => gameStateManager.isInBattle();
 export const hasBattleResult = () => gameStateManager.hasBattleResult();
+
+// 退避状态便捷函数
+export const markShipsEscaped = (uids: ReadonlyArray<number>) => gameStateManager.markShipsEscaped(uids);
+export const clearEscapedShips = () => gameStateManager.clearEscapedShips();
+export const isShipEscaped = (uid: number) => gameStateManager.isShipEscaped(uid);
+export const getEscapedShipUids = () => gameStateManager.getEscapedShipUids();

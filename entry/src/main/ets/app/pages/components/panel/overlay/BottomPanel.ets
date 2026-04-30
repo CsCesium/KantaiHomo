@@ -5,9 +5,7 @@ import {
   getShipGraphFilename, getGameServerUrl,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
-  MapGaugeSnapshot,
-  getQuests,
-  QuestSnapshot
+  MapGaugeSnapshot
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
@@ -478,7 +476,7 @@ export default struct BottomPanel {
           .height(14)
         }
 
-        // Line 1: name | HP fraction
+        // Line 1: name | HP fraction | 退避 label
         Row() {
           Text(ship.name)
             .fontSize(PanelDimens.fontMd)
@@ -491,6 +489,13 @@ export default struct BottomPanel {
             .fontSize(PanelDimens.fontMd)
             .fontColor(hpColor(ship.hp, ship.hpMax))
             .margin({ left: 8 })
+          if (isShipEscaped(ship.id)) {
+            Text('退避')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.escapeLabel)
+              .fontWeight(FontWeight.Bold)
+              .margin({ left: 6 })
+          }
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
@@ -502,7 +507,7 @@ export default struct BottomPanel {
             .fontColor(PanelColors.txtSub)
             .width(PanelDimens.levelW)
           Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
-            .layoutWeight(1)
+            .width(PanelDimens.hpBarW)
             .height(PanelDimens.hpBarH)
             .color(hpColor(ship.hp, ship.hpMax))
             .backgroundColor(PanelColors.bgHpTrack)
@@ -511,6 +516,7 @@ export default struct BottomPanel {
             .fontColor(condColor(ship.s1))
             .width(PanelDimens.statW)
             .textAlign(TextAlign.End)
+          Blank().layoutWeight(1)
           // Slot icons
           Row({ space: 1 }) {
             ForEach(ship.slots, (uid: number, idx: number) => {

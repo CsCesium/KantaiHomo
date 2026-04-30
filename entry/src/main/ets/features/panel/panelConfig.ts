@@ -41,6 +41,7 @@ export const PanelColors = {
   hpWarn:        '#fdd835',   // warning yellow (engagement, condition — NOT hp bars)
   hpCrit:        '#e53935',   // hp ratio ≤ 25%  — red
   hpDamage:      '#6b6f7e',   // hp lost in batle
+  escapeLabel:   '#42a5f5',   // 退避 (goback_port) label — blue
   // Row separators
   rowBorder:     '#20243a',
 
@@ -137,6 +138,8 @@ export const PanelDimens = {
   rowCompH:    44,   // ship row — compact 2-line layout (FloatOverlay)
   hpBarH:       5,   // HP bar height — expanded
   hpBarCompH:   4,   // HP bar height — compact
+  hpBarW:    '45%',  // HP bar width — expanded; fixed so equipment column aligns
+  hpBarCompW: '40%', // HP bar width — compact; fixed so equipment column aligns
   btnH:        28,
   btnCompH:    24,
 
