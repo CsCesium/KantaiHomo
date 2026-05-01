@@ -231,43 +231,43 @@ class BattleHandler implements Handler {
     // 5a. 战斗结算提醒
     try {
       // 计算大破无损管击沉风险（旗舰 i=0 不会击沉，从 i=1 开始）
+      // HP 来源使用模拟器的 prediction（与 UI 展示一致），而非 normalizer 简易 applyPhases
+      // 简易计算未处理 AACI 减伤、损管修正等场景，会偏低，导致误报
       let hasTaihaRisk = false;
       const taihaShipsList: { uid: number; name: string; hpAfter: number; hpMax: number }[] = [];
-      const mainShips = context?.fleetSnapshot?.ships ?? [];
-      const nowArr = record.hpEnd.friend.main.now;
-      const maxArr = record.hpEnd.friend.main.max;
-      for (let i = 1; i < mainShips.length && i < nowArr.length; i++) {
-        // 优先使用战斗结算的最大值，降级到出击快照的最大值（防止 api_f_maxhps 缺失）
-        const maxHp = maxArr[i] > 0 ? maxArr[i] : mainShips[i].hpMax;
-        if (maxHp > 0 && nowArr[i] > 0 && nowArr[i] / maxHp <= 0.25) {
-          const equip = getShipSpecialEquip(mainShips[i].uid);
+      const prediction = context?.pendingBattle?.prediction;
+      const mainPred = prediction?.friendMain ?? [];
+      for (let i = 1; i < mainPred.length; i++) {
+        const ship = mainPred[i];
+        if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
+        if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
+          const equip = getShipSpecialEquip(ship.uid);
           if (!equip.hasDamageControl && !equip.hasGoddess) {
             hasTaihaRisk = true;
             taihaShipsList.push({
-              uid: mainShips[i].uid,
-              name: mainShips[i].name || `#${mainShips[i].uid}`,
-              hpAfter: nowArr[i],
-              hpMax: maxHp,
+              uid: ship.uid,
+              name: ship.name || `#${ship.uid}`,
+              hpAfter: ship.hpAfter,
+              hpMax: ship.hpMax,
             });
           }
         }
       }
       // 联合舰队时检查护卫舰队（护卫队所有舰位均可击沉）
       if (context && context.combinedType > 0) {
-        const escortShips = context.fleetSnapshotEscort?.ships ?? [];
-        const escortNow = record.hpEnd.friend.escort?.now ?? [];
-        const escortMax = record.hpEnd.friend.escort?.max ?? [];
-        for (let i = 0; i < escortShips.length && i < escortNow.length; i++) {
-          const maxHp = escortMax[i] > 0 ? escortMax[i] : escortShips[i].hpMax;
-          if (maxHp > 0 && escortNow[i] > 0 && escortNow[i] / maxHp <= 0.25) {
-            const equip = getShipSpecialEquip(escortShips[i].uid);
+        const escortPred = prediction?.friendEscort ?? [];
+        for (let i = 0; i < escortPred.length; i++) {
+          const ship = escortPred[i];
+          if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
+          if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
+            const equip = getShipSpecialEquip(ship.uid);
             if (!equip.hasDamageControl && !equip.hasGoddess) {
               hasTaihaRisk = true;
               taihaShipsList.push({
-                uid: escortShips[i].uid,
-                name: escortShips[i].name || `#${escortShips[i].uid}`,
-                hpAfter: escortNow[i],
-                hpMax: maxHp,
+                uid: ship.uid,
+                name: ship.name || `#${ship.uid}`,
+                hpAfter: ship.hpAfter,
+                hpMax: ship.hpMax,
               });
             }
           }
