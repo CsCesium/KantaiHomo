@@ -50,12 +50,15 @@ class BattleHandler implements Handler {
     // 1. 获取出击上下文，更新内存状态
     const context = getSortieContext();
     if (context) {
-      // 用舰船信息丰富预测
-      prediction = enrichPredictionWithShipInfo(
-        prediction,
-        context.fleetSnapshot.ships.map(s => ({ uid: s.uid, name: s.name })),
-        context.fleetSnapshotEscort?.ships.map(s => ({ uid: s.uid, name: s.name }))
-      );
+      // 用舰船信息丰富预测；基地空袭的 friend 一侧是基地，parser 已用 LBAS 名填好，
+      // 此处跳过避免被舰队名覆盖。
+      if (!isAirRaid) {
+        prediction = enrichPredictionWithShipInfo(
+          prediction,
+          context.fleetSnapshot.ships.map(s => ({ uid: s.uid, name: s.name })),
+          context.fleetSnapshotEscort?.ships.map(s => ({ uid: s.uid, name: s.name }))
+        );
+      }
 
       // 首节点战斗或基地空袭时 pendingBattle 为 null，按当前节点补建。
       if (!context.pendingBattle && context.currentCell) {

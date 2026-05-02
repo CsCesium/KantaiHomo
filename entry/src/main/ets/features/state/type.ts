@@ -310,6 +310,8 @@ export interface BattleStatusSnapshot {
   battlePhase: 'day' | 'night' | 'day_to_night';
   /** 是否演习 */
   isPractice: boolean;
+  /** 是否基地空袭（friend/enemy 双方都是路基/航空编队，使用混乱/损害/损壊/破壊术语） */
+  isAirRaid: boolean;
   /** 联合舰队类型 (0=非联合) */
   combinedType: number;
 
@@ -380,6 +382,8 @@ export interface BattleResultSnapshot {
   mvp?: number;
   /** 联合第二舰队MVP */
   mvpCombined?: number;
+  /** 是否基地空袭 */
+  isAirRaid: boolean;
 
   // 掉落
   /** 掉落舰船ID */

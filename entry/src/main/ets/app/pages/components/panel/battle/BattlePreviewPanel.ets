@@ -58,11 +58,11 @@ function airStateColor(s: number | undefined): string {
   return PanelColors.txtMuted;
 }
 
-function shipBadgeText(ship: ShipBattleStatus): string {
-  if (ship.isSunk) return '轰沈';
-  if (ship.isTaiha) return '大破';
-  if (ship.isChuuha) return '中破';
-  if (ship.isShouha) return '小破';
+function shipBadgeText(ship: ShipBattleStatus, landBased: boolean = false): string {
+  if (ship.isSunk) return landBased ? '破壊' : '轰沈';
+  if (ship.isTaiha) return landBased ? '损壊' : '大破';
+  if (ship.isChuuha) return landBased ? '损害' : '中破';
+  if (ship.isShouha) return landBased ? '混乱' : '小破';
   return '';
 }
 
@@ -73,12 +73,12 @@ function shipBadgeColor(ship: ShipBattleStatus): string {
   return PanelColors.hpOk;
 }
 
-function enemyBadgeText(hpNow: number, hpMax: number): string {
-  if (hpNow <= 0) return '轰沈';
+function enemyBadgeText(hpNow: number, hpMax: number, landBased: boolean = false): string {
+  if (hpNow <= 0) return landBased ? '破壊' : '轰沈';
   const r = hpMax > 0 ? hpNow / hpMax : 1;
-  if (r <= 0.25) return '大破';
-  if (r <= 0.5) return '中破';
-  if (r <= 0.75) return '小破';
+  if (r <= 0.25) return landBased ? '损壊' : '大破';
+  if (r <= 0.5)  return landBased ? '损害' : '中破';
+  if (r <= 0.75) return landBased ? '混乱' : '小破';
   return '';
 }
 
@@ -173,7 +173,7 @@ export default struct BattlePreviewPanel {
    *   name (flex)   beforeHP→afterHP   [badge]
    *   [-dmg fixed]  [====HP bar with ticks====]
    */
-  @Builder BattleShipRow(ship: ShipBattleStatus) {
+  @Builder BattleShipRow(ship: ShipBattleStatus, landBased: boolean = false) {
     Column({ space: 2 }) {
       // Line 1: name | HP transition | status badge
       Row({ space: 3 }) {
@@ -191,7 +191,7 @@ export default struct BattlePreviewPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(hpColor(ship.hpAfter, ship.hpMax))
 
-        Text(shipBadgeText(ship))
+        Text(shipBadgeText(ship, landBased))
           .fontSize(PanelDimens.fontSm)
           .fontColor(shipBadgeColor(ship))
           .fontWeight(FontWeight.Bold)
@@ -220,10 +220,10 @@ export default struct BattlePreviewPanel {
    *
    * 敵舰 master id 在图鉴缓存中通常含日文舰名，未命中时回退为 `敵N`。
    */
-  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number) {
+  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number, landBased: boolean = false) {
     Column({ space: 2 }) {
       Row({ space: 3 }) {
-        Text(getShipMasterName(masterId) || `敵${idx + 1}`)
+        Text(getShipMasterName(masterId) || (landBased ? `敵編隊${idx + 1}` : `敵${idx + 1}`))
           .fontSize(PanelDimens.fontMd)
           .fontColor(hpAfter <= 0 ? PanelColors.txtMuted : PanelColors.txtSub)
           .layoutWeight(1)
@@ -237,7 +237,7 @@ export default struct BattlePreviewPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(hpColor(hpAfter, hpMax))
 
-        Text(enemyBadgeText(hpAfter, hpMax))
+        Text(enemyBadgeText(hpAfter, hpMax, landBased))
           .fontSize(PanelDimens.fontSm)
           .fontColor(enemyBadgeColor(hpAfter, hpMax))
           .fontWeight(FontWeight.Bold)
@@ -281,9 +281,10 @@ export default struct BattlePreviewPanel {
             .backgroundColor(snap.isBoss ? '#3d2e00' : PanelColors.bgTabInactive)
             .borderRadius(2)
 
-          Text(phaseName(snap.battlePhase))
+          Text(snap.isAirRaid ? '基地空襲' : phaseName(snap.battlePhase))
             .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.txtSub)
+            .fontColor(snap.isAirRaid ? '#fb8c00' : PanelColors.txtSub)
+            .fontWeight(snap.isAirRaid ? FontWeight.Bold : FontWeight.Normal)
         }
         .layoutWeight(1)
         .alignItems(VerticalAlign.Center)
@@ -410,7 +411,7 @@ export default struct BattlePreviewPanel {
   }
 
   /** A fleet's ship list (shared between prediction and result views). */
-  @Builder FleetShipList(fleet: FleetBattleStatus, label: string) {
+  @Builder FleetShipList(fleet: FleetBattleStatus, label: string, landBased: boolean = false) {
     if (label) {
       Row() {
         Text(label)
@@ -425,18 +426,18 @@ export default struct BattlePreviewPanel {
     }
 
       ForEach(fleet.ships, (ship: ShipBattleStatus) => {
-      this.BattleShipRow(ship)
+      this.BattleShipRow(ship, landBased)
     }, (ship: ShipBattleStatus) => `bship-${ship.uid}`)
   }
 
   /** Enemy fleet ship list with HP bars. */
-  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string) {
+  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string, landBased: boolean = false) {
     Row() {
       Text(label || '敵方')
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.txtFainter)
         .padding({ left: 10 })
-      Text(`撃沈 ${enemy.sunkCount}/${enemy.shipIds.length}`)
+      Text(`${landBased ? '破壊' : '撃沈'} ${enemy.sunkCount}/${enemy.shipIds.length}`)
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.txtMuted)
         .padding({ right: 10 })
@@ -457,7 +458,8 @@ export default struct BattlePreviewPanel {
           enemy.shipIds[idx] ?? 0,
           enemy.hpBefore[idx] ?? enemy.hpMax[idx],
           enemy.hpNow[idx] ?? 0,
-          enemy.hpMax[idx]
+          enemy.hpMax[idx],
+          landBased
         )
       }
     }, (_: number, idx: number) => `erow-${idx}`)
@@ -617,12 +619,31 @@ export default struct BattlePreviewPanel {
       } else if (this.statusSnap) {
         // ── Prediction view ──────────────────────────────────────────────
         this.PredictHeader(this.statusSnap)
-        this.TaihaWarning(this.statusSnap)
-        this.SunkWarning(this.statusSnap.hasSunkRisk)
+        if (!this.statusSnap.isAirRaid) {
+          this.TaihaWarning(this.statusSnap)
+          this.SunkWarning(this.statusSnap.hasSunkRisk)
+        }
 
         Scroll() {
           Column() {
-            if (this.statusSnap.friendEscort) {
+            if (this.statusSnap.isAirRaid) {
+              // Air raid: friend = land bases, enemy = aerial squadrons
+              Row() {
+                Column() {
+                  this.FleetShipList(this.statusSnap.friendMain, '基地', true)
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵編隊', true)
+                }
+                .layoutWeight(1)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+            } else if (this.statusSnap.friendEscort) {
               // Combined fleet: upper = friendly (main | escort), lower = enemy (escort | main)
               Row() {
                 Column() {
