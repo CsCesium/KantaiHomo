@@ -725,11 +725,11 @@ export default struct BottomPanel {
               }, (quest: QuestSnapshot) => `quest-${quest.questId}`)
             } else {
               Column() {
-                Text('未受領の任務')
+                Text('未接受的任务')
                   .fontSize(PanelDimens.fontMd)
                   .fontColor(PanelColors.txtMuted)
                   .margin({ top: 24 })
-                Text('任務一覧を開くとデータが取得されます')
+                Text('打开任务列表以获得数据')
                   .fontSize(PanelDimens.fontSm)
                   .fontColor(PanelColors.txtFainter)
                   .margin({ top: 6 })

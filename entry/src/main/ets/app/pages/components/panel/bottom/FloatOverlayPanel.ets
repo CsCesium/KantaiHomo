@@ -1,5 +1,6 @@
 import { MapGaugeInfo, PanelPopupStateChangeEvent, ShipItem } from '../../../../../features/panel/type';
-import { hpColor, equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { hpColor, equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon, PanelColors, PanelDimens,
+  ShipDiems } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   MaterialsSnapshot, DeckSnapshot, ShipState,
@@ -242,6 +243,46 @@ export default struct FloatOverlayPanel {
       this.detailRow = null;
     }
   }
+  //ship
+  private numAt(values: number[], index: number): number {
+    if (index >= 0 && index < values.length) {
+      return values[index]
+    }
+    return 0
+  }
+
+  private resolveShipBannerSource(ship: ShipItem): ResourceStr {
+    const graphFilename = getShipGraphFilename(ship.masterId)
+    const serverUrl = getGameServerUrl()
+
+    // if (typeof graphFilename === 'string' &&
+    //   graphFilename.length > 0 &&
+    //   typeof serverUrl === 'string' &&
+    //   serverUrl.length > 0) {
+    //   return getShipBannerUrl(ship.masterId, graphFilename, serverUrl)
+    // }
+
+    // 回退测试图
+    return $rawfile('test/remodel.png')
+  }
+
+  private getShipStatusText(ship: ShipItem): string {
+    if (isShipEscaped(ship.id)) {
+      return '退避'
+    }
+
+    return `◆${ship.s1}`
+  }
+
+  private getShipStatusColor(ship: ShipItem): string {
+    if (isShipEscaped(ship.id)) {
+      return PanelColors.escapeLabel
+    }
+
+    return condColor(ship.s1)
+  }
+
+  
 
   @Builder EquipPopup() {
     EquipDetailPanel({ row: this.detailRow })
@@ -256,6 +297,7 @@ export default struct FloatOverlayPanel {
     level: number,
     alv: number,
     size: number,
+    tagsize:number,
     isExSlot: boolean = false
   ) {
     Stack() {
@@ -265,14 +307,14 @@ export default struct FloatOverlayPanel {
         .padding(1)
       if (this.showKaisyuu && level > 0 && kaisyuuIcon(level) !== null) {
         Image(kaisyuuIcon(level)!)
-          .width(Math.floor(size * 0.6))
-          .height(Math.floor(size * 0.6))
+          .width(Math.floor(tagsize * 1.8))
+          .height(Math.floor(tagsize * 0.6))
           .position({ top: 0, right: 0 })
       }
       if (this.showProficiency && alv > 0 && airMasteryIcon(alv) !== null) {
         Image(airMasteryIcon(alv)!)
-          .width(Math.floor(size * 0.7))
-          .height(Math.floor(size * 0.7))
+          .width(Math.floor(tagsize * 0.7))
+          .height(Math.floor(tagsize * 0.7))
           .position({ bottom: 0, left: 0 })
       }
       if (isAircraftEquipType(equipType) && air > 0) {
@@ -308,7 +350,240 @@ export default struct FloatOverlayPanel {
   }
 
   // ── builders ──────────────────────────────────────────────────────────────
+  @Builder
+  ShipBannerBlock(ship: ShipItem, isFlag: boolean) {
+    Stack() {
+      // ------------------------------------------------------------------------
+      // 第 1 层：背景 Banner 图
+      //
+      // 你的测试图是 998 x 182。
+      // 这里使用 ImageFit.Cover，让它以横幅窗口方式裁切显示。
+      // 如果之后真实图统一预裁为 800 x 182，这里也不用改。
+      // ------------------------------------------------------------------------
+      Image(this.resolveShipBannerSource(ship))
+        .width('100%')
+        .height('100%')
+        .objectFit(ImageFit.Cover)
+        .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
 
+      // ------------------------------------------------------------------------
+      // 第 2 层：全局轻遮罩
+      //
+      // 作用：
+      // - 稍微压暗复杂背景
+      // - 避免白色文字在亮色背景上看不清
+      // ------------------------------------------------------------------------
+      Row()
+        .width('100%')
+        .height('100%')
+        .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+        .backgroundColor('#18000000')
+
+      // ------------------------------------------------------------------------
+      // 第 3 层：右侧暗区
+      //
+      // 因为舰名和 Lv 都靠右下显示，所以右侧加一点暗色。
+      // 左侧尽量保留原图细节，不遮挡角色主体。
+      // ------------------------------------------------------------------------
+      Row() {
+        Blank()
+          .layoutWeight(1)
+
+        Row()
+          .width('58%')
+          .height('100%')
+          .backgroundColor('#30000000')
+      }
+      .width('100%')
+      .height('100%')
+      .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+
+      // ------------------------------------------------------------------------
+      // 第 4 层：底部暗带
+      //
+      // 舰名和 Lv 都在偏下方，底部暗带可以显著增强可读性。
+      // ------------------------------------------------------------------------
+      Column() {
+        Blank()
+          .layoutWeight(1)
+
+        Row()
+          .width('100%')
+          .height('55%')
+          .backgroundColor('#50000000')
+      }
+      .width('100%')
+      .height('100%')
+      .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+
+      // ------------------------------------------------------------------------
+      // 第 5 层：左上角特殊攻击徽章
+      //
+      // 保留你原本的旗舰特殊攻击显示。
+      // 如果不需要，可以删除这一层。
+      // ------------------------------------------------------------------------
+      Column() {
+        Row() {
+          if (isFlag && this.specialAttack !== '') {
+            Text(`⚡ ${this.specialAttack}`)
+              .fontSize(8)
+              .fontColor('#FFD700')
+              .backgroundColor('#661a1525')
+              .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+              .borderRadius(2)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+
+          Blank()
+            .layoutWeight(1)
+        }
+        .width('100%')
+
+        Blank()
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ left: 6, right: 6, top: 5, bottom: 5 })
+
+      // ------------------------------------------------------------------------
+      // 第 6 层：舰名 + Lv 文字层
+      //
+      // 这里按你的要求：
+      // - 舰名在上
+      // - Lv 在下
+      // - 两者靠右
+      // - 作为一个文本组贴近右下角，而不是上下分散
+      // ------------------------------------------------------------------------
+      Column() {
+        Blank()
+          .layoutWeight(1)
+
+        Row() {
+          Blank()
+            .layoutWeight(1)
+
+          Column({ space: 0 }) {
+            Text(ship.name)
+              .fontSize(ShipDiems.SHIP_BANNER_NAME_FONT)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#FFFFFF')
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+            Text(`Lv. ${ship.level}`)
+              .fontSize(ShipDiems.SHIP_BANNER_LEVEL_FONT)
+              .fontWeight(FontWeight.Medium)
+              .fontColor('#EEEEEE')
+              .backgroundColor('#52000000')
+              .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+              .borderRadius(3)
+              .maxLines(1)
+          }
+          .alignItems(HorizontalAlign.End)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Bottom)
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ left: 8, right: 8, top: 6, bottom: 6 })
+    }
+    .width('100%')
+    .height('100%')
+    .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+    .clip(true)
+  }
+
+  @Builder
+  ShipStatusBlock(ship: ShipItem) {
+    Column({ space: 4 }) {
+      Row() {
+        // 左侧：当前 HP / 最大 HP
+        Text(`${ship.hp} / ${ship.hpMax}`)
+          .fontSize(ShipDiems.SHIP_HP_FONT)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(hpColor(ship.hp, ship.hpMax))
+          .maxLines(1)
+
+        // 中间弹性空白，把状态推到右边
+        Blank()
+          .layoutWeight(1)
+
+        // 右侧：状态
+        Text(this.getShipStatusText(ship))
+          .fontSize(ShipDiems.SHIP_STATUS_FONT)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.getShipStatusColor(ship))
+          .maxLines(1)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      // HP 线性进度条
+      Progress({
+        value: ship.hp,
+        total: ship.hpMax > 0 ? ship.hpMax : 1,
+        type: ProgressType.Linear
+      })
+        .width('100%')
+        .height(ShipDiems.SHIP_HP_BAR_HEIGHT)
+        .color(hpColor(ship.hp, ship.hpMax))
+        .backgroundColor(PanelColors.overlayRow)
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+  }
+
+
+  @Builder
+  ShipEquipBlock(ship: ShipItem) {
+    Row({ space: 2 }) {
+      ForEach(ship.slots, (uid: number, idx: number) => {
+        if (uid > 0) {
+          this.EquipSlot(
+            uid,
+            this.numAt(ship.slotIconTypes, idx),
+            this.numAt(ship.slotTypes, idx),
+            this.numAt(ship.slotAirs, idx),
+            this.numAt(ship.slotLevels, idx),
+            this.numAt(ship.slotAlvs, idx),
+            ShipDiems.SHIP_EQUIP_ICON_SIZE,
+            ShipDiems.SHIP_TAG_SIZE,
+          )
+        } else {
+          // 空槽占位
+          Row()
+            .width(ShipDiems.SHIP_EQUIP_ICON_SIZE)
+            .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
+            .borderRadius(2)
+            .backgroundColor('#55c8cce0')
+        }
+      }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
+
+      // 扩展槽
+      if (ship.exSlot > 0) {
+        this.EquipSlot(
+          ship.exSlot,
+          ship.exSlotIconType,
+          ship.exSlotType,
+          0,
+          ship.exSlotLevel,
+          ship.exSlotAlv,
+          ShipDiems.SHIP_EQUIP_ICON_SIZE,
+          ShipDiems.SHIP_TAG_SIZE,
+          true
+        )
+      }
+    }
+    .width('100%')
+    .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
+    .justifyContent(FlexAlign.Start)
+    .alignItems(VerticalAlign.Center)
+    .clip(true)
+  }
   /**
    * Compact 2-line (+ optional special-attack label) ship row:
    *
@@ -316,112 +591,104 @@ export default struct FloatOverlayPanel {
    *   name (flex)   hp/hpMax
    *   Lv.  [HP bar]  ◆cond  [s1][s2]…[ex]
    */
-  @Builder ShipRow(ship: ShipItem, isFlag: boolean) {
-    Column({ space: 2 }) {
-      // Special attack badge — flagship only
-      if (isFlag && this.specialAttack !== '') {
-        Row() {
-          Text(`⚡ ${this.specialAttack}`)
-            .fontSize(8)
-            .fontColor('#FFD700')
-            .backgroundColor('#1a1525')
-            .padding({ left: 4, right: 4, top: 1, bottom: 1 })
-            .borderRadius(2)
-        }
-        .width('100%')
-        .height(12)
+  @Builder
+  ShipRow(ship: ShipItem, isFlag: boolean) {
+    Row({ space: 8 }) {
+      // ------------------------------------------------------------------------
+      // 左列：Banner 身份展示区
+      //
+      // - 保证 Banner 有足够空间显示舰名和背景
+      // - 不写死宽度，适合不同父容器宽度
+      // ------------------------------------------------------------------------
+      Row() {
+        this.ShipBannerBlock(ship, isFlag)
       }
+      .layoutWeight(5)
+      .constraintSize({ minWidth: 0 })
 
-      // Line 1: [avatar] name | HP fraction
-      Row({ space: 4 }) {
-        if (getShipGraphFilename(ship.masterId) && getGameServerUrl()) {
-          Image(getShipBannerUrl(ship.masterId, getShipGraphFilename(ship.masterId)!, getGameServerUrl()!))
-            .width(32)
-            .height(18)
-            .objectFit(ImageFit.Cover)
-            .borderRadius(2)
-        }
-        Text(ship.name)
-          .fontSize(PanelDimens.fontMd)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(ship.hp <= 0 ? PanelColors.txtMuted : PanelColors.txtPrimary)
-          .layoutWeight(1)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`${ship.hp}/${ship.hpMax}`)
-          .fontSize(PanelDimens.fontMd)
-          .fontColor(hpColor(ship.hp, ship.hpMax))
-          .margin({ left: 4 })
-        if (isShipEscaped(ship.id)) {
-          Text('退避')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.escapeLabel)
-            .fontWeight(FontWeight.Bold)
-            .margin({ left: 4 })
-        }
+      // ------------------------------------------------------------------------
+      // 中列：HP / 状态展示区
+      //
+      // - 只显示 HP、状态、血条
+      // - 不再混入装备
+      // ------------------------------------------------------------------------
+      Row() {
+        this.ShipStatusBlock(ship)
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+      .layoutWeight(3)
+      .constraintSize({ minWidth: 0 })
 
-      // Line 2: Lv | HP bar | cond | slot icons
-      Row({ space: 2 }) {
-        Text(`Lv.${ship.level}`)
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtSub)
-          .width(PanelDimens.levelW)
-        Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
-          .width(PanelDimens.hpBarCompW)
-          .height(PanelDimens.hpBarCompH)
-          .color(hpColor(ship.hp, ship.hpMax))
-          .backgroundColor(PanelColors.overlayRow)
-        Text(`◆${ship.s1}`)
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(condColor(ship.s1))
-          .width(PanelDimens.statCompW)
-          .textAlign(TextAlign.End)
-        Blank().layoutWeight(1)
-        // Slot icons (compact)
-        Row({ space: 1 }) {
-          ForEach(ship.slots, (uid: number, idx: number) => {
-            if (uid > 0) {
-              this.EquipSlot(uid,
-                ship.slotIconTypes[idx] ?? 0,
-                ship.slotTypes[idx] ?? 0,
-                ship.slotAirs[idx] ?? 0,
-                ship.slotLevels[idx] ?? 0,
-                ship.slotAlvs[idx] ?? 0,
-                12)
-            } else {
-              Row()
-                .width(12)
-                .height(12)
-                .borderRadius(2)
-                .backgroundColor('#55c8cce0')
-            }
-          }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
-          if (ship.exSlot > 0) {
-            this.EquipSlot(ship.exSlot,
-              ship.exSlotIconType,
-              ship.exSlotType,
-              0,
-              ship.exSlotLevel,
-              ship.exSlotAlv,
-              12,
-              true)
-          }
-        }
-        .alignItems(VerticalAlign.Center)
+      // ------------------------------------------------------------------------
+      // 右列：装备展示区
+      //
+      // - 右侧独占装备列
+      // - 装备单行左对齐
+      // - 不 wrap，不产生第二行
+      // ------------------------------------------------------------------------
+      Row() {
+        this.ShipEquipBlock(ship)
       }
-      .width('100%')
+      .layoutWeight(5)
+      .constraintSize({ minWidth: 0 })
+      .height('100%')
       .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Start)
     }
     .width('100%')
-    .height(isFlag && this.specialAttack !== '' ? PanelDimens.rowCompH + 14 : PanelDimens.rowCompH)
-    .padding({ left: 8, right: 6, top: 4, bottom: 4 })
-    .justifyContent(FlexAlign.Center)
+    .height(ShipDiems.SHIP_ROW_HEIGHT)
+    .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+    .alignItems(VerticalAlign.Center)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.overlayRow)
   }
+
+  /** Compact Item gauge row ShipRow */
+  @Builder EquipSlotsPanel(ship: ShipItem) {
+    Flex({
+      direction: FlexDirection.Row,
+      wrap: FlexWrap.Wrap,
+      justifyContent: FlexAlign.End,
+      alignItems: ItemAlign.Center
+    }) {
+      ForEach(ship.slots, (uid: number, idx: number) => {
+        if (uid > 0) {
+          this.EquipSlot(
+            uid,
+            ship.slotIconTypes[idx] ?? 0,
+            ship.slotTypes[idx] ?? 0,
+            ship.slotAirs[idx] ?? 0,
+            ship.slotLevels[idx] ?? 0,
+            ship.slotAlvs[idx] ?? 0,
+            16,
+            ShipDiems.SHIP_TAG_SIZE,
+          )
+        } else {
+          Row()
+            .width(16)
+            .height(16)
+            .borderRadius(2)
+            .backgroundColor('#55c8cce0')
+        }
+      }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
+
+      if (ship.exSlot > 0) {
+        this.EquipSlot(
+          ship.exSlot,
+          ship.exSlotIconType,
+          ship.exSlotType,
+          0,
+          ship.exSlotLevel,
+          ship.exSlotAlv,
+          16,
+          ShipDiems.SHIP_TAG_SIZE,
+          true
+        )
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
 
   /** Compact map gauge row for FloatOverlay mode */
   @Builder MapGaugeRow(gauge: MapGaugeSnapshot) {
@@ -569,7 +836,7 @@ export default struct FloatOverlayPanel {
                 this.MapGaugeRow(gauge)
               }, (gauge: MapGaugeSnapshot) => `gauge-${gauge.mapId}-${gauge.gaugeNum}`)
             } else {
-              Text('データなし')
+              Text('NO DATA')
                 .fontSize(PanelDimens.fontSm)
                 .fontColor(PanelColors.txtMuted)
                 .margin({ top: 16 })
@@ -580,7 +847,7 @@ export default struct FloatOverlayPanel {
               this.ShipRow(ship, idx === 0)
             }, (ship: ShipItem) => `ship-${ship.id}`)
           } else {
-            Text('データなし')
+            Text('NO DATA')
               .fontSize(PanelDimens.fontSm)
               .fontColor(PanelColors.txtMuted)
               .margin({ top: 16 })

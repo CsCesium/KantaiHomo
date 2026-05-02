@@ -165,6 +165,18 @@ export const PanelDimens = {
   overlaySideGap: 60,  // left/right dismiss area in compact overlay (vp)
 } as const;
 
+export const ShipDiems = {
+ SHIP_ROW_HEIGHT : 44,
+ SHIP_BANNER_RADIUS : 4,// Banner 圆角
+ SHIP_BANNER_NAME_FONT : 15,// Banner 内舰名字体，大字号
+ SHIP_BANNER_LEVEL_FONT : 5,// Banner 内 Lv 字体，小字号
+ SHIP_HP_FONT : 12,  // 中列 HP 字体
+ SHIP_STATUS_FONT : 12,  // 中列状态字体
+ SHIP_HP_BAR_HEIGHT : 8,  // HP 进度条高度
+ SHIP_EQUIP_ICON_SIZE : 30,
+ SHIP_TAG_SIZE:10,
+}
+
 // ── HP color helper ────────────────────────────────────────────────────────
 
 const HP_OK_RATIO   = 0.5;
