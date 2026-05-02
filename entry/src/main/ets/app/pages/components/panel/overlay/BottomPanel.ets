@@ -5,7 +5,10 @@ import {
   getShipGraphFilename, getGameServerUrl,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
-  MapGaugeSnapshot
+  MapGaugeSnapshot,
+  getQuests,
+  isShipEscaped,
+  QuestSnapshot
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
