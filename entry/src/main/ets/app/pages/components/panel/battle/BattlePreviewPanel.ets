@@ -550,8 +550,8 @@ export default struct BattlePreviewPanel {
 
         Scroll() {
           Column() {
-            if (this.resultSnap.friendEscort || this.resultSnap.enemyEscort) {
-              // Combined fleet: upper = friendly (main | escort), lower = enemy (escort | main)
+            if (this.resultSnap.friendEscort && this.resultSnap.enemyEscort) {
+              // Combined vs combined: upper = friendly (main | escort), lower = enemy (escort | main)
               Row() {
                 Column() {
                   this.FleetShipList(this.resultSnap.friendMain, '主力')
@@ -561,9 +561,7 @@ export default struct BattlePreviewPanel {
                 .borderColor(PanelColors.rowBorder)
 
                 Column() {
-                  if (this.resultSnap.friendEscort) {
-                    this.FleetShipList(this.resultSnap.friendEscort, '護衛')
-                  }
+                  this.FleetShipList(this.resultSnap.friendEscort, '護衛')
                 }
                 .layoutWeight(1)
               }
@@ -572,9 +570,7 @@ export default struct BattlePreviewPanel {
 
               Row() {
                 Column() {
-                  if (this.resultSnap.enemyEscort) {
-                    this.EnemyFleetList(this.resultSnap.enemyEscort, '敵護衛')
-                  }
+                  this.EnemyFleetList(this.resultSnap.enemyEscort, '敵護衛')
                 }
                 .layoutWeight(1)
                 .borderWidth({ right: PanelDimens.borderW })
@@ -589,8 +585,56 @@ export default struct BattlePreviewPanel {
               .alignItems(VerticalAlign.Top)
               .borderWidth({ top: 2 })
               .borderColor(PanelColors.rowBorder)
+            } else if (this.resultSnap.friendEscort) {
+              // Friend combined vs enemy single: 3 columns (friend main | friend escort | enemy)
+              Row() {
+                Column() {
+                  this.FleetShipList(this.resultSnap.friendMain, '主力')
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.FleetShipList(this.resultSnap.friendEscort, '護衛')
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵方')
+                }
+                .layoutWeight(1)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+            } else if (this.resultSnap.enemyEscort) {
+              // Friend single vs enemy combined: 3 columns (friend | enemy escort | enemy main)
+              Row() {
+                Column() {
+                  this.FleetShipList(this.resultSnap.friendMain, '我方')
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.EnemyFleetList(this.resultSnap.enemyEscort, '敵護衛')
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵主力')
+                }
+                .layoutWeight(1)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
             } else {
-              // Single fleet: left = friendly, right = enemy
+              // Single vs single: left = friendly, right = enemy
               Row() {
                 Column() {
                   this.FleetShipList(this.resultSnap.friendMain, '')
@@ -622,8 +666,8 @@ export default struct BattlePreviewPanel {
 
         Scroll() {
           Column() {
-            if (this.statusSnap.friendEscort) {
-              // Combined fleet: upper = friendly (main | escort), lower = enemy (escort | main)
+            if (this.statusSnap.friendEscort && this.statusSnap.enemyEscort) {
+              // Combined vs combined: upper = friendly (main | escort), lower = enemy (escort | main)
               Row() {
                 Column() {
                   this.FleetShipList(this.statusSnap.friendMain, '主力')
@@ -642,9 +686,7 @@ export default struct BattlePreviewPanel {
 
               Row() {
                 Column() {
-                  if (this.statusSnap.enemyEscort) {
-                    this.EnemyFleetList(this.statusSnap.enemyEscort, '敵護衛')
-                  }
+                  this.EnemyFleetList(this.statusSnap.enemyEscort, '敵護衛')
                 }
                 .layoutWeight(1)
                 .borderWidth({ right: PanelDimens.borderW })
@@ -659,8 +701,56 @@ export default struct BattlePreviewPanel {
               .alignItems(VerticalAlign.Top)
               .borderWidth({ top: 2 })
               .borderColor(PanelColors.rowBorder)
+            } else if (this.statusSnap.friendEscort) {
+              // Friend combined vs enemy single: 3 columns (friend main | friend escort | enemy)
+              Row() {
+                Column() {
+                  this.FleetShipList(this.statusSnap.friendMain, '主力')
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.FleetShipList(this.statusSnap.friendEscort, '護衛')
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵方')
+                }
+                .layoutWeight(1)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
+            } else if (this.statusSnap.enemyEscort) {
+              // Friend single vs enemy combined: 3 columns (friend | enemy escort | enemy main)
+              Row() {
+                Column() {
+                  this.FleetShipList(this.statusSnap.friendMain, '我方')
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.EnemyFleetList(this.statusSnap.enemyEscort, '敵護衛')
+                }
+                .layoutWeight(1)
+                .borderWidth({ right: PanelDimens.borderW })
+                .borderColor(PanelColors.rowBorder)
+
+                Column() {
+                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵主力')
+                }
+                .layoutWeight(1)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Top)
             } else {
-              // Single fleet: left = friendly, right = enemy
+              // Single vs single: left = friendly, right = enemy
               Row() {
                 Column() {
                   this.FleetShipList(this.statusSnap.friendMain, '')
