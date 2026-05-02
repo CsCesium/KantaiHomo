@@ -173,7 +173,7 @@ export default struct BattlePreviewPanel {
    *   name (flex)   beforeHP→afterHP   [badge]
    *   [-dmg fixed]  [====HP bar with ticks====]
    */
-  @Builder BattleShipRow(ship: ShipBattleStatus, landBased: boolean = false) {
+  @Builder BattleShipRow(ship: ShipBattleStatus, landBased: boolean) {
     Column({ space: 2 }) {
       // Line 1: name | HP transition | status badge
       Row({ space: 3 }) {
@@ -220,10 +220,7 @@ export default struct BattlePreviewPanel {
    *
    * 敵舰 master id 在图鉴缓存中通常含日文舰名，未命中时回退为 `敵N`。
    */
-  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number, landBased: boolean = false) {
-    // 单舰陆基判定：来源于 master.api_soku === 0 的「陆上型」敌人（栖姬/集積地等）；
-    // 整列空袭时由 landBased=true 强制覆盖。
-    const isLand: boolean = landBased || isShipMasterLandBased(masterId);
+  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number, landBased: boolean) {
     Column({ space: 2 }) {
       Row({ space: 3 }) {
         Text(getShipMasterName(masterId) || (landBased ? `敵編隊${idx + 1}` : `敵${idx + 1}`))
@@ -240,7 +237,7 @@ export default struct BattlePreviewPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(hpColor(hpAfter, hpMax))
 
-        Text(enemyBadgeText(hpAfter, hpMax, isLand))
+        Text(enemyBadgeText(hpAfter, hpMax, landBased || isShipMasterLandBased(masterId)))
           .fontSize(PanelDimens.fontSm)
           .fontColor(enemyBadgeColor(hpAfter, hpMax))
           .fontWeight(FontWeight.Bold)
@@ -414,7 +411,7 @@ export default struct BattlePreviewPanel {
   }
 
   /** A fleet's ship list (shared between prediction and result views). */
-  @Builder FleetShipList(fleet: FleetBattleStatus, label: string, landBased: boolean = false) {
+  @Builder FleetShipList(fleet: FleetBattleStatus, label: string, landBased: boolean) {
     if (label) {
       Row() {
         Text(label)
@@ -434,7 +431,7 @@ export default struct BattlePreviewPanel {
   }
 
   /** Enemy fleet ship list with HP bars. */
-  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string, landBased: boolean = false) {
+  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string, landBased: boolean) {
     Row() {
       Text(label || '敵方')
         .fontSize(PanelDimens.fontSm)
@@ -559,7 +556,7 @@ export default struct BattlePreviewPanel {
               // Combined fleet: upper = friendly (main | escort), lower = enemy (escort | main)
               Row() {
                 Column() {
-                  this.FleetShipList(this.resultSnap.friendMain, '主力')
+                  this.FleetShipList(this.resultSnap.friendMain, '主力', false)
                 }
                 .layoutWeight(1)
                 .borderWidth({ right: PanelDimens.borderW })
@@ -567,7 +564,7 @@ export default struct BattlePreviewPanel {
 
                 Column() {
                   if (this.resultSnap.friendEscort) {
-                    this.FleetShipList(this.resultSnap.friendEscort, '護衛')
+                    this.FleetShipList(this.resultSnap.friendEscort, '護衛', false)
                   }
                 }
                 .layoutWeight(1)
@@ -578,7 +575,7 @@ export default struct BattlePreviewPanel {
               Row() {
                 Column() {
                   if (this.resultSnap.enemyEscort) {
-                    this.EnemyFleetList(this.resultSnap.enemyEscort, '敵護衛')
+                    this.EnemyFleetList(this.resultSnap.enemyEscort, '敵護衛', false)
                   }
                 }
                 .layoutWeight(1)
@@ -586,7 +583,7 @@ export default struct BattlePreviewPanel {
                 .borderColor(PanelColors.rowBorder)
 
                 Column() {
-                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵主力')
+                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵主力', false)
                 }
                 .layoutWeight(1)
               }
@@ -598,14 +595,14 @@ export default struct BattlePreviewPanel {
               // Single fleet: left = friendly, right = enemy
               Row() {
                 Column() {
-                  this.FleetShipList(this.resultSnap.friendMain, '')
+                  this.FleetShipList(this.resultSnap.friendMain, '', false)
                 }
                 .layoutWeight(1)
                 .borderWidth({ right: PanelDimens.borderW })
                 .borderColor(PanelColors.rowBorder)
 
                 Column() {
-                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵方')
+                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵方', false)
                 }
                 .layoutWeight(1)
               }
@@ -650,14 +647,14 @@ export default struct BattlePreviewPanel {
               // Combined fleet: upper = friendly (main | escort), lower = enemy (escort | main)
               Row() {
                 Column() {
-                  this.FleetShipList(this.statusSnap.friendMain, '主力')
+                  this.FleetShipList(this.statusSnap.friendMain, '主力', false)
                 }
                 .layoutWeight(1)
                 .borderWidth({ right: PanelDimens.borderW })
                 .borderColor(PanelColors.rowBorder)
 
                 Column() {
-                  this.FleetShipList(this.statusSnap.friendEscort, '護衛')
+                  this.FleetShipList(this.statusSnap.friendEscort, '護衛', false)
                 }
                 .layoutWeight(1)
               }
@@ -667,7 +664,7 @@ export default struct BattlePreviewPanel {
               Row() {
                 Column() {
                   if (this.statusSnap.enemyEscort) {
-                    this.EnemyFleetList(this.statusSnap.enemyEscort, '敵護衛')
+                    this.EnemyFleetList(this.statusSnap.enemyEscort, '敵護衛', false)
                   }
                 }
                 .layoutWeight(1)
@@ -675,7 +672,7 @@ export default struct BattlePreviewPanel {
                 .borderColor(PanelColors.rowBorder)
 
                 Column() {
-                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵主力')
+                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵主力', false)
                 }
                 .layoutWeight(1)
               }
@@ -687,14 +684,14 @@ export default struct BattlePreviewPanel {
               // Single fleet: left = friendly, right = enemy
               Row() {
                 Column() {
-                  this.FleetShipList(this.statusSnap.friendMain, '')
+                  this.FleetShipList(this.statusSnap.friendMain, '', false)
                 }
                 .layoutWeight(1)
                 .borderWidth({ right: PanelDimens.borderW })
                 .borderColor(PanelColors.rowBorder)
 
                 Column() {
-                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵方')
+                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵方', false)
                 }
                 .layoutWeight(1)
               }
