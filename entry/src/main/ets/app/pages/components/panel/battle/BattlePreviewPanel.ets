@@ -1,6 +1,6 @@
 import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel/panelConfig';
 import {
-  subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName,
+  subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName, isShipMasterLandBased,
   BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus,
   EnemyBattleStatus
 } from '../../../../../features/state';
@@ -221,6 +221,9 @@ export default struct BattlePreviewPanel {
    * 敵舰 master id 在图鉴缓存中通常含日文舰名，未命中时回退为 `敵N`。
    */
   @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number, landBased: boolean = false) {
+    // 单舰陆基判定：来源于 master.api_soku === 0 的「陆上型」敌人（栖姬/集積地等）；
+    // 整列空袭时由 landBased=true 强制覆盖。
+    const isLand: boolean = landBased || isShipMasterLandBased(masterId);
     Column({ space: 2 }) {
       Row({ space: 3 }) {
         Text(getShipMasterName(masterId) || (landBased ? `敵編隊${idx + 1}` : `敵${idx + 1}`))
@@ -237,7 +240,7 @@ export default struct BattlePreviewPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(hpColor(hpAfter, hpMax))
 
-        Text(enemyBadgeText(hpAfter, hpMax, landBased))
+        Text(enemyBadgeText(hpAfter, hpMax, isLand))
           .fontSize(PanelDimens.fontSm)
           .fontColor(enemyBadgeColor(hpAfter, hpMax))
           .fontWeight(FontWeight.Bold)

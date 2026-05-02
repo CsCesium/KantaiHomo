@@ -70,6 +70,7 @@ export {
   hasTaihaInDeck,
   getShipSpecialEquip,
   getShipMasterName,
+  isShipMasterLandBased,
 
   // 战果计算
   getSenkaInfo,
