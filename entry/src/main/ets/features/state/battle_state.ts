@@ -145,6 +145,7 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
     // 战斗类型
     battlePhase,
     isPractice: battleContext.isPractice,
+    isAirRaid: battleContext.isAirRaid ?? false,
     combinedType: sortieContext.combinedType,
 
     // 阵型
@@ -232,6 +233,7 @@ export function buildBattleResultSnapshot(options: BuildBattleResultOptions): Ba
     rank,
     mvp,
     mvpCombined,
+    isAirRaid: battleContext.isAirRaid ?? false,
 
     // 掉落
     dropShipId,

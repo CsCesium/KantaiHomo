@@ -85,6 +85,7 @@ class GameStateManager {
     lastUpdatedAt: 0,
     shipMasterNames: new Map(),
     shipMasterMaxSupply: new Map(),
+    shipMasterSoku: new Map(),
     slotItemEquipTypes: new Map(),
     slotItemIconTypes: new Map(),
     slotItemIndex: new Map(),
@@ -767,6 +768,7 @@ class GameStateManager {
       lastUpdatedAt: 0,
       shipMasterNames: new Map(),
       shipMasterMaxSupply: new Map(),
+      shipMasterSoku: new Map(),
       slotItemEquipTypes: new Map(),
       slotItemIconTypes: new Map(),
       slotItemIndex: new Map(),
@@ -785,10 +787,13 @@ class GameStateManager {
   /**
    * 更新舰船图鉴名称及最大补给量缓存（来自 api_start2 舰船图鉴）
    */
-  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number }>): void {
+  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number }>): void {
     for (const item of items) {
       this.state.shipMasterNames.set(item.id, item.name);
       this.state.shipMasterMaxSupply.set(item.id, { fuelMax: item.fuelMax, ammoMax: item.ammoMax });
+      if (item.soku !== undefined) {
+        this.state.shipMasterSoku.set(item.id, item.soku);
+      }
     }
   }
 
@@ -797,6 +802,14 @@ class GameStateManager {
    */
   getShipMasterName(masterId: number): string | undefined {
     return this.state.shipMasterNames.get(masterId);
+  }
+
+  /**
+   * 是否为陆基/基地型（api_soku === 0），用于敌方陆上型展示术语区分。
+   * 未知 master 返回 false（按舰船处理）。
+   */
+  isShipMasterLandBased(masterId: number): boolean {
+    return this.state.shipMasterSoku.get(masterId) === 0;
   }
 
   /**
@@ -1038,7 +1051,7 @@ export function getGameState(): GameStateManager {
 }
 
 // 便捷函数
-export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number }>) =>
+export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number }>) =>
   gameStateManager.updateShipMasterMeta(items);
 export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number }>) =>
   gameStateManager.updateSlotItemEquipTypes(items);
@@ -1053,6 +1066,7 @@ export const setGameServerUrl = (url: string) => gameStateManager.setGameServerU
 export const getGameServerUrl = () => gameStateManager.getGameServerUrl();
 export const getShipSpecialEquip = (uid: number) => gameStateManager.getShipSpecialEquip(uid);
 export const getShipMasterName = (masterId: number) => gameStateManager.getShipMasterName(masterId);
+export const isShipMasterLandBased = (masterId: number) => gameStateManager.isShipMasterLandBased(masterId);
 
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);

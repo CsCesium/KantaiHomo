@@ -25,7 +25,7 @@ import { parseSvdata, parseFormBody, extractApiPath, matchAnyPattern } from "../
 import { ParserCtx, mkEvt } from "./common";
 import { getBattlePredictionService } from "../../simulator/battle_prediction_service";
 import type { BattlePredictionSnapshot, ShipHPSnapshot } from "../../simulator/battle_prediction_service";
-import { getDeck, getDeckShips, getSlotItemMasterId } from "../../state/game_state";
+import { getDeck, getDeckShips, getSlotItemMasterId, getLbas } from "../../state/game_state";
 import type { ShipState } from "../../state/type";
 
 const PATTERNS = {
@@ -173,30 +173,11 @@ function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnyBattleModuleEvt[] {
   if (apiData.api_destruction_battle) {
     const destructionSegment = normalizeBattleSegment('api_req_map/next', raw);
     if (destructionSegment) {
-      // 模拟器处理
-      const simPath = '/kcsapi/api_req_map/next';
-      try {
-        const svc = getBattlePredictionService();
-        svc.reset();
-        svc.onBattlePacket(simPath, { ...(apiData as Record<string, unknown>), _path: simPath });
-      } catch (_) { /* ignore */ }
-
-      let prediction: BattlePrediction;
-      try {
-        const snap = getBattlePredictionService().getCurrentSnapshot();
-        if (snap) {
-          const context = getSortieContext();
-          prediction = simSnapshotToDomainPrediction(
-            snap,
-            context?.fleetSnapshot?.ships?.map(s => ({ uid: s.uid, name: s.name })),
-            context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
-          );
-        } else {
-          prediction = buildFallbackPrediction(destructionSegment);
-        }
-      } catch (_) {
-        prediction = buildFallbackPrediction(destructionSegment);
-      }
+      // 直接基于 segment HP + LBAS 状态构建预测：
+      // - friend 一侧是基地（不是舰娘），用 getLbas() 的 name 填充
+      // - rank 用空袭专用公式（无伤为 SS，按损耗率分级）
+      // - 不喂模拟器：模拟器 mainFleet 是出击舰队的舰娘，与基地空袭语义不符
+      const prediction = buildAirRaidPrediction(destructionSegment);
 
       const airRaidEvent: BattleDayEvent = mkEvt(
         ctx,
@@ -216,6 +197,80 @@ function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnyBattleModuleEvt[] {
   }
 
   return [nextEvent];
+}
+
+/**
+ * 基地空袭专用预测：
+ * - friendMain[i] 表示第 i 个基地，name 取 LBAS 状态对应基地名（兜底 `第N基地`）
+ * - enemyMain 表示来袭航空编队，名称由 UI 端按 master id 解析
+ * - rank 按基地总损耗率分级，与 simulator/core.ts:simulateAirRaidBattleRank 一致
+ */
+function buildAirRaidPrediction(segment: BattleSegment): BattlePrediction {
+  const bases = getLbas();
+
+  function buildPred(
+    side: 'friend' | 'enemy',
+    label: (idx: number) => { uid: number; name: string },
+  ): ShipPrediction[] {
+    const startFleet = side === 'friend' ? segment.start.friend.main : segment.start.enemy.main;
+    const endFleet   = side === 'friend' ? segment.end.friend.main   : segment.end.enemy.main;
+    const len = Math.min(startFleet.now.length, startFleet.max.length);
+
+    const out: ShipPrediction[] = [];
+    for (let i = 0; i < len; i++) {
+      const hpMax    = startFleet.max[i] ?? 0;
+      const hpBefore = startFleet.now[i] ?? 0;
+      const hpAfter  = endFleet.now[i] ?? 0;
+      if (hpMax <= 0) continue;
+      const ratio = hpAfter / hpMax;
+      const tag = label(i);
+      out.push({
+        uid: tag.uid,
+        name: tag.name,
+        hpBefore,
+        hpAfter: Math.max(0, hpAfter),
+        hpMax,
+        damageReceived: Math.max(0, hpBefore - hpAfter),
+        damageTaken: Math.round((1 - hpAfter / hpMax) * 100),
+        isSunk: hpAfter <= 0,
+        isTaiha:  hpAfter > 0 && ratio <= 0.25,
+        isChuuha: hpAfter > 0 && ratio <= 0.5  && ratio > 0.25,
+        isShouha: hpAfter > 0 && ratio <= 0.75 && ratio > 0.5,
+      });
+    }
+    return out;
+  }
+
+  const friendMain = buildPred('friend', (i) => {
+    const base = bases[i];
+    return { uid: base?.baseId ?? (i + 1), name: base?.name || `第${i + 1}基地` };
+  });
+  const enemyMain = buildPred('enemy', (_i) => ({ uid: 0, name: '' }));
+
+  // Rank 按基地损耗率（与模拟器 simulateAirRaidBattleRank 同公式）
+  const initSum = friendMain.reduce((x, p) => x + p.hpMax, 0);
+  const nowSum  = friendMain.reduce((x, p) => x + p.hpAfter, 0);
+  const rate = initSum > 0 ? (initSum - nowSum) / initSum * 100 : 0;
+  let predictedRank: 'SS' | 'A' | 'B' | 'C' | 'D' | 'E' = 'SS';
+  if (rate > 0)  predictedRank = 'A';
+  if (rate >= 10) predictedRank = 'B';
+  if (rate >= 20) predictedRank = 'C';
+  if (rate >= 50) predictedRank = 'D';
+  if (rate >= 80) predictedRank = 'E';
+
+  return {
+    friendMain,
+    friendEscort: undefined,
+    enemyMain,
+    enemyEscort: undefined,
+    predictedRank,
+    friendSunkCount: friendMain.filter(p => p.isSunk).length,
+    friendTaihaCount: friendMain.filter(p => p.isTaiha).length,
+    enemySunkCount: enemyMain.filter(p => p.isSunk).length,
+    hasTaihaFriend: friendMain.some(p => p.isTaiha),
+    hasSunkFriend:  friendMain.some(p => p.isSunk),
+    calculatedAt: Date.now(),
+  };
 }
 
 // ==================== 模拟器结果转换 ====================
