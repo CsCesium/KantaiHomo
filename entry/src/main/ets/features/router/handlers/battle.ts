@@ -285,7 +285,7 @@ class BattleHandler implements Handler {
       // 联合舰队时检查护卫舰队
       if (context && context.combinedType > 0) {
         const escortPred = prediction?.friendEscort ?? [];
-        for (let i = 0; i < escortPred.length; i++) {
+        for (let i = 1; i < escortPred.length; i++) {
           const ship = escortPred[i];
           if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
           if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
