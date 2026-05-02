@@ -36,7 +36,9 @@ const PATTERNS = {
   // 昼战
   // 注意：动作名后必须紧跟 `?`、`/` 或字符串结尾，
   // 否则 `battle` 会错误匹配 `battleresult`，导致 /battleresult 被当成昼战处理。
-  DAY_BATTLE: /api_req_(?:sortie|combined_battle)\/(?:battle|airbattle|ld_airbattle|battle_water|each_battle|each_battle_water|ec_battle)(?:[/?]|$)/,
+  // ec_night_to_day（开幕夜战：先夜战后昼战，单包含两段）走昼战入口，
+  //   normalizer 会同时提取夜战与昼战 phase；模拟器内部对该路径单独路由。
+  DAY_BATTLE: /api_req_(?:sortie|combined_battle)\/(?:battle|airbattle|ld_airbattle|ld_shooting|battle_water|each_battle|each_battle_water|ec_battle|ec_night_to_day)(?:[/?]|$)/,
 
   // 夜战
   NIGHT_BATTLE: /api_req_(?:battle_midnight|combined_battle)\/(?:battle|sp_midnight|midnight_battle|ec_midnight_battle)(?:[/?]|$)/,
