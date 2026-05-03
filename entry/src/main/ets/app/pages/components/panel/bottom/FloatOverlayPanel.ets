@@ -286,29 +286,32 @@ export default struct FloatOverlayPanel {
         .borderColor(PanelColors.overlayHdr)
       }
 
-      // Compact fleet selector row (fleets 1-4 + 地図 tab)
-      Row({ space: 2 }) {
-        ForEach([0, 1, 2, 3], (idx: number) => {
-          Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.txtTabOn)
-            .backgroundColor(this.activeFleet === idx ? '#0d47a1' : PanelColors.bgTabInactive)
-            .opacity(this.activeFleet === idx ? 1.0 : 0.55)
-            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-            .borderRadius(PanelDimens.radius)
-            .onClick(() => { this.selectFleet(idx); })
-        }, (idx: number) => `ftab-${idx}`)
+      // Compact fleet selector row — fleets 1-4 grouped on the left, 地図 on the right
+      Row() {
+        Row({ space: 8 }) {
+          ForEach([0, 1, 2, 3], (idx: number) => {
+            Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtTabOn)
+              .backgroundColor(this.activeFleet === idx ? '#0d47a1' : PanelColors.bgTabInactive)
+              .opacity(this.activeFleet === idx ? 1.0 : 0.55)
+              .padding({ left: 9, right: 9, top: 3, bottom: 3 })
+              .borderRadius(PanelDimens.radius)
+              .onClick(() => { this.selectFleet(idx); })
+          }, (idx: number) => `ftab-${idx}`)
+        }
+        .alignItems(VerticalAlign.Center)
+
+        Blank().layoutWeight(1)
 
         Text('地図')
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtTabOn)
           .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
           .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
-          .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+          .padding({ left: 9, right: 9, top: 3, bottom: 3 })
           .borderRadius(PanelDimens.radius)
           .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
-
-        Blank().layoutWeight(1)
       }
       .width('100%')
       .height(PanelDimens.tabBarH - 4)
