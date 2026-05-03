@@ -18,8 +18,8 @@ export default struct EquipSlot {
   @Param air: number = 0;
   @Param level: number = 0;
   @Param alv: number = 0;
-  @Param size: number = 16;
-  @Param tagsize: number = 10;
+  @Param slotSize: number = 16;
+  @Param tagSize: number = 10;
   @Param isExSlot: boolean = false;
 
   @Param showKaisyuu: boolean = true;
@@ -41,24 +41,24 @@ export default struct EquipSlot {
   build() {
     Stack() {
       Image(equipLabel(this.iconType))
-        .width(this.size)
-        .height(this.size)
+        .width(this.slotSize)
+        .height(this.slotSize)
         .padding(1)
       if (this.showKaisyuu && this.level > 0 && kaisyuuIcon(this.level) !== null) {
         Image(kaisyuuIcon(this.level)!)
-          .width(Math.floor(this.tagsize * 1.8))
-          .height(Math.floor(this.tagsize * 0.6))
+          .width(Math.floor(this.tagSize * 1.8))
+          .height(Math.floor(this.tagSize * 0.6))
           .position({ top: 0, right: 0 })
       }
       if (this.showProficiency && this.alv > 0 && airMasteryIcon(this.alv) !== null) {
         Image(airMasteryIcon(this.alv)!)
-          .width(Math.floor(this.tagsize * 0.7))
-          .height(Math.floor(this.tagsize * 0.7))
+          .width(Math.floor(this.tagSize * 0.7))
+          .height(Math.floor(this.tagSize * 0.7))
           .position({ bottom: 0, left: 0 })
       }
       if (isAircraftEquipType(this.equipType) && this.air > 0) {
         Text(`${this.air}`)
-          .fontSize(this.size >= 14 ? 7 : 6)
+          .fontSize(this.slotSize >= 14 ? 7 : 6)
           .fontColor('#ffffff')
           .backgroundColor('#cc000000')
           .borderRadius(2)
@@ -66,8 +66,8 @@ export default struct EquipSlot {
           .position({ bottom: 0, right: 0 })
       }
     }
-    .width(this.size)
-    .height(this.size)
+    .width(this.slotSize)
+    .height(this.slotSize)
     .borderRadius(2)
     .backgroundColor(this.isExSlot ? '#1a2855' : '#252940')
     .gesture(
