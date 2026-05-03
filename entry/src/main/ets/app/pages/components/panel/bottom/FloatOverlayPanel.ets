@@ -138,8 +138,8 @@ export default struct FloatOverlayPanel {
   private loadState(): void {
     this.materials = getMaterials();
     this.decks = [...getDecks()];
-    // 非周期性海图（活动）斩杀后隐藏；周期性海图（含月度 EO）即使已通关也保留显示。
-    this.mapGauges = getMapGauges().filter(g => isPeriodicMapGauge(g) || !g.cleared);
+    // 已通关的海图直接隐藏；活动海图例外，即使 cleared 也保留显示。
+    this.mapGauges = getMapGauges().filter(g => !g.cleared || !isPeriodicMapGauge(g));
     this.refreshShips();
     this.loadCalcStats();
   }
