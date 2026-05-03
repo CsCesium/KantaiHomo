@@ -1,14 +1,25 @@
 import { PanelColors, PanelDimens } from '../../../../../../features/panel/panelConfig';
 import { MapGaugeSnapshot } from '../../../../../../features/state';
-import { getMapGaugeInfo, getMapGaugeBarValues, shouldShowMapGaugeBar } from './shipHelpers';
+import {
+  getMapGaugeInfo,
+  getMapGaugeBarValues,
+  shouldShowMapGaugeBar,
+  isGridStyleMapGauge,
+  rangeIndices,
+} from './shipHelpers';
+
+/** 进度条/格子的固定颜色 —— 不随比例变化。 */
+const BAR_FILL_COLOR: string = PanelColors.stat;
+const BAR_TRACK_COLOR: string = PanelColors.overlayRow;
 
 /**
  * 地图 Gauge 行（FloatOverlay 模式下紧凑布局）。
  *
  * 显示规则：
- * - 活动海图：hpNow/hpMax 数值 + HP 进度条
- * - EO 月度海域：defeatCount/requiredDefeats 数值 + 击破进度条
- *   （没有 requiredDefeats 时退化为单纯的 x{count}，无进度条）
+ * - 活动海图：hpNow/hpMax 数值 + 线性 HP 条
+ * - EO 月度海域 (requiredDefeats ≥ 10)：defeatCount/requiredDefeats + 线性击破条
+ * - EO 月度海域 (requiredDefeats < 10)：defeatCount/requiredDefeats + 格子风格
+ *   每格代表 1 次击破，达成的格子填色，未达成的格子留底色
  */
 @ComponentV2
 export default struct MapGaugeRow {
@@ -18,6 +29,33 @@ export default struct MapGaugeRow {
     hpNow: null, hpMax: null,
     requiredDefeats: null, capturedAt: 0,
   };
+
+  @Builder
+  GridBar() {
+    Row({ space: 2 }) {
+      ForEach(rangeIndices(this.gauge.requiredDefeats ?? 0), (i: number) => {
+        Row()
+          .layoutWeight(1)
+          .height(PanelDimens.hpBarCompH + 2)
+          .borderRadius(2)
+          .backgroundColor(i < this.gauge.defeatCount ? BAR_FILL_COLOR : BAR_TRACK_COLOR)
+      }, (i: number) => `cell-${this.gauge.mapId}-${this.gauge.gaugeNum}-${i}`)
+    }
+    .width('100%')
+  }
+
+  @Builder
+  LinearBar() {
+    Progress({
+      value: getMapGaugeBarValues(this.gauge).value,
+      total: getMapGaugeBarValues(this.gauge).total,
+      type: ProgressType.Linear,
+    })
+      .width('100%')
+      .height(PanelDimens.hpBarCompH)
+      .color(BAR_FILL_COLOR)
+      .backgroundColor(BAR_TRACK_COLOR)
+  }
 
   build() {
     Column({ space: 3 }) {
@@ -32,11 +70,11 @@ export default struct MapGaugeRow {
         if (this.gauge.hpMax !== null) {
           Text(`${getMapGaugeInfo(this.gauge).hpNow}/${getMapGaugeInfo(this.gauge).hpMax}`)
             .fontSize(PanelDimens.fontMd)
-            .fontColor(getMapGaugeInfo(this.gauge).barColor)
+            .fontColor(BAR_FILL_COLOR)
         } else if (this.gauge.requiredDefeats !== null && this.gauge.requiredDefeats > 0) {
           Text(`${this.gauge.defeatCount}/${this.gauge.requiredDefeats}`)
             .fontSize(PanelDimens.fontMd)
-            .fontColor(getMapGaugeBarValues(this.gauge).color)
+            .fontColor(BAR_FILL_COLOR)
         } else {
           Text(`x${this.gauge.defeatCount}`)
             .fontSize(PanelDimens.fontMd)
@@ -51,17 +89,12 @@ export default struct MapGaugeRow {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      // 进度条：活动按 HP，EO 按击破计数
       if (shouldShowMapGaugeBar(this.gauge)) {
-        Progress({
-          value: getMapGaugeBarValues(this.gauge).value,
-          total: getMapGaugeBarValues(this.gauge).total,
-          type: ProgressType.Linear,
-        })
-          .width('100%')
-          .height(PanelDimens.hpBarCompH)
-          .color(getMapGaugeBarValues(this.gauge).color)
-          .backgroundColor(PanelColors.overlayRow)
+        if (isGridStyleMapGauge(this.gauge)) {
+          this.GridBar()
+        } else {
+          this.LinearBar()
+        }
       }
     }
     .width('100%')

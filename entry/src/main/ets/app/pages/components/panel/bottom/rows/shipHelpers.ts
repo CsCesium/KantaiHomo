@@ -53,30 +53,37 @@ export function shouldShowMapGaugeBar(gauge: MapGaugeSnapshot): boolean {
   return false;
 }
 
-/** 进度条数值 [当前, 总量, 颜色]；调用前先用 shouldShowMapGaugeBar 判断。 */
+/**
+ * EO 击破次数 < 10 时改为格子风格（每格 = 1 次击破），≥ 10 时退化为线性条。
+ * 活动 HP 条始终走线性条。
+ */
+export function isGridStyleMapGauge(gauge: MapGaugeSnapshot): boolean {
+  if (gauge.hpMax !== null) return false;
+  const required = gauge.requiredDefeats ?? 0;
+  return required > 0 && required < 10;
+}
+
+/** 进度条数值 [当前, 总量]；颜色固定，不随比例变化。 */
 export interface MapGaugeBarValues {
   value: number;
   total: number;
-  color: string;
 }
 
 export function getMapGaugeBarValues(gauge: MapGaugeSnapshot): MapGaugeBarValues {
   if (gauge.hpMax !== null && gauge.hpMax > 0) {
     const info = getMapGaugeInfo(gauge);
-    return { value: info.hpNow, total: info.hpMax, color: info.barColor };
+    return { value: info.hpNow, total: info.hpMax };
   }
-  // EO 击破计数进度条
   const required = gauge.requiredDefeats ?? 0;
   const defeated = Math.min(gauge.defeatCount, required);
-  const ratio = required > 0 ? defeated / required : 0;
-  const color = ratio >= 1
-    ? PanelColors.stat
-    : ratio > 0.5
-      ? PanelColors.hpOk
-      : ratio > 0.25
-        ? PanelColors.hpWarn
-        : PanelColors.hpCrit;
-  return { value: defeated, total: required, color };
+  return { value: defeated, total: required };
+}
+
+/** 生成 [0, 1, ..., n-1] 用于 ForEach 渲染格子。 */
+export function rangeIndices(n: number): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) out.push(i);
+  return out;
 }
 
 export function numAt(values: number[], index: number): number {
