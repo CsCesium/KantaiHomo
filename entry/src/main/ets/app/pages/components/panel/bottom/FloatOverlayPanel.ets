@@ -16,6 +16,7 @@ import { SlotItemJoinedRow } from '../../../../../infra/storage/types';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
+import { isPeriodicMapGauge } from './rows/shipHelpers';
 
 const OVERLAY_MAP_TAB_IDX = 4;
 
@@ -137,7 +138,8 @@ export default struct FloatOverlayPanel {
   private loadState(): void {
     this.materials = getMaterials();
     this.decks = [...getDecks()];
-    this.mapGauges = [...getMapGauges()];
+    // 非周期性海图（活动）斩杀后隐藏；周期性海图（含月度 EO）即使已通关也保留显示。
+    this.mapGauges = getMapGauges().filter(g => isPeriodicMapGauge(g) || !g.cleared);
     this.refreshShips();
     this.loadCalcStats();
   }
