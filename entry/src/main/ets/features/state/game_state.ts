@@ -281,6 +281,7 @@ class GameStateManager {
       slotCount,
       exSlot,
       scoutCur: ship.stats?.scout?.current ?? 0,
+      speed: ship.speed ?? 0,
       hpPercent,
       isTaiha: hpPercent <= 0.25,
       isChuuha: hpPercent <= 0.5,

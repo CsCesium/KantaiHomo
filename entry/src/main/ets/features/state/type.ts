@@ -93,6 +93,8 @@ export interface ShipState {
   exSlot: number;
   /** 当前显示索敌值（含装备加成，来自 api_sakuteki[0]） */
   scoutCur: number;
+  /** 速力（api_soku：0=陸上、5=低速、10=高速、15=高速+、20=最速） */
+  speed: number;
   /** HP 百分比 */
   hpPercent: number;
   /** 是否大破 (HP <= 25%) */
