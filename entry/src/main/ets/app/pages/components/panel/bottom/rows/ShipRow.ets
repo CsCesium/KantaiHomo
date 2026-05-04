@@ -1,6 +1,5 @@
 import { ShipItem } from '../../../../../../features/panel/type';
 import { PanelColors, PanelDimens, ShipDiems } from '../../../../../../features/panel/panelConfig';
-import { SlotItemJoinedRow } from '../../../../../../infra/storage/types';
 import ShipBannerBlock from './ShipBannerBlock';
 import ShipStatusBlock from './ShipStatusBlock';
 import ShipEquipBlock from './ShipEquipBlock';
@@ -10,7 +9,8 @@ import ShipEquipBlock from './ShipEquipBlock';
  *
  * - 左中右使用 layoutWeight 5/3/5 分配宽度
  * - 行高固定为 SHIP_ROW_HEIGHT，纵向居中对齐三列
- * - 装备槽弹窗状态由父面板持有，通过 detailUid / detailRow + 回调连接
+ * - 装备槽弹窗的"当前展开槽 uid"由父面板用 detailUid 集中持有；具体的
+ *   row 数据由 EquipSlot 内部按需加载，不在 @Param 链路里透传。
  */
 @ComponentV2
 export default struct ShipRow {
@@ -27,7 +27,6 @@ export default struct ShipRow {
   @Param showKaisyuu: boolean = true;
   @Param showProficiency: boolean = true;
   @Param detailUid: number = 0;
-  @Param detailRow: SlotItemJoinedRow | null = null;
 
   @Event onOpenDetail: (uid: number) => void = () => {};
   @Event onToggleDetail: (uid: number) => void = () => {};
@@ -60,7 +59,6 @@ export default struct ShipRow {
           showKaisyuu: this.showKaisyuu,
           showProficiency: this.showProficiency,
           detailUid: this.detailUid,
-          detailRow: this.detailRow,
           onOpenDetail: (u: number) => this.onOpenDetail(u),
           onToggleDetail: (u: number) => this.onToggleDetail(u),
           onCloseDetail: (u: number) => this.onCloseDetail(u),

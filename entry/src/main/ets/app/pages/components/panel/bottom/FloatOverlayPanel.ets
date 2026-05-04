@@ -6,13 +6,11 @@ import {
   MapGaugeSnapshot,
   getMapGauges,
 } from '../../../../../features/state';
-import { getPersistDeps } from '../../../../../infra/deps';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
-import { SlotItemJoinedRow } from '../../../../../infra/storage/types';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
@@ -97,10 +95,8 @@ export default struct FloatOverlayPanel {
   @Local fleetLoS: number = 0;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
-  /** UID of slot whose detail popup is currently open; 0 = none. */
+  /** UID of slot whose detail popup is currently open; 0 = none. EquipSlot 自己加载详情。 */
   @Local detailUid: number = 0;
-  /** Loaded equipment row for the open detail popup. */
-  @Local detailRow: SlotItemJoinedRow | null = null;
   /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
   @Local showKaisyuu: boolean = true;
   /** Show aircraft proficiency badge; mirrors AppStorage setting. */
@@ -197,31 +193,20 @@ export default struct FloatOverlayPanel {
     return !!(deck?.expeditionReturnTime && deck.expeditionReturnTime > Date.now());
   }
 
-  private async openEquipDetail(uid: number): Promise<void> {
+  private openEquipDetail(uid: number): void {
     if (uid <= 0) return;
     this.detailUid = uid;
-    this.detailRow = null;
-    try {
-      const repo = getPersistDeps()?.repos?.slotitem;
-      if (!repo) return;
-      const row = await repo.getWithMaster(uid);
-      if (this.detailUid === uid) {
-        this.detailRow = row;
-      }
-    } catch (_e) { /* ignore */ }
   }
 
   private toggleEquipDetail(uid: number): void {
     if (this.detailUid === uid) {
       this.detailUid = 0;
-      this.detailRow = null;
     }
   }
 
   private closeEquipDetail(uid: number): void {
     if (this.detailUid === uid) {
       this.detailUid = 0;
-      this.detailRow = null;
     }
   }
 
@@ -343,8 +328,7 @@ export default struct FloatOverlayPanel {
                 showKaisyuu: this.showKaisyuu,
                 showProficiency: this.showProficiency,
                 detailUid: this.detailUid,
-                detailRow: this.detailRow,
-                onOpenDetail: (uid: number) => { void this.openEquipDetail(uid); },
+                onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
                 onToggleDetail: (uid: number) => { this.toggleEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
