@@ -122,11 +122,28 @@ class BattleHandler implements Handler {
         context.fleetSnapshotEscort?.ships.map(s => ({ uid: s.uid, name: s.name }))
       );
 
+      // 开幕夜战(sp_midnight)：当前点没有前置昼战，pendingBattle 仍为 null。
+      // 与昼战同样按当前节点补建一次。
+      if (!context.pendingBattle && context.currentCell) {
+        context.pendingBattle = createBattleContext(
+          context.currentCell,
+          isPractice,
+          context.combinedType > 0,
+        );
+      }
+
       if (context.pendingBattle) {
         context.pendingBattle.nightSegment = segment;
         context.pendingBattle.merged = merged;
         context.pendingBattle.prediction = prediction;
         context.pendingBattle.isPractice = isPractice;
+
+        // 开幕夜战(sp_midnight)无前置昼战，pendingBattle.enemyFleet 此时仍未填充。
+        // 即便普通夜战，刷新一次也能保证敌舰列表与最新 segment 一致。
+        if (segment.enemyMain) {
+          context.pendingBattle.enemyFleet = segment.enemyMain;
+          context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
+        }
 
         // 更新战斗状态快照 (供前端显示)
         const battleStatus = buildNightBattleStatus(context, context.pendingBattle, prediction);
