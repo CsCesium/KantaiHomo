@@ -31,13 +31,19 @@ function parseMapInfoData(ctx: ParserCtx): MapInfoUpdateEvent[] | null {
     let hpMax: number | null = null;
     let requiredDefeats: number | null = null;
 
+    // 月度 EO 海图：api_required_defeat_count 直接挂在 map entry 顶层。
+    if (typeof e.api_required_defeat_count === 'number') {
+      requiredDefeats = e.api_required_defeat_count;
+    }
+
+    // 活动海图：HP 数据 + (覆盖式的) required_defeat_count 在 api_eventmap 里。
     const eventmap = e.api_eventmap as Record<string, unknown> | null;
     if (eventmap && typeof eventmap === 'object') {
       hpNow = typeof eventmap.api_now_maphp === 'number' ? eventmap.api_now_maphp : null;
       hpMax = typeof eventmap.api_max_maphp === 'number' ? eventmap.api_max_maphp : null;
-      requiredDefeats = typeof eventmap.api_required_defeat_count === 'number'
-        ? eventmap.api_required_defeat_count
-        : null;
+      if (typeof eventmap.api_required_defeat_count === 'number') {
+        requiredDefeats = eventmap.api_required_defeat_count;
+      }
     }
 
     // Only include maps that have a gauge or non-zero defeat count (EO maps)
