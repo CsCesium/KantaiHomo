@@ -1,6 +1,5 @@
 import { ShipItem } from '../../../../../../features/panel/type';
 import { ShipDiems } from '../../../../../../features/panel/panelConfig';
-import { SlotItemJoinedRow } from '../../../../../../infra/storage/types';
 import EquipSlot from './EquipSlot';
 import { numAt } from './shipHelpers';
 
@@ -18,7 +17,6 @@ export default struct ShipEquipBlock {
   @Param showKaisyuu: boolean = true;
   @Param showProficiency: boolean = true;
   @Param detailUid: number = 0;
-  @Param detailRow: SlotItemJoinedRow | null = null;
 
   @Event onOpenDetail: (uid: number) => void = () => {};
   @Event onToggleDetail: (uid: number) => void = () => {};
@@ -41,7 +39,6 @@ export default struct ShipEquipBlock {
             showKaisyuu: this.showKaisyuu,
             showProficiency: this.showProficiency,
             detailUid: this.detailUid,
-            detailRow: this.detailRow,
             onOpen: (u: number) => this.onOpenDetail(u),
             onToggle: (u: number) => this.onToggleDetail(u),
             onClose: (u: number) => this.onCloseDetail(u),
@@ -70,7 +67,6 @@ export default struct ShipEquipBlock {
           showKaisyuu: this.showKaisyuu,
           showProficiency: this.showProficiency,
           detailUid: this.detailUid,
-          detailRow: this.detailRow,
           onOpen: (u: number) => this.onOpenDetail(u),
           onToggle: (u: number) => this.onToggleDetail(u),
           onClose: (u: number) => this.onCloseDetail(u),

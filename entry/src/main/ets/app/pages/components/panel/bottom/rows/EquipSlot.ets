@@ -1,14 +1,16 @@
 import { PanelPopupStateChangeEvent } from '../../../../../../features/panel/type';
 import { equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon } from '../../../../../../features/panel/panelConfig';
 import { SlotItemJoinedRow } from '../../../../../../infra/storage/types';
+import { getPersistDeps } from '../../../../../../infra/deps';
 import { EquipDetailPanel } from '../../EquipDetailPanel';
 
 /**
  * 单个装备槽：装备图标 + 改修星 + 熟练度 + 携带机数 + 长按弹出详情。
  *
- * 详情弹窗的可见状态由父组件持有（detailUid / detailRow），
- * 子组件通过 onOpen / onToggle / onClose 回调通知父组件状态变更，
- * 这样同一面板内多个槽共享同一弹窗实例。
+ * 弹窗的"哪一个槽当前展开"由父组件用 detailUid 集中持有，确保同时只有一个
+ * 槽的弹窗可见。具体的 row 数据则在槽内部按需加载（@Local），避免通过多层
+ * @Param 透传复合对象 —— V2 里 @Builder 注册到 bindPopup 后，深层透传的
+ * @Param 复合对象更新不一定能触发重绘，会出现一直停在"加载中"的问题。
  */
 @ComponentV2
 export default struct EquipSlot {
@@ -25,17 +27,44 @@ export default struct EquipSlot {
   @Param showKaisyuu: boolean = true;
   @Param showProficiency: boolean = true;
 
-  /** 当前已打开详情的槽位 uid（0 = 未打开任何弹窗）。 */
+  /** 当前已打开详情的槽位 uid（0 = 未打开任何弹窗），由父组件持有。 */
   @Param detailUid: number = 0;
-  /** 已加载的装备详细数据（仅当本槽就是当前打开的弹窗时有效）。 */
-  @Param detailRow: SlotItemJoinedRow | null = null;
 
   @Event onOpen: (uid: number) => void = () => {};
   @Event onToggle: (uid: number) => void = () => {};
   @Event onClose: (uid: number) => void = () => {};
 
+  /** 本槽弹窗当前已加载的装备详情；只在本槽是当前展开槽时才有效。 */
+  @Local row: SlotItemJoinedRow | null = null;
+  /** 标记当前正在加载的请求，避免快速切换槽时旧请求覆盖新数据。 */
+  private loadingForUid: number = 0;
+
+  @Monitor('detailUid')
+  onDetailUidChange(): void {
+    if (this.detailUid === this.uid && this.uid > 0) {
+      void this.loadRow();
+    } else {
+      this.row = null;
+      this.loadingForUid = 0;
+    }
+  }
+
+  private async loadRow(): Promise<void> {
+    const targetUid = this.uid;
+    this.loadingForUid = targetUid;
+    this.row = null;
+    try {
+      const repo = getPersistDeps()?.repos?.slotitem;
+      if (!repo) return;
+      const loaded = await repo.getWithMaster(targetUid);
+      if (this.loadingForUid === targetUid && this.detailUid === targetUid) {
+        this.row = loaded;
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
   @Builder EquipPopup() {
-    EquipDetailPanel({ row: this.detailRow })
+    EquipDetailPanel({ row: this.row })
   }
 
   build() {
