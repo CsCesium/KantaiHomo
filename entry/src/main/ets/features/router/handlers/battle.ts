@@ -6,16 +6,109 @@ import {
   generateBattleId,
   battleRecordToRow,
   createBattleContext,
+  createSortieContext,
+  FleetSnapshot,
+  ShipSnapshot,
+  SlotItemSnapshot,
+  SortieCell,
+  SortieContext,
 } from '../../../domain/models';
-import { getSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
+import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
-import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, patchShipsHp, isShipEscaped } from '../../state/game_state';
+import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, patchShipsHp, isShipEscaped, getDeck, getDeckShips, getSlotItemMasterId } from '../../state/game_state';
+import type { ShipState } from '../../state/type';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
 import { setLastBattleHasTaihaRisk, setLastBattleTaihaShips } from '../../alerts/lastBattleState';
 import type { BattleResultAlert } from '../../alerts/type';
 import { getBattlePredictionService } from '../../simulator';
+
+// ==================== 演习预览支持 ====================
+//
+// 演习不会触发 api_req_map/start，因此没有真实的 SortieContext。
+// 为了让 BattlePreviewPanel 能在演习中显示预测/结果，演习首个 BATTLE_*
+// 事件到达时按当前 deck 合成一个最小 SortieContext 写入全局，让后续
+// 处理逻辑（包括 BATTLE_RESULT）走与正常出击一致的路径。
+// 演习结算后再清掉合成上下文，避免影响后续真实出击。
+
+function slotUidToSnapshot(slotUid: number): SlotItemSnapshot | null {
+  if (slotUid <= 0) return null;
+  return {
+    uid: slotUid,
+    masterId: getSlotItemMasterId(slotUid) ?? 0,
+    name: '',
+    level: 0,
+  };
+}
+
+function buildPracticeFleetSnapshot(deckId: number, ts: number): FleetSnapshot | null {
+  const deck = getDeck(deckId);
+  if (!deck) return null;
+  const ships = getDeckShips(deckId);
+  if (ships.length === 0) return null;
+
+  const shipSnaps: ShipSnapshot[] = ships.map((s: ShipState): ShipSnapshot => ({
+    uid: s.uid,
+    masterId: s.masterId,
+    name: s.name,
+    shipType: 0,
+    level: s.level,
+    hpNow: s.hpNow,
+    hpMax: s.hpMax,
+    fuel: s.fuel,
+    ammo: s.ammo,
+    fuelMax: s.fuelMax,
+    ammoMax: s.ammoMax,
+    cond: s.cond,
+    slots: s.slots.slice(0, s.slotCount).map(slotUidToSnapshot),
+    slotEx: slotUidToSnapshot(s.exSlot),
+    onslot: [...s.onslot],
+  }));
+
+  return {
+    deckId,
+    name: deck.name,
+    ships: shipSnaps,
+    capturedAt: ts,
+  };
+}
+
+/**
+ * 演习专用：若当前没有 SortieContext，按 segment + 当前 deck 合成一个并写入全局。
+ * 已存在 context 时直接返回（避免覆盖真实出击）。
+ */
+function ensurePracticeContext(segment: BattleSegment): SortieContext | null {
+  const existing = getSortieContext();
+  if (existing) return existing;
+
+  const deckId = segment.meta.deckId ?? 1;
+  const isCombined = !!segment.start.friend.escort;
+  const ts = Date.now();
+
+  const fleetSnapshot = buildPracticeFleetSnapshot(deckId, ts);
+  if (!fleetSnapshot) return null;
+  // 联合演习：第二舰队约定为 deckId+1（通常为 2）。
+  const fleetSnapshotEscort = isCombined
+    ? buildPracticeFleetSnapshot(deckId + 1, ts) ?? undefined
+    : undefined;
+
+  const ctx = createSortieContext(0, 0, deckId, fleetSnapshot, isCombined ? 1 : 0, fleetSnapshotEscort);
+  const cell: SortieCell = {
+    mapAreaId: 0,
+    mapInfoNo: 0,
+    cellId: 0,
+    eventId: 0,
+    eventKind: 0,
+    next: 0,
+    isBoss: false,
+    updatedAt: ts,
+  };
+  ctx.currentCell = cell;
+
+  setSortieContext(ctx);
+  return ctx;
+}
 
 
 class BattleHandler implements Handler {
@@ -46,6 +139,11 @@ class BattleHandler implements Handler {
   ): Promise<void> {
     const { apiPath, segment, isPractice, isAirRaid } = payload;
     let { prediction } = payload;
+
+    // 演习首个事件：按当前 deck 合成一个最小 SortieContext 让预览生效。
+    if (isPractice) {
+      ensurePracticeContext(segment);
+    }
 
     // 1. 获取出击上下文，更新内存状态
     const context = getSortieContext();
@@ -102,6 +200,11 @@ class BattleHandler implements Handler {
   ): Promise<void> {
     const { apiPath, segment, isPractice } = payload;
     let { prediction } = payload;
+
+    // 演习直入夜战(api_req_practice/midnight_battle 罕见但可能)：合成上下文。
+    if (isPractice) {
+      ensurePracticeContext(segment);
+    }
 
     // 1. 获取出击上下文
     const context = getSortieContext();
@@ -343,6 +446,10 @@ class BattleHandler implements Handler {
     // 6. 清理战斗上下文
     if (context) {
       context.pendingBattle = null;
+    }
+    // 演习的 SortieContext 是合成的，结算后清掉避免泄漏到下一次真实出击。
+    if (isPractice) {
+      clearSortieContext();
     }
 
     // 7. 重置模拟器，为下一场战斗做准备
