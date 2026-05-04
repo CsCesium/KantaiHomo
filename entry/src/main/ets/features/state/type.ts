@@ -91,6 +91,10 @@ export interface ShipState {
   slotCount: number;
   /** 扩张装备槽 UID（0=未解锁，-1=未装备，>0=装备UID） */
   exSlot: number;
+  /** 当前显示索敌值（含装备加成，来自 api_sakuteki[0]） */
+  scoutCur: number;
+  /** 速力（api_soku：0=陸上、5=低速、10=高速、15=高速+、20=最速） */
+  speed: number;
   /** HP 百分比 */
   hpPercent: number;
   /** 是否大破 (HP <= 25%) */
@@ -139,10 +143,18 @@ export interface GameState {
   shipMasterMaxSupply: Map<number, { fuelMax: number; ammoMax: number }>;
   /** 舰船图鉴速力缓存 (masterId → api_soku, 0=陆上基地, 5=低速, 10=高速...) */
   shipMasterSoku: Map<number, number>;
+  /** 舰船图鉴舰种缓存 (masterId → api_stype) */
+  shipMasterStype: Map<number, number>;
   /** 装备图鉴类型缓存 (slotitem masterId → typeEquipType) */
   slotItemEquipTypes: Map<number, number>;
   /** 装备图鉴图标缓存 (slotitem masterId → api_type[3]) */
   slotItemIconTypes: Map<number, number>;
+  /** 装备图鉴 LoS（slotitem masterId → api_saku） */
+  slotItemLos: Map<number, number>;
+  /** 装备图鉴 对空（slotitem masterId → api_tyku，制空计算用） */
+  slotItemAa: Map<number, number>;
+  /** 装备图鉴名称（slotitem masterId → api_name） */
+  slotItemNames: Map<number, string>;
   /** 装备实例索引 (slotitem uid → masterId) */
   slotItemIndex: Map<number, number>;
   /** 装备改修度 (slotitem uid → api_level, 0..10) */

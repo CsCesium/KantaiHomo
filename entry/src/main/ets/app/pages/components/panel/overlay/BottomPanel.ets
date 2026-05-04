@@ -15,6 +15,7 @@ import { getPersistDeps } from '../../../../../infra/deps';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
+  getFleetTP,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
 import { SlotItemJoinedRow } from '../../../../../infra/storage/types';
@@ -104,6 +105,16 @@ function condIcon(cond: number): string {
   return '！';
 }
 
+/** Fleet unified speed (min of all ship speeds): 0=陸上, 5=低速, 10=高速, 15=高速+, 20=最速. */
+function formatFleetSpeed(speed: number): string {
+  if (speed < 0 || !Number.isFinite(speed)) return '--';
+  if (speed >= 20) return '最速';
+  if (speed >= 15) return '高速+';
+  if (speed >= 10) return '高速';
+  if (speed >= 5) return '低速';
+  return '陸上';
+}
+
 /**
  * Bottom-docked info panel for EXPANDED mode (portrait / wide-split).
  * Shows fleet air power, LoS(×3), and special attack eligibility
@@ -118,6 +129,9 @@ export default struct BottomPanel {
   @Local decks: DeckSnapshot[] = [];
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
+  @Local fleetTpS: number = 0;
+  @Local fleetTpA: number = 0;
+  @Local fleetSpeed: number = -1;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
   @Local activeQuests: QuestSnapshot[] = [];
@@ -182,9 +196,13 @@ export default struct BottomPanel {
       ));
       const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
       this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
+      this.fleetSpeed = rawShips.length > 0
+        ? rawShips.reduce((min, s) => Math.min(min, s.speed), Number.POSITIVE_INFINITY)
+        : -1;
     } else {
       this.ships = [];
       this.specialAttack = '';
+      this.fleetSpeed = -1;
     }
   }
 
@@ -192,6 +210,8 @@ export default struct BottomPanel {
     if (this.activeFleet >= 4) {
       this.airPower = 0;
       this.fleetLoS = 0;
+      this.fleetTpS = 0;
+      this.fleetTpA = 0;
       return;
     }
     const deckId = this.activeFleet + 1;
@@ -202,10 +222,18 @@ export default struct BottomPanel {
       this.airPower = 0;
     }
     try {
-      const losResult = await calcSingleFleetLoS(deckId, 3);
+      const losResult = await calcSingleFleetLoS(deckId, 1);
       this.fleetLoS = losResult?.losScore ?? 0;
     } catch (_e) {
       this.fleetLoS = 0;
+    }
+    try {
+      const tpResult = await getFleetTP(deckId);
+      this.fleetTpS = tpResult?.baseTP ?? 0;
+      this.fleetTpA = tpResult?.aVictoryTP ?? 0;
+    } catch (_e) {
+      this.fleetTpS = 0;
+      this.fleetTpA = 0;
     }
   }
 
@@ -299,10 +327,11 @@ export default struct BottomPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
-  /** Fleet-level calc stats: air power and LoS (branch ×3). Hidden on map tab. */
+  /** Fleet-level calc stats: air power (left), unified speed (center), LoS + TP (right). */
   @Builder FleetStatsBar() {
     if (this.activeFleet < 4) {
       Row() {
+        // 制空 — left
         Text('制空')
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtMuted)
@@ -310,7 +339,17 @@ export default struct BottomPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.stat)
           .margin({ left: 3 })
+
         Blank().layoutWeight(1)
+
+        // 舰队统一速度 — center (emoji as placeholder icon)
+        Text(`⚡ ${formatFleetSpeed(this.fleetSpeed)}`)
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.stat)
+
+        Blank().layoutWeight(1)
+
+        // 索敵 + 輸送 — right
         Text('索敵')
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtMuted)
@@ -318,10 +357,16 @@ export default struct BottomPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.stat)
           .margin({ left: 3 })
-        Text('(×3)')
-          .fontSize(PanelDimens.fontSm - 1)
-          .fontColor(PanelColors.txtFainter)
-          .margin({ left: 2 })
+        Text('輸送')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.txtMuted)
+          .margin({ left: 8 })
+        Text(this.fleetTpS > 0
+          ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}`
+          : '--')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.stat)
+          .margin({ left: 3 })
       }
       .width('100%')
       .height(PanelDimens.statusBarH)

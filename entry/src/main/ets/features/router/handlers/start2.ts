@@ -94,6 +94,7 @@ class Start2Handler implements Handler {
       fuelMax: r.api_fuel_max ?? 0,
       ammoMax: r.api_bull_max ?? 0,
       soku: r.api_soku,
+      stype: r.api_stype,
     }));
     updateShipMasterMeta(metaItems);
 
@@ -162,6 +163,9 @@ class Start2Handler implements Handler {
       id: r.api_id,
       equipType: Array.isArray(r.api_type) ? (r.api_type[2] ?? 0) : 0,
       iconType: Array.isArray(r.api_type) ? (r.api_type[3] ?? 0) : 0,
+      los: r.api_saku ?? 0,
+      aa: r.api_tyku ?? 0,
+      name: r.api_name ?? '',
     }));
     updateSlotItemEquipTypes(equipTypeItems);
 

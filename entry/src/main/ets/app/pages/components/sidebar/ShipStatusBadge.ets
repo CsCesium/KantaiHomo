@@ -52,7 +52,7 @@ export default struct ShipStatusBadge {
     uid: 0, masterId: 0, name: '', level: 0,
     hpNow: 0, hpMax: 1, cond: 49,
     fuel: 0, ammo: 0, fuelMax: 0, ammoMax: 0,
-    needsResupply: false, slotCount:0, slots: [],onslot: [], exSlot: 0,
+    needsResupply: false, slotCount:0, slots: [],onslot: [], exSlot: 0, scoutCur: 0, speed: 0,
     hpPercent: 1, isTaiha: false, isChuuha: false,
   };
   @Param equip: ShipSpecialEquip = { hasDamageControl: false, hasGoddess: false };

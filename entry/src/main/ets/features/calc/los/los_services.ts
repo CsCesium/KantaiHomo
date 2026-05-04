@@ -17,9 +17,12 @@ import {
   calcLoSForMapNode,
   calcLoSForMultipleCoefficients
 } from "..";
-import { joinedRowToStruct } from "../../../domain/models";
-import { getRepositoryHub } from "../../../infra/storage/repo";
-import { getAdmiral } from "../../state";
+import {
+  getAdmiral,
+  getDeck,
+  getShip,
+  getGameState,
+} from "../../state";
 
 /** Ship info needed for LoS calculation */
 interface ShipLoSData {
@@ -40,63 +43,54 @@ interface ShipLoSData {
 }
 
 /**
- * Get ship data for LoS calculation
+ * Get ship data for LoS calculation from in-memory game state.
  *
- * Note: Equipment fit bonus to LoS needs to be calculated separately
- * based on ship-equipment combinations. This is a simplified version.
+ * Reads the ship and its equipment from GameState (the same source the
+ * panel UI uses). Equipment master data (LoS, equipType) comes from
+ * caches populated by api_start2; equipment instance data (uid → masterId,
+ * level) comes from caches populated by api_port. This avoids the
+ * SQLite race conditions that previously caused the LoS panel to fall
+ * back to the empty-fleet score (-36).
  */
-async function getShipLoSData(shipUid: number): Promise<ShipLoSData | null> {
-  const repo = getRepositoryHub();
+function getShipLoSData(shipUid: number): ShipLoSData | null {
+  const ship = getShip(shipUid);
+  if (!ship) return null;
 
-  // Get ship with master data
-  const shipRow = await repo.ship.getWithMaster(shipUid);
-  if (!shipRow) return null;
+  const state = getGameState().getState();
 
-  // Parse equipment UIDs
-  const equipUids: number[] = JSON.parse(shipRow.slotsJson || '[]');
-  const validEquipUids = equipUids.filter(uid => uid > 0);
-
-  // Add expansion slot if present
-  if (shipRow.slotEx > 0) {
-    validEquipUids.push(shipRow.slotEx);
+  // Collect valid equipment UIDs (active slots + expansion slot).
+  const validEquipUids: number[] = [];
+  for (let i = 0; i < ship.slotCount; i++) {
+    const uid = ship.slots[i];
+    if (uid > 0) validEquipUids.push(uid);
   }
+  if (ship.exSlot > 0) validEquipUids.push(ship.exSlot);
 
-  // Get equipment data
   const equipments: ShipLoSData['equipments'] = [];
   let totalEquipLoS = 0;
 
-  if (validEquipUids.length > 0) {
-    const equipRows = await repo.slotitem.listWithMasterByUids(validEquipUids);
-    for (const row of equipRows) {
-      const { item, master } = joinedRowToStruct(row);
-      if (master && master.stats.los !== undefined) {
-        equipments.push({
-          masterId: master.id,
-          equipType: master.type.equipType || 0,
-          los: master.stats.los || 0,
-          level: item.level || 0,
-        });
-        totalEquipLoS += master.stats.los || 0;
-      }
-    }
+  for (const uid of validEquipUids) {
+    const masterId = state.slotItemIndex.get(uid);
+    if (masterId === undefined) continue;
+    const equipType = state.slotItemEquipTypes.get(masterId) ?? 0;
+    const los = state.slotItemLos.get(masterId) ?? 0;
+    const level = state.slotItemLevels.get(uid) ?? 0;
+
+    equipments.push({ masterId, equipType, los, level });
+    totalEquipLoS += los;
   }
 
-  // Ship's displayed LoS includes equipment
-  // Naked LoS = displayed LoS - equipment LoS
-  const displayedLoS = shipRow.sc_cur || 0;
+  // Ship's displayed LoS already includes equipment LoS bonuses.
+  // Naked LoS (used in √ contribution) = displayed - sum(equipment LoS).
+  const displayedLoS = ship.scoutCur || 0;
   const nakedLoS = displayedLoS - totalEquipLoS;
-
-  // TODO: Calculate equipment fit bonus to LoS
-  // This requires ship-equipment fit bonus data
-  // For now, we assume no fit bonus
-  const equipBonusLoS = 0;
 
   return {
     shipUid,
-    shipMasterId: shipRow.masterId,
-    shipName: shipRow.mst_name || `Ship#${shipRow.masterId}`,
+    shipMasterId: ship.masterId,
+    shipName: ship.name || `Ship#${ship.masterId}`,
     nakedLoS: Math.max(0, nakedLoS),
-    equipBonusLoS,
+    equipBonusLoS: 0,
     equipments,
   };
 }
@@ -121,28 +115,19 @@ export async function getFleetLoS(
   deckId: number,
   retreatedShipUids: Set<number> = new Set(),
 ): Promise<FleetLoSResult | null> {
-  const repo = getRepositoryHub();
-
-  // Get fleet data
-  const decks = await repo.deck.list();
-  const deck = decks.find(d => d.deckId === deckId);
+  const deck = getDeck(deckId);
   if (!deck) return null;
 
-  // Parse ship UIDs
-  const shipUids: number[] = JSON.parse(deck.shipUidsJson || '[]');
-
-  // Calculate LoS for each ship
   const shipResults: ShipLoSResult[] = [];
 
-  for (const shipUid of shipUids) {
+  for (const shipUid of deck.shipUids) {
     if (shipUid <= 0) continue;
 
-    const shipData = await getShipLoSData(shipUid);
+    const shipData = getShipLoSData(shipUid);
     if (!shipData) continue;
 
     const isRetreated = retreatedShipUids.has(shipUid);
 
-    // Calculate equipment LoS info
     const equipInfos: LoSEquipInfo[] = shipData.equipments.map(equip =>
     calcEquipLoSInfo(equip.masterId, equip.equipType, equip.los, equip.level)
     );
@@ -337,26 +322,17 @@ export async function simulateFleetLoS(
   hqLevel?: number,
   retreatedShipUids: Set<number> = new Set(),
 ): Promise<LoSCalculationResult | null> {
-  const repo = getRepositoryHub();
-
-  // Get fleet data
-  const decks = await repo.deck.list();
-  const deck = decks.find(d => d.deckId === deckId);
+  const deck = getDeck(deckId);
   if (!deck) return null;
 
-  // Create modification map
   const modMap = new Map(modifications.map(m => [m.shipUid, m.newEquipments]));
 
-  // Parse ship UIDs
-  const shipUids: number[] = JSON.parse(deck.shipUidsJson || '[]');
-
-  // Calculate LoS for each ship
   const shipResults: ShipLoSResult[] = [];
 
-  for (const shipUid of shipUids) {
+  for (const shipUid of deck.shipUids) {
     if (shipUid <= 0) continue;
 
-    const shipData = await getShipLoSData(shipUid);
+    const shipData = getShipLoSData(shipUid);
     if (!shipData) continue;
 
     const isRetreated = retreatedShipUids.has(shipUid);
