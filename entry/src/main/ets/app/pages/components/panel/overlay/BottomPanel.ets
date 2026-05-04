@@ -286,7 +286,7 @@ export default struct BottomPanel {
         Text(`速建${this.materials.instantBuild}`)
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
       } else {
-        Text('データ読み込み中...')
+        Text('Loading Data...')
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
       }
     }
