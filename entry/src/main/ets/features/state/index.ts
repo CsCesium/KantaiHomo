@@ -53,6 +53,9 @@ export {
   getSlotItemLevel,
   getSlotItemAlv,
   getSlotItemMasterLos,
+  getSlotItemMasterAa,
+  getSlotItemMasterEquipType,
+  getSlotItemMasterName,
   updateShipGraphFilenames,
   setGameServerUrl,
 

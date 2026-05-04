@@ -149,6 +149,10 @@ export interface GameState {
   slotItemIconTypes: Map<number, number>;
   /** 装备图鉴 LoS（slotitem masterId → api_saku） */
   slotItemLos: Map<number, number>;
+  /** 装备图鉴 对空（slotitem masterId → api_tyku，制空计算用） */
+  slotItemAa: Map<number, number>;
+  /** 装备图鉴名称（slotitem masterId → api_name） */
+  slotItemNames: Map<number, string>;
   /** 装备实例索引 (slotitem uid → masterId) */
   slotItemIndex: Map<number, number>;
   /** 装备改修度 (slotitem uid → api_level, 0..10) */

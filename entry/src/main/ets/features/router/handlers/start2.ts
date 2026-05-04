@@ -164,6 +164,8 @@ class Start2Handler implements Handler {
       equipType: Array.isArray(r.api_type) ? (r.api_type[2] ?? 0) : 0,
       iconType: Array.isArray(r.api_type) ? (r.api_type[3] ?? 0) : 0,
       los: r.api_saku ?? 0,
+      aa: r.api_tyku ?? 0,
+      name: r.api_name ?? '',
     }));
     updateSlotItemEquipTypes(equipTypeItems);
 
