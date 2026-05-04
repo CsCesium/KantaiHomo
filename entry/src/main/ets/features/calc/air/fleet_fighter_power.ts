@@ -1,11 +1,21 @@
 /**
  * Fleet Fighter Power Calculator Service
  *
- * Calculates fleet fighter power based on GameState and database data
+ * Reads fleet/ship/equipment data from the in-memory GameState — the same
+ * source the panel UI uses via getDeckShips(). Equipment master data
+ * (aa, equipType, name) is sourced from caches populated by api_start2.
+ * This avoids the SQLite races / missing-persistence issues that left
+ * the 制空 panel stuck at 0.
  */
 
-import { joinedRowToStruct } from '../../../domain/models/mapper/slotitem';
-import { SlotItemMaster } from '../../../domain/models';
+import {
+  SlotItemMaster,
+  SlotItemMajorType,
+  SlotItemBookCategory,
+  SlotItemEquipType,
+  SlotItemIconId,
+  SlotItemAircraftCategory,
+} from '../../../domain/models';
 import {
   calcSlotFighterPower,
   calcAirStateResult,
@@ -15,7 +25,16 @@ import {
   FleetFighterPower,
   AirStateResult,
 } from './fighter_power';
-import { getRepositoryHub } from '../../../infra/storage/repo';
+import {
+  getDeck,
+  getShip,
+  getGameState,
+  getSlotItemLevel,
+  getSlotItemAlv,
+  getSlotItemMasterAa,
+  getSlotItemMasterEquipType,
+  getSlotItemMasterName,
+} from '../../state';
 
 // ==================== Type Definitions ====================
 
@@ -60,96 +79,96 @@ export interface FleetEquipInfo {
 // ==================== Data Retrieval Functions ====================
 
 /**
- * Get ship equipment info
+ * Build a minimal SlotItemMaster from in-memory caches.
+ * Only the fields read by calcSlotFighterPower (id, name, type.equipType,
+ * stats.aa) carry real data; everything else is filled with zero defaults.
  */
-export async function getShipEquipInfo(shipUid: number): Promise<ShipEquipInfo | null> {
-  const repo = getRepositoryHub();
+function masterFromCache(masterId: number): SlotItemMaster {
+  const equipType = getSlotItemMasterEquipType(masterId) as SlotItemEquipType;
+  return {
+    id: masterId,
+    sortNo: 0,
+    name: getSlotItemMasterName(masterId) || `Equip#${masterId}`,
+    type: {
+      major: 0 as SlotItemMajorType,
+      book: 0 as SlotItemBookCategory,
+      equipType,
+      iconId: 0 as SlotItemIconId,
+      aircraft: 0 as SlotItemAircraftCategory,
+    },
+    rarity: 0,
+    range: 0,
+    stats: {
+      hp: 0, armor: 0, firepower: 0, torpedo: 0, speed: 0, bomb: 0,
+      aa: getSlotItemMasterAa(masterId),
+      asw: 0, hit: 0, evasion: 0, los: 0, luck: 0,
+    },
+    broken: [0, 0, 0, 0],
+    updatedAt: 0,
+  };
+}
 
-  // Get ship data
-  const shipRow = await repo.ship.getWithMaster(shipUid);
-  if (!shipRow) return null;
+/**
+ * Get ship equipment info from in-memory game state.
+ */
+export function getShipEquipInfo(shipUid: number): ShipEquipInfo | null {
+  const ship = getShip(shipUid);
+  if (!ship) return null;
 
-  // Parse equipment slots
-  const equipUids: number[] = JSON.parse(shipRow.slotsJson || '[]');
-  const onslot: number[] = JSON.parse(shipRow.onslotJson || '[]');
+  const slotIndex = getGameState().getState().slotItemIndex;
 
-  // Get master data for all equipment
-  const validEquipUids = equipUids.filter(uid => uid > 0);
-  if (shipRow.slotEx > 0) {
-    validEquipUids.push(shipRow.slotEx);
-  }
-
-  const equipRows = validEquipUids.length > 0
-    ? await repo.slotitem.listWithMasterByUids(validEquipUids)
-    : [];
-
-  // Build equipment UID -> data mapping
-  const equipMap = new Map<number, { master: SlotItemMaster | null; level: number; alv: number }>();
-  for (const row of equipRows) {
-    const { item, master } = joinedRowToStruct(row);
-    equipMap.set(item.uid, {
+  const slots: SlotInfo[] = [];
+  for (let i = 0; i < ship.slotCount; i++) {
+    const uid = ship.slots[i];
+    const slotSize = ship.onslot[i] || 0;
+    if (uid <= 0) {
+      slots.push({ equipUid: uid, slotSize, master: undefined, level: 0, proficiency: 0 });
+      continue;
+    }
+    const masterId = slotIndex.get(uid);
+    const master = masterId !== undefined ? masterFromCache(masterId) : undefined;
+    slots.push({
+      equipUid: uid,
+      slotSize,
       master,
-      level: item.level || 0,
-      alv: item.alv || 0,
+      level: getSlotItemLevel(uid),
+      proficiency: getSlotItemAlv(uid),
     });
   }
 
-  // Build slot info
-  const slots: SlotInfo[] = equipUids.map((uid, i) => {
-    const equipInfo = equipMap.get(uid);
-    return {
-      equipUid: uid,
-      slotSize: onslot[i] || 0,
-      master: equipInfo?.master || undefined,
-      level: equipInfo?.level || 0,
-      proficiency: equipInfo?.alv || 0,
-    };
-  });
-
-  // Reinforcement expansion slot
   let exSlot: SlotInfo | undefined;
-  if (shipRow.slotEx > 0) {
-    const exEquipInfo = equipMap.get(shipRow.slotEx);
+  if (ship.exSlot > 0) {
+    const masterId = slotIndex.get(ship.exSlot);
     exSlot = {
-      equipUid: shipRow.slotEx,
-      slotSize: 0, // Expansion slot has no aircraft capacity
-      master: exEquipInfo?.master || undefined,
-      level: exEquipInfo?.level || 0,
-      proficiency: exEquipInfo?.alv || 0,
+      equipUid: ship.exSlot,
+      slotSize: 0,
+      master: masterId !== undefined ? masterFromCache(masterId) : undefined,
+      level: getSlotItemLevel(ship.exSlot),
+      proficiency: getSlotItemAlv(ship.exSlot),
     };
   }
 
   return {
     shipUid,
-    shipMasterId: shipRow.masterId,
-    shipName: shipRow.mst_name || `Ship#${shipRow.masterId}`,
+    shipMasterId: ship.masterId,
+    shipName: ship.name || `Ship#${ship.masterId}`,
     slots,
     exSlot,
   };
 }
 
 /**
- * Get fleet equipment info
+ * Get fleet equipment info from in-memory game state.
  */
-export async function getFleetEquipInfo(deckId: number): Promise<FleetEquipInfo | null> {
-  const repo = getRepositoryHub();
-
-  // Get fleet data
-  const decks = await repo.deck.list();
-  const deck = decks.find(d => d.deckId === deckId);
+export function getFleetEquipInfo(deckId: number): FleetEquipInfo | null {
+  const deck = getDeck(deckId);
   if (!deck) return null;
 
-  // Parse ship UIDs
-  const shipUids: number[] = JSON.parse(deck.shipUidsJson || '[]');
-
-  // Get equipment info for each ship
   const ships: ShipEquipInfo[] = [];
-  for (const shipUid of shipUids) {
+  for (const shipUid of deck.shipUids) {
     if (shipUid <= 0) continue;
-    const shipInfo = await getShipEquipInfo(shipUid);
-    if (shipInfo) {
-      ships.push(shipInfo);
-    }
+    const shipInfo = getShipEquipInfo(shipUid);
+    if (shipInfo) ships.push(shipInfo);
   }
 
   return {

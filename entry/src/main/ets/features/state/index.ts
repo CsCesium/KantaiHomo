@@ -52,6 +52,10 @@ export {
   updateSlotItemIndex,
   getSlotItemLevel,
   getSlotItemAlv,
+  getSlotItemMasterLos,
+  getSlotItemMasterAa,
+  getSlotItemMasterEquipType,
+  getSlotItemMasterName,
   updateShipGraphFilenames,
   setGameServerUrl,
 
@@ -73,6 +77,7 @@ export {
   hasTaihaInDeck,
   getShipSpecialEquip,
   getShipMasterName,
+  getShipMasterStype,
   isShipMasterLandBased,
 
   // 战果计算

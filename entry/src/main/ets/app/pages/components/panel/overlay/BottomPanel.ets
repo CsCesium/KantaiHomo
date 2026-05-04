@@ -15,6 +15,7 @@ import { getPersistDeps } from '../../../../../infra/deps';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
+  getFleetTP,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
 import { SlotItemJoinedRow } from '../../../../../infra/storage/types';
@@ -118,6 +119,8 @@ export default struct BottomPanel {
   @Local decks: DeckSnapshot[] = [];
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
+  @Local fleetTpS: number = 0;
+  @Local fleetTpA: number = 0;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
   @Local activeQuests: QuestSnapshot[] = [];
@@ -192,6 +195,8 @@ export default struct BottomPanel {
     if (this.activeFleet >= 4) {
       this.airPower = 0;
       this.fleetLoS = 0;
+      this.fleetTpS = 0;
+      this.fleetTpA = 0;
       return;
     }
     const deckId = this.activeFleet + 1;
@@ -206,6 +211,14 @@ export default struct BottomPanel {
       this.fleetLoS = losResult?.losScore ?? 0;
     } catch (_e) {
       this.fleetLoS = 0;
+    }
+    try {
+      const tpResult = await getFleetTP(deckId);
+      this.fleetTpS = tpResult?.baseTP ?? 0;
+      this.fleetTpA = tpResult?.aVictoryTP ?? 0;
+    } catch (_e) {
+      this.fleetTpS = 0;
+      this.fleetTpA = 0;
     }
   }
 
@@ -299,7 +312,7 @@ export default struct BottomPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
-  /** Fleet-level calc stats: air power and LoS (branch ×3). Hidden on map tab. */
+  /** Fleet-level calc stats: air power, LoS (branch ×3), transport TP. Hidden on map tab. */
   @Builder FleetStatsBar() {
     if (this.activeFleet < 4) {
       Row() {
@@ -318,10 +331,16 @@ export default struct BottomPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.stat)
           .margin({ left: 3 })
-        Text('(×3)')
-          .fontSize(PanelDimens.fontSm - 1)
-          .fontColor(PanelColors.txtFainter)
-          .margin({ left: 2 })
+        Blank().layoutWeight(1)
+        Text('輸送')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.txtMuted)
+        Text(this.fleetTpS > 0
+          ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}`
+          : '--')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.stat)
+          .margin({ left: 3 })
       }
       .width('100%')
       .height(PanelDimens.statusBarH)
