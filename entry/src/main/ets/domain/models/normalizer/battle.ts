@@ -48,6 +48,12 @@ export function normalizeBattleSegment(apiPath: BattleApiPath, raw: ApiMaybeEnve
     return normalizeDestructionBattle(apiPath, dataAny as ApiDestructionBattleRaw, now);
   }
 
+  // 开幕夜战：单包内先夜战（root api_hougeki）后昼战（kouku/hougeki1..3 等）。
+  // 必须同时提取两段 phase，否则 isNightBattleData 命中后会丢失昼战阶段。
+  if (apiPath === 'api_req_combined_battle/ec_night_to_day') {
+    return normalizeNightToDayBattle(apiPath, dataAny as ApiNightBattleDataRaw & ApiDayBattleDataRaw, now);
+  }
+
   // Heuristic: night endpoints have api_hougeki at root and usually no day fields.
   if (isNightBattleData(dataAny)) {
     return normalizeNightBattle(apiPath, dataAny, now);
@@ -89,6 +95,19 @@ function normalizeNightBattle(apiPath: string, d: ApiNightBattleDataRaw, now: nu
   const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
 
   const phases = extractNightPhases(d, start);
+  const end = applyPhases(start, phases);
+
+  return { meta, start, phases, end, enemyMain, enemyEscort, createdAt: now };
+}
+
+function normalizeNightToDayBattle(apiPath: string, d: ApiNightBattleDataRaw & ApiDayBattleDataRaw, now: number): BattleSegment {
+  const meta = buildMeta(apiPath, d, now);
+  const start = buildHpSnapshot(d);
+  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
+
+  const nightPhases = extractNightPhases(d, start);
+  const dayPhases = extractDayPhases(d, start);
+  const phases = [...nightPhases, ...dayPhases].map((p, i) => ({ ...p, seq: i + 1 }));
   const end = applyPhases(start, phases);
 
   return { meta, start, phases, end, enemyMain, enemyEscort, createdAt: now };

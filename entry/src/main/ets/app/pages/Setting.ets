@@ -3,7 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
 
@@ -30,6 +30,9 @@ struct Setting {
   @StorageLink(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
   @StorageLink(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageLink(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
+  /** Equipment label badge overlays in main panel. */
+  @StorageLink(APP_STORAGE_PANEL_SHOW_KAISYUU) private panelShowKaisyuu: boolean = true;
+  @StorageLink(APP_STORAGE_PANEL_SHOW_PROFICIENCY) private panelShowProficiency: boolean = true;
 
   // ── Alert settings ─────────────────────────────────────────────
   @State private battleResultAlertEnabled: boolean = true;
@@ -106,6 +109,16 @@ struct Setting {
   private onInjectPixiPatchToggle(v: boolean): void {
     this.injectPixiPatch = v;
     void kvSet(APP_STORAGE_INJECT_PIXI_PATCH, v);
+  }
+
+  private onPanelShowKaisyuuToggle(v: boolean): void {
+    this.panelShowKaisyuu = v;
+    void kvSet(APP_STORAGE_PANEL_SHOW_KAISYUU, v);
+  }
+
+  private onPanelShowProficiencyToggle(v: boolean): void {
+    this.panelShowProficiency = v;
+    void kvSet(APP_STORAGE_PANEL_SHOW_PROFICIENCY, v);
   }
 
   private async saveConfig(): Promise<void> {
@@ -421,15 +434,32 @@ struct Setting {
           // ── SECTION: 界面 ────────────────────────────────────
           this.SectionHeader('界面')
 
-          this.ToggleRow(
-            '舰队状态侧边栏',
-            '横屏时在游戏右侧显示舰队 HP / 损管 / 补给状态',
-            this.showSidebar,
-            (v: boolean) => {
-              this.showSidebar = v;            // 写入 AppStorage，WebHost 立即响应
-              void kvSet(APP_STORAGE_SHOW_SIDEBAR, v); // 持久化
-            }
-          )
+          Column({ space: 8 }) {
+            this.ToggleRow(
+              '舰队状态侧边栏',
+              '横屏时在游戏右侧显示舰队 HP / 损管 / 补给状态',
+              this.showSidebar,
+              (v: boolean) => {
+                this.showSidebar = v;            // 写入 AppStorage，WebHost 立即响应
+                void kvSet(APP_STORAGE_SHOW_SIDEBAR, v); // 持久化
+              }
+            )
+
+            this.ToggleRow(
+              '装备改修度图标',
+              '在主面板装备图标右上角显示改修度（★1–★10）',
+              this.panelShowKaisyuu,
+              (v: boolean) => { this.onPanelShowKaisyuuToggle(v); }
+            )
+
+            this.ToggleRow(
+              '航空机熟练度图标',
+              '在主面板航空装备图标左下角显示熟练度',
+              this.panelShowProficiency,
+              (v: boolean) => { this.onPanelShowProficiencyToggle(v); }
+            )
+          }
+          .width('100%')
 
           // ── SECTION: 战斗提醒 ─────────────────────────────────
           this.SectionHeader('战斗提醒')

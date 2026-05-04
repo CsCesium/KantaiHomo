@@ -1,6 +1,6 @@
 import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel/panelConfig';
 import {
-  subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName,
+  subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName, isShipMasterLandBased,
   BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus,
   EnemyBattleStatus
 } from '../../../../../features/state';
@@ -58,11 +58,11 @@ function airStateColor(s: number | undefined): string {
   return PanelColors.txtMuted;
 }
 
-function shipBadgeText(ship: ShipBattleStatus): string {
-  if (ship.isSunk) return '轰沈';
-  if (ship.isTaiha) return '大破';
-  if (ship.isChuuha) return '中破';
-  if (ship.isShouha) return '小破';
+function shipBadgeText(ship: ShipBattleStatus, landBased: boolean = false): string {
+  if (ship.isSunk) return landBased ? '破壊' : '轰沈';
+  if (ship.isTaiha) return landBased ? '损壊' : '大破';
+  if (ship.isChuuha) return landBased ? '损害' : '中破';
+  if (ship.isShouha) return landBased ? '混乱' : '小破';
   return '';
 }
 
@@ -73,12 +73,12 @@ function shipBadgeColor(ship: ShipBattleStatus): string {
   return PanelColors.hpOk;
 }
 
-function enemyBadgeText(hpNow: number, hpMax: number): string {
-  if (hpNow <= 0) return '轰沈';
+function enemyBadgeText(hpNow: number, hpMax: number, landBased: boolean = false): string {
+  if (hpNow <= 0) return landBased ? '破壊' : '轰沈';
   const r = hpMax > 0 ? hpNow / hpMax : 1;
-  if (r <= 0.25) return '大破';
-  if (r <= 0.5) return '中破';
-  if (r <= 0.75) return '小破';
+  if (r <= 0.25) return landBased ? '损壊' : '大破';
+  if (r <= 0.5)  return landBased ? '损害' : '中破';
+  if (r <= 0.75) return landBased ? '混乱' : '小破';
   return '';
 }
 
@@ -137,16 +137,26 @@ export default struct BattlePreviewPanel {
 
       // HP bar with threshold tick marks at 25% and 50%
       Stack() {
-        Progress({
-          value: hpAfter > 0 ? hpAfter : 0,
-          total: hpMax > 0 ? hpMax : 1,
-          type: ProgressType.Linear
-        })
-          .width('100%')
-          .height(PanelDimens.hpBarH)
-          .color(hpColor(hpAfter, hpMax))
-          .backgroundColor(PanelColors.bgHpTrack)
-
+        Row() {
+          if (hpAfter > 0) {
+            Column()
+              .layoutWeight(hpAfter)
+              .height('100%')
+              .backgroundColor(hpColor(hpAfter, hpMax))
+          }
+          if (damage > 0) {
+            Column()
+              .layoutWeight(damage)
+              .height('100%')
+              .backgroundColor(PanelColors.hpDamage)
+          }
+          if (hpMax - Math.max(hpAfter, 0) - Math.max(damage, 0) > 0) {
+            Blank().layoutWeight(hpMax - Math.max(hpAfter, 0) - Math.max(damage, 0))
+          }
+        }
+        .width('100%')
+        .height(PanelDimens.hpBarH)
+        .backgroundColor(PanelColors.bgHpTrack)
         // Tick marks: weights 1 | tick | 1 | tick | 2 → ticks at 25% and 50%
         Row() {
           Blank().layoutWeight(1)
@@ -173,7 +183,7 @@ export default struct BattlePreviewPanel {
    *   name (flex)   beforeHP→afterHP   [badge]
    *   [-dmg fixed]  [====HP bar with ticks====]
    */
-  @Builder BattleShipRow(ship: ShipBattleStatus) {
+  @Builder BattleShipRow(ship: ShipBattleStatus, landBased: boolean = false) {
     Column({ space: 2 }) {
       // Line 1: name | HP transition | status badge
       Row({ space: 3 }) {
@@ -191,7 +201,7 @@ export default struct BattlePreviewPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(hpColor(ship.hpAfter, ship.hpMax))
 
-        Text(shipBadgeText(ship))
+        Text(shipBadgeText(ship, landBased))
           .fontSize(PanelDimens.fontSm)
           .fontColor(shipBadgeColor(ship))
           .fontWeight(FontWeight.Bold)
@@ -220,10 +230,13 @@ export default struct BattlePreviewPanel {
    *
    * 敵舰 master id 在图鉴缓存中通常含日文舰名，未命中时回退为 `敵N`。
    */
-  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number) {
+  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number, landBased: boolean = false) {
+    // 单舰陆基判定：来源于 master.api_soku === 0 的「陆上型」敌人（栖姬/集積地等）；
+    // 整列空袭时由 landBased=true 强制覆盖。
+    const isLand: boolean = landBased || isShipMasterLandBased(masterId);
     Column({ space: 2 }) {
       Row({ space: 3 }) {
-        Text(getShipMasterName(masterId) || `敵${idx + 1}`)
+        Text(getShipMasterName(masterId) || (landBased ? `敵編隊${idx + 1}` : `敵${idx + 1}`))
           .fontSize(PanelDimens.fontMd)
           .fontColor(hpAfter <= 0 ? PanelColors.txtMuted : PanelColors.txtSub)
           .layoutWeight(1)
@@ -237,7 +250,7 @@ export default struct BattlePreviewPanel {
           .fontSize(PanelDimens.fontSm)
           .fontColor(hpColor(hpAfter, hpMax))
 
-        Text(enemyBadgeText(hpAfter, hpMax))
+        Text(enemyBadgeText(hpAfter, hpMax, isLand))
           .fontSize(PanelDimens.fontSm)
           .fontColor(enemyBadgeColor(hpAfter, hpMax))
           .fontWeight(FontWeight.Bold)
@@ -281,9 +294,10 @@ export default struct BattlePreviewPanel {
             .backgroundColor(snap.isBoss ? '#3d2e00' : PanelColors.bgTabInactive)
             .borderRadius(2)
 
-          Text(phaseName(snap.battlePhase))
+          Text(snap.isAirRaid ? '基地空襲' : phaseName(snap.battlePhase))
             .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.txtSub)
+            .fontColor(snap.isAirRaid ? '#fb8c00' : PanelColors.txtSub)
+            .fontWeight(snap.isAirRaid ? FontWeight.Bold : FontWeight.Normal)
         }
         .layoutWeight(1)
         .alignItems(VerticalAlign.Center)
@@ -410,7 +424,7 @@ export default struct BattlePreviewPanel {
   }
 
   /** A fleet's ship list (shared between prediction and result views). */
-  @Builder FleetShipList(fleet: FleetBattleStatus, label: string) {
+  @Builder FleetShipList(fleet: FleetBattleStatus, label: string, landBased: boolean = false) {
     if (label) {
       Row() {
         Text(label)
@@ -425,18 +439,18 @@ export default struct BattlePreviewPanel {
     }
 
       ForEach(fleet.ships, (ship: ShipBattleStatus) => {
-      this.BattleShipRow(ship)
+      this.BattleShipRow(ship, landBased)
     }, (ship: ShipBattleStatus) => `bship-${ship.uid}`)
   }
 
   /** Enemy fleet ship list with HP bars. */
-  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string) {
+  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string, landBased: boolean = false) {
     Row() {
       Text(label || '敵方')
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.txtFainter)
         .padding({ left: 10 })
-      Text(`撃沈 ${enemy.sunkCount}/${enemy.shipIds.length}`)
+      Text(`${landBased ? '破壊' : '撃沈'} ${enemy.sunkCount}/${enemy.shipIds.length}`)
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.txtMuted)
         .padding({ right: 10 })
@@ -457,7 +471,8 @@ export default struct BattlePreviewPanel {
           enemy.shipIds[idx] ?? 0,
           enemy.hpBefore[idx] ?? enemy.hpMax[idx],
           enemy.hpNow[idx] ?? 0,
-          enemy.hpMax[idx]
+          enemy.hpMax[idx],
+          landBased
         )
       }
     }, (_: number, idx: number) => `erow-${idx}`)
@@ -540,6 +555,184 @@ export default struct BattlePreviewPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
+  // ── matchup layouts ────────────────────────────────────────────────────────
+  //
+  // Each layout is a single root component so it can be invoked from a
+  // conditional branch as `this.LayoutXxx(...)`. Inlining these `Row`s
+  // directly in `build()` confused the ArkTS preprocessor when a branch
+  // contained multiple sibling components followed by chained modifiers,
+  // producing many "Cannot find name 'width'" errors.
+
+  /** Air raid: friend = land bases, enemy = aerial squadrons (both 陆基 terminology). */
+  @Builder
+  AirRaidLayout(friendMain: FleetBattleStatus, enemyMain: EnemyBattleStatus) {
+    Row() {
+      Column() {
+        this.FleetShipList(friendMain, '基地', true)
+      }
+      .layoutWeight(1)
+      .borderWidth({ right: PanelDimens.borderW })
+      .borderColor(PanelColors.rowBorder)
+
+      Column() {
+        this.EnemyFleetList(enemyMain, '敵編隊', true)
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
+  /** Combined vs combined: 2 rows × 2 columns (friend main | escort, enemy escort | main). */
+  @Builder
+  CombinedVsCombinedLayout(
+    friendMain: FleetBattleStatus,
+    friendEscort: FleetBattleStatus,
+    enemyMain: EnemyBattleStatus,
+    enemyEscort: EnemyBattleStatus,
+  ) {
+    Column() {
+      Row() {
+        Column() {
+          this.FleetShipList(friendMain, '主力')
+        }
+        .layoutWeight(1)
+        .borderWidth({ right: PanelDimens.borderW })
+        .borderColor(PanelColors.rowBorder)
+
+        Column() {
+          this.FleetShipList(friendEscort, '護衛')
+        }
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
+
+      Row() {
+        Column() {
+          this.EnemyFleetList(enemyEscort, '敵護衛')
+        }
+        .layoutWeight(1)
+        .borderWidth({ right: PanelDimens.borderW })
+        .borderColor(PanelColors.rowBorder)
+
+        Column() {
+          this.EnemyFleetList(enemyMain, '敵主力')
+        }
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
+      .borderWidth({ top: 2 })
+      .borderColor(PanelColors.rowBorder)
+    }
+    .width('100%')
+  }
+
+  /** Friend combined vs enemy single: 3 columns (friend main | friend escort | enemy). */
+  @Builder
+  FriendCombinedLayout(
+    friendMain: FleetBattleStatus,
+    friendEscort: FleetBattleStatus,
+    enemyMain: EnemyBattleStatus,
+  ) {
+    Row() {
+      Column() {
+        this.FleetShipList(friendMain, '主力')
+      }
+      .layoutWeight(1)
+      .borderWidth({ right: PanelDimens.borderW })
+      .borderColor(PanelColors.rowBorder)
+
+      Column() {
+        this.FleetShipList(friendEscort, '護衛')
+      }
+      .layoutWeight(1)
+      .borderWidth({ right: PanelDimens.borderW })
+      .borderColor(PanelColors.rowBorder)
+
+      Column() {
+        this.EnemyFleetList(enemyMain, '敵方')
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
+  /** Friend single vs enemy combined: 3 columns (friend | enemy escort | enemy main). */
+  @Builder
+  EnemyCombinedLayout(
+    friendMain: FleetBattleStatus,
+    enemyMain: EnemyBattleStatus,
+    enemyEscort: EnemyBattleStatus,
+  ) {
+    Row() {
+      Column() {
+        this.FleetShipList(friendMain, '我方')
+      }
+      .layoutWeight(1)
+      .borderWidth({ right: PanelDimens.borderW })
+      .borderColor(PanelColors.rowBorder)
+
+      Column() {
+        this.EnemyFleetList(enemyEscort, '敵護衛')
+      }
+      .layoutWeight(1)
+      .borderWidth({ right: PanelDimens.borderW })
+      .borderColor(PanelColors.rowBorder)
+
+      Column() {
+        this.EnemyFleetList(enemyMain, '敵主力')
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
+  /** Single vs single: 2 columns (friend | enemy). */
+  @Builder
+  SingleVsSingleLayout(friendMain: FleetBattleStatus, enemyMain: EnemyBattleStatus) {
+    Row() {
+      Column() {
+        this.FleetShipList(friendMain, '我方')
+      }
+      .layoutWeight(1)
+      .borderWidth({ right: PanelDimens.borderW })
+      .borderColor(PanelColors.rowBorder)
+
+      Column() {
+        this.EnemyFleetList(enemyMain, '敵方')
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Top)
+  }
+
+  /** Dispatcher: picks the right layout based on fleet composition / air-raid flag. */
+  @Builder
+  MatchupBody(
+    friendMain: FleetBattleStatus,
+    friendEscort: FleetBattleStatus | undefined,
+    enemyMain: EnemyBattleStatus,
+    enemyEscort: EnemyBattleStatus | undefined,
+    isAirRaid: boolean,
+  ) {
+    if (isAirRaid) {
+      this.AirRaidLayout(friendMain, enemyMain)
+    } else if (friendEscort && enemyEscort) {
+      this.CombinedVsCombinedLayout(friendMain, friendEscort, enemyMain, enemyEscort)
+    } else if (friendEscort) {
+      this.FriendCombinedLayout(friendMain, friendEscort, enemyMain)
+    } else if (enemyEscort) {
+      this.EnemyCombinedLayout(friendMain, enemyMain, enemyEscort)
+    } else {
+      this.SingleVsSingleLayout(friendMain, enemyMain)
+    }
+  }
+
   // ── main build ────────────────────────────────────────────────────────────
 
   build() {
@@ -550,107 +743,13 @@ export default struct BattlePreviewPanel {
 
         Scroll() {
           Column() {
-            if (this.resultSnap.friendEscort && this.resultSnap.enemyEscort) {
-              // Combined vs combined: upper = friendly (main | escort), lower = enemy (escort | main)
-              Row() {
-                Column() {
-                  this.FleetShipList(this.resultSnap.friendMain, '主力')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.FleetShipList(this.resultSnap.friendEscort, '護衛')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-
-              Row() {
-                Column() {
-                  this.EnemyFleetList(this.resultSnap.enemyEscort, '敵護衛')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵主力')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-              .borderWidth({ top: 2 })
-              .borderColor(PanelColors.rowBorder)
-            } else if (this.resultSnap.friendEscort) {
-              // Friend combined vs enemy single: 3 columns (friend main | friend escort | enemy)
-              Row() {
-                Column() {
-                  this.FleetShipList(this.resultSnap.friendMain, '主力')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.FleetShipList(this.resultSnap.friendEscort, '護衛')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵方')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-            } else if (this.resultSnap.enemyEscort) {
-              // Friend single vs enemy combined: 3 columns (friend | enemy escort | enemy main)
-              Row() {
-                Column() {
-                  this.FleetShipList(this.resultSnap.friendMain, '我方')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.resultSnap.enemyEscort, '敵護衛')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵主力')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-            } else {
-              // Single vs single: left = friendly, right = enemy
-              Row() {
-                Column() {
-                  this.FleetShipList(this.resultSnap.friendMain, '')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.resultSnap.enemyMain, '敵方')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-            }
+            this.MatchupBody(
+              this.resultSnap.friendMain,
+              this.resultSnap.friendEscort,
+              this.resultSnap.enemyMain,
+              this.resultSnap.enemyEscort,
+              this.resultSnap.isAirRaid,
+            )
           }
           .width('100%')
         }
@@ -661,112 +760,20 @@ export default struct BattlePreviewPanel {
       } else if (this.statusSnap) {
         // ── Prediction view ──────────────────────────────────────────────
         this.PredictHeader(this.statusSnap)
-        this.TaihaWarning(this.statusSnap)
-        this.SunkWarning(this.statusSnap.hasSunkRisk)
+        if (!this.statusSnap.isAirRaid) {
+          this.TaihaWarning(this.statusSnap)
+          this.SunkWarning(this.statusSnap.hasSunkRisk)
+        }
 
         Scroll() {
           Column() {
-            if (this.statusSnap.friendEscort && this.statusSnap.enemyEscort) {
-              // Combined vs combined: upper = friendly (main | escort), lower = enemy (escort | main)
-              Row() {
-                Column() {
-                  this.FleetShipList(this.statusSnap.friendMain, '主力')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.FleetShipList(this.statusSnap.friendEscort, '護衛')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-
-              Row() {
-                Column() {
-                  this.EnemyFleetList(this.statusSnap.enemyEscort, '敵護衛')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵主力')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-              .borderWidth({ top: 2 })
-              .borderColor(PanelColors.rowBorder)
-            } else if (this.statusSnap.friendEscort) {
-              // Friend combined vs enemy single: 3 columns (friend main | friend escort | enemy)
-              Row() {
-                Column() {
-                  this.FleetShipList(this.statusSnap.friendMain, '主力')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.FleetShipList(this.statusSnap.friendEscort, '護衛')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵方')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-            } else if (this.statusSnap.enemyEscort) {
-              // Friend single vs enemy combined: 3 columns (friend | enemy escort | enemy main)
-              Row() {
-                Column() {
-                  this.FleetShipList(this.statusSnap.friendMain, '我方')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.statusSnap.enemyEscort, '敵護衛')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵主力')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-            } else {
-              // Single vs single: left = friendly, right = enemy
-              Row() {
-                Column() {
-                  this.FleetShipList(this.statusSnap.friendMain, '')
-                }
-                .layoutWeight(1)
-                .borderWidth({ right: PanelDimens.borderW })
-                .borderColor(PanelColors.rowBorder)
-
-                Column() {
-                  this.EnemyFleetList(this.statusSnap.enemyMain, '敵方')
-                }
-                .layoutWeight(1)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Top)
-            }
+            this.MatchupBody(
+              this.statusSnap.friendMain,
+              this.statusSnap.friendEscort,
+              this.statusSnap.enemyMain,
+              this.statusSnap.enemyEscort,
+              this.statusSnap.isAirRaid,
+            )
           }
           .width('100%')
         }
@@ -789,7 +796,8 @@ export default struct BattlePreviewPanel {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(PanelColors.bg)
+    .backgroundColor(PanelColors.overlayBg)
+    .backdropBlur(PanelDimens.overlayBlur)
     .clip(true)
   }
 }

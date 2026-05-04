@@ -1,13 +1,13 @@
-import promptAction from '@ohos.promptAction';
-import { MapGaugeInfo, ShipItem } from '../../../../../features/panel/type';
-import { hpColor, equipLabel, isAircraftEquipType, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { MapGaugeInfo, PanelPopupStateChangeEvent, ShipItem } from '../../../../../features/panel/type';
+import { hpColor, equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getGameServerUrl,
   getMapGauges,
-  getShipGraphFilename
+  getShipGraphFilename,
+  isShipEscaped
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
@@ -16,26 +16,19 @@ import {
   calcSingleFleetLoS,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
+import { SlotItemJoinedRow } from '../../../../../infra/storage/types';
+import { EquipDetailPanel } from '../EquipDetailPanel';
+import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
 
 const OVERLAY_MAP_TAB_IDX = 4;
-
-async function showEquipToast(slotUid: number): Promise<void> {
-  try {
-    const repo = getPersistDeps()?.repos?.slotitem;
-    if (!repo) return;
-    const row = await repo.getWithMaster(slotUid);
-    if (!row?.mst_name) return;
-    const stars = row.level ?? 0;
-    const msg = stars > 0 ? `${row.mst_name} ★${stars}` : row.mst_name;
-    promptAction.showToast({ message: msg, duration: 2000 });
-  } catch (_e) { /* ignore */ }
-}
 
 function shipStateToItem(
   s: ShipState,
   slotItemIndex: Map<number, number>,
   slotItemEquipTypes: Map<number, number>,
-  slotItemIconTypes: Map<number, number>
+  slotItemIconTypes: Map<number, number>,
+  slotItemLevels: Map<number, number>,
+  slotItemAlvs: Map<number, number>
 ): ShipItem {
   const activeSlots = s.slots.slice(0, s.slotCount);
   const activeOnslot = s.onslot.slice(0, s.slotCount);
@@ -49,14 +42,20 @@ function shipStateToItem(
     const mid = slotItemIndex.get(uid);
     return mid !== undefined ? (slotItemIconTypes.get(mid) ?? 0) : 0;
   });
+  const slotLevels = activeSlots.map(uid => uid > 0 ? (slotItemLevels.get(uid) ?? 0) : 0);
+  const slotAlvs = activeSlots.map(uid => uid > 0 ? (slotItemAlvs.get(uid) ?? 0) : 0);
   let exSlotType = 0;
   let exSlotIconType = 0;
+  let exSlotLevel = 0;
+  let exSlotAlv = 0;
   if (s.exSlot > 0) {
     const mid = slotItemIndex.get(s.exSlot);
     if (mid !== undefined) {
       exSlotType = slotItemEquipTypes.get(mid) ?? 0;
       exSlotIconType = slotItemIconTypes.get(mid) ?? 0;
     }
+    exSlotLevel = slotItemLevels.get(s.exSlot) ?? 0;
+    exSlotAlv = slotItemAlvs.get(s.exSlot) ?? 0;
   }
   return {
     id: s.uid,
@@ -76,9 +75,13 @@ function shipStateToItem(
     slotTypes,
     slotIconTypes,
     slotAirs: activeOnslot,
+    slotLevels,
+    slotAlvs,
     exSlot: s.exSlot,
     exSlotType,
     exSlotIconType,
+    exSlotLevel,
+    exSlotAlv,
   };
 }
 
@@ -103,10 +106,19 @@ export default struct FloatOverlayPanel {
   @Local fleetLoS: number = 0;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  /** UID of slot whose detail popup is currently open; 0 = none. */
+  @Local detailUid: number = 0;
+  /** Loaded equipment row for the open detail popup. */
+  @Local detailRow: SlotItemJoinedRow | null = null;
+  /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
+  @Local showKaisyuu: boolean = true;
+  /** Show aircraft proficiency badge; mirrors AppStorage setting. */
+  @Local showProficiency: boolean = true;
 
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
+    this.refreshSettings();
     this.loadState();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
@@ -116,6 +128,13 @@ export default struct FloatOverlayPanel {
         this.loadState();
       }
     });
+  }
+
+  private refreshSettings(): void {
+    const k = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_KAISYUU);
+    const p = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_PROFICIENCY);
+    this.showKaisyuu = k !== undefined ? k : true;
+    this.showProficiency = p !== undefined ? p : true;
   }
 
   aboutToDisappear(): void {
@@ -141,7 +160,9 @@ export default struct FloatOverlayPanel {
         s,
         st.slotItemIndex,
         st.slotItemEquipTypes,
-        st.slotItemIconTypes
+        st.slotItemIconTypes,
+        st.slotItemLevels,
+        st.slotItemAlvs
       ));
       const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
       this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
@@ -201,6 +222,91 @@ export default struct FloatOverlayPanel {
     return info;
   }
 
+  private async openEquipDetail(uid: number): Promise<void> {
+    if (uid <= 0) return;
+    this.detailUid = uid;
+    this.detailRow = null;
+    try {
+      const repo = getPersistDeps()?.repos?.slotitem;
+      if (!repo) return;
+      const row = await repo.getWithMaster(uid);
+      if (this.detailUid === uid) {
+        this.detailRow = row;
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
+  private toggleEquipDetail(uid: number): void {
+    if (this.detailUid === uid) {
+      this.detailUid = 0;
+      this.detailRow = null;
+    }
+  }
+
+  @Builder EquipPopup() {
+    EquipDetailPanel({ row: this.detailRow })
+  }
+
+  /** Single equipment slot icon with kaisyuu / proficiency badges + long-press detail popup. */
+  @Builder EquipSlot(
+    uid: number,
+    iconType: number,
+    equipType: number,
+    air: number,
+    level: number,
+    alv: number,
+    size: number,
+    isExSlot: boolean = false
+  ) {
+    Stack() {
+      Image(equipLabel(iconType))
+        .width(size)
+        .height(size)
+        .padding(1)
+      if (this.showKaisyuu && level > 0 && kaisyuuIcon(level) !== null) {
+        Image(kaisyuuIcon(level)!)
+          .width(Math.floor(size * 0.6))
+          .height(Math.floor(size * 0.6))
+          .position({ top: 0, right: 0 })
+      }
+      if (this.showProficiency && alv > 0 && airMasteryIcon(alv) !== null) {
+        Image(airMasteryIcon(alv)!)
+          .width(Math.floor(size * 0.7))
+          .height(Math.floor(size * 0.7))
+          .position({ bottom: 0, left: 0 })
+      }
+      if (isAircraftEquipType(equipType) && air > 0) {
+        Text(`${air}`)
+          .fontSize(size >= 14 ? 7 : 6)
+          .fontColor('#ffffff')
+          .backgroundColor('#cc000000')
+          .borderRadius(2)
+          .padding({ left: 1, right: 1 })
+          .position({ bottom: 0, right: 0 })
+      }
+    }
+    .width(size)
+    .height(size)
+    .borderRadius(2)
+    .backgroundColor(isExSlot ? '#1a2855' : '#252940')
+    .gesture(
+      LongPressGesture({ repeat: false, duration: 400 })
+        .onAction(() => { void this.openEquipDetail(uid); })
+    )
+    .onClick(() => { this.toggleEquipDetail(uid); })
+    .bindPopup(this.detailUid === uid, {
+      builder: this.EquipPopup,
+      placement: Placement.Top,
+      enableArrow: true,
+      onStateChange: (e: PanelPopupStateChangeEvent) => {
+        if (!e.isVisible && this.detailUid === uid) {
+          this.detailUid = 0;
+          this.detailRow = null;
+        }
+      },
+    })
+  }
+
   // ── builders ──────────────────────────────────────────────────────────────
 
   /**
@@ -246,6 +352,13 @@ export default struct FloatOverlayPanel {
           .fontSize(PanelDimens.fontMd)
           .fontColor(hpColor(ship.hp, ship.hpMax))
           .margin({ left: 4 })
+        if (isShipEscaped(ship.id)) {
+          Text('退避')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.escapeLabel)
+            .fontWeight(FontWeight.Bold)
+            .margin({ left: 4 })
+        }
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
@@ -257,7 +370,7 @@ export default struct FloatOverlayPanel {
           .fontColor(PanelColors.txtSub)
           .width(PanelDimens.levelW)
         Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
-          .layoutWeight(1)
+          .width(PanelDimens.hpBarCompW)
           .height(PanelDimens.hpBarCompH)
           .color(hpColor(ship.hp, ship.hpMax))
           .backgroundColor(PanelColors.overlayRow)
@@ -266,29 +379,18 @@ export default struct FloatOverlayPanel {
           .fontColor(condColor(ship.s1))
           .width(PanelDimens.statCompW)
           .textAlign(TextAlign.End)
+        Blank().layoutWeight(1)
         // Slot icons (compact)
         Row({ space: 1 }) {
           ForEach(ship.slots, (uid: number, idx: number) => {
             if (uid > 0) {
-              Stack({ alignContent: Alignment.BottomEnd }) {
-                Image(equipLabel(ship.slotIconTypes[idx] ?? 0))
-                  .width(12)
-                  .height(12)
-                  .padding(1)
-                if (isAircraftEquipType(ship.slotTypes[idx] ?? 0)) {
-                  Text(`${ship.slotAirs[idx] ?? 0}`)
-                    .fontSize(6)
-                    .fontColor('#ffffff')
-                    .backgroundColor('#cc000000')
-                    .borderRadius(2)
-                    .padding({ left: 1, right: 1 })
-                }
-              }
-              .width(12)
-              .height(12)
-              .borderRadius(2)
-              .backgroundColor('#252940')
-              .onClick(() => { showEquipToast(uid); })
+              this.EquipSlot(uid,
+                ship.slotIconTypes[idx] ?? 0,
+                ship.slotTypes[idx] ?? 0,
+                ship.slotAirs[idx] ?? 0,
+                ship.slotLevels[idx] ?? 0,
+                ship.slotAlvs[idx] ?? 0,
+                12)
             } else {
               Row()
                 .width(12)
@@ -298,14 +400,14 @@ export default struct FloatOverlayPanel {
             }
           }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
           if (ship.exSlot > 0) {
-            Image(equipLabel(ship.exSlotIconType))
-              .width(13)
-              .height(12)
-              .padding(1)
-              .margin({ left: 1 })
-              .borderRadius(2)
-              .backgroundColor('#1a2855')
-              .onClick(() => { showEquipToast(ship.exSlot); })
+            this.EquipSlot(ship.exSlot,
+              ship.exSlotIconType,
+              ship.exSlotType,
+              0,
+              ship.exSlotLevel,
+              ship.exSlotAlv,
+              12,
+              true)
           }
         }
         .alignItems(VerticalAlign.Center)

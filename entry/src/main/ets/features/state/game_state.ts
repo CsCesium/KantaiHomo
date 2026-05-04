@@ -85,9 +85,12 @@ class GameStateManager {
     lastUpdatedAt: 0,
     shipMasterNames: new Map(),
     shipMasterMaxSupply: new Map(),
+    shipMasterSoku: new Map(),
     slotItemEquipTypes: new Map(),
     slotItemIconTypes: new Map(),
     slotItemIndex: new Map(),
+    slotItemLevels: new Map(),
+    slotItemAlvs: new Map(),
     shipGraphFilenames: new Map(),
     gameServerUrl: null,
   };
@@ -96,6 +99,14 @@ class GameStateManager {
 
   private expHistory: ExpChange[] = [];
   private readonly MAX_EXP_HISTORY = 100;
+
+  /** 当前出击中已使用退避机制的舰娘 UID 集合。
+   * 由 /api_req_(combined_battle|sortie)/goback_port 的 api_escape_idx 标记，
+   * 列表里出现的所有位置（联合舰队 1-12 / 单舰队 1-6）都会被加入；
+   * 故"联合舰队退避 + 拖船"和"单舰退避（无拖船）"两种场景都覆盖。
+   * 回港时（PortHandler）清除。
+   * 这些舰娘不计入大破警告，UI 会以蓝色"退避"标签显示。 */
+  private escapedShipUids: Set<number> = new Set();
 
   /** 每日战果追踪（含 CST 周期 ID，用于跨周期重置） */
   private dailySenkaStart: { exp: number; time: number; date: string } | null = null;
@@ -296,6 +307,35 @@ class GameStateManager {
     }
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('ships');
+  }
+
+  /**
+   * 批量更新舰船 HP（战斗结算专用，仅覆盖 hpNow/hpMax 与派生伤害状态字段，
+   * 其他字段保持不变）。BATTLE_RESULT 之后调用，以便主面板与侧边栏在
+   * 下一次 /api_port/port 之前就反映真实战后 HP。
+   */
+  patchShipsHp(updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>): void {
+    let changed = false;
+    for (const u of updates) {
+      const existing = this.state.ships.get(u.uid);
+      if (!existing) continue;
+      const hpMax = u.hpMax > 0 ? u.hpMax : existing.hpMax;
+      const hpNow = Math.max(0, u.hpNow);
+      const hpPercent = hpMax > 0 ? hpNow / hpMax : 0;
+      this.state.ships.set(u.uid, {
+        ...existing,
+        hpNow,
+        hpMax,
+        hpPercent,
+        isTaiha: hpPercent <= 0.25,
+        isChuuha: hpPercent <= 0.5,
+      });
+      changed = true;
+    }
+    if (changed) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('ships');
+    }
   }
 
   /**
@@ -728,9 +768,12 @@ class GameStateManager {
       lastUpdatedAt: 0,
       shipMasterNames: new Map(),
       shipMasterMaxSupply: new Map(),
+      shipMasterSoku: new Map(),
       slotItemEquipTypes: new Map(),
       slotItemIconTypes: new Map(),
       slotItemIndex: new Map(),
+      slotItemLevels: new Map(),
+      slotItemAlvs: new Map(),
       shipGraphFilenames:new Map(),
       gameServerUrl:null,
     };
@@ -744,10 +787,13 @@ class GameStateManager {
   /**
    * 更新舰船图鉴名称及最大补给量缓存（来自 api_start2 舰船图鉴）
    */
-  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number }>): void {
+  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number }>): void {
     for (const item of items) {
       this.state.shipMasterNames.set(item.id, item.name);
       this.state.shipMasterMaxSupply.set(item.id, { fuelMax: item.fuelMax, ammoMax: item.ammoMax });
+      if (item.soku !== undefined) {
+        this.state.shipMasterSoku.set(item.id, item.soku);
+      }
     }
   }
 
@@ -756,6 +802,14 @@ class GameStateManager {
    */
   getShipMasterName(masterId: number): string | undefined {
     return this.state.shipMasterNames.get(masterId);
+  }
+
+  /**
+   * 是否为陆基/基地型（api_soku === 0），用于敌方陆上型展示术语区分。
+   * 未知 master 返回 false（按舰船处理）。
+   */
+  isShipMasterLandBased(masterId: number): boolean {
+    return this.state.shipMasterSoku.get(masterId) === 0;
   }
 
   /**
@@ -769,12 +823,28 @@ class GameStateManager {
   }
 
   /**
-   * 更新装备实例索引（来自 api_port/api_slot_item，uid → masterId）
+   * 更新装备实例索引（来自 api_port/api_slot_item，uid → masterId/level/alv）
    */
-  updateSlotItemIndex(items: ReadonlyArray<{ uid: number; masterId: number }>): void {
+  updateSlotItemIndex(items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>): void {
     for (const item of items) {
       this.state.slotItemIndex.set(item.uid, item.masterId);
+      if (item.level !== undefined) {
+        this.state.slotItemLevels.set(item.uid, item.level);
+      }
+      if (item.alv !== undefined) {
+        this.state.slotItemAlvs.set(item.uid, item.alv);
+      }
     }
+  }
+
+  /** 按 slot uid 查询改修度（无数据时返回 0） */
+  getSlotItemLevel(uid: number): number {
+    return this.state.slotItemLevels.get(uid) ?? 0;
+  }
+
+  /** 按 slot uid 查询熟练度（无数据时返回 0） */
+  getSlotItemAlv(uid: number): number {
+    return this.state.slotItemAlvs.get(uid) ?? 0;
   }
 
   /**
@@ -879,6 +949,41 @@ class GameStateManager {
     this.notifyListeners('battle');
   }
 
+  // ==================== 退避状态 ====================
+
+  /** 标记舰娘已退避（使用 goback_port 机制）。多次调用会累加。 */
+  markShipsEscaped(uids: ReadonlyArray<number>): void {
+    let added = false;
+    for (const uid of uids) {
+      if (uid > 0 && !this.escapedShipUids.has(uid)) {
+        this.escapedShipUids.add(uid);
+        added = true;
+      }
+    }
+    if (added) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('ships');
+    }
+  }
+
+  /** 清空退避集合（出击结束/回港时调用）。 */
+  clearEscapedShips(): void {
+    if (this.escapedShipUids.size === 0) return;
+    this.escapedShipUids.clear();
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  /** 判断指定舰娘是否已退避。 */
+  isShipEscaped(uid: number): boolean {
+    return this.escapedShipUids.has(uid);
+  }
+
+  /** 获取所有已退避的舰娘 UID（只读副本）。 */
+  getEscapedShipUids(): ReadonlyArray<number> {
+    return Array.from(this.escapedShipUids);
+  }
+
   /**
    * 获取当前战斗状态
    */
@@ -946,12 +1051,14 @@ export function getGameState(): GameStateManager {
 }
 
 // 便捷函数
-export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number }>) =>
+export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number }>) =>
   gameStateManager.updateShipMasterMeta(items);
 export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number }>) =>
   gameStateManager.updateSlotItemEquipTypes(items);
-export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number }>) =>
+export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>) =>
   gameStateManager.updateSlotItemIndex(items);
+export const getSlotItemLevel = (uid: number): number => gameStateManager.getSlotItemLevel(uid);
+export const getSlotItemAlv = (uid: number): number => gameStateManager.getSlotItemAlv(uid);
 export const updateShipGraphFilenames = (items: ReadonlyArray<{ id: number; filename: string }>) =>
   gameStateManager.updateShipGraphFilenames(items);
 export const getShipGraphFilename = (masterId: number) => gameStateManager.getShipGraphFilename(masterId);
@@ -959,6 +1066,7 @@ export const setGameServerUrl = (url: string) => gameStateManager.setGameServerU
 export const getGameServerUrl = () => gameStateManager.getGameServerUrl();
 export const getShipSpecialEquip = (uid: number) => gameStateManager.getShipSpecialEquip(uid);
 export const getShipMasterName = (masterId: number) => gameStateManager.getShipMasterName(masterId);
+export const isShipMasterLandBased = (masterId: number) => gameStateManager.isShipMasterLandBased(masterId);
 
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);
@@ -969,6 +1077,8 @@ export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(q
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>
   gameStateManager.patchShipsSupply(updates);
+export const patchShipsHp = (updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>) =>
+  gameStateManager.patchShipsHp(updates);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>
 gameStateManager.updateFromPort(data);
 
@@ -1010,3 +1120,9 @@ export const getBattleStatus = () => gameStateManager.getBattleStatus();
 export const getBattleResult = () => gameStateManager.getBattleResult();
 export const isInBattle = () => gameStateManager.isInBattle();
 export const hasBattleResult = () => gameStateManager.hasBattleResult();
+
+// 退避状态便捷函数
+export const markShipsEscaped = (uids: ReadonlyArray<number>) => gameStateManager.markShipsEscaped(uids);
+export const clearEscapedShips = () => gameStateManager.clearEscapedShips();
+export const isShipEscaped = (uid: number) => gameStateManager.isShipEscaped(uid);
+export const getEscapedShipUids = () => gameStateManager.getEscapedShipUids();

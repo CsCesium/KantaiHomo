@@ -40,7 +40,8 @@ export const PanelColors = {
   hpMid:         '#fb8c00',   // hp ratio 25-50% — orange (中破)
   hpWarn:        '#fdd835',   // warning yellow (engagement, condition — NOT hp bars)
   hpCrit:        '#e53935',   // hp ratio ≤ 25%  — red
-
+  hpDamage:      '#6b6f7e',   // hp lost in batle
+  escapeLabel:   '#42a5f5',   // 退避 (goback_port) label — blue
   // Row separators
   rowBorder:     '#20243a',
 
@@ -65,7 +66,66 @@ export const FLEET_TAB_COLORS: readonly string[] = [
   '#4e342e',  // 基地       — warm brown (base air corps)
   '#4a148c',  // 道具       — deep purple (supplies)
   '#1a3a5c',  // 地図       — dark navy (map info)
+  '#37474f',  // 任務       — slate grey (quest list)
 ];
+
+// ── Quest category visual mapping (panel) ──────────────────────────────────
+
+/**
+ * Color and short-label placeholders for the quest category icon column.
+ * These values are intentionally distinct from the domain-level
+ * QuestCategoryColor map so the panel can apply its own visual style.
+ */
+export interface QuestCategoryStyle {
+  label: string;
+  color: string;
+}
+
+const QUEST_CATEGORY_FALLBACK: QuestCategoryStyle = { label: '他', color: '#606478' };
+
+const QUEST_CATEGORY_STYLES: Record<number, QuestCategoryStyle> = {
+  1: { label: '編成', color: '#1b5e20' },  // COMPOSITION — 深绿
+  2: { label: '出撃', color: '#cc4444' },  // SORTIE      — 红
+  3: { label: '演習', color: '#66cc66' },  // PRACTICE    — 浅绿
+  4: { label: '遠征', color: '#44aaaa' },  // EXPEDITION
+  5: { label: '補給', color: '#aaaa44' },  // SUPPLY
+  6: { label: '工廠', color: '#8b5a2b' },  // ARSENAL     — 棕
+  7: { label: '改装', color: '#aa44aa' },  // MODERNIZATION
+  8: { label: '出撃', color: '#cc4444' },  // SORTIE_2    — 红
+  9: { label: '出撃', color: '#cc4444' },  // SORTIE_3    — 红
+};
+
+export function questCategoryStyle(category: number): QuestCategoryStyle {
+  return QUEST_CATEGORY_STYLES[category] ?? QUEST_CATEGORY_FALLBACK;
+}
+
+const QUEST_RESET_TYPE_LABELS: Record<number, string> = {
+  1: '単発',   // ONCE
+  2: 'デイリー',   // DAILY
+  3: 'ウィークリー', // WEEKLY
+  4: 'マンスリー',  // MONTHLY_3
+  5: 'マンスリー',  // MONTHLY_2
+  6: 'マンスリー',  // MONTHLY
+  7: 'クォータリー', // QUARTERLY
+  8: 'イヤーリー',   // YEARLY_FEB
+  9: 'イヤーリー',   // YEARLY_AUG
+  10: 'イヤーリー',  // YEARLY_MAR
+  11: 'イヤーリー',  // YEARLY_SEP
+};
+
+export function questResetTypeLabel(type: number): string {
+  return QUEST_RESET_TYPE_LABELS[type] ?? '－';
+}
+
+/** Maps QuestProgress flag (0/1/2) to a display label. */
+export function questProgressLabel(progress: number | undefined, state: number): string {
+  if (state === 3) return '100%';
+  switch (progress) {
+    case 1: return '50%+';
+    case 2: return '80%+';
+    default: return '–';
+  }
+}
 
 // ── Dimensions ─────────────────────────────────────────────────────────────
 
@@ -78,6 +138,8 @@ export const PanelDimens = {
   rowCompH:    44,   // ship row — compact 2-line layout (FloatOverlay)
   hpBarH:       5,   // HP bar height — expanded
   hpBarCompH:   4,   // HP bar height — compact
+  hpBarW:    '45%',  // HP bar width — expanded; fixed so equipment column aligns
+  hpBarCompW: '40%', // HP bar width — compact; fixed so equipment column aligns
   btnH:        28,
   btnCompH:    24,
 
@@ -130,4 +192,27 @@ export function isAircraftEquipType(equipType: number): boolean {
 /** Maps api_type[3] icon id to an equipment icon svg path. */
 export function equipLabel(iconType: number): string {
   return `${EQUIP_ICON_DIR}${iconType > 0 ? iconType : 0}.svg`;
+}
+
+const KAISYUU_ICON_DIR = 'resource://RAWFILE/icons/kaisyuu/';
+const AIR_MASTERY_ICON_DIR = 'resource://RAWFILE/icons/air_mastery/';
+
+/**
+ * Returns the kaisyuu (improvement) star icon path for a given level (1..10).
+ * Returns null when level is 0 (no improvement).
+ */
+export function kaisyuuIcon(level: number): string | null {
+  if (level <= 0) return null;
+  const lv = level > 10 ? 10 : level;
+  return `${KAISYUU_ICON_DIR}starts_${lv}.png`;
+}
+
+/**
+ * Returns the aircraft proficiency icon path for alv (1..7).
+ * Maps alv 1..7 → sally_airunit_128..134.png. Returns null when alv is 0.
+ */
+export function airMasteryIcon(alv: number): string | null {
+  if (alv <= 0) return null;
+  const a = alv > 7 ? 7 : alv;
+  return `${AIR_MASTERY_ICON_DIR}sally_airunit_${127 + a}.png`;
 }

@@ -17,7 +17,7 @@ import {
   slotItemToRow
 } from '../../../domain/models';
 import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks, updateKdocks,
-  updateShips, clearBattleState } from '../../state';
+  updateShips, clearBattleState, clearEscapedShips } from '../../state';
 import { clearSortieContext } from '../../../domain/service';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -67,6 +67,7 @@ class PortPersistHandler implements Handler {
     // 防止旧的战斗 HP 覆盖入港后的最新舰船状态。
     clearBattleState();
     clearSortieContext();
+    clearEscapedShips();
     console.info('[port] snapshot updated to GameState');
     return;
   }

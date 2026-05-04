@@ -58,6 +58,26 @@ function isSortieNextEvent(ev: HandlerEvent): ev is SortieNextEvent {
   return ev.type === 'SORTIE_NEXT';
 }
 
+function getFirstEnemyShipIdFromNextExtras(extras: Record<string, unknown> | undefined): number | undefined {
+  const enemyDeckInfo = extras?.api_e_deck_info;
+  if (!Array.isArray(enemyDeckInfo)) return undefined;
+
+  for (const deckInfo of enemyDeckInfo) {
+    if (!deckInfo || typeof deckInfo !== 'object') continue;
+
+    const shipIds = (deckInfo as Record<string, unknown>).api_ship_ids;
+    if (!Array.isArray(shipIds)) continue;
+
+    for (const id of shipIds) {
+      if (typeof id === 'number' && id > 0) {
+        return id;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 class SortieHandler implements Handler {
   async handle(ev: HandlerEvent, PersistDeps: PersistDeps): Promise<void> {
     if (isSortieStartEvent(ev)) {
@@ -219,16 +239,12 @@ class SortieHandler implements Handler {
     console.info('[sortie] moved to cell:', currentCell.cellId, 'event:', currentCell.eventId, 'boss:', currentCell.isBoss);
 
     // 2. 发布 SortieNextAlert（所有节点类型均触发，含战斗节点）
-    // 尝试从 /next 响应的 api_enemy_info 中提取敌方旗舰名称（仅战斗节点有效）
+    // 尝试从 /next 响应的 api_e_deck_info 中提取敌方旗舰名称（仅战斗节点有效）
     let enemyFlagshipName: string | undefined;
     if (isBattleEventId(currentCell.eventId)) {
       try {
         const extras = cell.extras as Record<string, unknown> | undefined;
-        const enemyInfo = extras?.api_enemy_info as Record<string, unknown> | undefined;
-        const shipKe = Array.isArray(enemyInfo?.api_ship_ke)
-          ? (enemyInfo!.api_ship_ke as number[])
-          : [];
-        const firstId = shipKe.find((id: number) => id > 0);
+        const firstId = getFirstEnemyShipIdFromNextExtras(extras);
         if (firstId) {
           enemyFlagshipName = getShipMasterName(firstId);
         }

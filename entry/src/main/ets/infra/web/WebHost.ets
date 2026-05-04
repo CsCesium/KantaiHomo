@@ -30,6 +30,7 @@ export default struct WebHost {
   private host!: WebHostController;
 
   private readonly HOME: string = HOME_URL;
+  private fullReloadUrl: string = HOME_URL;
   private homeOverride: string = '';
   private firstPageLoad: boolean = true;
   @State private progress: number = 0;
@@ -223,6 +224,9 @@ export default struct WebHost {
     }
     if (homeOverride && homeOverride !== HOME_URL) {
       this.homeOverride = homeOverride;
+      this.fullReloadUrl = homeOverride;
+    } else {
+      this.fullReloadUrl = this.HOME;
     }
     if (clearPending) {
       try { this.controller.removeCache(true); } catch (_e) {}
@@ -359,6 +363,37 @@ export default struct WebHost {
     }).catch((_e: Error) => {});
   }
 
+  private reloadFullPage(): void {
+    this.firstPageLoad = false;
+    try {
+      const currentUrl = this.controller.getUrl();
+      if (currentUrl) {
+        this.controller.loadUrl(currentUrl);
+        return;
+      }
+    } catch (_e) {}
+
+    this.controller.loadUrl(this.fullReloadUrl || this.HOME);
+  }
+
+  private promptRefresh(): void {
+    promptAction.showDialog({
+      title: '刷新网页',
+      message: '请选择刷新方式。',
+      buttons: [
+        { text: '取消', color: '#888888' },
+        { text: '框架刷新', color: '#6A9AB5' },
+        { text: '页面刷新(F5)', color: '#e53935' },
+      ],
+    }).then((result) => {
+      if (result.index === 1) {
+        this.controller.refresh();
+      } else if (result.index === 2) {
+        this.reloadFullPage();
+      }
+    }).catch((_e: Error) => {});
+  }
+
   private onWebAttached = () => { this.host.attach(); }
   private onBegin = () => { this.progress = 5; this.host.onPageBegin(); }
   private onProg = (p: number) => { this.progress = p; }
@@ -443,7 +478,7 @@ export default struct WebHost {
           // 左下角纵向排列：ButtonColumn 在上，战果在下
           Column() {
             ButtonColumn({
-              onRefresh: () => this.controller.refresh(),
+              onRefresh: () => this.promptRefresh(),
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onLogout: () => this.promptLogout(),
               panelActive: this.overlayForced,

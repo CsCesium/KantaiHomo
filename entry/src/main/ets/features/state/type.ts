@@ -137,12 +137,18 @@ export interface GameState {
   shipMasterNames: Map<number, string>;
   /** 舰船图鉴最大补给量缓存 (masterId → { fuelMax, ammoMax }) */
   shipMasterMaxSupply: Map<number, { fuelMax: number; ammoMax: number }>;
+  /** 舰船图鉴速力缓存 (masterId → api_soku, 0=陆上基地, 5=低速, 10=高速...) */
+  shipMasterSoku: Map<number, number>;
   /** 装备图鉴类型缓存 (slotitem masterId → typeEquipType) */
   slotItemEquipTypes: Map<number, number>;
   /** 装备图鉴图标缓存 (slotitem masterId → api_type[3]) */
   slotItemIconTypes: Map<number, number>;
   /** 装备实例索引 (slotitem uid → masterId) */
   slotItemIndex: Map<number, number>;
+  /** 装备改修度 (slotitem uid → api_level, 0..10) */
+  slotItemLevels: Map<number, number>;
+  /** 装备熟练度 (slotitem uid → api_alv, 0..7) */
+  slotItemAlvs: Map<number, number>;
   /** 舰娘图像文件名缓存 (masterId → api_filename) */
   shipGraphFilenames: Map<number, string>;
   /** 游戏服务器基础 URL（从 api_start2 请求中提取）*/
@@ -310,6 +316,8 @@ export interface BattleStatusSnapshot {
   battlePhase: 'day' | 'night' | 'day_to_night';
   /** 是否演习 */
   isPractice: boolean;
+  /** 是否基地空袭（friend/enemy 双方都是路基/航空编队，使用混乱/损害/损壊/破壊术语） */
+  isAirRaid: boolean;
   /** 联合舰队类型 (0=非联合) */
   combinedType: number;
 
@@ -380,6 +388,8 @@ export interface BattleResultSnapshot {
   mvp?: number;
   /** 联合第二舰队MVP */
   mvpCombined?: number;
+  /** 是否基地空袭 */
+  isAirRaid: boolean;
 
   // 掉落
   /** 掉落舰船ID */

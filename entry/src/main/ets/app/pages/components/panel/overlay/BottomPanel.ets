@@ -1,12 +1,14 @@
-import promptAction from '@ohos.promptAction';
-import { MapGaugeInfo, ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { MapGaugeInfo, PanelPopupStateChangeEvent, ShipItem } from '../../../../../features/panel/type';
+import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon, PanelColors, PanelDimens, questCategoryStyle, questResetTypeLabel, questProgressLabel } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   getShipGraphFilename, getGameServerUrl,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
-  MapGaugeSnapshot
+  MapGaugeSnapshot,
+  getQuests,
+  isShipEscaped,
+  QuestSnapshot
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import { getPersistDeps } from '../../../../../infra/deps';
@@ -15,27 +17,23 @@ import {
   calcSingleFleetLoS,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
+import { SlotItemJoinedRow } from '../../../../../infra/storage/types';
+import { EquipDetailPanel } from '../EquipDetailPanel';
+import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
 
-const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図'];
+const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任務'];
 const MAP_TAB_IDX = 6;
-
-async function showEquipToast(slotUid: number): Promise<void> {
-  try {
-    const repo = getPersistDeps()?.repos?.slotitem;
-    if (!repo) return;
-    const row = await repo.getWithMaster(slotUid);
-    if (!row?.mst_name) return;
-    const stars = row.level ?? 0;
-    const msg = stars > 0 ? `${row.mst_name} ★${stars}` : row.mst_name;
-    promptAction.showToast({ message: msg, duration: 2000 });
-  } catch (_e) { /* ignore */ }
-}
+const QUEST_TAB_IDX = 7;
+/** QuestState.ACTIVE — duplicated to keep this UI file decoupled from domain enum import. */
+const QUEST_STATE_ACTIVE = 2;
 
 function shipStateToItem(
   s: ShipState,
   slotItemIndex: Map<number, number>,
   slotItemEquipTypes: Map<number, number>,
-  slotItemIconTypes: Map<number, number>
+  slotItemIconTypes: Map<number, number>,
+  slotItemLevels: Map<number, number>,
+  slotItemAlvs: Map<number, number>
 ): ShipItem {
   const activeSlots = s.slots.slice(0, s.slotCount);
   const activeOnslot = s.onslot.slice(0, s.slotCount);
@@ -49,14 +47,20 @@ function shipStateToItem(
     const mid = slotItemIndex.get(uid);
     return mid !== undefined ? (slotItemIconTypes.get(mid) ?? 0) : 0;
   });
+  const slotLevels = activeSlots.map(uid => uid > 0 ? (slotItemLevels.get(uid) ?? 0) : 0);
+  const slotAlvs = activeSlots.map(uid => uid > 0 ? (slotItemAlvs.get(uid) ?? 0) : 0);
   let exSlotType = 0;
   let exSlotIconType = 0;
+  let exSlotLevel = 0;
+  let exSlotAlv = 0;
   if (s.exSlot > 0) {
     const mid = slotItemIndex.get(s.exSlot);
     if (mid !== undefined) {
       exSlotType = slotItemEquipTypes.get(mid) ?? 0;
       exSlotIconType = slotItemIconTypes.get(mid) ?? 0;
     }
+    exSlotLevel = slotItemLevels.get(s.exSlot) ?? 0;
+    exSlotAlv = slotItemAlvs.get(s.exSlot) ?? 0;
   }
   return {
     id: s.uid,
@@ -76,9 +80,13 @@ function shipStateToItem(
     slotTypes,
     slotIconTypes,
     slotAirs: activeOnslot,
+    slotLevels,
+    slotAlvs,
     exSlot: s.exSlot,
     exSlotType,
     exSlotIconType,
+    exSlotLevel,
+    exSlotAlv,
   };
 }
 
@@ -112,10 +120,20 @@ export default struct BottomPanel {
   @Local fleetLoS: number = 0;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  @Local activeQuests: QuestSnapshot[] = [];
+  /** UID of slot whose detail popup is currently open; 0 = none. */
+  @Local detailUid: number = 0;
+  /** Loaded equipment row for the open detail popup. */
+  @Local detailRow: SlotItemJoinedRow | null = null;
+  /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
+  @Local showKaisyuu: boolean = true;
+  /** Show aircraft proficiency badge; mirrors AppStorage setting. */
+  @Local showProficiency: boolean = true;
 
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
+    this.refreshSettings();
     this.loadState();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
@@ -125,6 +143,13 @@ export default struct BottomPanel {
         this.loadState();
       }
     });
+  }
+
+  private refreshSettings(): void {
+    const k = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_KAISYUU);
+    const p = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_PROFICIENCY);
+    this.showKaisyuu = k !== undefined ? k : true;
+    this.showProficiency = p !== undefined ? p : true;
   }
 
   aboutToDisappear(): void {
@@ -138,6 +163,7 @@ export default struct BottomPanel {
     this.materials = getMaterials();
     this.decks = [...getDecks()];
     this.mapGauges = [...getMapGauges()];
+    this.activeQuests = getQuests().filter(q => q.state === QUEST_STATE_ACTIVE);
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -150,7 +176,9 @@ export default struct BottomPanel {
         s,
         st.slotItemIndex,
         st.slotItemEquipTypes,
-        st.slotItemIconTypes
+        st.slotItemIconTypes,
+        st.slotItemLevels,
+        st.slotItemAlvs
       ));
       const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
       this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
@@ -161,7 +189,7 @@ export default struct BottomPanel {
   }
 
   private async loadCalcStats(): Promise<void> {
-    if (this.activeFleet >= 4 || this.activeFleet === MAP_TAB_IDX) {
+    if (this.activeFleet >= 4) {
       this.airPower = 0;
       this.fleetLoS = 0;
       return;
@@ -305,6 +333,95 @@ export default struct BottomPanel {
     }
   }
 
+  private async openEquipDetail(uid: number): Promise<void> {
+    if (uid <= 0) return;
+    this.detailUid = uid;
+    this.detailRow = null;
+    try {
+      const repo = getPersistDeps()?.repos?.slotitem;
+      if (!repo) return;
+      const row = await repo.getWithMaster(uid);
+      // Only update if user hasn't dismissed/changed in the meantime.
+      if (this.detailUid === uid) {
+        this.detailRow = row;
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
+  private toggleEquipDetail(uid: number): void {
+    if (this.detailUid === uid) {
+      this.detailUid = 0;
+      this.detailRow = null;
+    }
+  }
+
+  @Builder EquipPopup() {
+    EquipDetailPanel({ row: this.detailRow })
+  }
+
+  /** Single equipment slot icon with kaisyuu / proficiency badges + long-press detail popup. */
+  @Builder EquipSlot(
+    uid: number,
+    iconType: number,
+    equipType: number,
+    air: number,
+    level: number,
+    alv: number,
+    size: number,
+    isExSlot: boolean = false
+  ) {
+    Stack() {
+      Image(equipLabel(iconType))
+        .width(size)
+        .height(size)
+        .padding(1)
+      // Kaisyuu badge — top-right
+      if (this.showKaisyuu && level > 0 && kaisyuuIcon(level) !== null) {
+        Image(kaisyuuIcon(level)!)
+          .width(Math.floor(size * 0.6))
+          .height(Math.floor(size * 0.6))
+          .position({ top: 0, right: 0 })
+      }
+      // Proficiency badge — bottom-left
+      if (this.showProficiency && alv > 0 && airMasteryIcon(alv) !== null) {
+        Image(airMasteryIcon(alv)!)
+          .width(Math.floor(size * 0.7))
+          .height(Math.floor(size * 0.7))
+          .position({ bottom: 0, left: 0 })
+      }
+      // Aircraft count — bottom-right (avoid clashing with proficiency badge)
+      if (isAircraftEquipType(equipType) && air > 0) {
+        Text(`${air}`)
+          .fontSize(size === 14 ? 7 : 6)
+          .fontColor('#ffffff')
+          .backgroundColor('#cc000000')
+          .borderRadius(2)
+          .padding({ left: 1, right: 1 })
+          .position({ bottom: 0, right: 0 })
+      }
+    }
+    .width(size)
+    .height(size)
+    .borderRadius(2)
+    .backgroundColor(isExSlot ? '#1a2855' : '#252940')
+    .gesture(
+      LongPressGesture({ repeat: false, duration: 400 })
+        .onAction(() => { void this.openEquipDetail(uid); })
+    )
+    .onClick(() => { this.toggleEquipDetail(uid); })
+    .bindPopup(this.detailUid === uid, {
+      builder: this.EquipPopup,
+      placement: Placement.Top,
+      enableArrow: true,
+      onStateChange: (e: PanelPopupStateChangeEvent) => {
+        if (!e.isVisible && this.detailUid === uid) {
+          this.detailUid = 0;
+          this.detailRow = null;
+        }
+      },
+    })
+  }
+
   /**
    * 2-line (+ optional special-attack label) ship row:
    *   [cond] | [⚡特殊攻撃名]  (flagship only, when eligible)
@@ -362,7 +479,7 @@ export default struct BottomPanel {
           .height(14)
         }
 
-        // Line 1: name | HP fraction
+        // Line 1: name | HP fraction | 退避 label
         Row() {
           Text(ship.name)
             .fontSize(PanelDimens.fontMd)
@@ -375,6 +492,13 @@ export default struct BottomPanel {
             .fontSize(PanelDimens.fontMd)
             .fontColor(hpColor(ship.hp, ship.hpMax))
             .margin({ left: 8 })
+          if (isShipEscaped(ship.id)) {
+            Text('退避')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.escapeLabel)
+              .fontWeight(FontWeight.Bold)
+              .margin({ left: 6 })
+          }
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
@@ -386,7 +510,7 @@ export default struct BottomPanel {
             .fontColor(PanelColors.txtSub)
             .width(PanelDimens.levelW)
           Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
-            .layoutWeight(1)
+            .width(PanelDimens.hpBarW)
             .height(PanelDimens.hpBarH)
             .color(hpColor(ship.hp, ship.hpMax))
             .backgroundColor(PanelColors.bgHpTrack)
@@ -395,29 +519,18 @@ export default struct BottomPanel {
             .fontColor(condColor(ship.s1))
             .width(PanelDimens.statW)
             .textAlign(TextAlign.End)
+          Blank().layoutWeight(1)
           // Slot icons
           Row({ space: 1 }) {
             ForEach(ship.slots, (uid: number, idx: number) => {
               if (uid > 0) {
-                Stack({ alignContent: Alignment.BottomEnd }) {
-                  Image(equipLabel(ship.slotIconTypes[idx] ?? 0))
-                    .width(14)
-                    .height(14)
-                    .padding(1)
-                  if (isAircraftEquipType(ship.slotTypes[idx] ?? 0)) {
-                    Text(`${ship.slotAirs[idx] ?? 0}`)
-                      .fontSize(7)
-                      .fontColor('#ffffff')
-                      .backgroundColor('#cc000000')
-                      .borderRadius(2)
-                      .padding({ left: 1, right: 1 })
-                  }
-                }
-                .width(14)
-                .height(14)
-                .borderRadius(2)
-                .backgroundColor('#252940')
-                .onClick(() => { showEquipToast(uid); })
+                this.EquipSlot(uid,
+                  ship.slotIconTypes[idx] ?? 0,
+                  ship.slotTypes[idx] ?? 0,
+                  ship.slotAirs[idx] ?? 0,
+                  ship.slotLevels[idx] ?? 0,
+                  ship.slotAlvs[idx] ?? 0,
+                  14)
               } else {
                 Row()
                   .width(14)
@@ -427,14 +540,14 @@ export default struct BottomPanel {
               }
             }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
             if (ship.exSlot > 0) {
-              Image(equipLabel(ship.exSlotIconType))
-                .width(15)
-                .height(14)
-                .padding(1)
-                .margin({ left: 2 })
-                .borderRadius(2)
-                .backgroundColor('#1a2855')
-                .onClick(() => { showEquipToast(ship.exSlot); })
+              this.EquipSlot(ship.exSlot,
+                ship.exSlotIconType,
+                ship.exSlotType,
+                0,
+                ship.exSlotLevel,
+                ship.exSlotAlv,
+                14,
+                true)
             }
           }
           .alignItems(VerticalAlign.Center)
@@ -448,6 +561,58 @@ export default struct BottomPanel {
     }
     .width('100%')
     .height(isFlag && this.specialAttack !== '' ? PanelDimens.rowH + 16 : PanelDimens.rowH)
+    .backgroundColor(PanelColors.bgSection)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  /**
+   * Single quest row:
+   *   [category icon] | [period chip] | [title] | [progress]
+   */
+  @Builder QuestRow(quest: QuestSnapshot) {
+    Row() {
+      // Column 1: category icon (colored text placeholder)
+      Column() {
+        Text(questCategoryStyle(quest.category).label)
+          .fontSize(PanelDimens.fontMd)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#ffffff')
+      }
+      .width(PanelDimens.avatarW)
+      .height('100%')
+      .backgroundColor(questCategoryStyle(quest.category).color)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+
+      // Column 2: period chip
+      Text(questResetTypeLabel(quest.type))
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.txtSub)
+        .width(72)
+        .textAlign(TextAlign.Center)
+
+      // Column 3: title (description)
+      Text(quest.title)
+        .fontSize(PanelDimens.fontMd)
+        .fontColor(PanelColors.txtPrimary)
+        .layoutWeight(1)
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .padding({ left: 8, right: 8 })
+
+      // Column 4: progress
+      Text(questProgressLabel(quest.progress, quest.state))
+        .fontSize(PanelDimens.fontMd)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(PanelColors.stat)
+        .width(56)
+        .textAlign(TextAlign.End)
+        .padding({ right: 8 })
+    }
+    .width('100%')
+    .height(PanelDimens.rowH)
     .backgroundColor(PanelColors.bgSection)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
@@ -553,7 +718,26 @@ export default struct BottomPanel {
 
       Scroll() {
         Column() {
-          if (this.activeFleet === MAP_TAB_IDX) {
+          if (this.activeFleet === QUEST_TAB_IDX) {
+            if (this.activeQuests.length > 0) {
+              ForEach(this.activeQuests, (quest: QuestSnapshot) => {
+                this.QuestRow(quest)
+              }, (quest: QuestSnapshot) => `quest-${quest.questId}`)
+            } else {
+              Column() {
+                Text('未受領の任務')
+                  .fontSize(PanelDimens.fontMd)
+                  .fontColor(PanelColors.txtMuted)
+                  .margin({ top: 24 })
+                Text('任務一覧を開くとデータが取得されます')
+                  .fontSize(PanelDimens.fontSm)
+                  .fontColor(PanelColors.txtFainter)
+                  .margin({ top: 6 })
+              }
+              .width('100%')
+              .alignItems(HorizontalAlign.Center)
+            }
+          } else if (this.activeFleet === MAP_TAB_IDX) {
             if (this.mapGauges.length > 0) {
               ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
                 this.MapGaugeRow(gauge)

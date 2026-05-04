@@ -21,17 +21,26 @@ class MapInfoHandler implements Handler {
     const decks = getDecks();
     const unsuppliedDecks: number[] = [];
     const idleDecks: number[] = [];
+    const fleet1LowCondShipUids: number[] = [];
 
     for (const deck of decks) {
       const onExpedition = deck.expeditionReturnTime !== null &&
         deck.expeditionReturnTime > Date.now();
 
       if (!onExpedition) {
-        // Check supply status of ships in this deck
         const ships = getDeckShips(deck.deckId);
+
+        // Check supply status of ships in this deck
         const anyUnsupplied = ships.some(s => s.needsResupply);
         if (anyUnsupplied) {
           unsuppliedDecks.push(deck.deckId);
+        }
+
+        // Fleet 1: also flag any ship with cond < 30
+        if (deck.deckId === 1) {
+          for (const s of ships) {
+            if (s.cond < 30) fleet1LowCondShipUids.push(s.uid);
+          }
         }
 
         // Decks 2-4 should ideally be on expedition
@@ -41,12 +50,17 @@ class MapInfoHandler implements Handler {
       }
     }
 
-    if (unsuppliedDecks.length > 0 || idleDecks.length > 0) {
+    if (
+      unsuppliedDecks.length > 0 ||
+      idleDecks.length > 0 ||
+      fleet1LowCondShipUids.length > 0
+    ) {
       publishAlert({
         type: 'fleet_status',
         timestamp: Date.now(),
         unsuppliedDecks,
         idleDecks,
+        fleet1LowCondShipUids,
       });
     }
   }

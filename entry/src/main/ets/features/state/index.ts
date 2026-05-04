@@ -43,12 +43,15 @@ export {
   updateQuests,
   updateShips,
   patchShipsSupply,
+  patchShipsHp,
   updateFromPort,
 
   // 派生数据缓存更新
   updateShipMasterMeta,
   updateSlotItemEquipTypes,
   updateSlotItemIndex,
+  getSlotItemLevel,
+  getSlotItemAlv,
   updateShipGraphFilenames,
   setGameServerUrl,
 
@@ -70,6 +73,7 @@ export {
   hasTaihaInDeck,
   getShipSpecialEquip,
   getShipMasterName,
+  isShipMasterLandBased,
 
   // 战果计算
   getSenkaInfo,
@@ -94,6 +98,12 @@ export {
   updateBattleStatus,
   updateBattleResult,
   clearBattleState,
+
+  // 退避状态
+  markShipsEscaped,
+  clearEscapedShips,
+  isShipEscaped,
+  getEscapedShipUids,
 
   // 工具
   clearGameState,

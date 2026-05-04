@@ -12,6 +12,10 @@ export interface PanelLayoutConfig {
   bottomPanelHeight: number;
 }
 
+export interface PanelPopupStateChangeEvent {
+  isVisible: boolean;
+}
+
 /** Single ship display state for panel rendering. */
 export interface ShipItem {
   id: number;       // ship uid
@@ -35,12 +39,20 @@ export interface ShipItem {
   slotIconTypes: number[];
   /** Current carried aircraft count per slot, parallel to slots. */
   slotAirs: number[];
+  /** Improvement level (api_level, 0..10) per slot, parallel to slots. */
+  slotLevels: number[];
+  /** Aircraft proficiency (api_alv, 0..7) per slot, parallel to slots. */
+  slotAlvs: number[];
   /** Ex-slot UID: 0 = locked, -1 = empty, >0 = equipped item uid. */
   exSlot: number;
   /** SlotItemEquipType of the ex-slot item; 0 = locked/empty. */
   exSlotType: number;
   /** Ex-slot icon id (api_type[3]). */
   exSlotIconType: number;
+  /** Ex-slot improvement level. */
+  exSlotLevel: number;
+  /** Ex-slot aircraft proficiency. */
+  exSlotAlv: number;
 }
 
 export interface MapGaugeInfo {

@@ -107,7 +107,12 @@ export function extractAndUpdateState(
   const slotItemsRaw = data.api_slot_item;
   if (slotItemsRaw && slotItemsRaw.length > 0) {
     try {
-      const indexItems = slotItemsRaw.map(r => ({ uid: r.api_id, masterId: r.api_slotitem_id }));
+      const indexItems = slotItemsRaw.map(r => ({
+        uid: r.api_id,
+        masterId: r.api_slotitem_id,
+        level: r.api_level ?? 0,
+        alv: r.api_alv ?? 0,
+      }));
       updateSlotItemIndex(indexItems);
       console.debug('[StateExtractor] slotitem index updated:', indexItems.length);
     } catch (e) {

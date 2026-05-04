@@ -84,7 +84,7 @@ export interface SortieNextAlert extends BaseAlert {
   fleetName: string;
   /** 是否存在大破无损管击沉风险（来自上一场战斗结算） */
   hasTaihaRisk: boolean;
-  /** 敌方旗舰名称（来自 /next api_enemy_info，仅战斗节点且数据存在时） */
+  /** 敌方旗舰名称（来自 /next api_e_deck_info，仅战斗节点且数据存在时） */
   enemyFlagshipName?: string;
   /** 资源点获得的资源信息（来自 /next api_itemget） */
   resourceGains?: MapResourceGain[];
@@ -121,6 +121,8 @@ export interface FleetStatusAlert extends BaseAlert {
   unsuppliedDecks: number[];
   /** 未出击远征的舰队 ID 列表（第 2-4 舰队） */
   idleDecks: number[];
+  /** 第 1 舰队中 cond < 30 的舰船 UID 列表 */
+  fleet1LowCondShipUids: number[];
 }
 
 export type AnyAlert =
