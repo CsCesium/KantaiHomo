@@ -91,6 +91,8 @@ export interface ShipState {
   slotCount: number;
   /** 扩张装备槽 UID（0=未解锁，-1=未装备，>0=装备UID） */
   exSlot: number;
+  /** 当前显示索敌值（含装备加成，来自 api_sakuteki[0]） */
+  scoutCur: number;
   /** HP 百分比 */
   hpPercent: number;
   /** 是否大破 (HP <= 25%) */
@@ -143,6 +145,8 @@ export interface GameState {
   slotItemEquipTypes: Map<number, number>;
   /** 装备图鉴图标缓存 (slotitem masterId → api_type[3]) */
   slotItemIconTypes: Map<number, number>;
+  /** 装备图鉴 LoS（slotitem masterId → api_saku） */
+  slotItemLos: Map<number, number>;
   /** 装备实例索引 (slotitem uid → masterId) */
   slotItemIndex: Map<number, number>;
   /** 装备改修度 (slotitem uid → api_level, 0..10) */

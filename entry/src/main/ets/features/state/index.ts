@@ -52,6 +52,7 @@ export {
   updateSlotItemIndex,
   getSlotItemLevel,
   getSlotItemAlv,
+  getSlotItemMasterLos,
   updateShipGraphFilenames,
   setGameServerUrl,
 

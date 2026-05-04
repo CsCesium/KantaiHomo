@@ -88,6 +88,7 @@ class GameStateManager {
     shipMasterSoku: new Map(),
     slotItemEquipTypes: new Map(),
     slotItemIconTypes: new Map(),
+    slotItemLos: new Map(),
     slotItemIndex: new Map(),
     slotItemLevels: new Map(),
     slotItemAlvs: new Map(),
@@ -276,6 +277,7 @@ class GameStateManager {
       onslot,
       slotCount,
       exSlot,
+      scoutCur: ship.stats?.scout?.current ?? 0,
       hpPercent,
       isTaiha: hpPercent <= 0.25,
       isChuuha: hpPercent <= 0.5,
@@ -771,6 +773,7 @@ class GameStateManager {
       shipMasterSoku: new Map(),
       slotItemEquipTypes: new Map(),
       slotItemIconTypes: new Map(),
+      slotItemLos: new Map(),
       slotItemIndex: new Map(),
       slotItemLevels: new Map(),
       slotItemAlvs: new Map(),
@@ -815,11 +818,19 @@ class GameStateManager {
   /**
    * 更新装备图鉴类型缓存（来自 api_start2 装备图鉴，masterId → typeEquipType）
    */
-  updateSlotItemEquipTypes(items: ReadonlyArray<{ id: number; equipType: number; iconType: number }>): void {
+  updateSlotItemEquipTypes(items: ReadonlyArray<{ id: number; equipType: number; iconType: number; los?: number }>): void {
     for (const item of items) {
       this.state.slotItemEquipTypes.set(item.id, item.equipType);
       this.state.slotItemIconTypes.set(item.id, item.iconType);
+      if (item.los !== undefined) {
+        this.state.slotItemLos.set(item.id, item.los);
+      }
     }
+  }
+
+  /** 按图鉴 ID 查询装备 LoS（无数据时返回 0） */
+  getSlotItemMasterLos(masterId: number): number {
+    return this.state.slotItemLos.get(masterId) ?? 0;
   }
 
   /**
@@ -1053,12 +1064,13 @@ export function getGameState(): GameStateManager {
 // 便捷函数
 export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number }>) =>
   gameStateManager.updateShipMasterMeta(items);
-export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number }>) =>
+export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number; los?: number }>) =>
   gameStateManager.updateSlotItemEquipTypes(items);
 export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>) =>
   gameStateManager.updateSlotItemIndex(items);
 export const getSlotItemLevel = (uid: number): number => gameStateManager.getSlotItemLevel(uid);
 export const getSlotItemAlv = (uid: number): number => gameStateManager.getSlotItemAlv(uid);
+export const getSlotItemMasterLos = (masterId: number): number => gameStateManager.getSlotItemMasterLos(masterId);
 export const updateShipGraphFilenames = (items: ReadonlyArray<{ id: number; filename: string }>) =>
   gameStateManager.updateShipGraphFilenames(items);
 export const getShipGraphFilename = (masterId: number) => gameStateManager.getShipGraphFilename(masterId);
