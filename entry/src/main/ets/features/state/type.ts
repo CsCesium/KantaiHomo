@@ -141,6 +141,8 @@ export interface GameState {
   shipMasterMaxSupply: Map<number, { fuelMax: number; ammoMax: number }>;
   /** 舰船图鉴速力缓存 (masterId → api_soku, 0=陆上基地, 5=低速, 10=高速...) */
   shipMasterSoku: Map<number, number>;
+  /** 舰船图鉴舰种缓存 (masterId → api_stype) */
+  shipMasterStype: Map<number, number>;
   /** 装备图鉴类型缓存 (slotitem masterId → typeEquipType) */
   slotItemEquipTypes: Map<number, number>;
   /** 装备图鉴图标缓存 (slotitem masterId → api_type[3]) */

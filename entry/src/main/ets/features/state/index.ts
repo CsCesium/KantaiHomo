@@ -74,6 +74,7 @@ export {
   hasTaihaInDeck,
   getShipSpecialEquip,
   getShipMasterName,
+  getShipMasterStype,
   isShipMasterLandBased,
 
   // 战果计算

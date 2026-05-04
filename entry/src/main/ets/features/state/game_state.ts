@@ -86,6 +86,7 @@ class GameStateManager {
     shipMasterNames: new Map(),
     shipMasterMaxSupply: new Map(),
     shipMasterSoku: new Map(),
+    shipMasterStype: new Map(),
     slotItemEquipTypes: new Map(),
     slotItemIconTypes: new Map(),
     slotItemLos: new Map(),
@@ -771,6 +772,7 @@ class GameStateManager {
       shipMasterNames: new Map(),
       shipMasterMaxSupply: new Map(),
       shipMasterSoku: new Map(),
+      shipMasterStype: new Map(),
       slotItemEquipTypes: new Map(),
       slotItemIconTypes: new Map(),
       slotItemLos: new Map(),
@@ -790,14 +792,22 @@ class GameStateManager {
   /**
    * 更新舰船图鉴名称及最大补给量缓存（来自 api_start2 舰船图鉴）
    */
-  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number }>): void {
+  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number; stype?: number }>): void {
     for (const item of items) {
       this.state.shipMasterNames.set(item.id, item.name);
       this.state.shipMasterMaxSupply.set(item.id, { fuelMax: item.fuelMax, ammoMax: item.ammoMax });
       if (item.soku !== undefined) {
         this.state.shipMasterSoku.set(item.id, item.soku);
       }
+      if (item.stype !== undefined) {
+        this.state.shipMasterStype.set(item.id, item.stype);
+      }
     }
+  }
+
+  /** 按图鉴 ID 查询舰种（无数据时返回 0） */
+  getShipMasterStype(masterId: number): number {
+    return this.state.shipMasterStype.get(masterId) ?? 0;
   }
 
   /**
@@ -1062,8 +1072,9 @@ export function getGameState(): GameStateManager {
 }
 
 // 便捷函数
-export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number }>) =>
+export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number; stype?: number }>) =>
   gameStateManager.updateShipMasterMeta(items);
+export const getShipMasterStype = (masterId: number): number => gameStateManager.getShipMasterStype(masterId);
 export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number; los?: number }>) =>
   gameStateManager.updateSlotItemEquipTypes(items);
 export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>) =>

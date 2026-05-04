@@ -10,8 +10,12 @@ import {
   TransportOperationResult,
   calcTransportOperation
 } from "..";
-import { joinedRowToStruct } from "../../../domain/models";
-import { getRepositoryHub } from "../../../infra/storage/repo";
+import {
+  getDeck,
+  getShip,
+  getGameState,
+  getShipMasterStype,
+} from "../../state";
 
 /** Ship info needed for TP calculation */
 interface ShipTPData {
@@ -34,44 +38,38 @@ export function isHeavilyDamaged(hp: number, maxHp: number): boolean {
 }
 
 /**
- * Get ship data for TP calculation
+ * Get ship data for TP calculation from in-memory game state.
+ *
+ * Reads from GameState (the same source the panel UI uses) instead
+ * of querying SQLite, which avoids the same race / missing-persistence
+ * issues that previously broke the LoS calculation.
  */
-async function getShipTPData(shipUid: number): Promise<ShipTPData | null> {
-  const repo = getRepositoryHub();
+function getShipTPData(shipUid: number): ShipTPData | null {
+  const ship = getShip(shipUid);
+  if (!ship) return null;
 
-  // Get ship with master data
-  const shipRow = await repo.ship.getWithMaster(shipUid);
-  if (!shipRow) return null;
+  const slotIndex = getGameState().getState().slotItemIndex;
 
-  // Parse equipment UIDs
-  const equipUids: number[] = JSON.parse(shipRow.slotsJson || '[]');
-  const validEquipUids = equipUids.filter(uid => uid > 0);
-
-  // Add expansion slot if present
-  if (shipRow.slotEx > 0) {
-    validEquipUids.push(shipRow.slotEx);
-  }
-
-  // Get equipment master IDs
   const equipMasterIds: number[] = [];
-  if (validEquipUids.length > 0) {
-    const equipRows = await repo.slotitem.listWithMasterByUids(validEquipUids);
-    for (const row of equipRows) {
-      const { item, master } = joinedRowToStruct(row);
-      if (master) {
-        equipMasterIds.push(master.id);
-      }
-    }
+  for (let i = 0; i < ship.slotCount; i++) {
+    const uid = ship.slots[i];
+    if (uid <= 0) continue;
+    const masterId = slotIndex.get(uid);
+    if (masterId !== undefined) equipMasterIds.push(masterId);
+  }
+  if (ship.exSlot > 0) {
+    const masterId = slotIndex.get(ship.exSlot);
+    if (masterId !== undefined) equipMasterIds.push(masterId);
   }
 
   return {
     shipUid,
-    shipMasterId: shipRow.masterId,
-    shipName: shipRow.mst_name || `Ship#${shipRow.masterId}`,
-    stype: shipRow.mst_stype || 0,
+    shipMasterId: ship.masterId,
+    shipName: ship.name || `Ship#${ship.masterId}`,
+    stype: getShipMasterStype(ship.masterId),
     equipMasterIds,
-    hp: shipRow.nowHp || 0,
-    maxHp: shipRow.maxHp || 0,
+    hp: ship.hpNow,
+    maxHp: ship.hpMax,
   };
 }
 
@@ -87,23 +85,15 @@ export async function getFleetTP(
   deckId: number,
   retreatedShipUids: Set<number> = new Set(),
 ): Promise<FleetTPResult | null> {
-  const repo = getRepositoryHub();
-
-  // Get fleet data
-  const decks = await repo.deck.list();
-  const deck = decks.find(d => d.deckId === deckId);
+  const deck = getDeck(deckId);
   if (!deck) return null;
 
-  // Parse ship UIDs
-  const shipUids: number[] = JSON.parse(deck.shipUidsJson || '[]');
-
-  // Calculate TP for each ship
   const shipResults: ShipTPResult[] = [];
 
-  for (const shipUid of shipUids) {
+  for (const shipUid of deck.shipUids) {
     if (shipUid <= 0) continue;
 
-    const shipData = await getShipTPData(shipUid);
+    const shipData = getShipTPData(shipUid);
     if (!shipData) continue;
 
     const isRetreated = retreatedShipUids.has(shipUid);
@@ -234,29 +224,20 @@ export async function simulateFleetTP(
   modifications: TPSimulationInput[],
   retreatedShipUids: Set<number> = new Set(),
 ): Promise<FleetTPResult | null> {
-  const repo = getRepositoryHub();
-
-  // Get fleet data
-  const decks = await repo.deck.list();
-  const deck = decks.find(d => d.deckId === deckId);
+  const deck = getDeck(deckId);
   if (!deck) return null;
 
-  // Create modification map
   const modMap = new Map<number, number[]>();
   for (const mod of modifications) {
     modMap.set(mod.shipUid, mod.newEquipMasterIds);
   }
 
-  // Parse ship UIDs
-  const shipUids: number[] = JSON.parse(deck.shipUidsJson || '[]');
-
-  // Calculate TP for each ship
   const shipResults: ShipTPResult[] = [];
 
-  for (const shipUid of shipUids) {
+  for (const shipUid of deck.shipUids) {
     if (shipUid <= 0) continue;
 
-    const shipData = await getShipTPData(shipUid);
+    const shipData = getShipTPData(shipUid);
     if (!shipData) continue;
 
     // Use modified equipment if provided
