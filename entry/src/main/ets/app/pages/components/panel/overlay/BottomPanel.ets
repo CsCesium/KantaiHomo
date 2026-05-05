@@ -327,7 +327,7 @@ export default struct BottomPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
-  /** Fleet-level calc stats: air power (left), unified speed (center), LoS + TP (right). */
+  /** Fleet-level calc stats: air power (left), unified speed (center), LoS + TP stacked (right). */
   @Builder FleetStatsBar() {
     if (this.activeFleet < 4) {
       Row() {
@@ -342,35 +342,42 @@ export default struct BottomPanel {
 
         Blank().layoutWeight(1)
 
-        // 舰队统一速度 — center (emoji as placeholder icon)
-        Text(`⚡ ${formatFleetSpeed(this.fleetSpeed)}`)
+        // 舰队统一速度 — center (no emoji)
+        Text(formatFleetSpeed(this.fleetSpeed))
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.stat)
 
         Blank().layoutWeight(1)
 
-        // 索敵 + 輸送 — right
-        Text('索敵')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtMuted)
-        Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.stat)
-          .margin({ left: 3 })
-        Text('輸送')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtMuted)
-          .margin({ left: 8 })
-        Text(this.fleetTpS > 0
-          ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}`
-          : '--')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.stat)
-          .margin({ left: 3 })
+        // 輸送 (top) + 索敵 (bottom) — right, with emoji placeholders for future icons
+        Column() {
+          Row() {
+            Text('🚚 輸送')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtMuted)
+            Text(this.fleetTpS > 0
+              ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}`
+              : '--')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.stat)
+              .margin({ left: 3 })
+          }
+          Row() {
+            Text('👁 索敵')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtMuted)
+            Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.stat)
+              .margin({ left: 3 })
+          }
+          .margin({ top: 1 })
+        }
+        .alignItems(HorizontalAlign.End)
       }
       .width('100%')
-      .height(PanelDimens.statusBarH)
-      .padding({ left: 8, right: 8 })
+      .height(PanelDimens.statusBarH * 2)
+      .padding({ left: 8, right: 8, top: 2, bottom: 2 })
       .backgroundColor(PanelColors.bgTabs)
       .alignItems(VerticalAlign.Center)
       .borderWidth({ bottom: PanelDimens.borderW })

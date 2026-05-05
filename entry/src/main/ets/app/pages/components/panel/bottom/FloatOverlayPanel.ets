@@ -794,7 +794,7 @@ export default struct FloatOverlayPanel {
       .borderWidth({ bottom: PanelDimens.borderW })
       .borderColor(PanelColors.overlayHdr)
 
-      // 制空 (left) | 舰队统一速度 (center) | 索敵 + 輸送 (right). Hidden on map tab.
+      // 制空 (left) | 舰队统一速度 (center) | 輸送 + 索敵 stacked (right). Hidden on map tab.
       if (this.activeFleet !== OVERLAY_MAP_TAB_IDX) {
         Row() {
           Text('制空')
@@ -807,33 +807,40 @@ export default struct FloatOverlayPanel {
 
           Blank().layoutWeight(1)
 
-          Text(`⚡ ${formatFleetSpeed(this.fleetSpeed)}`)
+          Text(formatFleetSpeed(this.fleetSpeed))
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.stat)
 
           Blank().layoutWeight(1)
 
-          Text('索敵')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.overlayTxt)
-          Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.stat)
-            .margin({ left: 3 })
-          Text('輸送')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.overlayTxt)
-            .margin({ left: 8 })
-          Text(this.fleetTpS > 0
-            ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}`
-            : '--')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.stat)
-            .margin({ left: 3 })
+          Column() {
+            Row() {
+              Text('🚚 輸送')
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.overlayTxt)
+              Text(this.fleetTpS > 0
+                ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}`
+                : '--')
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.stat)
+                .margin({ left: 3 })
+            }
+            Row() {
+              Text('👁 索敵')
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.overlayTxt)
+              Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.stat)
+                .margin({ left: 3 })
+            }
+            .margin({ top: 1 })
+          }
+          .alignItems(HorizontalAlign.End)
         }
         .width('100%')
-        .height(PanelDimens.statusBarH)
-        .padding({ left: 8, right: 8 })
+        .height(PanelDimens.statusBarH * 2)
+        .padding({ left: 8, right: 8, top: 2, bottom: 2 })
         .alignItems(VerticalAlign.Center)
         .borderWidth({ bottom: PanelDimens.borderW })
         .borderColor(PanelColors.overlayHdr)
