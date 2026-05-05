@@ -327,29 +327,29 @@ export default struct BottomPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
-  /** Fleet-level calc stats: air power (left), unified speed (center), LoS + TP stacked (right). */
+  /** Fleet-level calc stats: 制空 + 速度 stacked left, 輸送 + 索敵 stacked right. */
   @Builder FleetStatsBar() {
     if (this.activeFleet < 4) {
       Row() {
-        // 制空 — left
-        Text('制空')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtMuted)
-        Text(this.airPower > 0 ? `${this.airPower}` : '--')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.stat)
-          .margin({ left: 3 })
+        Column() {
+          Row() {
+            Text('制空')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtMuted)
+            Text(this.airPower > 0 ? `${this.airPower}` : '--')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.stat)
+              .margin({ left: 3 })
+          }
+          Text(formatFleetSpeed(this.fleetSpeed))
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.stat)
+            .margin({ top: 1 })
+        }
+        .alignItems(HorizontalAlign.Start)
 
         Blank().layoutWeight(1)
 
-        // 舰队统一速度 — center (no emoji)
-        Text(formatFleetSpeed(this.fleetSpeed))
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.stat)
-
-        Blank().layoutWeight(1)
-
-        // 輸送 (top) + 索敵 (bottom) — right, with emoji placeholders for future icons
         Column() {
           Row() {
             Text('🚚 輸送')

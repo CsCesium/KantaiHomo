@@ -794,22 +794,25 @@ export default struct FloatOverlayPanel {
       .borderWidth({ bottom: PanelDimens.borderW })
       .borderColor(PanelColors.overlayHdr)
 
-      // 制空 (left) | 舰队统一速度 (center) | 輸送 + 索敵 stacked (right). Hidden on map tab.
+      // 制空 + 速度 stacked (left) | 輸送 + 索敵 stacked (right). Hidden on map tab.
       if (this.activeFleet !== OVERLAY_MAP_TAB_IDX) {
         Row() {
-          Text('制空')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.overlayTxt)
-          Text(this.airPower > 0 ? `${this.airPower}` : '--')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.stat)
-            .margin({ left: 3 })
-
-          Blank().layoutWeight(1)
-
-          Text(formatFleetSpeed(this.fleetSpeed))
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.stat)
+          Column() {
+            Row() {
+              Text('制空')
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.overlayTxt)
+              Text(this.airPower > 0 ? `${this.airPower}` : '--')
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.stat)
+                .margin({ left: 3 })
+            }
+            Text(formatFleetSpeed(this.fleetSpeed))
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.stat)
+              .margin({ top: 1 })
+          }
+          .alignItems(HorizontalAlign.Start)
 
           Blank().layoutWeight(1)
 
