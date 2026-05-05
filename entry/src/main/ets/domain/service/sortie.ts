@@ -110,6 +110,15 @@ export function clearSortieContext(): void {
 }
 
 /**
+ * 直接设置当前上下文。
+ * 仅用于演习这种没有 map_start 但仍需要预测/结果快照的场景。
+ * 普通出击请使用 startSortie。
+ */
+export function setSortieContext(ctx: SortieContext | null): void {
+  _currentContext = ctx;
+}
+
+/**
  * 检查是否在出击中
  */
 export function isInSortie(): boolean {
