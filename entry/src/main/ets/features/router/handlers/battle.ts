@@ -1,6 +1,7 @@
 import { AnyBattleEvt, BattleDayPayload, BattleNightPayload, BattleResultPayload } from '../../../domain/events/battle';
 import {
   BattleSegment,
+  BattlePrediction,
   mergeBattleSegments,
   BattleRecord,
   generateBattleId,
@@ -75,25 +76,79 @@ function buildPracticeFleetSnapshot(deckId: number, ts: number): FleetSnapshot |
 }
 
 /**
+ * 从 prediction.friendMain/friendEscort 反推一个最小 FleetSnapshot —— 仅用于
+ * 当 GameState 里实际 deck 为空（比如 master 包还没回来）时，让预览至少能
+ * 按"敌我各 N 艘"的形态显示，而不是直接看不到。HP 占位用 prediction 数据。
+ */
+function buildPracticeFleetSnapshotFromPrediction(
+  predictions: { uid: number; name: string; hpBefore: number; hpMax: number }[],
+  deckId: number,
+  ts: number,
+): FleetSnapshot {
+  const ships: ShipSnapshot[] = predictions
+    .filter(p => p.hpMax > 0)
+    .map((p, i): ShipSnapshot => ({
+      uid: p.uid > 0 ? p.uid : -(i + 1),
+      masterId: 0,
+      name: p.name || `艦${i + 1}`,
+      shipType: 0,
+      level: 0,
+      hpNow: p.hpBefore,
+      hpMax: p.hpMax,
+      fuel: 0,
+      ammo: 0,
+      fuelMax: 0,
+      ammoMax: 0,
+      cond: 49,
+      slots: [],
+      slotEx: null,
+      onslot: [],
+    }));
+  return { deckId, name: `Fleet ${deckId}`, ships, capturedAt: ts };
+}
+
+/**
  * 演习专用：若当前没有 SortieContext，按 segment + 当前 deck 合成一个并写入全局。
  * 已存在 context 时直接返回（避免覆盖真实出击）。
+ *
+ * 兜底策略（按优先级）：
+ *   1. segment.meta.deckId 指定的 deck（响应里通常有 api_deck_id）
+ *   2. deck 1..4 中第一个非空的 deck
+ *   3. 直接由 prediction 反推，确保至少能渲染出舰列表
  */
-function ensurePracticeContext(segment: BattleSegment): SortieContext | null {
+function ensurePracticeContext(segment: BattleSegment, prediction: BattlePrediction): SortieContext | null {
   const existing = getSortieContext();
   if (existing) return existing;
 
-  const deckId = segment.meta.deckId ?? 1;
   const isCombined = !!segment.start.friend.escort;
   const ts = Date.now();
 
-  const fleetSnapshot = buildPracticeFleetSnapshot(deckId, ts);
-  if (!fleetSnapshot) return null;
-  // 联合演习：第二舰队约定为 deckId+1（通常为 2）。
+  const preferredDeckId = segment.meta.deckId ?? 1;
+
+  const tryDecks: number[] = [preferredDeckId, 1, 2, 3, 4];
+  let fleetSnapshot: FleetSnapshot | null = null;
+  let resolvedDeckId = preferredDeckId;
+  for (const id of tryDecks) {
+    const snap = buildPracticeFleetSnapshot(id, ts);
+    if (snap) {
+      fleetSnapshot = snap;
+      resolvedDeckId = id;
+      break;
+    }
+  }
+  // 真实 deck 信息缺失时，从 prediction 反推一个最小 fleet snapshot。
+  if (!fleetSnapshot) {
+    fleetSnapshot = buildPracticeFleetSnapshotFromPrediction(prediction.friendMain, preferredDeckId, ts);
+  }
+
   const fleetSnapshotEscort = isCombined
-    ? buildPracticeFleetSnapshot(deckId + 1, ts) ?? undefined
+    ? (buildPracticeFleetSnapshot(resolvedDeckId + 1, ts)
+        ?? (prediction.friendEscort
+          ? buildPracticeFleetSnapshotFromPrediction(prediction.friendEscort, resolvedDeckId + 1, ts)
+          : undefined))
     : undefined;
 
-  const ctx = createSortieContext(0, 0, deckId, fleetSnapshot, isCombined ? 1 : 0, fleetSnapshotEscort);
+  const ctx = createSortieContext(0, 0, resolvedDeckId, fleetSnapshot, isCombined ? 1 : 0, fleetSnapshotEscort);
   const cell: SortieCell = {
     mapAreaId: 0,
     mapInfoNo: 0,
@@ -142,7 +197,7 @@ class BattleHandler implements Handler {
 
     // 演习首个事件：按当前 deck 合成一个最小 SortieContext 让预览生效。
     if (isPractice) {
-      ensurePracticeContext(segment);
+      ensurePracticeContext(segment, prediction);
     }
 
     // 1. 获取出击上下文，更新内存状态
@@ -203,7 +258,7 @@ class BattleHandler implements Handler {
 
     // 演习直入夜战(api_req_practice/midnight_battle 罕见但可能)：合成上下文。
     if (isPractice) {
-      ensurePracticeContext(segment);
+      ensurePracticeContext(segment, prediction);
     }
 
     // 1. 获取出击上下文
@@ -345,7 +400,8 @@ class BattleHandler implements Handler {
     // 下一次 /api_port/port 之前就反映真实战后 HP（与侧边栏 BATTLE_RESULT
     // 覆盖逻辑保持一致）。BattleResult 响应不含 api_ship_data，
     // 故依赖战斗段（来自模拟器或包结算）的 hpEnd。
-    if (context) {
+    // 演习是模拟战斗，舰船 HP 实际不会下降，跳过 HP 回写避免污染主面板。
+    if (context && !isPractice) {
       const hpPatches: { uid: number; hpNow: number; hpMax: number }[] = [];
       const mainShips = context.fleetSnapshot?.ships ?? [];
       const mainNow = record.hpEnd.friend.main.now;
@@ -383,33 +439,19 @@ class BattleHandler implements Handler {
       }
     }
     // 5a. 战斗结算提醒
-    try {
-      // 计算大破无损管击沉风险（旗舰 i=0 不会击沉，从 i=1 开始）
-      let hasTaihaRisk = false;
-      const taihaShipsList: { uid: number; name: string; hpAfter: number; hpMax: number }[] = [];
-      const prediction = context?.pendingBattle?.prediction;
-      const mainPred = prediction?.friendMain ?? [];
-      for (let i = 1; i < mainPred.length; i++) {
-        const ship = mainPred[i];
-        if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
-        if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
-          const equip = getShipSpecialEquip(ship.uid);
-          if (!equip.hasDamageControl && !equip.hasGoddess) {
-            hasTaihaRisk = true;
-            taihaShipsList.push({
-              uid: ship.uid,
-              name: ship.name || `#${ship.uid}`,
-              hpAfter: ship.hpAfter,
-              hpMax: ship.hpMax,
-            });
-          }
-        }
-      }
-      // 联合舰队时检查护卫舰队
-      if (context && context.combinedType > 0) {
-        const escortPred = prediction?.friendEscort ?? [];
-        for (let i = 1; i < escortPred.length; i++) {
-          const ship = escortPred[i];
+    if (isPractice) {
+      // 演习不进击下一节点，跳过提醒；同时清掉上一节点遗留的大破标记。
+      setLastBattleHasTaihaRisk(false);
+      setLastBattleTaihaShips([]);
+    } else {
+      try {
+        // 计算大破无损管击沉风险（旗舰 i=0 不会击沉，从 i=1 开始）
+        let hasTaihaRisk = false;
+        const taihaShipsList: { uid: number; name: string; hpAfter: number; hpMax: number }[] = [];
+        const prediction = context?.pendingBattle?.prediction;
+        const mainPred = prediction?.friendMain ?? [];
+        for (let i = 1; i < mainPred.length; i++) {
+          const ship = mainPred[i];
           if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
           if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
             const equip = getShipSpecialEquip(ship.uid);
@@ -424,23 +466,43 @@ class BattleHandler implements Handler {
             }
           }
         }
+        // 联合舰队时检查护卫舰队
+        if (context && context.combinedType > 0) {
+          const escortPred = prediction?.friendEscort ?? [];
+          for (let i = 1; i < escortPred.length; i++) {
+            const ship = escortPred[i];
+            if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
+            if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
+              const equip = getShipSpecialEquip(ship.uid);
+              if (!equip.hasDamageControl && !equip.hasGoddess) {
+                hasTaihaRisk = true;
+                taihaShipsList.push({
+                  uid: ship.uid,
+                  name: ship.name || `#${ship.uid}`,
+                  hpAfter: ship.hpAfter,
+                  hpMax: ship.hpMax,
+                });
+              }
+            }
+          }
+        }
+
+        // 保存本次大破风险及大破舰娘列表，供下一节点进击提醒使用
+        setLastBattleHasTaihaRisk(hasTaihaRisk);
+        setLastBattleTaihaShips(taihaShipsList);
+
+        const battleResultAlert: BattleResultAlert = {
+          type: 'battle_result',
+          timestamp: now,
+          cellId: record.cellId,
+          isBoss: record.isBoss,
+          rank: record.rank,
+          hasTaihaRisk,
+        };
+        publishAlert(battleResultAlert);
+      } catch (e) {
+        console.warn('[battle] publishAlert(BattleResultAlert) failed:', String(e));
       }
-
-      // 保存本次大破风险及大破舰娘列表，供下一节点进击提醒使用
-      setLastBattleHasTaihaRisk(hasTaihaRisk);
-      setLastBattleTaihaShips(taihaShipsList);
-
-      const battleResultAlert: BattleResultAlert = {
-        type: 'battle_result',
-        timestamp: now,
-        cellId: record.cellId,
-        isBoss: record.isBoss,
-        rank: record.rank,
-        hasTaihaRisk,
-      };
-      publishAlert(battleResultAlert);
-    } catch (e) {
-      console.warn('[battle] publishAlert(BattleResultAlert) failed:', String(e));
     }
 
     // 6. 清理战斗上下文
