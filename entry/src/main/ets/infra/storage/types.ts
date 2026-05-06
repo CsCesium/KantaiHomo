@@ -268,7 +268,6 @@ export interface SlotItemRepository {
   upsertBatch(rows: readonly SlotItemRow[]): Promise<void>;
   getWithMaster(uid: number): Promise<SlotItemJoinedRow | null>;
   listWithMaster(): Promise<readonly SlotItemJoinedRow[]>;
-  listWithMasterByUids(uids: readonly number[]): Promise<readonly SlotItemJoinedRow[]>;
   listMasterIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>>;
 }
 
