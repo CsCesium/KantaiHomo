@@ -870,7 +870,7 @@ class GameStateManager {
   }
 
   /**
-   * 更新装备实例索引（来自 api_port/api_slot_item，uid → masterId/level/alv）
+   * 更新装备实例索引（来自 api_get_member/slot_item，uid → masterId/level/alv）
    */
   updateSlotItemIndex(items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>): void {
     for (const item of items) {

@@ -4,7 +4,6 @@ import { Kdock } from './k_dock';
 import { Materials } from './material';
 import { Ndock } from './n_dock';
 import type { Ship } from './ship';
-import type { SlotItem } from './slotitem';
 
 export interface PortLog {
   no: number;
@@ -21,7 +20,6 @@ export interface PortSnapshot {
   ndocks: Ndock[];
   kdocks: Kdock[];
   ships: Ship[];
-  slotItems: SlotItem[];
   logs: PortLog[];
 
   combinedFlag?: number;

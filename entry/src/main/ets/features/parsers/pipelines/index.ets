@@ -8,6 +8,7 @@ import { mapinfoPipeline } from './mapinfo';
 import { ndockPipeline } from './ndock';
 import { supplyPipeline } from './supply';
 import { lbasPipeline } from './lbas';
+import { slotitemPipeline } from './slotitem';
 import { DUMP_PIPELINES, registerPipeline, DumpPipeline } from '../pipeline';
 
 export * from './port';
@@ -20,6 +21,7 @@ export * from './ndock';
 export * from './mapinfo';
 export * from './supply';
 export * from './lbas';
+export * from './slotitem';
 
 /** 所有 pipeline，按需维护。新增 pipeline 时在此数组添加即可。 */
 const ALL_PIPELINES: DumpPipeline[] = [
@@ -33,6 +35,7 @@ const ALL_PIPELINES: DumpPipeline[] = [
   mapinfoPipeline,
   supplyPipeline,
   lbasPipeline,
+  slotitemPipeline,
 ];
 
 /**

@@ -14,6 +14,7 @@ import '../../handlers/ranking';
 import '../../handlers/mapinfo';
 import '../../handlers/supply';
 import '../../handlers/lbas';
+import '../../handlers/slotitem';
 import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';

@@ -15,7 +15,8 @@ export type EventType =
     | 'PORT_NDOCK'
     | 'PORT_KDOCK'
     | 'PORT_SHIPS'
-    | 'PORT_SLOTITEMS'
+  // SlotItem
+    | 'SLOTITEMS_UPDATE'
   // Expedition
     | 'EXPEDITION_START'
     | 'EXPEDITION_UPDATE'

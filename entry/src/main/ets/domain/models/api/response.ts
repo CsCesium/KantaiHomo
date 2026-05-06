@@ -45,8 +45,6 @@ export interface ApiStateFields {
   api_ndock?: ApiNdockRaw[];
   api_kdock?: ApiKdockRaw[];
 
-  // 装备
-  api_slot_item?: ApiSlotItemRaw[];
 }
 
 /**
@@ -59,7 +57,6 @@ export interface StateFieldsDetection {
   hasShips: boolean;
   hasNdock: boolean;
   hasKdock: boolean;
-  hasSlotItem: boolean;
   /** 是否有任何状态字段 */
   any: boolean;
 }
@@ -72,7 +69,6 @@ export function detectStateFields(data: unknown): StateFieldsDetection {
     hasShips: false,
     hasNdock: false,
     hasKdock: false,
-    hasSlotItem: false,
     any: false,
   };
 
@@ -86,10 +82,9 @@ export function detectStateFields(data: unknown): StateFieldsDetection {
   result.hasShips = Array.isArray(obj.api_ship) || Array.isArray(obj.api_ship_data);
   result.hasNdock = Array.isArray(obj.api_ndock) && obj.api_ndock.length > 0;
   result.hasKdock = Array.isArray(obj.api_kdock) && obj.api_kdock.length > 0;
-  result.hasSlotItem = Array.isArray(obj.api_slot_item) && obj.api_slot_item.length > 0;
 
   result.any = result.hasAdmiral || result.hasMaterials || result.hasDecks ||
-  result.hasShips || result.hasNdock || result.hasKdock || result.hasSlotItem;
+  result.hasShips || result.hasNdock || result.hasKdock;
 
   return result;
 }

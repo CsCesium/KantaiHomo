@@ -12,9 +12,7 @@ import {
   Kdock,
   kdockToRow,
   Ship,
-  shipToRow,
-  SlotItem,
-  slotItemToRow
+  shipToRow
 } from '../../../domain/models';
 import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks, updateKdocks,
   updateShips, clearBattleState, clearEscapedShips } from '../../state';
@@ -49,9 +47,6 @@ class PortPersistHandler implements Handler {
         break;
       case 'PORT_SHIPS':
         await this.handleShips(e.payload, ts, deps);
-        break;
-      case 'PORT_SLOTITEMS':
-        await this.handleSlotItems(e.payload, ts, deps);
         break;
     }
   }
@@ -137,15 +132,6 @@ class PortPersistHandler implements Handler {
     const rows = payload.map(shipToRow);
     await deps.repos.ship.upsertBatch(rows);
   }
-
-  private async handleSlotItems(payload: SlotItem[], ts: number, deps: PersistDeps): Promise<void> {
-    if (!deps.repos?.slotitem) {
-      console.warn('[persist][PORT_SLOTITEMS] repository not provided');
-      return;
-    }
-    const rows = payload.map(slotItemToRow);
-    await deps.repos.slotitem.upsertBatch(rows);
-  }
 }
 
 const handler = new PortPersistHandler();
@@ -156,4 +142,3 @@ registerHandler('PORT_FLEETS', handler);
 registerHandler('PORT_NDOCK', handler);
 registerHandler('PORT_KDOCK', handler);
 registerHandler('PORT_SHIPS', handler);
-registerHandler('PORT_SLOTITEMS', handler);

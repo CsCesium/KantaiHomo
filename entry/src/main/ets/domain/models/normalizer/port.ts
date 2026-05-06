@@ -6,7 +6,6 @@ import { normalizeDecks } from "./deck";
 import { normalizeKdocks } from "./k_dock";
 import { normalizeMaterials } from "./material";
 import { normalizeNdocks } from "./n_dock";
-import { normalizeSlotItems } from "./slotitem";
 
 
 export function normalizePortLog(raw: ApiPortLogRaw, now: number = Date.now()): PortLog {
@@ -27,7 +26,6 @@ export function normalizePort(raw: ApiPortRespRaw, now: number = Date.now()): Po
     ndocks: normalizeNdocks(raw.api_ndock, now),
     kdocks: normalizeKdocks(raw.api_kdock ?? [], now),
     ships: (raw.api_ship ?? []).map((s) => normalizeShip(s, now)),
-    slotItems: normalizeSlotItems(raw.api_slot_item ?? [], now),
     logs: (raw.api_log ?? []).map((l) => normalizePortLog(l, now)),
 
     combinedFlag: raw.api_combined_flag ?? undefined,

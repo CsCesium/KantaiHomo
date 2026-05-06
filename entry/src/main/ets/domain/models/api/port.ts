@@ -4,7 +4,6 @@ import { ApiBasicRaw } from './basic';
 import { ApiMaterialItemRaw } from './materials';
 import { ApiDeckPortRaw } from './deck';
 import { ApiKdockRaw } from './k_dock';
-import { ApiSlotItemRaw } from './slotitem';
 
 export interface ApiPortLogRaw {
   api_no: number;
@@ -21,7 +20,6 @@ export interface ApiPortRespRaw {
   api_ndock: ApiNdockRaw[];
   api_kdock?: ApiKdockRaw[];
   api_ship: ApiShipRaw[];
-  api_slot_item?: ApiSlotItemRaw[];
 
   api_log?: ApiPortLogRaw[];
   api_combined_flag?: number;

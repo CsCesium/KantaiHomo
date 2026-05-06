@@ -5,7 +5,6 @@ import { Materials } from "../models/struct/material"
 import { Ndock } from "../models/struct/n_dock"
 import { PortSnapshot } from "../models/struct/port"
 import { Ship } from "../models/struct/ship"
-import { SlotItem } from "../models/struct/slotitem"
 import { PayloadEvent } from "./type"
 
 
@@ -16,7 +15,6 @@ export type PortFleetsEvent = PayloadEvent<'PORT_FLEETS', Deck[]>
 export type PortNdockEvent = PayloadEvent<'PORT_NDOCK', Ndock[]>
 export type PortKdockEvent = PayloadEvent<'PORT_KDOCK', Kdock[]>
 export type PortShipsEvent = PayloadEvent<'PORT_SHIPS', Ship[]>
-export type PortSlotItemsEvent = PayloadEvent<'PORT_SLOTITEMS', SlotItem[]>
 
 
 export type AnyPortEvt =
@@ -27,4 +25,3 @@ export type AnyPortEvt =
     | PortNdockEvent
     | PortKdockEvent
     | PortShipsEvent
-    | PortSlotItemsEvent

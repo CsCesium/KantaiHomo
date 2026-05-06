@@ -6,7 +6,6 @@ import { AnyPortEvt,
   PortNdockEvent,
   PortResourcesEvent,
   PortShipsEvent,
-  PortSlotItemsEvent,
   PortSnapshotEvent } from '../../../domain/events/port';
 import { ApiPortRespRaw, normalizePort } from '../../../domain/models';
 import { JsonObject, getObj, getStr, unwrapApiData } from '../../../domain/models/json';
@@ -74,9 +73,6 @@ export function parsePort(dump: ApiDump): (AnyPortEvt | SessionBindEvent)[] {
   const shipsEv: PortShipsEvent =
     mkEvt(ctx, 'PORT_SHIPS', ['PORT_SHIPS', snap.updatedAt], snap.ships)
 
-  const slotItemsEv: PortSlotItemsEvent =
-    mkEvt(ctx, 'PORT_SLOTITEMS', ['PORT_SLOTITEMS', snap.updatedAt], snap.slotItems)
-
-  out.push(snapEv, basicEv, resEv, fleetsEv, ndockEv, kdockEv, shipsEv, slotItemsEv)
+  out.push(snapEv, basicEv, resEv, fleetsEv, ndockEv, kdockEv, shipsEv)
   return out
 }
