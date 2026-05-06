@@ -4,7 +4,8 @@ import type { AnyBattleEvt, AnyExpEvt,
     AnyPortEvt, AnyQuestEvt, AnySortieEvt,
     AnySupplyEvt,
     SessionBindEvent,
-    AnySlotItemEvt } from '../../../domain/events';
+    AnySlotItemEvt,
+    AnyRequireInfoEvt } from '../../../domain/events';
 import type { AnyStart2Evt } from '../../../domain/events/start2';
 import type { AnyRankingEvt } from '../../../domain/events/ranking';
 import type { AnyLbasEvt } from '../../../domain/events/lbas';
@@ -25,7 +26,8 @@ export type HandlerEvent =
     | AnySupplyEvt
     | AnyMapInfoEvt
     | AnyLbasEvt
-    | AnySlotItemEvt;
+    | AnySlotItemEvt
+    | AnyRequireInfoEvt;
 
 export interface Handler {
   handle(ev: HandlerEvent, deps: PersistDeps): Promise<void>;

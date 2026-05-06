@@ -1,7 +1,8 @@
 import type { ApiDump } from '../../../infra/web/types';
 import type { SlotItemsUpdateEvent } from '../../../domain/events/slotitem';
+import type { RequireInfoUpdateEvent } from '../../../domain/events/require_info';
 import type { ApiRequireInfoRespRaw } from '../../../domain/models/api/require_info';
-import { normalizeSlotItems } from '../../../domain/models/normalizer/slotitem';
+import { normalizeRequireInfo } from '../../../domain/models/normalizer/require_info';
 import { EndpointRule, ParserCtx, mkEvt, detectEndpoint } from './common';
 import { parseSvdata } from '../../utils/common';
 
@@ -9,7 +10,9 @@ const RULES: EndpointRule[] = [
   { endpoint: '/api_get_member/require_info', match: (url) => url.includes('/api_get_member/require_info') },
 ];
 
-export function parseRequireInfo(dump: ApiDump): SlotItemsUpdateEvent[] | null {
+type RequireInfoEvt = SlotItemsUpdateEvent | RequireInfoUpdateEvent;
+
+export function parseRequireInfo(dump: ApiDump): RequireInfoEvt[] | null {
   const endpoint = detectEndpoint(dump.url, RULES);
   if (!endpoint) return null;
 
@@ -23,15 +26,30 @@ export function parseRequireInfo(dump: ApiDump): SlotItemsUpdateEvent[] | null {
 
   const js = parseSvdata<{ api_data?: ApiRequireInfoRespRaw }>(ctx.responseText);
   const data = js?.api_data;
-  if (!data || !Array.isArray(data.api_slot_item)) return null;
+  if (!data) return null;
 
-  const slotItems = normalizeSlotItems(data.api_slot_item, ctx.ts);
-  const evt = mkEvt(
+  const snapshot = normalizeRequireInfo(data, ctx.ts);
+  const out: RequireInfoEvt[] = [];
+
+  if (snapshot.slotItems.length > 0) {
+    out.push(mkEvt(
+      ctx,
+      'SLOTITEMS_UPDATE',
+      ['require-info-slotitems', snapshot.slotItems.length, ctx.ts],
+      snapshot.slotItems
+    ) as SlotItemsUpdateEvent);
+  }
+
+  out.push(mkEvt(
     ctx,
-    'SLOTITEMS_UPDATE',
-    ['require-info-slotitems', slotItems.length, ctx.ts],
-    slotItems
-  ) as SlotItemsUpdateEvent;
+    'REQUIRE_INFO_UPDATE',
+    ['require-info', ctx.ts],
+    {
+      admiral: snapshot.admiral,
+      kdocks: snapshot.kdocks,
+      useItems: snapshot.useItems,
+    }
+  ) as RequireInfoUpdateEvent);
 
-  return [evt];
+  return out.length > 0 ? out : null;
 }

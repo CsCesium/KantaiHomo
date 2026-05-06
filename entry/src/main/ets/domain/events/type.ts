@@ -17,6 +17,8 @@ export type EventType =
     | 'PORT_SHIPS'
   // SlotItem
     | 'SLOTITEMS_UPDATE'
+  // Require Info (login full-state push: admiral + kdocks + useitems)
+    | 'REQUIRE_INFO_UPDATE'
   // Expedition
     | 'EXPEDITION_START'
     | 'EXPEDITION_UPDATE'
