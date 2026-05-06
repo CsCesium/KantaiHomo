@@ -401,6 +401,7 @@ export default struct FloatOverlayPanel {
       }
       .layoutWeight(1)
       .width('100%')
+      .align(Alignment.TopStart)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.None)
     }
