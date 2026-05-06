@@ -1,5 +1,5 @@
 // ==================== 类型定义 ====================
-import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateShips, getGameState } from ".";
+import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateShips, updateSlotItemIndex, getGameState } from ".";
 import {
   ApiBasicRaw,
   ApiMaterialItemRaw,
@@ -11,6 +11,7 @@ import {
   normalizeShip,
   normalizeShips
 } from "../../domain/models";
+import { ApiSlotItemRaw } from "../../domain/models/api/slotitem";
 
 /** API 响应中可能包含的状态字段 */
 interface StateFields {
@@ -27,6 +28,9 @@ interface StateFields {
   // 舰船 (port 使用 api_ship, ship2/ship3 使用 api_ship_data)
   api_ship?: ApiShipRaw[];
   api_ship_data?: ApiShipRaw[];
+
+  // 装备实例列表（require_info / kaisou / kousyou 等响应都会带）
+  api_slot_item?: ApiSlotItemRaw[];
 
   // 允许其他字段
   [key: string]: unknown;
@@ -98,6 +102,22 @@ export function extractAndUpdateState(
   result.hasMaterials = !!materialsRaw && materialsRaw.length > 0;
   result.hasDecks = !!decksRaw && decksRaw.length > 0;
   result.hasShips = !!shipsRaw && shipsRaw.length > 0;
+
+  // 内存装备实例索引：只刷 slotItemIndex/Levels/Alvs 给面板与计算用，
+  // DB 持久化由 SLOTITEMS_UPDATE handler 在拿到完整列表时单独负责。
+  const slotItemsRaw = data.api_slot_item;
+  if (slotItemsRaw && slotItemsRaw.length > 0) {
+    try {
+      updateSlotItemIndex(slotItemsRaw.map(r => ({
+        uid: r.api_id,
+        masterId: r.api_slotitem_id,
+        level: r.api_level ?? 0,
+        alv: r.api_alv ?? 0,
+      })));
+    } catch (e) {
+      console.warn('[StateExtractor] slotitem index update failed:', e);
+    }
+  }
 
   // 批量更新模式 (Port)
   if (batchUpdate) {

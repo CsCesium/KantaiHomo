@@ -40,10 +40,8 @@ export interface ApiDeckRespRaw {
   api_deck_data: ApiDeckPortRaw[];
 }
 
-/** api_get_member/slot_item 响应 */
-export interface ApiSlotItemRespRaw {
-  api_slot_item: ApiSlotItemRaw[];
-}
+/** api_get_member/slot_item 响应 — api_data 直接是装备数组 */
+export type ApiSlotItemRespRaw = ApiSlotItemRaw[];
 
 /** api_get_member/useitem 响应 */
 export interface ApiUseitemRespRaw {

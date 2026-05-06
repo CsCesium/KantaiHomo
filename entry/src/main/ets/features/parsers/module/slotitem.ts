@@ -23,9 +23,9 @@ export function parseSlotItem(dump: ApiDump): SlotItemsUpdateEvent[] | null {
 
   const js = parseSvdata<{ api_data?: ApiSlotItemRespRaw }>(ctx.responseText);
   const data = js?.api_data;
-  if (!data || !Array.isArray(data.api_slot_item)) return null;
+  if (!Array.isArray(data)) return null;
 
-  const slotItems = normalizeSlotItems(data.api_slot_item, ctx.ts);
+  const slotItems = normalizeSlotItems(data, ctx.ts);
   const evt = mkEvt(
     ctx,
     'SLOTITEMS_UPDATE',
