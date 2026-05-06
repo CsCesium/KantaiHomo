@@ -146,7 +146,7 @@ export struct EquipDetailPanel {
         }
         .width('100%')
 
-        Text('点击关闭')
+        Text('松手关闭')
           .fontSize(9)
           .fontColor(PanelColors.txtFainter)
           .width('100%')
