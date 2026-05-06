@@ -11,14 +11,12 @@ import {
   QuestSnapshot
 } from '../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
-import { getPersistDeps } from '../../../../../infra/deps';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
   getFleetTP,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
-import { SlotItemJoinedRow } from '../../../../../infra/storage/types';
 import { EquipDetailPanel } from '../EquipDetailPanel';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
 
@@ -135,10 +133,8 @@ export default struct BottomPanel {
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
   @Local activeQuests: QuestSnapshot[] = [];
-  /** UID of slot whose detail popup is currently open; 0 = none. */
+  /** UID of slot whose detail popup is currently open; 0 = none. EquipDetailPanel 自加载行。 */
   @Local detailUid: number = 0;
-  /** Loaded equipment row for the open detail popup. */
-  @Local detailRow: SlotItemJoinedRow | null = null;
   /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
   @Local showKaisyuu: boolean = true;
   /** Show aircraft proficiency badge; mirrors AppStorage setting. */
@@ -385,30 +381,19 @@ export default struct BottomPanel {
     }
   }
 
-  private async openEquipDetail(uid: number): Promise<void> {
+  private openEquipDetail(uid: number): void {
     if (uid <= 0) return;
     this.detailUid = uid;
-    this.detailRow = null;
-    try {
-      const repo = getPersistDeps()?.repos?.slotitem;
-      if (!repo) return;
-      const row = await repo.getWithMaster(uid);
-      // Only update if user hasn't dismissed/changed in the meantime.
-      if (this.detailUid === uid) {
-        this.detailRow = row;
-      }
-    } catch (_e) { /* ignore */ }
   }
 
   private toggleEquipDetail(uid: number): void {
     if (this.detailUid === uid) {
       this.detailUid = 0;
-      this.detailRow = null;
     }
   }
 
   @Builder EquipPopup() {
-    EquipDetailPanel({ row: this.detailRow })
+    EquipDetailPanel({ uid: this.detailUid })
   }
 
   /** Single equipment slot icon with kaisyuu / proficiency badges + long-press detail popup. */
@@ -458,7 +443,7 @@ export default struct BottomPanel {
     .backgroundColor(isExSlot ? '#1a2855' : '#252940')
     .gesture(
       LongPressGesture({ repeat: false, duration: 400 })
-        .onAction(() => { void this.openEquipDetail(uid); })
+        .onAction(() => { this.openEquipDetail(uid); })
     )
     .onClick(() => { this.toggleEquipDetail(uid); })
     .bindPopup(this.detailUid === uid, {
@@ -468,7 +453,6 @@ export default struct BottomPanel {
       onStateChange: (e: PanelPopupStateChangeEvent) => {
         if (!e.isVisible && this.detailUid === uid) {
           this.detailUid = 0;
-          this.detailRow = null;
         }
       },
     })
