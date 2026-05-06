@@ -49,6 +49,6 @@ export default struct ShipStatusBlock {
         .backgroundColor(PanelColors.overlayRow)
     }
     .width('100%')
-    .justifyContent(FlexAlign.Center)
+    .justifyContent(FlexAlign.Start)
   }
 }
