@@ -213,10 +213,3 @@ export async function listWithMaster(): Promise<SlotItemJoinedRow[]> {
   const rs = await query(`${JOIN_SQL} ORDER BY s.uid ASC`, []);
   return readRows(rs, mapJoinedRow);
 }
-
-export async function listWithMasterByUids(uids: readonly number[]): Promise<SlotItemJoinedRow[]> {
-  if (!uids.length) return [];
-  const marks = uids.map(() => '?').join(',');
-  const rs = await query(`${JOIN_SQL} WHERE s.uid IN (${marks})`, [...uids]);
-  return readRows(rs, mapJoinedRow);
-}

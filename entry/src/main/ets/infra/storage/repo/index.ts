@@ -151,10 +151,6 @@ export class SlotItemRepositoryImpl implements SlotItemRepository {
     return SlotItemDao.listWithMaster();
   }
 
-  async listWithMasterByUids(uids: readonly number[]): Promise<readonly SlotItemJoinedRow[]> {
-    return SlotItemDao.listWithMasterByUids(uids);
-  }
-
   async listMasterIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>> {
     return SlotItemDao.listMasterIdNames();
   }
