@@ -52,7 +52,6 @@ export default struct ShipRow {
       .layoutWeight(3)
       .constraintSize({ minWidth: 0 })
 
-      // 右列：装备槽（不换行）
       Row() {
         ShipEquipBlock({
           ship: this.ship,
