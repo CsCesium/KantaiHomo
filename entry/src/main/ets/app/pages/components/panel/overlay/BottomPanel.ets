@@ -1,24 +1,22 @@
-import { MapGaugeInfo, PanelPopupStateChangeEvent, ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, hpColor, equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon, PanelColors, PanelDimens, questCategoryStyle, questResetTypeLabel, questProgressLabel } from '../../../../../features/panel/panelConfig';
+import { ShipItem } from '../../../../../features/panel/type';
+import { FLEET_TAB_COLORS, PanelColors, PanelDimens, questCategoryStyle, questResetTypeLabel, questProgressLabel } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
-  getShipGraphFilename, getGameServerUrl,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
   MapGaugeSnapshot,
   getQuests,
-  isShipEscaped,
   QuestSnapshot
 } from '../../../../../features/state';
-import { getShipBannerUrl } from '../../../../../features/game/shipGraph';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
   getFleetTP,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
-import { EquipDetailPanel } from '../EquipDetailPanel';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
+import ShipRow from '../bottom/rows/ShipRow';
+import MapGaugeRow from '../bottom/rows/MapGaugeRow';
 
 const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任務'];
 const MAP_TAB_IDX = 6;
@@ -87,20 +85,6 @@ function shipStateToItem(
     exSlotLevel,
     exSlotAlv,
   };
-}
-
-function condColor(cond: number): string {
-  if (cond >= 50) return '#FFD700';
-  if (cond >= 40) return PanelColors.txtSub;
-  if (cond >= 30) return PanelColors.hpWarn;
-  return PanelColors.hpCrit;
-}
-
-function condIcon(cond: number): string {
-  if (cond >= 50) return '★';
-  if (cond >= 40) return '–';
-  if (cond >= 30) return '△';
-  return '！';
 }
 
 /** Fleet unified speed (min of all ship speeds): 0=陸上, 5=低速, 10=高速, 15=高速+, 20=最速. */
@@ -248,22 +232,6 @@ export default struct BottomPanel {
     return `${idx + 1}`;
   }
 
-  private getMapGaugeInfo(gauge: MapGaugeSnapshot): MapGaugeInfo {
-    const areaNo = Math.floor(gauge.mapId / 10);
-    const mapNo = gauge.mapId % 10;
-    const hpNow = gauge.hpNow ?? 0;
-    const hpMax = gauge.hpMax ?? 1;
-    const ratio = hpMax > 0 ? hpNow / hpMax : 0;
-    const info: MapGaugeInfo = {
-      label: `${areaNo}-${mapNo}`,
-      gaugeLabel: gauge.gaugeType === 2 ? 'TP' : 'HP',
-      hpNow: hpNow,
-      hpMax: hpMax,
-      ratio: ratio,
-      barColor: ratio > 0.5 ? PanelColors.hpOk : ratio > 0.25 ? PanelColors.hpWarn : PanelColors.hpCrit,
-    };
-    return info;
-  }
   // ── builders ──────────────────────────────────────────────────────────────
 
   @Builder TabBar() {
@@ -392,215 +360,10 @@ export default struct BottomPanel {
     }
   }
 
-  @Builder EquipPopup() {
-    EquipDetailPanel({ uid: this.detailUid })
-  }
-
-  /** Single equipment slot icon with kaisyuu / proficiency badges + long-press detail popup. */
-  @Builder EquipSlot(
-    uid: number,
-    iconType: number,
-    equipType: number,
-    air: number,
-    level: number,
-    alv: number,
-    size: number,
-    isExSlot: boolean = false
-  ) {
-    Stack() {
-      Image(equipLabel(iconType))
-        .width(size)
-        .height(size)
-        .padding(1)
-      // Kaisyuu badge — top-right
-      if (this.showKaisyuu && level > 0 && kaisyuuIcon(level) !== null) {
-        Image(kaisyuuIcon(level)!)
-          .width(Math.floor(size * 0.6))
-          .height(Math.floor(size * 0.6))
-          .position({ top: 0, right: 0 })
-      }
-      // Proficiency badge — bottom-left
-      if (this.showProficiency && alv > 0 && airMasteryIcon(alv) !== null) {
-        Image(airMasteryIcon(alv)!)
-          .width(Math.floor(size * 0.7))
-          .height(Math.floor(size * 0.7))
-          .position({ bottom: 0, left: 0 })
-      }
-      // Aircraft count — bottom-right (avoid clashing with proficiency badge)
-      if (isAircraftEquipType(equipType) && air > 0) {
-        Text(`${air}`)
-          .fontSize(size === 14 ? 7 : 6)
-          .fontColor('#ffffff')
-          .backgroundColor('#cc000000')
-          .borderRadius(2)
-          .padding({ left: 1, right: 1 })
-          .position({ bottom: 0, right: 0 })
-      }
+  private closeEquipDetail(uid: number): void {
+    if (this.detailUid === uid) {
+      this.detailUid = 0;
     }
-    .width(size)
-    .height(size)
-    .borderRadius(2)
-    .backgroundColor(isExSlot ? '#1a2855' : '#252940')
-    .gesture(
-      LongPressGesture({ repeat: false, duration: 400 })
-        .onAction(() => { this.openEquipDetail(uid); })
-    )
-    .onClick(() => { this.toggleEquipDetail(uid); })
-    .bindPopup(this.detailUid === uid, {
-      builder: this.EquipPopup,
-      placement: Placement.Top,
-      enableArrow: true,
-      onStateChange: (e: PanelPopupStateChangeEvent) => {
-        if (!e.isVisible && this.detailUid === uid) {
-          this.detailUid = 0;
-        }
-      },
-    })
-  }
-
-  /**
-   * 2-line (+ optional special-attack label) ship row:
-   *   [cond] | [⚡特殊攻撃名]  (flagship only, when eligible)
-   *          | name              hp / hpMax
-   *          | Lv.xxx  [====HP bar====]  ◆cond  [s1]…[ex]
-   */
-  @Builder ShipRow(ship: ShipItem, isFlag: boolean) {
-    Row() {
-      // Ship banner / avatar column
-      Stack({ alignContent: Alignment.BottomEnd }) {
-        if (getShipGraphFilename(ship.masterId) && getGameServerUrl()) {
-          Image(getShipBannerUrl(ship.masterId, getShipGraphFilename(ship.masterId)!, getGameServerUrl()!))
-            .width(PanelDimens.avatarW)
-            .height('100%')
-            .objectFit(ImageFit.Cover)
-        } else {
-          Column() {
-            Text(condIcon(ship.s1))
-              .fontSize(PanelDimens.fontLg)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(condColor(ship.s1))
-          }
-          .width(PanelDimens.avatarW)
-          .height('100%')
-          .justifyContent(FlexAlign.Center)
-          .alignItems(HorizontalAlign.Center)
-        }
-        // Cond badge (bottom-right corner overlay)
-        Text(condIcon(ship.s1))
-          .fontSize(8)
-          .fontColor(condColor(ship.s1))
-          .backgroundColor('#CC000000')
-          .padding(1)
-          .borderRadius(2)
-          .margin({ right: 1, bottom: 1 })
-      }
-      .width(PanelDimens.avatarW)
-      .height('100%')
-      .backgroundColor(PanelColors.bgAvatar)
-      .clip(true)
-
-      // Info column
-      Column({ space: 3 }) {
-        // Special attack badge — only for flagship when eligible
-        if (isFlag && this.specialAttack !== '') {
-          Row() {
-            Text(`⚡ ${this.specialAttack}`)
-              .fontSize(9)
-              .fontColor('#FFD700')
-              .backgroundColor('#1a1525')
-              .padding({ left: 5, right: 5, top: 1, bottom: 1 })
-              .borderRadius(2)
-          }
-          .width('100%')
-          .height(14)
-        }
-
-        // Line 1: name | HP fraction | 退避 label
-        Row() {
-          Text(ship.name)
-            .fontSize(PanelDimens.fontMd)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(ship.hp <= 0 ? PanelColors.txtMuted : PanelColors.txtPrimary)
-            .layoutWeight(1)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(`${ship.hp} / ${ship.hpMax}`)
-            .fontSize(PanelDimens.fontMd)
-            .fontColor(hpColor(ship.hp, ship.hpMax))
-            .margin({ left: 8 })
-          if (isShipEscaped(ship.id)) {
-            Text('退避')
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.escapeLabel)
-              .fontWeight(FontWeight.Bold)
-              .margin({ left: 6 })
-          }
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-
-        // Line 2: Lv | HP bar | cond | equipment slot icons
-        Row({ space: 3 }) {
-          Text(`Lv.${ship.level}`)
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.txtSub)
-            .width(PanelDimens.levelW)
-          Progress({ value: ship.hp, total: ship.hpMax > 0 ? ship.hpMax : 1, type: ProgressType.Linear })
-            .width(PanelDimens.hpBarW)
-            .height(PanelDimens.hpBarH)
-            .color(hpColor(ship.hp, ship.hpMax))
-            .backgroundColor(PanelColors.bgHpTrack)
-          Text(`◆${ship.s1}`)
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(condColor(ship.s1))
-            .width(PanelDimens.statW)
-            .textAlign(TextAlign.End)
-          Blank().layoutWeight(1)
-          // Slot icons
-          Row({ space: 1 }) {
-            ForEach(ship.slots, (uid: number, idx: number) => {
-              if (uid > 0) {
-                this.EquipSlot(uid,
-                  ship.slotIconTypes[idx] ?? 0,
-                  ship.slotTypes[idx] ?? 0,
-                  ship.slotAirs[idx] ?? 0,
-                  ship.slotLevels[idx] ?? 0,
-                  ship.slotAlvs[idx] ?? 0,
-                  14)
-              } else {
-                Row()
-                  .width(14)
-                  .height(14)
-                  .borderRadius(2)
-                  .backgroundColor('#55c8cce0')
-              }
-            }, (uid: number, idx: number) => `sl-${idx}-${uid}`)
-            if (ship.exSlot > 0) {
-              this.EquipSlot(ship.exSlot,
-                ship.exSlotIconType,
-                ship.exSlotType,
-                0,
-                ship.exSlotLevel,
-                ship.exSlotAlv,
-                14,
-                true)
-            }
-          }
-          .alignItems(VerticalAlign.Center)
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-      }
-      .layoutWeight(1)
-      .padding({ left: 10, right: 10 })
-      .justifyContent(FlexAlign.Center)
-    }
-    .width('100%')
-    .height(isFlag && this.specialAttack !== '' ? PanelDimens.rowH + 16 : PanelDimens.rowH)
-    .backgroundColor(PanelColors.bgSection)
-    .borderWidth({ bottom: PanelDimens.borderW })
-    .borderColor(PanelColors.rowBorder)
-    .alignItems(VerticalAlign.Center)
   }
 
   /**
@@ -666,84 +429,6 @@ export default struct BottomPanel {
     .alignItems(HorizontalAlign.Center)
   }
 
-  /** Single map gauge row: mapId label | HP bar | fraction */
-  @Builder MapGaugeRow(gauge: MapGaugeSnapshot) {
-    Row() {
-      // Map label
-      Column() {
-        Text(this.getMapGaugeInfo(gauge).label)
-          .fontSize(PanelDimens.fontLg)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(gauge.cleared ? PanelColors.txtMuted : PanelColors.txtPrimary)
-          .textAlign(TextAlign.Center)
-        Text(gauge.cleared ? '通関' : this.getMapGaugeInfo(gauge).gaugeLabel)
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(gauge.cleared ? PanelColors.stat : PanelColors.txtSub)
-          .textAlign(TextAlign.Center)
-      }
-      .width(PanelDimens.avatarW)
-      .height('100%')
-      .backgroundColor(PanelColors.bgAvatar)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-
-      // Info column
-      Column({ space: 4 }) {
-        // HP fraction
-        Row() {
-          if (gauge.hpMax !== null) {
-            Text(`${this.getMapGaugeInfo(gauge).hpNow}`)
-              .fontSize(PanelDimens.fontMd)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.getMapGaugeInfo(gauge).barColor)
-            Text(` / ${this.getMapGaugeInfo(gauge).hpMax}`)
-              .fontSize(PanelDimens.fontMd)
-              .fontColor(PanelColors.txtSub)
-            Blank().layoutWeight(1)
-            if (gauge.requiredDefeats !== null) {
-              Text(`击破: ${gauge.defeatCount}/${gauge.requiredDefeats}`)
-                .fontSize(PanelDimens.fontSm)
-                .fontColor(PanelColors.txtMuted)
-            } else {
-              Text(`${Math.round(this.getMapGaugeInfo(gauge).ratio * 100)}%`)
-                .fontSize(PanelDimens.fontSm)
-                .fontColor(this.getMapGaugeInfo(gauge).barColor)
-            }
-          } else {
-            Text(`撃破: ${gauge.defeatCount}`)
-              .fontSize(PanelDimens.fontMd)
-              .fontColor(PanelColors.stat)
-            Blank().layoutWeight(1)
-          }
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-
-        // HP bar (only when gauge has HP)
-        if (gauge.hpMax !== null && gauge.hpMax > 0) {
-          Progress({
-            value: this.getMapGaugeInfo(gauge).hpNow,
-            total: this.getMapGaugeInfo(gauge).hpMax,
-            type: ProgressType.Linear
-          })
-            .width('100%')
-            .height(PanelDimens.hpBarH)
-            .color(this.getMapGaugeInfo(gauge).barColor)
-            .backgroundColor(PanelColors.bgHpTrack)
-        }
-      }
-      .layoutWeight(1)
-      .padding({ left: 10, right: 10 })
-      .justifyContent(FlexAlign.Center)
-    }
-    .width('100%')
-    .height(PanelDimens.rowH)
-    .backgroundColor(PanelColors.bgSection)
-    .borderWidth({ bottom: PanelDimens.borderW })
-    .borderColor(PanelColors.rowBorder)
-    .alignItems(VerticalAlign.Center)
-  }
-
   // ── build ─────────────────────────────────────────────────────────────────
 
   build() {
@@ -776,7 +461,7 @@ export default struct BottomPanel {
           } else if (this.activeFleet === MAP_TAB_IDX) {
             if (this.mapGauges.length > 0) {
               ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
-                this.MapGaugeRow(gauge)
+                MapGaugeRow({ gauge })
               }, (gauge: MapGaugeSnapshot) => `gauge-${gauge.mapId}-${gauge.gaugeNum}`)
             } else {
               Column() {
@@ -794,7 +479,17 @@ export default struct BottomPanel {
             }
           } else if (this.ships.length > 0) {
             ForEach(this.ships, (ship: ShipItem, idx: number) => {
-              this.ShipRow(ship, idx === 0)
+              ShipRow({
+                ship,
+                isFlag: idx === 0,
+                specialAttack: this.specialAttack,
+                showKaisyuu: this.showKaisyuu,
+                showProficiency: this.showProficiency,
+                detailUid: this.detailUid,
+                onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
+                onToggleDetail: (uid: number) => { this.toggleEquipDetail(uid); },
+                onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
+              })
             }, (ship: ShipItem) => `ship-${ship.id}`)
           } else {
             this.EmptyState()
