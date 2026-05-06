@@ -8,7 +8,7 @@ import ShipEquipBlock from './ShipEquipBlock';
  * 舰娘行：左 Banner + 中 HP/状态 + 右 装备列。
  *
  * - 左中右使用 layoutWeight 5/3/5 分配宽度
- * - 行高固定为 SHIP_ROW_HEIGHT，三列纵向从顶部置顶对齐
+ * - 行高固定为 SHIP_ROW_HEIGHT，纵向居中对齐三列
  * - 装备槽弹窗的"当前展开槽 uid"由父面板用 detailUid 集中持有；具体的
  *   row 数据由 EquipSlot 内部按需加载，不在 @Param 链路里透传。
  */
@@ -67,13 +67,13 @@ export default struct ShipRow {
       .layoutWeight(5)
       .constraintSize({ minWidth: 0 })
       .height('100%')
-      .alignItems(VerticalAlign.Top)
+      .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.Start)
     }
     .width('100%')
     .height(ShipDiems.SHIP_ROW_HEIGHT)
     .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-    .alignItems(VerticalAlign.Top)
+    .alignItems(VerticalAlign.Center)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.overlayRow)
   }
