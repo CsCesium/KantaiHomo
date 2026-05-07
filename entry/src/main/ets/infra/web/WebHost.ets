@@ -2,7 +2,7 @@ import { webview } from "@kit.ArkWeb";
 import { kvDelete, kvGetBool, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
-import { decideLayout, FitPolicy, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
+import { decideLayout, FitPolicy, GAME_ASPECT_RATIO, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
@@ -61,6 +61,9 @@ export default struct WebHost {
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
+  // 折叠态全屏下手动切换为"游戏在上 + 底部面板"布局（与左右分屏的展开模式一致）。
+  // 由 ButtonColumn 的 横/竖 按钮触发。
+  @State private lrLayoutForced: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
@@ -172,6 +175,22 @@ export default struct WebHost {
       nextShowBottomTools = false;
       nextGameWidthVp = widthVp;
       nextGameHeightVp = heightVp;
+      nextGameLeftMarginVp = 0;
+      nextSidebarWidthVp = 0;
+    }
+
+    // 用户手动触发的"游戏 + 底部面板"布局：仅在全屏场景下生效（分屏场景下
+    // responsive 已根据屏幕形态自动选择，无需覆盖）。游戏按宽度等比缩放置顶，
+    // 余下空间分配给底部面板；保留 ButtonColumn 以便用户再次切换。
+    if (this.lrLayoutForced && this.scene === WindowScene.FULLSCREEN) {
+      const contentH: number = Math.min(heightVp, widthVp / GAME_ASPECT_RATIO);
+      nextMode = HostMode.EXPANDED;
+      nextFit = 'width';
+      nextFitLocked = false;
+      nextShowSideButtons = true;
+      nextShowBottomTools = true;
+      nextGameWidthVp = widthVp;
+      nextGameHeightVp = Math.floor(contentH);
       nextGameLeftMarginVp = 0;
       nextSidebarWidthVp = 0;
     }
@@ -479,8 +498,13 @@ export default struct WebHost {
           Column() {
             ButtonColumn({
               onRefresh: () => this.promptRefresh(),
+              onToggleLrMode: () => {
+                this.lrLayoutForced = !this.lrLayoutForced;
+                this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+              },
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onLogout: () => this.promptLogout(),
+              lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
             })
               .width(56)
