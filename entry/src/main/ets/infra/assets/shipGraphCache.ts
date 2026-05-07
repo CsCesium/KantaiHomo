@@ -3,7 +3,7 @@
  * async write via background HTTP download.
  *
  * Cache layout: <filesDir>/kcs2_cache/<path>.png
- * where <path> matches the URL path, e.g. /kcs2/resources/ship/banner/0001_5834.png
+ * where <path> matches the URL path, e.g. /kcs2/resources/ship/banner/0001_5834_akagi.png
  */
 import fs from '@ohos.file.fs';
 import http from '@ohos.net.http';
@@ -15,7 +15,7 @@ export function initShipGraphCache(filesDir: string): void {
   _cacheBase = `${filesDir}/kcs2_cache`;
 }
 
-/** Map URL path like "/kcs2/resources/ship/banner/0001_5834.png" to local file path. */
+/** Map URL path like "/kcs2/resources/ship/banner/0001_5834_akagi.png" to local file path. */
 function toCachePath(urlPath: string): string | null {
   if (!_cacheBase) return null;
   // Sanitise: strip leading slash, disallow directory traversal
