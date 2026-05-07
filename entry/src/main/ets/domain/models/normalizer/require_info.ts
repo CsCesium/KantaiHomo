@@ -1,6 +1,6 @@
+import { normalizeUseItems } from "..";
 import { ApiRequireInfoRespRaw } from "../api/require_info";
 import { RequireInfoSnapshot } from "../struct/require_info";
-import { normalizeUseItems } from "../struct/useitem";
 import { normalizeAdmiral } from "./admiral";
 import { normalizeKdocks } from "./k_dock";
 import { normalizeSlotItems, normalizeUnsetSlot } from "./slotitem";

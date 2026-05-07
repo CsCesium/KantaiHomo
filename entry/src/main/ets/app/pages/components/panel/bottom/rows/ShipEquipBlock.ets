@@ -19,7 +19,6 @@ export default struct ShipEquipBlock {
   @Param detailUid: number = 0;
 
   @Event onOpenDetail: (uid: number) => void = () => {};
-  @Event onToggleDetail: (uid: number) => void = () => {};
   @Event onCloseDetail: (uid: number) => void = () => {};
 
   build() {
@@ -40,7 +39,6 @@ export default struct ShipEquipBlock {
             showProficiency: this.showProficiency,
             detailUid: this.detailUid,
             onOpen: (u: number) => this.onOpenDetail(u),
-            onToggle: (u: number) => this.onToggleDetail(u),
             onClose: (u: number) => this.onCloseDetail(u),
           })
         } else {
@@ -68,7 +66,6 @@ export default struct ShipEquipBlock {
           showProficiency: this.showProficiency,
           detailUid: this.detailUid,
           onOpen: (u: number) => this.onOpenDetail(u),
-          onToggle: (u: number) => this.onToggleDetail(u),
           onClose: (u: number) => this.onCloseDetail(u),
         })
       }

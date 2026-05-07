@@ -3,7 +3,9 @@ import { equipLabel, isAircraftEquipType, kaisyuuIcon, airMasteryIcon } from '..
 import { EquipDetailPanel } from '../../EquipDetailPanel';
 
 /**
- * 单个装备槽：装备图标 + 改修星 + 熟练度 + 携带机数 + 长按弹出详情。
+ * 单个装备槽：装备图标 + 改修星 + 熟练度 + 携带机数 + 长按显示详情。
+ *
+ * 交互：按住 ≥400ms 弹出详情，松手即关闭。
  *
  * 弹窗的"哪一个槽当前展开"由父组件用 detailUid 集中持有，确保同时只有一个
  * 槽的弹窗可见。装备 row 的实际加载放在 EquipDetailPanel 内部 ——
@@ -30,7 +32,6 @@ export default struct EquipSlot {
   @Param detailUid: number = 0;
 
   @Event onOpen: (uid: number) => void = () => {};
-  @Event onToggle: (uid: number) => void = () => {};
   @Event onClose: (uid: number) => void = () => {};
 
   @Builder EquipPopup() {
@@ -72,8 +73,9 @@ export default struct EquipSlot {
     .gesture(
       LongPressGesture({ repeat: false, duration: 400 })
         .onAction(() => { this.onOpen(this.uid); })
+        .onActionEnd(() => { this.onClose(this.uid); })
+        .onActionCancel(() => { this.onClose(this.uid); })
     )
-    .onClick(() => { this.onToggle(this.uid); })
     .bindPopup(this.detailUid === this.uid, {
       builder: this.EquipPopup,
       placement: Placement.Top,

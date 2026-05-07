@@ -29,7 +29,6 @@ export default struct ShipRow {
   @Param detailUid: number = 0;
 
   @Event onOpenDetail: (uid: number) => void = () => {};
-  @Event onToggleDetail: (uid: number) => void = () => {};
   @Event onCloseDetail: (uid: number) => void = () => {};
 
   build() {
@@ -59,7 +58,6 @@ export default struct ShipRow {
           showProficiency: this.showProficiency,
           detailUid: this.detailUid,
           onOpenDetail: (u: number) => this.onOpenDetail(u),
-          onToggleDetail: (u: number) => this.onToggleDetail(u),
           onCloseDetail: (u: number) => this.onCloseDetail(u),
         })
       }

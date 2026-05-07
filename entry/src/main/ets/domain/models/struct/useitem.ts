@@ -4,3 +4,4 @@ export interface UseItemStack {
   updatedAt: number;
   extras?: Record<string, unknown>;
 }
+

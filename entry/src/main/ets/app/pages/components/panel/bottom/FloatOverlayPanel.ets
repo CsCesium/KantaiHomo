@@ -226,12 +226,6 @@ export default struct FloatOverlayPanel {
     this.detailUid = uid;
   }
 
-  private toggleEquipDetail(uid: number): void {
-    if (this.detailUid === uid) {
-      this.detailUid = 0;
-    }
-  }
-
   private closeEquipDetail(uid: number): void {
     if (this.detailUid === uid) {
       this.detailUid = 0;
@@ -383,7 +377,6 @@ export default struct FloatOverlayPanel {
                 showProficiency: this.showProficiency,
                 detailUid: this.detailUid,
                 onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
-                onToggleDetail: (uid: number) => { this.toggleEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
             }, (ship: ShipItem) => `ship-${ship.id}`)
