@@ -1,5 +1,7 @@
 import { ShipItem } from '../../../../../../features/panel/type';
 import { ShipDiems } from '../../../../../../features/panel/panelConfig';
+import { getShipGraphFilename, getGameServerUrl } from '../../../../../../features/state';
+import { getShipBannerUrl } from '../../../../../../features/game/shipGraph';
 
 /**
  * Ship banner display: background image + readability overlay layers
@@ -18,19 +20,43 @@ export default struct ShipBannerBlock {
   /** Special-attack short label; empty string hides the badge. */
   @Param specialAttack: string = '';
 
-  private resolveBannerSource(): ResourceStr {
-    // 真实图后续接入；当前回退为测试 banner。
-    return $rawfile('test/remodel.png');
+  /** Last URL that failed to load — suppresses retry loops on the same source. */
+  @Local private failedBannerUrl: string = '';
+
+  @Computed
+  get bannerUrl(): string {
+    const filename = getShipGraphFilename(this.ship.masterId);
+    const serverBase = getGameServerUrl();
+    if (!filename || !serverBase) return '';
+    return getShipBannerUrl(this.ship.masterId, filename, serverBase);
+  }
+
+  @Computed
+  get shouldUseRealBanner(): boolean {
+    return this.bannerUrl.length > 0 && this.failedBannerUrl !== this.bannerUrl;
   }
 
   build() {
     Stack() {
-      // 第 1 层：背景 Banner 图（998×182 测试图，Cover 裁切）
-      Image(this.resolveBannerSource())
-        .width('100%')
-        .height('100%')
-        .objectFit(ImageFit.Cover)
-        .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+      // 第 1 层：背景 Banner 图。优先使用真实 remodel banner（基于
+      // api_mst_shipgraph 文件名 + 当前服务器地址计算的 cipher URL），
+      // 资源不可用或加载失败时回退到内置测试 banner。
+      if (this.shouldUseRealBanner) {
+        Image(this.bannerUrl)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+          .onError(() => {
+            this.failedBannerUrl = this.bannerUrl;
+          })
+      } else {
+        Image($rawfile('test/remodel.png'))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+          .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+      }
 
       // 第 2 层：全局轻遮罩，避免白色文字在亮色背景上看不清
       Row()
