@@ -146,12 +146,6 @@ export struct EquipDetailPanel {
         }
         .width('100%')
 
-        Text('松手关闭')
-          .fontSize(9)
-          .fontColor(PanelColors.txtFainter)
-          .width('100%')
-          .textAlign(TextAlign.Center)
-          .margin({ top: 4 })
       } else {
         Text('加载中…')
           .fontSize(11)
