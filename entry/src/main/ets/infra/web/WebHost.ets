@@ -8,6 +8,7 @@ import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
 import { getMainWindowCached } from '../appContext';
 import ButtonColumn from "./components/ButtonColumn";
+import ButtonRow from "./components/ButtonRow";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
 import PanelHost from "../../app/pages/components/panel/PanelHost";
@@ -453,6 +454,10 @@ export default struct WebHost {
     if (!fullscreen) {
       return false;
     }
+    // 底部面板模式下，按钮改为面板上方的横向按钮栏，避免与浮动按钮列重复。
+    if (this.panelConfig.mode === PanelMode.BottomPanel) {
+      return false;
+    }
     const nonCompactVisible: boolean = this.showSideButtons &&
       (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced);
     return this.mode === HostMode.COMPACT || nonCompactVisible;
@@ -558,7 +563,21 @@ export default struct WebHost {
 
       // Bottom panel — replaces the old bottom ButtonColumn row entirely.
       // Rendered only in EXPANDED mode; fills the remaining vertical space.
+      // Above the panel, render a horizontal button bar (same buttons as
+      // the compact-mode ButtonColumn) so that floating buttons can stay
+      // hidden once the panel is docked.
       if (this.panelConfig.mode === PanelMode.BottomPanel) {
+        ButtonRow({
+          onRefresh: () => this.promptRefresh(),
+          onToggleLrMode: () => {
+            this.lrLayoutForced = !this.lrLayoutForced;
+            this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+          },
+          onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+          onLogout: () => this.promptLogout(),
+          lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+          panelActive: this.overlayForced,
+        })
         PanelHost({ config: this.panelConfig })
           .width('100%')
           .layoutWeight(1)
