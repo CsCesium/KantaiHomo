@@ -2,12 +2,13 @@ import { webview } from "@kit.ArkWeb";
 import { kvDelete, kvGetBool, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
-import { decideLayout, FitPolicy, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
+import { decideLayout, FitPolicy, GAME_ASPECT_RATIO, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
 import { getMainWindowCached } from '../appContext';
 import ButtonColumn from "./components/ButtonColumn";
+import ButtonRow from "./components/ButtonRow";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
 import PanelHost from "../../app/pages/components/panel/PanelHost";
@@ -61,6 +62,9 @@ export default struct WebHost {
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
+  // 折叠态全屏下手动切换为"游戏在上 + 底部面板"布局（与左右分屏的展开模式一致）。
+  // 由 ButtonColumn 的 横/竖 按钮触发。
+  @State private lrLayoutForced: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
@@ -172,6 +176,22 @@ export default struct WebHost {
       nextShowBottomTools = false;
       nextGameWidthVp = widthVp;
       nextGameHeightVp = heightVp;
+      nextGameLeftMarginVp = 0;
+      nextSidebarWidthVp = 0;
+    }
+
+    // 用户手动触发的"游戏 + 底部面板"布局：仅在全屏场景下生效（分屏场景下
+    // responsive 已根据屏幕形态自动选择，无需覆盖）。游戏按宽度等比缩放置顶，
+    // 余下空间分配给底部面板；保留 ButtonColumn 以便用户再次切换。
+    if (this.lrLayoutForced && this.scene === WindowScene.FULLSCREEN) {
+      const contentH: number = Math.min(heightVp, widthVp / GAME_ASPECT_RATIO);
+      nextMode = HostMode.EXPANDED;
+      nextFit = 'width';
+      nextFitLocked = false;
+      nextShowSideButtons = true;
+      nextShowBottomTools = true;
+      nextGameWidthVp = widthVp;
+      nextGameHeightVp = Math.floor(contentH);
       nextGameLeftMarginVp = 0;
       nextSidebarWidthVp = 0;
     }
@@ -434,6 +454,10 @@ export default struct WebHost {
     if (!fullscreen) {
       return false;
     }
+    // 底部面板模式下，按钮改为面板上方的横向按钮栏，避免与浮动按钮列重复。
+    if (this.panelConfig.mode === PanelMode.BottomPanel) {
+      return false;
+    }
     const nonCompactVisible: boolean = this.showSideButtons &&
       (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced);
     return this.mode === HostMode.COMPACT || nonCompactVisible;
@@ -479,8 +503,13 @@ export default struct WebHost {
           Column() {
             ButtonColumn({
               onRefresh: () => this.promptRefresh(),
+              onToggleLrMode: () => {
+                this.lrLayoutForced = !this.lrLayoutForced;
+                this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+              },
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onLogout: () => this.promptLogout(),
+              lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
             })
               .width(56)
@@ -532,12 +561,55 @@ export default struct WebHost {
       .layoutWeight(this.showBottomTools ? 0 : 1)
       .width('100%')
 
-      // Bottom panel — replaces the old bottom ButtonColumn row entirely.
-      // Rendered only in EXPANDED mode; fills the remaining vertical space.
+      // Bottom panel — rendered in EXPANDED mode beneath the game.
+      // Layout splits by viewport orientation:
+      //   portrait  → 横向按钮栏在游戏与 panel 之间，panel 占满下方
+      //   landscape → 纵向按钮栏贴左侧，与 panel 并排位于游戏画面下方
       if (this.panelConfig.mode === PanelMode.BottomPanel) {
-        PanelHost({ config: this.panelConfig })
+        if (this.viewportWidthVp > this.viewportHeightVp) {
+          Row() {
+            Column() {
+              ButtonColumn({
+                onRefresh: () => this.promptRefresh(),
+                onToggleLrMode: () => {
+                  this.lrLayoutForced = !this.lrLayoutForced;
+                  this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+                },
+                onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+                onLogout: () => this.promptLogout(),
+                lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+                panelActive: this.overlayForced,
+              })
+            }
+            .width(56)
+            .height('100%')
+            .backgroundColor('#0f1118')
+            .alignItems(HorizontalAlign.Start)
+            .justifyContent(FlexAlign.Start)
+
+            PanelHost({ config: this.panelConfig })
+              .layoutWeight(1)
+              .height('100%')
+          }
           .width('100%')
           .layoutWeight(1)
+          .alignItems(VerticalAlign.Top)
+        } else {
+          ButtonRow({
+            onRefresh: () => this.promptRefresh(),
+            onToggleLrMode: () => {
+              this.lrLayoutForced = !this.lrLayoutForced;
+              this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+            },
+            onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+            onLogout: () => this.promptLogout(),
+            lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+            panelActive: this.overlayForced,
+          })
+          PanelHost({ config: this.panelConfig })
+            .width('100%')
+            .layoutWeight(1)
+        }
       }
     }
     .height('100%')
