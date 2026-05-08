@@ -49,16 +49,20 @@ export default struct ButtonRow {
   }
 
   build() {
-    Row({ space: 8 }) {
-      this.IconBtn('⟳', () => this.onRefresh?.())
-      this.IconBtn(this.lrMode === 'portraitFit' ? '竖' : '横', () => this.onToggleLrMode?.())
-      this.PanelBtn()
-      this.LogoutBtn()
+    Row() {
+      Row({ space: 8 }) {
+        this.IconBtn('⟳', () => this.onRefresh?.())
+        this.IconBtn(this.lrMode === 'portraitFit' ? '竖' : '横', () => this.onToggleLrMode?.())
+        this.PanelBtn()
+        this.LogoutBtn()
+      }
+      .height(40)
+      .padding({ left: 8, right: 8 })
+      .backgroundColor('#0f1118')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .height(40)
-    .padding({ left: 8, right: 8 })
-    .backgroundColor('#0f1118')
     .justifyContent(FlexAlign.Start)
     .alignItems(VerticalAlign.Center)
   }
