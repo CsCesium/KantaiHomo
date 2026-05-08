@@ -449,6 +449,22 @@ export default struct WebHost {
     return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
   }
 
+  /**
+   * 切换"游戏 + 底部面板"布局：
+   *  - 打开时强制竖屏，保证窄屏（如折叠机外屏横屏 940x420）也有可用面板高度
+   *  - 关闭后由 recalcLayout → applyOrientationByMode 恢复正常方向策略
+   */
+  private toggleLrLayout(): void {
+    this.lrLayoutForced = !this.lrLayoutForced;
+    if (this.lrLayoutForced) {
+      const mainWin = getMainWindowCached();
+      if (mainWin) {
+        void mainWin.setPreferredOrientation(window.Orientation.PORTRAIT);
+      }
+    }
+    this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+  }
+
   private shouldShowFloatingButtons(): boolean {
     const fullscreen: boolean = this.scene === WindowScene.FULLSCREEN;
     if (!fullscreen) {
@@ -503,10 +519,7 @@ export default struct WebHost {
           Column() {
             ButtonColumn({
               onRefresh: () => this.promptRefresh(),
-              onToggleLrMode: () => {
-                this.lrLayoutForced = !this.lrLayoutForced;
-                this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
-              },
+              onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onLogout: () => this.promptLogout(),
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
@@ -565,16 +578,15 @@ export default struct WebHost {
       // Layout splits by viewport orientation:
       //   portrait  → 横向按钮栏在游戏与 panel 之间，panel 占满下方
       //   landscape → 纵向按钮栏贴左侧，与 panel 并排位于游戏画面下方
+      // Each branch wraps its children in a single Container so the parent
+      // Column flex always sees one weighted slot here.
       if (this.panelConfig.mode === PanelMode.BottomPanel) {
         if (this.viewportWidthVp > this.viewportHeightVp) {
           Row() {
             Column() {
               ButtonColumn({
                 onRefresh: () => this.promptRefresh(),
-                onToggleLrMode: () => {
-                  this.lrLayoutForced = !this.lrLayoutForced;
-                  this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
-                },
+                onToggleLrMode: () => this.toggleLrLayout(),
                 onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
                 onLogout: () => this.promptLogout(),
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
@@ -595,20 +607,21 @@ export default struct WebHost {
           .layoutWeight(1)
           .alignItems(VerticalAlign.Top)
         } else {
-          ButtonRow({
-            onRefresh: () => this.promptRefresh(),
-            onToggleLrMode: () => {
-              this.lrLayoutForced = !this.lrLayoutForced;
-              this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
-            },
-            onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
-            onLogout: () => this.promptLogout(),
-            lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
-            panelActive: this.overlayForced,
-          })
-          PanelHost({ config: this.panelConfig })
-            .width('100%')
-            .layoutWeight(1)
+          Column() {
+            ButtonRow({
+              onRefresh: () => this.promptRefresh(),
+              onToggleLrMode: () => this.toggleLrLayout(),
+              onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+              onLogout: () => this.promptLogout(),
+              lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+              panelActive: this.overlayForced,
+            })
+            PanelHost({ config: this.panelConfig })
+              .width('100%')
+              .layoutWeight(1)
+          }
+          .width('100%')
+          .layoutWeight(1)
         }
       }
     }
