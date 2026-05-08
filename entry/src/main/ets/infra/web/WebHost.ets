@@ -561,26 +561,55 @@ export default struct WebHost {
       .layoutWeight(this.showBottomTools ? 0 : 1)
       .width('100%')
 
-      // Bottom panel — replaces the old bottom ButtonColumn row entirely.
-      // Rendered only in EXPANDED mode; fills the remaining vertical space.
-      // Above the panel, render a horizontal button bar (same buttons as
-      // the compact-mode ButtonColumn) so that floating buttons can stay
-      // hidden once the panel is docked.
+      // Bottom panel — rendered in EXPANDED mode beneath the game.
+      // Layout splits by viewport orientation:
+      //   portrait  → 横向按钮栏在游戏与 panel 之间，panel 占满下方
+      //   landscape → 纵向按钮栏贴左侧，与 panel 并排位于游戏画面下方
       if (this.panelConfig.mode === PanelMode.BottomPanel) {
-        ButtonRow({
-          onRefresh: () => this.promptRefresh(),
-          onToggleLrMode: () => {
-            this.lrLayoutForced = !this.lrLayoutForced;
-            this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
-          },
-          onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
-          onLogout: () => this.promptLogout(),
-          lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
-          panelActive: this.overlayForced,
-        })
-        PanelHost({ config: this.panelConfig })
+        if (this.viewportWidthVp > this.viewportHeightVp) {
+          Row() {
+            Column() {
+              ButtonColumn({
+                onRefresh: () => this.promptRefresh(),
+                onToggleLrMode: () => {
+                  this.lrLayoutForced = !this.lrLayoutForced;
+                  this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+                },
+                onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+                onLogout: () => this.promptLogout(),
+                lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+                panelActive: this.overlayForced,
+              })
+            }
+            .width(56)
+            .height('100%')
+            .backgroundColor('#0f1118')
+            .alignItems(HorizontalAlign.Start)
+            .justifyContent(FlexAlign.Start)
+
+            PanelHost({ config: this.panelConfig })
+              .layoutWeight(1)
+              .height('100%')
+          }
           .width('100%')
           .layoutWeight(1)
+          .alignItems(VerticalAlign.Top)
+        } else {
+          ButtonRow({
+            onRefresh: () => this.promptRefresh(),
+            onToggleLrMode: () => {
+              this.lrLayoutForced = !this.lrLayoutForced;
+              this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+            },
+            onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+            onLogout: () => this.promptLogout(),
+            lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+            panelActive: this.overlayForced,
+          })
+          PanelHost({ config: this.panelConfig })
+            .width('100%')
+            .layoutWeight(1)
+        }
       }
     }
     .height('100%')
