@@ -38,7 +38,16 @@ export function calcShipGraphKey(masterId: number, filename: string): string {
   return key.toString();
 }
 
-/** Build the full URL for a ship image given the game server base. */
+/**
+ * Build the full URL for a ship image given the game server base.
+ *
+ * KanColle's official URL format is:
+ *   /kcs2/resources/ship/<type>/<paddedId>_<key>_<filename>.png
+ *
+ * 关键：filename 既参与 cipher 计算，也作为路径后缀。仅有 cipher 而缺少
+ * 文件名后缀（例如 `0001_5834.png`）会得到 404 — 因为官方资源的实际
+ * 路径是 `0001_5834_akagi.png`（filename 来自 api_mst_shipgraph.api_filename）。
+ */
 export function getShipImageUrl(
   masterId: number,
   filename: string,
@@ -47,7 +56,7 @@ export function getShipImageUrl(
 ): string {
   const paddedId = String(masterId).padStart(4, '0');
   const key = calcShipGraphKey(masterId, filename);
-  return `${serverBase}/kcs2/resources/ship/${type}/${paddedId}_${key}.png`;
+  return `${serverBase}/kcs2/resources/ship/${type}/${paddedId}_${key}_${filename}.png`;
 }
 
 export function getShipBannerUrl(masterId: number, filename: string, serverBase: string): string {
@@ -62,7 +71,7 @@ export function getShipCardUrl(masterId: number, filename: string, serverBase: s
 export function getShipAssetPath(masterId: number, filename: string, type: ShipGraphType = 'banner'): string {
   const paddedId = String(masterId).padStart(4, '0');
   const key = calcShipGraphKey(masterId, filename);
-  return `/kcs2/resources/ship/${type}/${paddedId}_${key}.png`;
+  return `/kcs2/resources/ship/${type}/${paddedId}_${key}_${filename}.png`;
 }
 
 /** Extract base URL (scheme + host) from a full URL string. */
