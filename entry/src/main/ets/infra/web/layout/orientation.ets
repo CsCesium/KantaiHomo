@@ -260,7 +260,7 @@ export class Orientation {
 
   async setPreferred(ori: window.Orientation): Promise<void> {
     try {
-      if (this.current === ori) {
+      if (this.current === ori && ori !== window.Orientation.AUTO_ROTATION) {
         return;
       }
       const win = await this.resolveMainWindow();

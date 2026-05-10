@@ -8,10 +8,22 @@ struct Launcher {
   private navigate(url: string): void {
     router.pushUrl({ url }).catch(() => {});
   }
+
+  private getCurrentOrientation(win: window.Window): window.Orientation {
+    try {
+      const rect = win.getWindowProperties().windowRect;
+      return rect.width >= rect.height
+        ? window.Orientation.LANDSCAPE
+        : window.Orientation.PORTRAIT;
+    } catch (_e) {
+      return window.Orientation.AUTO_ROTATION;
+    }
+  }
+
   private enterGame(): void {
     const win = getMainWindowCached();
     const orientationPromise = win
-      ? win.setPreferredOrientation(window.Orientation.LANDSCAPE)
+      ? win.setPreferredOrientation(this.getCurrentOrientation(win))
       : Promise.resolve();
     orientationPromise.catch(() => {}).finally(() => {
       router.replaceUrl({ url: 'app/pages/WebRoot' }).catch(() => {});
