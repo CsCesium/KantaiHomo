@@ -578,8 +578,9 @@ export default struct WebHost {
       // Layout splits by viewport orientation:
       //   portrait  → 横向按钮栏在游戏与 panel 之间，panel 占满下方
       //   landscape → 纵向按钮栏贴左侧，与 panel 并排位于游戏画面下方
-      // Each branch wraps its children in a single Container so the parent
-      // Column flex always sees one weighted slot here.
+      // Use an explicit height (viewport - game) instead of layoutWeight(1)
+      // because the sibling Stack mixes constraintSize+layoutWeight(0) and
+      // some ArkUI builds drop the weighted slot to 0vp under that combo.
       if (this.panelConfig.mode === PanelMode.BottomPanel) {
         if (this.viewportWidthVp > this.viewportHeightVp) {
           Row() {
@@ -604,7 +605,8 @@ export default struct WebHost {
               .height('100%')
           }
           .width('100%')
-          .layoutWeight(1)
+          .height(Math.max(this.viewportHeightVp - this.gameHeightVp, 0))
+          .backgroundColor('#1a1d2e')
           .alignItems(VerticalAlign.Top)
         } else {
           Column() {
@@ -621,7 +623,8 @@ export default struct WebHost {
               .layoutWeight(1)
           }
           .width('100%')
-          .layoutWeight(1)
+          .height(Math.max(this.viewportHeightVp - this.gameHeightVp, 0))
+          .backgroundColor('#1a1d2e')
         }
       }
     }
