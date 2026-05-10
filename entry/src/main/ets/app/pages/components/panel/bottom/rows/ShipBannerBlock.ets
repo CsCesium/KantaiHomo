@@ -108,7 +108,7 @@ export default struct ShipBannerBlock {
       .height('100%')
       .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
 
-      // 第 5 层：舰名 + 能力标签 + Lv，靠右下贴近角
+      // 第 5 层：舰名 + Lv/能力标签，靠右下贴近角
       Column() {
         Blank()
           .layoutWeight(1)
@@ -117,7 +117,7 @@ export default struct ShipBannerBlock {
           Blank()
             .layoutWeight(1)
 
-          Column({ space: 1 }) {
+          Column({ space: 0 }) {
             Text(this.ship.name)
               .fontSize(ShipDiems.SHIP_BANNER_NAME_FONT)
               .fontWeight(FontWeight.Bold)
@@ -125,18 +125,11 @@ export default struct ShipBannerBlock {
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-            if (this.capabilityTags.length > 0) {
-              Row({ space: 2 }) {
-                ForEach(this.capabilityTags, (tag: string, idx: number) => {
-                  ShipCapabilityTag({ label: tag })
-                }, (tag: string, idx: number) => `cap-${idx}-${tag}`)
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.End)
-              .alignItems(VerticalAlign.Center)
-            }
-
             Row({ space: 3 }) {
+              ForEach(this.capabilityTags, (tag: string, idx: number) => {
+                ShipCapabilityTag({ label: tag })
+              }, (tag: string, idx: number) => `cap-${idx}-${tag}`)
+
               Text(`Lv. ${this.ship.level}`)
                 .fontSize(ShipDiems.SHIP_BANNER_LEVEL_FONT)
                 .fontWeight(FontWeight.Medium)
