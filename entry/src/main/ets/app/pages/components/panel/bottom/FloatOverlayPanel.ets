@@ -13,6 +13,7 @@ import {
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
+import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
 import { isPeriodicMapGauge } from './rows/shipHelpers';
@@ -25,7 +26,12 @@ function shipStateToItem(
   slotItemEquipTypes: Map<number, number>,
   slotItemIconTypes: Map<number, number>,
   slotItemLevels: Map<number, number>,
-  slotItemAlvs: Map<number, number>
+  slotItemAlvs: Map<number, number>,
+  slotItemLos: Map<number, number>,
+  slotItemAa: Map<number, number>,
+  slotItemNames: Map<number, string>,
+  shipMasterStype: Map<number, number>,
+  shipMasterCtype: Map<number, number>
 ): ShipItem {
   const activeSlots = s.slots.slice(0, s.slotCount);
   const activeOnslot = s.onslot.slice(0, s.slotCount);
@@ -60,6 +66,20 @@ function shipStateToItem(
     name: s.name,
     shipType: '',
     level: s.level,
+    expToNext: s.expToNext,
+    tags: buildShipCapabilityTags({
+      shipMasterId: s.masterId,
+      stype: shipMasterStype.get(s.masterId) ?? 0,
+      ctype: shipMasterCtype.get(s.masterId) ?? 0,
+      slots: activeSlots,
+      exSlot: s.exSlot,
+      slotItemIndex,
+      slotItemEquipTypes,
+      slotItemIconTypes,
+      slotItemLos,
+      slotItemAa,
+      slotItemNames,
+    }),
     hp: s.hpNow,
     hpMax: s.hpMax,
     s1: s.cond,
@@ -164,7 +184,12 @@ export default struct FloatOverlayPanel {
         st.slotItemEquipTypes,
         st.slotItemIconTypes,
         st.slotItemLevels,
-        st.slotItemAlvs
+        st.slotItemAlvs,
+        st.slotItemLos,
+        st.slotItemAa,
+        st.slotItemNames,
+        st.shipMasterStype,
+        st.shipMasterCtype
       ));
       const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
       this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';

@@ -20,6 +20,7 @@ import BattlePreviewPanel from './battle/BattlePreviewPanel';
 @ComponentV2
 export default struct PanelHost {
   @Param config: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
+  @Param showBattlePreview: boolean = true;
   @Local battleActive: boolean = false;
 
   private unsubscribe: (() => void) | null = null;
@@ -42,7 +43,7 @@ export default struct PanelHost {
 
   build() {
     Column() {
-      if (this.battleActive) {
+      if (this.battleActive && this.showBattlePreview) {
         BattlePreviewPanel()
       } else if (this.config.mode === PanelMode.BottomPanel) {
         BottomPanel({ panelHeight: this.config.bottomPanelHeight })

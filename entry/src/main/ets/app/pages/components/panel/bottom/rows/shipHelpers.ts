@@ -3,10 +3,10 @@ import { PanelColors } from '../../../../../../features/panel/panelConfig';
 import { isShipEscaped, MapGaugeSnapshot } from '../../../../../../features/state';
 
 export function condColor(cond: number): string {
-  if (cond >= 50) return '#FFD700';
-  if (cond >= 40) return PanelColors.txtSub;
-  if (cond >= 30) return PanelColors.hpWarn;
-  return PanelColors.hpCrit;
+  if (cond > 50) return '#F6C64A';
+  if (cond > 30) return '#FFFFFF';
+  if (cond >= 20) return '#FF9F43';
+  return '#FF5A5A';
 }
 
 export function getShipStatusText(ship: ShipItem): string {

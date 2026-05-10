@@ -2,6 +2,7 @@ import { ShipItem } from '../../../../../../features/panel/type';
 import { ShipDiems } from '../../../../../../features/panel/panelConfig';
 import { getShipGraphFilename, getGameServerUrl } from '../../../../../../features/state';
 import { getShipBannerUrl } from '../../../../../../features/game/shipGraph';
+import ShipCapabilityTag from './ShipCapabilityTag';
 
 /**
  * Ship banner display: background image + readability overlay layers
@@ -11,6 +12,8 @@ import { getShipBannerUrl } from '../../../../../../features/game/shipGraph';
 export default struct ShipBannerBlock {
   @Param ship: ShipItem = {
     id: 0, masterId: 0, name: '', shipType: '', level: 0,
+    expToNext: 0,
+    tags: [],
     hp: 0, hpMax: 1, s1: 0, s2: 0, s3: 0, s4: 0,
     fuelMax: 0, ammoMax: 0,
     slots: [], slotTypes: [], slotIconTypes: [], slotAirs: [], slotLevels: [], slotAlvs: [],
@@ -34,6 +37,18 @@ export default struct ShipBannerBlock {
   @Computed
   get shouldUseRealBanner(): boolean {
     return this.bannerUrl.length > 0 && this.failedBannerUrl !== this.bannerUrl;
+  }
+
+  @Computed
+  get capabilityTags(): string[] {
+    const tags: string[] = [];
+    if (this.isFlag && this.specialAttack !== '') {
+      tags.push(this.specialAttack);
+    }
+    for (const tag of this.ship.tags) {
+      tags.push(tag);
+    }
+    return tags;
   }
 
   build() {
@@ -93,33 +108,7 @@ export default struct ShipBannerBlock {
       .height('100%')
       .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
 
-      // 第 5 层：左上角特殊攻击徽章（仅旗舰且有可触发的特攻时显示）
-      Column() {
-        Row() {
-          if (this.isFlag && this.specialAttack !== '') {
-            Text(`⚡ ${this.specialAttack}`)
-              .fontSize(8)
-              .fontColor('#FFD700')
-              .backgroundColor('#661a1525')
-              .padding({ left: 4, right: 4, top: 1, bottom: 1 })
-              .borderRadius(2)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-
-          Blank()
-            .layoutWeight(1)
-        }
-        .width('100%')
-
-        Blank()
-          .layoutWeight(1)
-      }
-      .width('100%')
-      .height('100%')
-      .padding({ left: 6, right: 6, top: 5, bottom: 5 })
-
-      // 第 6 层：舰名 + Lv，靠右下贴近角，不上下分散
+      // 第 5 层：舰名 + 能力标签 + Lv，靠右下贴近角
       Column() {
         Blank()
           .layoutWeight(1)
@@ -128,7 +117,7 @@ export default struct ShipBannerBlock {
           Blank()
             .layoutWeight(1)
 
-          Column({ space: 0 }) {
+          Column({ space: 1 }) {
             Text(this.ship.name)
               .fontSize(ShipDiems.SHIP_BANNER_NAME_FONT)
               .fontWeight(FontWeight.Bold)
@@ -136,14 +125,37 @@ export default struct ShipBannerBlock {
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-            Text(`Lv. ${this.ship.level}`)
-              .fontSize(ShipDiems.SHIP_BANNER_LEVEL_FONT)
-              .fontWeight(FontWeight.Medium)
-              .fontColor('#EEEEEE')
-              .backgroundColor('#52000000')
-              .padding({ left: 5, right: 5, top: 1, bottom: 1 })
-              .borderRadius(3)
-              .maxLines(1)
+            if (this.capabilityTags.length > 0) {
+              Row({ space: 2 }) {
+                ForEach(this.capabilityTags, (tag: string, idx: number) => {
+                  ShipCapabilityTag({ label: tag })
+                }, (tag: string, idx: number) => `cap-${idx}-${tag}`)
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.End)
+              .alignItems(VerticalAlign.Center)
+            }
+
+            Row({ space: 3 }) {
+              Text(`Lv. ${this.ship.level}`)
+                .fontSize(ShipDiems.SHIP_BANNER_LEVEL_FONT)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#EEEEEE')
+                .backgroundColor('#52000000')
+                .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+                .borderRadius(3)
+                .maxLines(1)
+
+              Text(`next: ${this.ship.expToNext}`)
+                .fontSize(ShipDiems.SHIP_BANNER_LEVEL_FONT)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#EEEEEE')
+                .backgroundColor('#52000000')
+                .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+                .borderRadius(3)
+                .maxLines(1)
+            }
+            .alignItems(VerticalAlign.Center)
           }
           .alignItems(HorizontalAlign.End)
         }

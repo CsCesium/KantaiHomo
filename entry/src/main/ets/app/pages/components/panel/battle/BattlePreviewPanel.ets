@@ -8,6 +8,8 @@ import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../
 
 // ── pure helpers (no ArkUI APIs) ──────────────────────────────────────────
 
+const BATTLE_SHIP_ROW_H = 32;
+
 function rankColor(rank: string): string {
   if (rank === 'SS' || rank === 'S') return '#FFD700';
   if (rank === 'A') return '#ffdd1212';
@@ -215,6 +217,7 @@ export default struct BattlePreviewPanel {
       this.HpBarRow(ship.hpAfter, ship.hpMax, ship.damageReceived)
     }
     .width('100%')
+    .height(BATTLE_SHIP_ROW_H)
     .padding({ left: 10, right: 10, top: 5, bottom: 5 })
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
@@ -262,6 +265,7 @@ export default struct BattlePreviewPanel {
       this.HpBarRow(hpAfter > 0 ? hpAfter : 0, hpMax, Math.max(0, hpBefore - hpAfter))
     }
     .width('100%')
+    .height(BATTLE_SHIP_ROW_H)
     .padding({ left: 10, right: 10, top: 5, bottom: 5 })
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
@@ -435,6 +439,8 @@ export default struct BattlePreviewPanel {
       .height(PanelDimens.listHdrH)
       .backgroundColor(PanelColors.bgHeader)
       .alignItems(VerticalAlign.Center)
+      .borderWidth({ top: PanelDimens.borderW })
+      .borderColor(PanelColors.rowBorder)
     }
 
       ForEach(fleet.ships, (ship: ShipBattleStatus) => {

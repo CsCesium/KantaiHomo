@@ -17,6 +17,7 @@ import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSi
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
+import { isInBattle, subscribeGameState } from "../../features/state";
 
 interface RpcPayload {
   op: string;
@@ -65,9 +66,12 @@ export default struct WebHost {
   // 折叠态全屏下手动切换为"游戏在上 + 底部面板"布局（与左右分屏的展开模式一致）。
   // 由 ButtonColumn 的 横/竖 按钮触发。
   @State private lrLayoutForced: boolean = false;
+  @State private battlePreviewAvailable: boolean = false;
+  @State private battlePreviewVisible: boolean = true;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
+  private unsubGameState?: () => void;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
     channelName: defaultInjectOptions.channelName,
@@ -317,12 +321,38 @@ export default struct WebHost {
     }).catch((_e: Error) => {});
   }
 
+  private refreshBattlePreviewState(): void {
+    const available: boolean = isInBattle();
+    if (!available) {
+      this.battlePreviewAvailable = false;
+      this.battlePreviewVisible = true;
+      return;
+    }
+    if (!this.battlePreviewAvailable) {
+      this.battlePreviewVisible = true;
+    }
+    this.battlePreviewAvailable = true;
+  }
+
+  private toggleBattlePreview(): void {
+    if (!this.battlePreviewAvailable) {
+      return;
+    }
+    this.battlePreviewVisible = !this.battlePreviewVisible;
+  }
+
   aboutToAppear() {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
     this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
     this.unsubSortieStartTaiha = subscribeAlert<SortieStartTaihaAlert>('sortie_start_taiha', (a) => {
       this.showSortieStartTaihaDialog(a);
+    });
+    this.refreshBattlePreviewState();
+    this.unsubGameState = subscribeGameState((changeType, _state) => {
+      if (changeType === 'battle' || changeType === 'all') {
+        this.refreshBattlePreviewState();
+      }
     });
     this.host.bindDisplay();
     void this.host.applyOrientationByMode(true);
@@ -355,6 +385,11 @@ export default struct WebHost {
     if (this.unsubSortieStartTaiha) {
       this.unsubSortieStartTaiha();
       this.unsubSortieStartTaiha = undefined;
+    }
+
+    if (this.unsubGameState) {
+      this.unsubGameState();
+      this.unsubGameState = undefined;
     }
 
     if (this.windowStatusCb) {
@@ -522,9 +557,12 @@ export default struct WebHost {
               onRefresh: () => this.promptRefresh(),
               onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+              onToggleBattlePreview: () => this.toggleBattlePreview(),
               onLogout: () => this.promptLogout(),
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
+              battlePreviewAvailable: this.battlePreviewAvailable,
+              battlePreviewVisible: this.battlePreviewVisible,
             })
               .width(56)
               .padding({ left: 4, right: 4, top: 8, bottom: 8 })
@@ -557,7 +595,10 @@ export default struct WebHost {
               .height('100%')
               .backgroundColor(Color.Transparent)
               .onClick(() => { this.overlayForced = false; })
-            PanelHost({ config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 } })
+            PanelHost({
+              config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 },
+              showBattlePreview: this.battlePreviewVisible
+            })
               .layoutWeight(1)
               .height('100%')
             Column()
@@ -589,10 +630,13 @@ export default struct WebHost {
                 onRefresh: () => this.promptRefresh(),
                 onToggleLrMode: () => this.toggleLrLayout(),
                 onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+                onToggleBattlePreview: () => this.toggleBattlePreview(),
                 onLogout: () => this.promptLogout(),
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 panelActive: this.overlayForced,
                 showPanelToggle: false,
+                battlePreviewAvailable: this.battlePreviewAvailable,
+                battlePreviewVisible: this.battlePreviewVisible,
               })
             }
             .width(56)
@@ -601,7 +645,7 @@ export default struct WebHost {
             .alignItems(HorizontalAlign.Start)
             .justifyContent(FlexAlign.Start)
 
-            PanelHost({ config: this.panelConfig })
+            PanelHost({ config: this.panelConfig, showBattlePreview: this.battlePreviewVisible })
               .layoutWeight(1)
               .height('100%')
           }
@@ -614,12 +658,15 @@ export default struct WebHost {
               onRefresh: () => this.promptRefresh(),
               onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+              onToggleBattlePreview: () => this.toggleBattlePreview(),
               onLogout: () => this.promptLogout(),
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               showPanelToggle: false,
+              battlePreviewAvailable: this.battlePreviewAvailable,
+              battlePreviewVisible: this.battlePreviewVisible,
             })
-            PanelHost({ config: this.panelConfig })
+            PanelHost({ config: this.panelConfig, showBattlePreview: this.battlePreviewVisible })
               .width('100%')
               .layoutWeight(1)
           }

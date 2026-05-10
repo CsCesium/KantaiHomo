@@ -72,6 +72,8 @@ export interface ShipState {
   /** 舰娘名称（来自舰船图鉴） */
   name: string;
   level: number;
+  /** 到达下一级所需经验 */
+  expToNext: number;
   hpNow: number;
   hpMax: number;
   cond: number;
@@ -145,6 +147,8 @@ export interface GameState {
   shipMasterSoku: Map<number, number>;
   /** 舰船图鉴舰种缓存 (masterId → api_stype) */
   shipMasterStype: Map<number, number>;
+  /** 舰船图鉴舰型缓存 (masterId → api_ctype) */
+  shipMasterCtype: Map<number, number>;
   /** 装备图鉴类型缓存 (slotitem masterId → typeEquipType) */
   slotItemEquipTypes: Map<number, number>;
   /** 装备图鉴图标缓存 (slotitem masterId → api_type[3]) */

@@ -23,6 +23,10 @@ export interface ShipItem {
   name: string;
   shipType: string; // short type label, e.g. '駆', '戦', '空'
   level: number;
+  /** Experience needed to reach the next level. */
+  expToNext: number;
+  /** Compact capability tags shown under the ship name. */
+  tags: string[];
   hp: number;
   hpMax: number;
   s1: number;   // cond

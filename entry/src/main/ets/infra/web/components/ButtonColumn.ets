@@ -3,10 +3,13 @@ export default struct LeftButtonColumn {
   @Event onRefresh: () => void;
   @Event onToggleLrMode: () => void;
   @Event onTogglePanel: () => void;
+  @Event onToggleBattlePreview: () => void;
   @Event onLogout: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
+  @Param battlePreviewAvailable: boolean = false;
+  @Param battlePreviewVisible: boolean = false;
 
   @Builder private IconBtn(txt: string, onTap: () => void) {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
@@ -32,6 +35,23 @@ export default struct LeftButtonColumn {
     .onClick(() => this.onTogglePanel?.())
   }
 
+  @Builder private BattlePreviewBtn() {
+    Button({ type: ButtonType.Normal, stateEffect: this.battlePreviewAvailable }) {
+      Text(!this.battlePreviewAvailable ? '战' : (this.battlePreviewVisible ? '主' : '战'))
+        .fontSize(18)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(!this.battlePreviewAvailable ? '#444' : (this.battlePreviewVisible ? '#C8B99A' : '#56d8e0'))
+    }
+    .width(48).height(48)
+    .backgroundColor(this.battlePreviewAvailable && this.battlePreviewVisible ? '#2a2a20' : Color.Transparent)
+    .border({ width: 0 })
+    .onClick(() => {
+      if (this.battlePreviewAvailable) {
+        this.onToggleBattlePreview?.();
+      }
+    })
+  }
+
   // Logout button — red tint to signal destructive action.
   @Builder private LogoutBtn() {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
@@ -53,6 +73,7 @@ export default struct LeftButtonColumn {
       if (this.showPanelToggle) {
         this.PanelBtn()
       }
+      this.BattlePreviewBtn()
       this.LogoutBtn()
     }
     .width(56).padding({ left: 4, right: 4, top: 8, bottom: 8 })

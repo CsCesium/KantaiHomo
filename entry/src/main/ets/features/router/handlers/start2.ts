@@ -95,6 +95,7 @@ class Start2Handler implements Handler {
       ammoMax: r.api_bull_max ?? 0,
       soku: r.api_soku,
       stype: r.api_stype,
+      ctype: r.api_ctype,
     }));
     updateShipMasterMeta(metaItems);
 

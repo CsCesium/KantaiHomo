@@ -36,6 +36,7 @@ function applyBattleHp(
     masterId:     base.masterId,
     name:         base.name,
     level:        base.level,
+    expToNext:    base.expToNext,
     hpNow:        bss.hpAfter,
     hpMax:        bss.hpMax,
     cond:         base.cond,

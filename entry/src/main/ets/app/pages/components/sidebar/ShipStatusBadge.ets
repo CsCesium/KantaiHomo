@@ -50,6 +50,7 @@ class CondVisual {
 export default struct ShipStatusBadge {
   @Param ship: ShipState = {
     uid: 0, masterId: 0, name: '', level: 0,
+    expToNext: 0,
     hpNow: 0, hpMax: 1, cond: 49,
     fuel: 0, ammo: 0, fuelMax: 0, ammoMax: 0,
     needsResupply: false, slotCount:0, slots: [],onslot: [], exSlot: 0, scoutCur: 0, speed: 0,

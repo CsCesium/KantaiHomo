@@ -7,6 +7,8 @@ import { getShipStatusText, getShipStatusColor } from './shipHelpers';
 export default struct ShipStatusBlock {
   @Param ship: ShipItem = {
     id: 0, masterId: 0, name: '', shipType: '', level: 0,
+    expToNext: 0,
+    tags: [],
     hp: 0, hpMax: 1, s1: 0, s2: 0, s3: 0, s4: 0,
     fuelMax: 0, ammoMax: 0,
     slots: [], slotTypes: [], slotIconTypes: [], slotAirs: [], slotLevels: [], slotAlvs: [],
