@@ -29,6 +29,7 @@ function shipStateToItem(
   slotItemAlvs: Map<number, number>,
   slotItemLos: Map<number, number>,
   slotItemAa: Map<number, number>,
+  slotItemAsw: Map<number, number>,
   slotItemNames: Map<number, string>,
   shipMasterStype: Map<number, number>,
   shipMasterCtype: Map<number, number>
@@ -71,6 +72,7 @@ function shipStateToItem(
       shipMasterId: s.masterId,
       stype: shipMasterStype.get(s.masterId) ?? 0,
       ctype: shipMasterCtype.get(s.masterId) ?? 0,
+      aswCur: s.aswCur,
       slots: activeSlots,
       exSlot: s.exSlot,
       slotItemIndex,
@@ -78,6 +80,7 @@ function shipStateToItem(
       slotItemIconTypes,
       slotItemLos,
       slotItemAa,
+      slotItemAsw,
       slotItemNames,
     }),
     hp: s.hpNow,
@@ -187,6 +190,7 @@ export default struct FloatOverlayPanel {
         st.slotItemAlvs,
         st.slotItemLos,
         st.slotItemAa,
+        st.slotItemAsw,
         st.slotItemNames,
         st.shipMasterStype,
         st.shipMasterCtype

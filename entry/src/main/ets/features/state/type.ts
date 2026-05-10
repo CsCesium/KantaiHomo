@@ -95,6 +95,8 @@ export interface ShipState {
   exSlot: number;
   /** 当前显示索敌值（含装备加成，来自 api_sakuteki[0]） */
   scoutCur: number;
+  /** 当前显示对潜值（含装备加成，来自 api_taisen[0]） */
+  aswCur: number;
   /** 速力（api_soku：0=陸上、5=低速、10=高速、15=高速+、20=最速） */
   speed: number;
   /** HP 百分比 */
@@ -157,6 +159,8 @@ export interface GameState {
   slotItemLos: Map<number, number>;
   /** 装备图鉴 对空（slotitem masterId → api_tyku，制空计算用） */
   slotItemAa: Map<number, number>;
+  /** 装备图鉴 对潜（slotitem masterId → api_tais） */
+  slotItemAsw: Map<number, number>;
   /** 装备图鉴名称（slotitem masterId → api_name） */
   slotItemNames: Map<number, string>;
   /** 装备实例索引 (slotitem uid → masterId) */

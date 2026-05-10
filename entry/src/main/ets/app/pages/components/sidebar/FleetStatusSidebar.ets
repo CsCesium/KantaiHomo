@@ -45,6 +45,7 @@ function applyBattleHp(
     fuelMax:      base.fuelMax,
     ammoMax:      base.ammoMax,
     scoutCur:     base.scoutCur,
+    aswCur:       base.aswCur,
     speed:        base.speed,
     needsResupply: base.needsResupply,
     slotCount:    base.slotCount,

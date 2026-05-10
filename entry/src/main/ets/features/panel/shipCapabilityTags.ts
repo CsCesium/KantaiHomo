@@ -8,12 +8,14 @@ import {
   SlotItemMaster,
   SlotItemMasterStats,
   ShipType,
+  canOpeningASW,
   isCarrierType,
   isSubmarineType,
 } from '../../domain/models';
 
 const AACI_TAG = '対空CI';
 const NIGHT_CI_TAG = '夜戦CI';
+const OPENING_ASW_TAG = '先制対潜';
 
 const EMPTY_STATS: SlotItemMasterStats = {
   hp: 0,
@@ -34,6 +36,7 @@ export interface ShipCapabilityTagContext {
   shipMasterId: number;
   stype: number;
   ctype: number;
+  aswCur: number;
   slots: number[];
   exSlot: number;
   slotItemIndex: Map<number, number>;
@@ -41,6 +44,7 @@ export interface ShipCapabilityTagContext {
   slotItemIconTypes: Map<number, number>;
   slotItemLos: Map<number, number>;
   slotItemAa: Map<number, number>;
+  slotItemAsw: Map<number, number>;
   slotItemNames: Map<number, string>;
 }
 
@@ -79,6 +83,7 @@ function toSlotItemMaster(uid: number, ctx: ShipCapabilityTagContext): SlotItemM
     stats: {
       ...EMPTY_STATS,
       aa: ctx.slotItemAa.get(masterId) ?? 0,
+      asw: ctx.slotItemAsw.get(masterId) ?? 0,
       los: ctx.slotItemLos.get(masterId) ?? 0,
     },
     broken: [],
@@ -161,6 +166,39 @@ function supportsNightCutIn(stype: number, masters: SlotItemMaster[]): boolean {
   return shipType === ShipType.DD && torpedoCount >= 2 && (mainGunCount >= 1 || lookoutCount >= 1);
 }
 
+function supportsOpeningAsw(stype: number, aswCur: number, masters: SlotItemMaster[]): boolean {
+  const shipType = stype as ShipType;
+  if (!canOpeningASW(shipType) && shipType !== ShipType.CLT) {
+    return false;
+  }
+
+  const sonarTypes: ReadonlySet<SlotItemEquipType> = new Set([
+    SlotItemEquipType.Sonar,
+    SlotItemEquipType.LargeSonar,
+  ]);
+  const depthChargeTypes: ReadonlySet<SlotItemEquipType> = new Set([
+    SlotItemEquipType.DepthCharge,
+  ]);
+  const aswAircraftTypes: ReadonlySet<SlotItemEquipType> = new Set([
+    SlotItemEquipType.Autogyro,
+    SlotItemEquipType.AntiSubPatrol,
+  ]);
+
+  const sonarCount = countEquipTypes(masters, sonarTypes);
+  const depthChargeCount = countEquipTypes(masters, depthChargeTypes);
+  const aswAircraftCount = countEquipTypes(masters, aswAircraftTypes);
+  const hasAswAircraft = aswAircraftCount > 0 || masters.some(master => master.type.equipType === SlotItemEquipType.CarrierTorpedoBomber && master.stats.asw > 0);
+
+  if (shipType === ShipType.DE) {
+    return aswCur >= 60 && (sonarCount > 0 || depthChargeCount > 0);
+  }
+  if (shipType === ShipType.CVL || shipType === ShipType.AV) {
+    return aswCur >= 65 && hasAswAircraft;
+  }
+
+  return aswCur >= 100 && sonarCount > 0;
+}
+
 export function buildShipCapabilityTags(ctx: ShipCapabilityTagContext): string[] {
   const masters = collectMasters(ctx);
   const tags: string[] = [];
@@ -170,6 +208,9 @@ export function buildShipCapabilityTags(ctx: ShipCapabilityTagContext): string[]
   }
   if (supportsNightCutIn(ctx.stype, masters)) {
     tags.push(NIGHT_CI_TAG);
+  }
+  if (supportsOpeningAsw(ctx.stype, ctx.aswCur, masters)) {
+    tags.push(OPENING_ASW_TAG);
   }
 
   return tags;
