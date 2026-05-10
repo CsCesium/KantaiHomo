@@ -167,8 +167,9 @@ export default struct WebHost {
     const isSmallLandscapeWindow: boolean = (widthVp > heightVp) && (heightVp <= 650);
     const isFloatingScene: boolean = this.scene === WindowScene.FLOATING;
     const isSplitScene: boolean = this.scene === WindowScene.SPLIT;
-    // Split/floating small windows should always be pure game canvas without fixed tool columns.
-    if ((isSmallLandscapeWindow && isSplitScene) || isFloatingScene) {
+    // Split/floating small windows should stay pure game canvas unless the split
+    // layout decision already found enough room for a docked bottom panel.
+    if ((isSmallLandscapeWindow && isSplitScene && !nextShowBottomTools) || isFloatingScene) {
       nextMode = HostMode.COMPACT;
       nextFit = isFloatingScene ? 'width' : 'height';
       nextFitLocked = true;
