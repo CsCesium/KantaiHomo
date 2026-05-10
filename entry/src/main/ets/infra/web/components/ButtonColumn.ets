@@ -6,6 +6,7 @@ export default struct LeftButtonColumn {
   @Event onLogout: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
+  @Param showPanelToggle: boolean = true;
 
   @Builder private IconBtn(txt: string, onTap: () => void) {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
@@ -49,7 +50,9 @@ export default struct LeftButtonColumn {
     Column({ space: 8 }) {
       this.IconBtn('⟳',  () => this.onRefresh?.())
       this.IconBtn(this.lrMode === 'portraitFit' ? '竖' : '横', () => this.onToggleLrMode?.())
-      this.PanelBtn()
+      if (this.showPanelToggle) {
+        this.PanelBtn()
+      }
       this.LogoutBtn()
     }
     .width(56).padding({ left: 4, right: 4, top: 8, bottom: 8 })

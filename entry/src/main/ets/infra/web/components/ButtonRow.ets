@@ -11,6 +11,7 @@ export default struct ButtonRow {
   @Event onLogout: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
+  @Param showPanelToggle: boolean = true;
 
   @Builder private IconBtn(txt: string, onTap: () => void) {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
@@ -53,7 +54,9 @@ export default struct ButtonRow {
       Row({ space: 8 }) {
         this.IconBtn('⟳', () => this.onRefresh?.())
         this.IconBtn(this.lrMode === 'portraitFit' ? '竖' : '横', () => this.onToggleLrMode?.())
-        this.PanelBtn()
+        if (this.showPanelToggle) {
+          this.PanelBtn()
+        }
         this.LogoutBtn()
       }
       .height(40)
@@ -63,7 +66,7 @@ export default struct ButtonRow {
     }
     .width('100%')
     .height(40)
-    .justifyContent(FlexAlign.Start)
+    .justifyContent(FlexAlign.Center)
     .alignItems(VerticalAlign.Center)
   }
 }

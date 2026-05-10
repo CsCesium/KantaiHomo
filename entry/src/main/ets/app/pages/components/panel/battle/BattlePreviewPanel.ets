@@ -753,6 +753,7 @@ export default struct BattlePreviewPanel {
           .width('100%')
         }
         .layoutWeight(1)
+        .align(Alignment.TopStart)
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.None)
 
@@ -777,6 +778,7 @@ export default struct BattlePreviewPanel {
           .width('100%')
         }
         .layoutWeight(1)
+        .align(Alignment.TopStart)
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.None)
 

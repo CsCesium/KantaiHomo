@@ -550,7 +550,7 @@ export default struct WebHost {
         // FloatOverlay panel — overlaid on the game viewport.
         // Only shown when explicitly triggered (overlayForced / fairy ball event).
         // Side margins act as dismiss areas; tapping outside panel hides it.
-        if (this.overlayForced) {
+        if (this.overlayForced && this.panelConfig.mode !== PanelMode.BottomPanel) {
           Row() {
             Column()
               .width(PanelDimens.overlaySideGap)
@@ -592,6 +592,7 @@ export default struct WebHost {
                 onLogout: () => this.promptLogout(),
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 panelActive: this.overlayForced,
+                showPanelToggle: false,
               })
             }
             .width(56)
@@ -616,6 +617,7 @@ export default struct WebHost {
               onLogout: () => this.promptLogout(),
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
+              showPanelToggle: false,
             })
             PanelHost({ config: this.panelConfig })
               .width('100%')
