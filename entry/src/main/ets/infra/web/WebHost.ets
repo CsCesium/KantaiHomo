@@ -304,8 +304,8 @@ export default struct WebHost {
       title: '⚠️ 大破进击警告',
       message: msg,
       buttons: [
-        { text: '撤退', color: '#6A9AB5' },
         { text: '继续进击', color: '#e53935' },
+        { text: '撤退', color: '#6A9AB5' },
       ],
     }).catch((_e: Error) => {});
   }
