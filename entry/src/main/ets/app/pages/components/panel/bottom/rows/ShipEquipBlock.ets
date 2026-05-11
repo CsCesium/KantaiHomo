@@ -90,7 +90,7 @@ export default struct ShipEquipBlock {
       .width('100%')
       .constraintSize({ minWidth: this.equipContentWidth() })
       .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
-      .justifyContent(FlexAlign.End)
+      .justifyContent(FlexAlign.Start)
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
