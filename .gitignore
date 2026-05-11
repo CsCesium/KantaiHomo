@@ -10,11 +10,10 @@
 **/.test
 /.appanalyzer
 /change.patch
-/docs/apilist.txt
+/docs/*
 build-profile.json5
 
 # OHOS signing
-.ci/
 signing/
 *.p12
 *.jks
