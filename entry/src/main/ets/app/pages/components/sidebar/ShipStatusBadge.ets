@@ -1,6 +1,6 @@
 import { ShipSpecialEquip, ShipState } from '../../../../features/state/type';
-import { getShipGraphFilename, getGameServerUrl, isShipEscaped } from '../../../../features/state';
-import { getShipBannerUrl } from '../../../../features/game/shipGraph';
+import { isShipEscaped } from '../../../../features/state';
+import { getShipAvatarPath } from '../../../../features/game/shipAvatar';
 import { equipLabel } from '../../../../features/panel/panelConfig';
 import { SlotItemIconId } from '../../../../domain/models/struct/slotitem';
 
@@ -23,7 +23,6 @@ const STATUS_PANEL_WIDTH = 24;
 const DAMAGE_CONTROL_ICON_ID = SlotItemIconId.DamageControl;
 const DAMAGE_BADGE_BG = '#00000088';
 const DAMAGE_BADGE_BORDER = '#FFFFFFCC';
-const SHIP_BANNER_ASPECT_RATIO = 4;
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
@@ -88,10 +87,6 @@ export default struct ShipStatusBadge {
   }
 
   @Computed
-  get avatarBannerWidth(): number {
-    return Math.ceil(this.avatarDiam * SHIP_BANNER_ASPECT_RATIO);
-  }
-
   @Computed
   get badgeSize(): number {
     return Math.max(Math.floor(this.ringDiam * 0.32), 12);
@@ -124,10 +119,7 @@ export default struct ShipStatusBadge {
 
   @Computed
   get avatarUrl(): string {
-    const filename = getShipGraphFilename(this.ship.masterId);
-    const serverBase = getGameServerUrl();
-    if (!filename || !serverBase) return '';
-    return getShipBannerUrl(this.ship.masterId, filename, serverBase);
+    return getShipAvatarPath(this.ship.masterId);
   }
 
   @Computed
@@ -279,11 +271,11 @@ export default struct ShipStatusBadge {
 
         // 头像圆 — 图片不可用时回退到舰名文字。
         if (this.shouldShowAvatarImage) {
-          Stack({ alignContent: Alignment.TopStart }) {
+          Stack({ alignContent: Alignment.Center }) {
             Image(this.avatarUrl)
-              .width(this.avatarBannerWidth)
+              .width(this.avatarDiam)
               .height(this.avatarDiam)
-              .objectFit(ImageFit.Fill)
+              .objectFit(ImageFit.Cover)
               .onError(() => {
                 this.failedAvatarUrl = this.avatarUrl;
               })
