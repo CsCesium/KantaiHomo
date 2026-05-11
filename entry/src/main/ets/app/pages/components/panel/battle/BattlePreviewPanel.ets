@@ -445,7 +445,7 @@ export default struct BattlePreviewPanel {
 
       ForEach(fleet.ships, (ship: ShipBattleStatus) => {
       this.BattleShipRow(ship, landBased)
-    }, (ship: ShipBattleStatus) => `bship-${ship.uid}`)
+    }, (ship: ShipBattleStatus) => `bship-${ship.uid}-${ship.hpBefore}-${ship.hpAfter}-${ship.damageReceived}`)
   }
 
   /** Enemy fleet ship list with HP bars. */
@@ -480,7 +480,7 @@ export default struct BattlePreviewPanel {
           landBased
         )
       }
-    }, (_: number, idx: number) => `erow-${idx}`)
+    }, (_: number, idx: number) => `erow-${idx}-${enemy.hpBefore[idx] ?? 0}-${enemy.hpNow[idx] ?? 0}`)
   }
 
   // ── result view builders ───────────────────────────────────────────────────
