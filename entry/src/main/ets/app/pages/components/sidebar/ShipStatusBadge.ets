@@ -87,7 +87,6 @@ export default struct ShipStatusBadge {
   }
 
   @Computed
-  @Computed
   get badgeSize(): number {
     return Math.max(Math.floor(this.ringDiam * 0.32), 12);
   }

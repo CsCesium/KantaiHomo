@@ -848,6 +848,7 @@ class GameStateManager {
       slotItemIndex: new Map(),
       slotItemLevels: new Map(),
       slotItemAlvs: new Map(),
+      sortieResourceGains: null,
       shipGraphFilenames:new Map(),
       gameServerUrl:null,
     };
