@@ -16,62 +16,119 @@ const RESOURCE = [
 
 export type ShipGraphType =
   | 'banner'
+  | 'banner_g'
+  | 'banner2_g'
+  | 'banner3_g'
   | 'card'
-  | 'full'
-  | 'character_full'
+  | 'remodel'
   | 'character_up'
-  | 'supply_character';
+  | 'character_full'
+  | 'full'
+  | 'supply_character'
+  | 'album_status';
 
+const DAMAGED_FORCE_TYPES: ReadonlySet<string> = new Set(['banner_g', 'banner2_g', 'banner3_g']);
+const ENEMY_DAMAGED_EXCEPTIONS: ReadonlySet<number> = new Set([1587, 1588, 1589, 1590]);
+const SHIP_IMAGE_PATH_CACHE: Map<string, string> = new Map();
 
-
-/** Compute the cipher key for a ship image file. */
-export function calcShipGraphKey(masterId: number, filename: string): string {
-  let s = 0;
-  if (filename != null && filename !== '') {
-    for (let i = 0; i < filename.length; i++) {
-      s += filename.charCodeAt(i);
+function createKey(keyString: string): number {
+  let key = 0;
+  if (keyString != null && keyString !== '') {
+    for (let i = 0; i < keyString.length; i++) {
+      key += keyString.charCodeAt(i);
     }
   }
+  return key;
+}
 
-  const len = filename != null && filename.length > 0 ? filename.length : 1;
-  const key = (((17 * (masterId + 7) * RESOURCE[(s + masterId * len) % 100]) % 8973) + 1000);
-  return key.toString();
+/** Compute the resource suffix used by KanColle's SuffixUtil.create(no, key_string). */
+export function calcShipGraphKey(id: number | string, keyString: string): string {
+  const matcher = id.toString().match(/\d+/);
+  if (matcher === null || matcher.length === 0) {
+    return '';
+  }
+  const num = parseInt(matcher[0], 10);
+  const key = createKey(keyString);
+  const len = keyString != null && keyString.length > 0 ? keyString.length : 1;
+  const suffix = ((((num + 7) * 17 * RESOURCE[(key + num * len) % 100]) % 8973) + 1000);
+  return suffix.toString();
+}
+
+function normalizeDamaged(masterId: number, type: ShipGraphType, damaged: boolean): boolean {
+  if (type === 'album_status') {
+    return false;
+  }
+  if (DAMAGED_FORCE_TYPES.has(type)) {
+    return true;
+  }
+  if (masterId > 1500 && !ENEMY_DAMAGED_EXCEPTIONS.has(masterId)) {
+    return false;
+  }
+  return damaged;
+}
+
+function buildShipImageUrl(serverBase: string, path: string): string {
+  return serverBase ? `${serverBase}${path}` : path;
 }
 
 /**
- * Build the full URL for a ship image given the game server base.
+ * Build the official ship image path, following docs/shipimg.ts.
  *
  * KanColle's official URL format is:
- *   /kcs2/resources/ship/<type>/<paddedId>_<key>_<filename>.png
+ *   /kcs2/resources/ship/<dir>/<paddedId>_<suffix>.png
  *
- * 关键：filename 既参与 cipher 计算，也作为路径后缀。仅有 cipher 而缺少
- * 文件名后缀（例如 `0001_5834.png`）会得到 404 — 因为官方资源的实际
- * 路径是 `0001_5834_akagi.png`（filename 来自 api_mst_shipgraph.api_filename）。
+ * `api_mst_shipgraph.api_filename` is not the suffix key; ship graphics use
+ * `ship_${dir}` as the key string.
  */
+export function getShipImagePath(
+  masterId: number,
+  type: ShipGraphType = 'banner',
+  damaged: boolean = false,
+): string {
+  const normalizedDamaged = normalizeDamaged(masterId, type, damaged);
+  const mapKey = `${masterId},${type},${normalizedDamaged}`;
+  const cached = SHIP_IMAGE_PATH_CACHE.get(mapKey);
+  if (cached) {
+    return cached;
+  }
+  const paddedId = String(masterId).padStart(4, '0');
+  const dir = `${type}${normalizedDamaged ? '_dmg' : ''}`;
+  const key = calcShipGraphKey(masterId, `ship_${dir}`);
+  const path = `/kcs2/resources/ship/${dir}/${paddedId}_${key}.png`;
+  SHIP_IMAGE_PATH_CACHE.set(mapKey, path);
+  return path;
+}
+
+/** Build the full URL for a ship image given the game server base. */
 export function getShipImageUrl(
   masterId: number,
-  filename: string,
   serverBase: string,
   type: ShipGraphType = 'banner',
+  damaged: boolean = false,
 ): string {
-  const paddedId = String(masterId).padStart(4, '0');
-  const key = calcShipGraphKey(masterId, filename);
-  return `${serverBase}/kcs2/resources/ship/${type}/${paddedId}_${key}_${filename}.png`;
+  return buildShipImageUrl(serverBase, getShipImagePath(masterId, type, damaged));
 }
 
-export function getShipBannerUrl(masterId: number, filename: string, serverBase: string): string {
-  return getShipImageUrl(masterId, filename, serverBase, 'banner');
+export function getShipBannerUrl(masterId: number, _filename: string, serverBase: string): string {
+  return getShipImageUrl(masterId, serverBase, 'banner');
 }
 
-export function getShipCardUrl(masterId: number, filename: string, serverBase: string): string {
-  return getShipImageUrl(masterId, filename, serverBase, 'card');
+export function getShipCardUrl(masterId: number, _filename: string, serverBase: string): string {
+  return getShipImageUrl(masterId, serverBase, 'card');
+}
+
+export function getShipRemodelUrl(masterId: number, serverBase: string, damaged: boolean = false): string {
+  return getShipImageUrl(masterId, serverBase, 'remodel', damaged);
 }
 
 /** Extract the URL path component for a ship asset (used as cache key). */
-export function getShipAssetPath(masterId: number, filename: string, type: ShipGraphType = 'banner'): string {
-  const paddedId = String(masterId).padStart(4, '0');
-  const key = calcShipGraphKey(masterId, filename);
-  return `/kcs2/resources/ship/${type}/${paddedId}_${key}_${filename}.png`;
+export function getShipAssetPath(
+  masterId: number,
+  _filename: string,
+  type: ShipGraphType = 'banner',
+  damaged: boolean = false,
+): string {
+  return getShipImagePath(masterId, type, damaged);
 }
 
 /** Extract base URL (scheme + host) from a full URL string. */

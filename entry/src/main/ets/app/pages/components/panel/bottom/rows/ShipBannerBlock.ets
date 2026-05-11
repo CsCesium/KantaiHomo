@@ -1,7 +1,7 @@
 import { ShipItem } from '../../../../../../features/panel/type';
 import { ShipDiems } from '../../../../../../features/panel/panelConfig';
-import { getShipGraphFilename, getGameServerUrl } from '../../../../../../features/state';
-import { getShipBannerUrl } from '../../../../../../features/game/shipGraph';
+import { getGameServerUrl } from '../../../../../../features/state';
+import { getShipRemodelUrl } from '../../../../../../features/game/shipGraph';
 import ShipCapabilityTag from './ShipCapabilityTag';
 
 /**
@@ -24,19 +24,23 @@ export default struct ShipBannerBlock {
   @Param specialAttack: string = '';
 
   /** Last URL that failed to load — suppresses retry loops on the same source. */
-  @Local private failedBannerUrl: string = '';
+  @Local private failedRemodelUrl: string = '';
 
   @Computed
-  get bannerUrl(): string {
-    const filename = getShipGraphFilename(this.ship.masterId);
-    const serverBase = getGameServerUrl();
-    if (!filename || !serverBase) return '';
-    return getShipBannerUrl(this.ship.masterId, filename, serverBase);
+  get isDamaged(): boolean {
+    return this.ship.hpMax > 0 && this.ship.hp <= this.ship.hpMax / 2;
   }
 
   @Computed
-  get shouldUseRealBanner(): boolean {
-    return this.bannerUrl.length > 0 && this.failedBannerUrl !== this.bannerUrl;
+  get remodelUrl(): string {
+    const serverBase = getGameServerUrl();
+    if (!serverBase) return '';
+    return getShipRemodelUrl(this.ship.masterId, serverBase, this.isDamaged);
+  }
+
+  @Computed
+  get shouldUseRealRemodel(): boolean {
+    return this.remodelUrl.length > 0 && this.failedRemodelUrl !== this.remodelUrl;
   }
 
   @Computed
@@ -53,17 +57,17 @@ export default struct ShipBannerBlock {
 
   build() {
     Stack() {
-      // 第 1 层：背景 Banner 图。优先使用真实 remodel banner（基于
-      // api_mst_shipgraph 文件名 + 当前服务器地址计算的 cipher URL），
+      // 第 1 层：背景图。优先使用真实 remodel 舰图（基于
+      // SuffixUtil.create(masterId, 'ship_remodel') 计算的 cipher URL），
       // 资源不可用或加载失败时回退到内置测试 banner。
-      if (this.shouldUseRealBanner) {
-        Image(this.bannerUrl)
+      if (this.shouldUseRealRemodel) {
+        Image(this.remodelUrl)
           .width('100%')
           .height('100%')
           .objectFit(ImageFit.Cover)
           .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
           .onError(() => {
-            this.failedBannerUrl = this.bannerUrl;
+            this.failedRemodelUrl = this.remodelUrl;
           })
       } else {
         Image($rawfile('test/remodel.png'))
