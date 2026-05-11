@@ -9,7 +9,6 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
-/change.patch
 /docs/*
 build-profile.json5
 
