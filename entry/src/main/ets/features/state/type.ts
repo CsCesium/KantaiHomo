@@ -23,6 +23,20 @@ export interface MaterialsSnapshot {
   capturedAt: number;
 }
 
+/** 本次出击累计获得的资源（来自资源点 api_itemget） */
+export interface SortieResourceGains {
+  fuel: number;
+  ammo: number;
+  steel: number;
+  bauxite: number;
+  instantBuild: number;
+  instantRepair: number;
+  devMaterial: number;
+  screw: number;
+  /** 上次更新时间 */
+  updatedAt: number;
+}
+
 /** 舰队快照 */
 export interface DeckSnapshot {
   deckId: number;
@@ -121,6 +135,8 @@ export interface GameState {
   admiral: AdmiralSnapshot | null;
   /** 资源 */
   materials: MaterialsSnapshot | null;
+  /** 本次出击累计获得的资源；null 表示未在出击中或暂未获得 */
+  sortieResourceGains: SortieResourceGains | null;
   /** 四个舰队 */
   decks: DeckSnapshot[];
   /** 修理渠状态 */
@@ -200,6 +216,7 @@ export interface MapGaugeSnapshot {
 export type StateChangeType =
   | 'admiral'
     | 'materials'
+    | 'sortieGains'
     | 'decks'
     | 'ndocks'
     | 'kdocks'

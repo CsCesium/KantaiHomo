@@ -28,7 +28,9 @@ import { getLastBattleHasTaihaRisk, getLastBattleTaihaShips, resetLastBattleStat
 import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId,
   getDeck,
   getDeckShips,
-  getShipSpecialEquip } from '../../state/game_state';
+  getShipSpecialEquip,
+  addSortieResourceGains,
+  clearSortieResourceGains } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -97,6 +99,12 @@ class SortieHandler implements Handler {
     const { mapAreaId, mapInfoNo, cellId, cell, deckId, combinedType, fleetSnapshot, fleetSnapshotEscort } = payload;
     // 新出击：重置上次战斗的大破风险状态
     resetLastBattleState();
+    // 新出击：清空本次出击资源累计
+    clearSortieResourceGains();
+    // 起点也可能有资源点（罕见，但兜底）
+    if (cell.resourceGains && cell.resourceGains.length > 0) {
+      addSortieResourceGains(cell.resourceGains);
+    }
 
     // 1. 尝试从 Repository 获取更完整的舰队快照
     const actualFleetSnapshot = (await this.captureFleetSnapshot(deckId, PersistDeps)) ?? fleetSnapshot;
@@ -235,6 +243,11 @@ class SortieHandler implements Handler {
     }
 
     const currentCell = context.currentCell ?? cell;
+
+    // 资源点：累加本次出击资源总量（面板用绿色显示）
+    if (cell.resourceGains && cell.resourceGains.length > 0) {
+      addSortieResourceGains(cell.resourceGains);
+    }
 
     console.info('[sortie] moved to cell:', currentCell.cellId, 'event:', currentCell.eventId, 'boss:', currentCell.isBoss);
 
