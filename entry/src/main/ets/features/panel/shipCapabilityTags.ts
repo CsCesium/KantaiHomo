@@ -33,7 +33,6 @@ const EMPTY_STATS: SlotItemMasterStats = {
 
 export interface ShipCapabilityTagContext {
   shipMasterId: number;
-  shipName: string;
   stype: number;
   ctype: number;
   aswCur: number;
@@ -126,6 +125,73 @@ function hasIcon(masters: SlotItemMaster[], iconId: SlotItemIconId): boolean {
 function nameContains(name: string, fragments: string[]): boolean {
   return fragments.some(fragment => name.indexOf(fragment) >= 0);
 }
+
+const TAIYOU_CLASS_SPECIAL_IDS: ReadonlySet<number> = new Set([
+  380, // 大鷹改
+  529, // 大鷹改二
+  381, // 神鷹改
+  536, // 神鷹改二
+  382, // 雲鷹改
+  889, // 雲鷹改二
+  646, // 加賀改二護
+]);
+
+const COMMON_CVL_EXCLUDED_IDS: ReadonlySet<number> = new Set([
+  508, // 鈴谷航改二
+  509, // 熊野航改二
+]);
+
+const FLEXIBLE_SONAR_CARRIER_IDS: ReadonlySet<number> = new Set([
+  894, // 鳳翔改二
+  899, // 鳳翔改二戦
+  707, // Gambier Bay Mk.II
+]);
+
+const UNCONDITIONAL_OPENING_ASW_SHIP_IDS: ReadonlySet<number> = new Set([
+  141,  // 五十鈴改二
+  478,  // 龍田改二
+  394,  // Jervis改
+  893,  // Janus改
+  681,  // Samuel B.Roberts改
+  920,  // Samuel B.Roberts Mk.II
+  562,  // Johnston
+  689,  // Johnston改
+  596,  // Fletcher
+  692,  // Fletcher改
+  628,  // Fletcher改 Mod.2
+  629,  // Fletcher Mk.II
+  624,  // 夕張改二丁
+  1035, // 吹雪改三
+  1040, // 吹雪改三護(六式)
+]);
+
+const EXCLUDED_ESCORT_IDS: ReadonlySet<number> = new Set([
+  999, // Eidsvold
+  739, // Eidsvold改
+]);
+
+const SOYA_AND_YAMASHIOMARU_IDS: ReadonlySet<number> = new Set([
+  645, // 宗谷
+  650, // 宗谷
+  699, // 宗谷
+  900, // 山汐丸
+  717, // 山汐丸改
+]);
+
+const FUSO_YAMASHIRO_K2_IDS: ReadonlySet<number> = new Set([
+  411, // 扶桑改二
+  412, // 山城改二
+]);
+
+const KUMANOMARU_IDS: ReadonlySet<number> = new Set([
+  943, // 熊野丸
+  948, // 熊野丸改
+]);
+
+const YAMATO_K2_JU_SHINSHUMARU_KAI_IDS: ReadonlySet<number> = new Set([
+  916, // 大和改二重
+  626, // 神州丸改
+]);
 
 function supportsNightCutIn(stype: number, masters: SlotItemMaster[]): boolean {
   const mainGunTypes: ReadonlySet<SlotItemEquipType> = new Set([
@@ -230,54 +296,41 @@ function isCarrierAttackOrDiveAswAtLeast(master: SlotItemMaster, asw: number): b
   return (isCarrierTorpedo(master) || isCarrierDiveBomber(master)) && master.stats.asw >= asw;
 }
 
-function isTaiyouClassSpecial(shipName: string): boolean {
-  return nameContains(shipName, [
-    '大鷹改', '大鹰改',
-    '神鷹改', '神鹰改',
-    '雲鷹改', '云鹰改',
-    '加賀改二護', '加贺改二护',
-  ]);
+function isTaiyouClassSpecial(shipMasterId: number): boolean {
+  return TAIYOU_CLASS_SPECIAL_IDS.has(shipMasterId);
 }
 
-function isCommonCvlExcluded(shipName: string): boolean {
-  return nameContains(shipName, ['鈴谷航改二', '铃谷航改二', '熊野航改二']);
+function isCommonCvlExcluded(shipMasterId: number): boolean {
+  return COMMON_CVL_EXCLUDED_IDS.has(shipMasterId);
 }
 
-function isFlexibleSonarCarrier(shipName: string): boolean {
-  return nameContains(shipName, ['鳳翔改二', '凤翔改二', 'Gambier Bay Mk.II', 'Gambier Bay Mk.Ⅱ']);
+function isFlexibleSonarCarrier(shipMasterId: number): boolean {
+  return FLEXIBLE_SONAR_CARRIER_IDS.has(shipMasterId);
 }
 
-function isUnconditionalOpeningAswShip(shipName: string): boolean {
-  return nameContains(shipName, [
-    '五十鈴改二', '五十铃改二',
-    '龍田改二', '龙田改二',
-    'Jervis改', 'Janus改',
-    'Roberts改', 'Roberts Mk.II', 'Roberts Mk.Ⅱ',
-    'Johnston', 'Fletcher',
-    '夕張改二丁', '夕张改二丁',
-    '吹雪改三',
-  ]);
+function isUnconditionalOpeningAswShip(shipMasterId: number): boolean {
+  return UNCONDITIONAL_OPENING_ASW_SHIP_IDS.has(shipMasterId);
 }
 
-function isExcludedEscort(shipName: string): boolean {
-  return nameContains(shipName, ['挪威', 'Norway', 'Eidsvold', 'Eidsvoll', 'エイズヴォル', 'エーズヴォル']);
+function isExcludedEscort(shipMasterId: number): boolean {
+  return EXCLUDED_ESCORT_IDS.has(shipMasterId);
 }
 
-function isStandardAsw100Ship(shipType: ShipType, shipName: string): boolean {
+function isStandardAsw100Ship(shipType: ShipType, shipMasterId: number): boolean {
   return shipType === ShipType.DD ||
     shipType === ShipType.CL ||
     shipType === ShipType.CT ||
     shipType === ShipType.CLT ||
     shipType === ShipType.AO ||
-    nameContains(shipName, ['宗谷', '山汐丸']);
+    SOYA_AND_YAMASHIOMARU_IDS.has(shipMasterId);
 }
 
-function supportsCommonCvlOpeningAsw(shipName: string, aswCur: number, equips: EquippedMaster[]): boolean {
-  if (isCommonCvlExcluded(shipName) || isTaiyouClassSpecial(shipName)) {
+function supportsCommonCvlOpeningAsw(shipMasterId: number, aswCur: number, equips: EquippedMaster[]): boolean {
+  if (isCommonCvlExcluded(shipMasterId) || isTaiyouClassSpecial(shipMasterId)) {
     return false;
   }
 
-  const sonarOk = isFlexibleSonarCarrier(shipName)
+  const sonarOk = isFlexibleSonarCarrier(shipMasterId)
     ? hasEquip(equips, isSonar)
     : hasEquip(equips, isZeroSonar);
   const hasAsw7Aircraft = hasEmbarkedEquip(equips, master => isAswAircraftAtLeast(master, 7));
@@ -294,53 +347,53 @@ function supportsCommonCvlOpeningAsw(shipName: string, aswCur: number, equips: E
 
 function supportsOpeningAsw(ctx: ShipCapabilityTagContext, equips: EquippedMaster[]): boolean {
   const shipType = ctx.stype as ShipType;
-  const shipName = ctx.shipName;
+  const shipMasterId = ctx.shipMasterId;
   const aswCur = ctx.aswCur;
 
-  if (isUnconditionalOpeningAswShip(shipName)) {
+  if (isUnconditionalOpeningAswShip(shipMasterId)) {
     return true;
   }
 
-  if (isStandardAsw100Ship(shipType, shipName)) {
+  if (isStandardAsw100Ship(shipType, shipMasterId)) {
     return aswCur >= 100 && hasEquip(equips, isSonar);
   }
 
-  if (shipType === ShipType.DE && !isExcludedEscort(shipName)) {
+  if (shipType === ShipType.DE && !isExcludedEscort(shipMasterId)) {
     return (aswCur >= 60 && hasEquip(equips, isSonar)) ||
       (aswCur >= 75 && whiteboardAswTotal(equips) >= 4);
   }
 
-  if (isTaiyouClassSpecial(shipName)) {
+  if (isTaiyouClassSpecial(shipMasterId)) {
     return hasEmbarkedEquip(equips, master =>
       (isCarrierTorpedo(master) || isCarrierDiveBomber(master) || isAswPatrol(master) || isAutogyro(master)) &&
         master.stats.asw >= 1);
   }
 
   if (shipType === ShipType.CVL) {
-    return supportsCommonCvlOpeningAsw(shipName, aswCur, equips);
+    return supportsCommonCvlOpeningAsw(shipMasterId, aswCur, equips);
   }
 
-  if (nameContains(shipName, ['扶桑改二', '山城改二'])) {
+  if (FUSO_YAMASHIRO_K2_IDS.has(shipMasterId)) {
     return aswCur >= 100 &&
       hasEquip(equips, isZeroSonar) &&
       (hasEmbarkedEquip(equips, master => isSeaplaneBomber(master) || isAutogyro(master)) ||
         hasEquip(equips, isDepthCharge));
   }
 
-  if (nameContains(shipName, ['熊野丸'])) {
+  if (KUMANOMARU_IDS.has(shipMasterId)) {
     return aswCur >= 100 &&
       hasEquip(equips, isSonar) &&
       hasEmbarkedEquip(equips, master =>
         (isCarrierDiveBomber(master) || isAutogyro(master) || isAswPatrol(master)) && master.stats.asw >= 1);
   }
 
-  if (nameContains(shipName, ['大和改二重', '神州丸改'])) {
+  if (YAMATO_K2_JU_SHINSHUMARU_KAI_IDS.has(shipMasterId)) {
     return aswCur >= 100 &&
       hasEquip(equips, isSonar) &&
       hasEmbarkedEquip(equips, master => isSeaplaneBomber(master) || isAutogyro(master));
   }
 
-  if (nameContains(shipName, ['日向改二'])) {
+  if (shipMasterId === 554) {
     const kaObservationCount = equips.filter(equip =>
       nameContains(equip.master.name, ['カ号観測機', 'Ｏ号観測機', 'O号観測機', 'O号观测机'])).length;
     const s51Count = equips.filter(equip =>

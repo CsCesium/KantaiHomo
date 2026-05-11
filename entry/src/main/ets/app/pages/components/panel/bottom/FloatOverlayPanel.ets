@@ -70,7 +70,6 @@ function shipStateToItem(
     expToNext: s.expToNext,
     tags: buildShipCapabilityTags({
       shipMasterId: s.masterId,
-      shipName: s.name,
       stype: shipMasterStype.get(s.masterId) ?? 0,
       ctype: shipMasterCtype.get(s.masterId) ?? 0,
       aswCur: s.aswCur,
