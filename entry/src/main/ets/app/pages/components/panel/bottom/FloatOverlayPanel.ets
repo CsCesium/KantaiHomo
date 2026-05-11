@@ -5,6 +5,9 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getMapGauges,
+  getCurrentBattle,
+  getSortieResourceGains,
+  SortieResourceGains,
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
@@ -17,6 +20,7 @@ import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapab
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
 import { isPeriodicMapGauge } from './rows/shipHelpers';
+import { buildHpOverrideMap, pickSourceFleet, applyBattleHp } from '../../../../../features/state/battleHpOverride';
 
 const OVERLAY_MAP_TAB_IDX = 4;
 
