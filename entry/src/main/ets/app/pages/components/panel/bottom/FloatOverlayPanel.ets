@@ -5,8 +5,6 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getMapGauges,
-  getSortieResourceGains,
-  SortieResourceGains,
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
@@ -152,7 +150,8 @@ export default struct FloatOverlayPanel {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
           changeType === 'admiral' || changeType === 'quests' ||
-          changeType === 'mapinfo' || changeType === 'sortieGains') {
+          changeType === 'mapinfo' || changeType === 'sortieGains' ||
+        changeType === 'battle') {
         this.loadState();
       }
     });
@@ -185,9 +184,11 @@ export default struct FloatOverlayPanel {
   private refreshShips(): void {
     if (this.activeFleet < 4) {
       const st = getGameState().getState();
-      const rawShips = getDeckShips(this.activeFleet + 1);
+      const deckId = this.activeFleet + 1;
+      const rawShips = getDeckShips(deckId);
+      const overrides = buildHpOverrideMap(pickSourceFleet(deckId, getCurrentBattle()));
       this.ships = rawShips.map(s => shipStateToItem(
-        s,
+        applyBattleHp(s, overrides),
         st.slotItemIndex,
         st.slotItemEquipTypes,
         st.slotItemIconTypes,

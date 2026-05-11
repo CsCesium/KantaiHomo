@@ -7,9 +7,12 @@ import {
 import {
   ShipSpecialEquip,
   ShipState,
-  FleetBattleStatus,
-  ShipBattleStatus,
 } from '../../../../features/state/type';
+import {
+  applyBattleHp,
+  buildHpOverrideMap,
+  pickSourceFleet,
+} from '../../../../features/state/battleHpOverride';
 import { getSortieContext } from '../../../../domain/service/sortie';
 import ShipStatusBadge from './ShipStatusBadge';
 
@@ -17,55 +20,6 @@ import ShipStatusBadge from './ShipStatusBadge';
 interface ShipEntry {
   ship: ShipState;
   equip: ShipSpecialEquip;
-}
-
-/**
- * 用战斗快照中的 hpAfter 覆盖 ShipState 的 HP 字段，返回新对象。
- * 只有当快照中有对应 uid 的数据时才覆盖，否则原样返回。
- */
-function applyBattleHp(
-  base: ShipState,
-  overrides: Map<number, ShipBattleStatus>
-): ShipState {
-  const bss = overrides.get(base.uid);
-  if (!bss) return base;
-  return {
-    uid:          base.uid,
-    masterId:     base.masterId,
-    name:         base.name,
-    level:        base.level,
-    expToNext:    base.expToNext,
-    hpNow:        bss.hpAfter,
-    hpMax:        bss.hpMax,
-    cond:         base.cond,
-    fuel:         base.fuel,
-    ammo:         base.ammo,
-    fuelMax:      base.fuelMax,
-    ammoMax:      base.ammoMax,
-    scoutCur:     base.scoutCur,
-    aswCur:       base.aswCur,
-    speed:        base.speed,
-    needsResupply: base.needsResupply,
-    slotCount:    base.slotCount,
-    slots:        base.slots,
-    onslot:       base.onslot,
-    exSlot:       base.exSlot,
-    hpPercent:    bss.hpPercent,
-    isTaiha:      bss.isTaiha,
-    isChuuha:     bss.isChuuha,
-  };
-}
-
-/**
- * 将 FleetBattleStatus 中的 ships 数组转成 uid→ShipBattleStatus 的 Map。
- */
-function buildHpOverrideMap(fleet: FleetBattleStatus | undefined): Map<number, ShipBattleStatus> {
-  const m = new Map<number, ShipBattleStatus>();
-  if (!fleet) return m;
-  for (const s of fleet.ships) {
-    m.set(s.uid, s);
-  }
-  return m;
 }
 
 function shipEntryKey(entry: ShipEntry): string {
@@ -139,15 +93,8 @@ export default struct FleetStatusSidebar {
     const deckId = combined && this.showingEscort ? 2 : (ctx ? ctx.deckId : 1);
     const ships = getDeckShips(deckId);
 
-    // 从战斗状态取最新的 HP 覆盖数据
-    const battle = getCurrentBattle();
-    // 仅使用已结算的战斗结果（BATTLE_RESULT）
-    const sourceFleet: FleetBattleStatus | undefined =
-      battle.result?.friendMain?.deckId === deckId ? battle.result!.friendMain :
-      battle.result?.friendEscort?.deckId === deckId ? battle.result!.friendEscort :
-      undefined;
-
-    const overrides = buildHpOverrideMap(sourceFleet);
+    // 从战斗状态取最新的 HP 覆盖数据（仅使用已结算的 BATTLE_RESULT）
+    const overrides = buildHpOverrideMap(pickSourceFleet(deckId, getCurrentBattle()));
 
     this.entries = ships.map((s: ShipState): ShipEntry => ({
       ship: applyBattleHp(s, overrides),
