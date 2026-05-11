@@ -98,21 +98,7 @@ export default struct ShipBannerBlock {
       .height('100%')
       .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
 
-      // 第 4 层：底部暗带（舰名 / Lv 偏下方）
-      Column() {
-        Blank()
-          .layoutWeight(1)
-
-        Row()
-          .width('100%')
-          .height('55%')
-          .backgroundColor('#50000000')
-      }
-      .width('100%')
-      .height('100%')
-      .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
-
-      // 第 5 层：舰名 + Lv/能力标签，靠右下贴近角
+      // 第 4 层：舰名 + Lv/能力标签，靠右下贴近角
       Column() {
         Blank()
           .layoutWeight(1)
