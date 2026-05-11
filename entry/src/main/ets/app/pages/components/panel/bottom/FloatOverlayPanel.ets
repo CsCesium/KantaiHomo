@@ -5,6 +5,8 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getMapGauges,
+  getSortieResourceGains,
+  SortieResourceGains,
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
@@ -124,6 +126,7 @@ export default struct FloatOverlayPanel {
   @Local activeFleet: number = 0;
   @Local ships: ShipItem[] = [];
   @Local materials: MaterialsSnapshot | null = null;
+  @Local sortieGains: SortieResourceGains | null = null;
   @Local decks: DeckSnapshot[] = [];
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
@@ -148,7 +151,7 @@ export default struct FloatOverlayPanel {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
           changeType === 'admiral' || changeType === 'quests' ||
-          changeType === 'mapinfo') {
+          changeType === 'mapinfo' || changeType === 'sortieGains') {
         this.loadState();
       }
     });
@@ -170,6 +173,7 @@ export default struct FloatOverlayPanel {
 
   private loadState(): void {
     this.materials = getMaterials();
+    this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
     // 已通关的海图直接隐藏；活动海图例外，即使 cleared 也保留显示。
     this.mapGauges = getMapGauges().filter(g => !g.cleared || !isPeriodicMapGauge(g));
@@ -261,6 +265,15 @@ export default struct FloatOverlayPanel {
     }
   }
 
+  @Builder GainText(amount: number) {
+    if (amount > 0) {
+      Text(`+${amount}`)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.hpOk)
+        .margin({ left: 2 })
+    }
+  }
+
   build() {
     Column() {
       // Compact resource status line
@@ -268,18 +281,23 @@ export default struct FloatOverlayPanel {
         if (this.materials) {
           Text(`燃${this.materials.fuel}`)
             .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          this.GainText(this.sortieGains?.fuel ?? 0)
           Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
           Text(`弾${this.materials.ammo}`)
             .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          this.GainText(this.sortieGains?.ammo ?? 0)
           Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
           Text(`鋼${this.materials.steel}`)
             .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          this.GainText(this.sortieGains?.steel ?? 0)
           Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
           Text(`ボ${this.materials.bauxite}`)
             .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          this.GainText(this.sortieGains?.bauxite ?? 0)
           Blank().layoutWeight(1)
           Text(`修${this.materials.instantRepair}`)
             .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          this.GainText(this.sortieGains?.instantRepair ?? 0)
         } else {
           Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
         }

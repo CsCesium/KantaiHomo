@@ -2,6 +2,7 @@
 // ==================== 状态管理类 ====================
 import { Admiral, Materials, Deck, Ship, Ndock, Kdock, Quest } from "../../domain/models";
 import type { LbasBase } from '../../domain/models/struct/lbas';
+import type { MapResourceGain } from '../../domain/models/struct/map';
 import { kvSet } from "../../infra/storage/kv";
 import {
   GameState,
@@ -9,6 +10,7 @@ import {
   ExpChange,
   AdmiralSnapshot,
   MaterialsSnapshot,
+  SortieResourceGains,
   DeckSnapshot,
   ShipState,
   ShipSpecialEquip,
@@ -70,6 +72,7 @@ class GameStateManager {
   private state: GameState = {
     admiral: null,
     materials: null,
+    sortieResourceGains: null,
     decks: [],
     Ndocks:[],
     Kdocks:[],
@@ -169,6 +172,54 @@ class GameStateManager {
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('materials');
   }
+
+  /**
+   * 累加本次出击获得的资源（来自资源点 api_itemget）。
+   * api_id/api_icon_id: 1=燃料, 2=弹药, 3=钢材, 4=铝土,
+   *                    5=高速建造材, 6=高速修复材, 7=开发资材, 8=改修资材
+   */
+  addSortieResourceGains(gains: ReadonlyArray<MapResourceGain>): void {
+    if (!gains || gains.length === 0) return;
+
+    const cur: SortieResourceGains = this.state.sortieResourceGains ?? {
+      fuel: 0, ammo: 0, steel: 0, bauxite: 0,
+      instantBuild: 0, instantRepair: 0, devMaterial: 0, screw: 0,
+      updatedAt: 0,
+    };
+
+    let changed = false;
+    for (const g of gains) {
+      const id = g.itemId ?? g.iconId;
+      const count = g.count ?? 0;
+      if (!id || count <= 0) continue;
+      switch (id) {
+        case 1: cur.fuel += count; changed = true; break;
+        case 2: cur.ammo += count; changed = true; break;
+        case 3: cur.steel += count; changed = true; break;
+        case 4: cur.bauxite += count; changed = true; break;
+        case 5: cur.instantBuild += count; changed = true; break;
+        case 6: cur.instantRepair += count; changed = true; break;
+        case 7: cur.devMaterial += count; changed = true; break;
+        case 8: cur.screw += count; changed = true; break;
+        default: break;
+      }
+    }
+
+    if (!changed) return;
+    cur.updatedAt = Date.now();
+    this.state.sortieResourceGains = cur;
+    this.state.lastUpdatedAt = cur.updatedAt;
+    this.notifyListeners('sortieGains');
+  }
+
+  /** 清除本次出击累计资源（出击开始 / 回港时调用） */
+  clearSortieResourceGains(): void {
+    if (this.state.sortieResourceGains === null) return;
+    this.state.sortieResourceGains = null;
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('sortieGains');
+  }
+
   /**
    * 更新修理渠
    */
@@ -443,6 +494,13 @@ class GameStateManager {
    */
   getMaterials(): MaterialsSnapshot | null {
     return this.state.materials;
+  }
+
+  /**
+   * 获取本次出击累计资源（null 表示无累计）
+   */
+  getSortieResourceGains(): SortieResourceGains | null {
+    return this.state.sortieResourceGains;
   }
 
   /**
@@ -1134,6 +1192,10 @@ export const isShipMasterLandBased = (masterId: number) => gameStateManager.isSh
 
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);
+export const addSortieResourceGains = (gains: ReadonlyArray<MapResourceGain>) =>
+  gameStateManager.addSortieResourceGains(gains);
+export const clearSortieResourceGains = () => gameStateManager.clearSortieResourceGains();
+export const getSortieResourceGains = () => gameStateManager.getSortieResourceGains();
 export const updateNdocks = (ndocks:Ndock[]) => gameStateManager.updateNDocks(ndocks);
 export const updateKdocks = (kdocks:Kdock[]) => gameStateManager.updateKDocks(kdocks);
 export const updateDecks = (decks: Deck[]) => gameStateManager.updateDecks(decks);

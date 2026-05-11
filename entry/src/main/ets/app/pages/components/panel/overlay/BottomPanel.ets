@@ -6,7 +6,9 @@ import {
   getMapGauges,
   MapGaugeSnapshot,
   getQuests,
-  QuestSnapshot
+  QuestSnapshot,
+  getSortieResourceGains,
+  SortieResourceGains
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
@@ -131,6 +133,7 @@ export default struct BottomPanel {
   @Local activeFleet: number = 0;
   @Local ships: ShipItem[] = [];
   @Local materials: MaterialsSnapshot | null = null;
+  @Local sortieGains: SortieResourceGains | null = null;
   @Local decks: DeckSnapshot[] = [];
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
@@ -156,7 +159,7 @@ export default struct BottomPanel {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
           changeType === 'admiral' || changeType === 'quests' ||
-          changeType === 'mapinfo') {
+          changeType === 'mapinfo' || changeType === 'sortieGains') {
         this.loadState();
       }
     });
@@ -178,6 +181,7 @@ export default struct BottomPanel {
 
   private loadState(): void {
     this.materials = getMaterials();
+    this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
     this.mapGauges = [...getMapGauges()];
     this.activeQuests = getQuests().filter(q => q.state === QUEST_STATE_ACTIVE);
@@ -286,26 +290,41 @@ export default struct BottomPanel {
     .alignItems(VerticalAlign.Center)
   }
 
+  @Builder GainText(amount: number) {
+    if (amount > 0) {
+      Text(`+${amount}`)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.hpOk)
+        .margin({ left: 2 })
+    }
+  }
+
   @Builder StatusBar() {
     Row() {
       if (this.materials) {
         Text(`燃${this.materials.fuel}`)
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        this.GainText(this.sortieGains?.fuel ?? 0)
         Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
         Text(`弾${this.materials.ammo}`)
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        this.GainText(this.sortieGains?.ammo ?? 0)
         Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
         Text(`鋼${this.materials.steel}`)
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        this.GainText(this.sortieGains?.steel ?? 0)
         Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
         Text(`ボ${this.materials.bauxite}`)
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        this.GainText(this.sortieGains?.bauxite ?? 0)
         Blank().layoutWeight(1)
         Text(`速修${this.materials.instantRepair}`)
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        this.GainText(this.sortieGains?.instantRepair ?? 0)
         Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
         Text(`速建${this.materials.instantBuild}`)
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        this.GainText(this.sortieGains?.instantBuild ?? 0)
       } else {
         Text('Loading Data...')
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)

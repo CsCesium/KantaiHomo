@@ -7,6 +7,7 @@
 export type {
   AdmiralSnapshot,
   MaterialsSnapshot,
+  SortieResourceGains,
   DeckSnapshot,
   ShipState,
   ShipSpecialEquip,
@@ -37,6 +38,8 @@ export {
   // 更新方法
   updateAdmiral,
   updateMaterials,
+  addSortieResourceGains,
+  clearSortieResourceGains,
   updateNdocks,
   updateKdocks,
   updateDecks,
@@ -66,6 +69,7 @@ export {
   // 查询方法
   getAdmiral,
   getMaterials,
+  getSortieResourceGains,
   getNDocks,
   getKDocks,
   getDecks,
