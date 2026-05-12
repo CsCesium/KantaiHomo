@@ -245,15 +245,13 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
     enemyLine,
   ].filter(line => line.length > 0);
   const detailText = details.join('\n');
+  const message = detailText ? `${line1}\n${detailText}` : line1;
 
   console.info(`[AlertExecutor] sortie next: ${line1}`);
 
   if (config.enableToast) {
     const color = alert.hasTaihaRisk ? '#FF4444' : undefined;
-    const toastDetails = [enemyLine].filter(line => line.length > 0);
-    const toastDetailText = toastDetails.join('\n');
-    const toastMessage = toastDetailText ? `${line1}\n${toastDetailText}` : line1;
-    await executeToast(toastMessage, alert.isBoss ? 3000 : 2000, color);
+    await executeToast(message, alert.isBoss ? 3000 : 2000, color);
   }
 
   if (config.enableVibrate && alert.isBoss) {
