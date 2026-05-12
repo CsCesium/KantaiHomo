@@ -52,17 +52,19 @@ class PortPersistHandler implements Handler {
   }
   private async handleSnapshot(payload: PortSnapshot, ts: number, deps: PersistDeps): Promise<void> {
     const snapshot = payload;
+    // 先清空战斗 / 出击 / 退避状态，再写入入港数据。否则 updateFromPort
+    // 同步触发的 'all' 监听里 applyBattleHp 仍会读到旧的 battle.result，
+    // 把战斗时的 hpAfter 覆盖在最新入港 HP 上，造成 panel/sidebar 闪现
+    // 错误血量。
+    clearBattleState();
+    clearSortieContext();
+    clearEscapedShips();
     updateFromPort({
       admiral: snapshot.admiral,
       materials: snapshot.materials,
       decks: snapshot.decks,
       ships: snapshot.ships,
     });
-    // 入港即出击结束：清空战斗结果快照和出击上下文，
-    // 防止旧的战斗 HP 覆盖入港后的最新舰船状态。
-    clearBattleState();
-    clearSortieContext();
-    clearEscapedShips();
     console.info('[port] snapshot updated to GameState');
     return;
   }

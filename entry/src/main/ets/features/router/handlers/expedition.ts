@@ -6,6 +6,7 @@ import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { cacheMissionNames } from '../../../features/alerts/module/missionCache';
 import { triggerExpeditionChanged } from '../../../features/alerts/module/expeditionTrigger';
+import { patchDeckExpedition } from '../../state';
 
 class ExpeditionHandler implements Handler{
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
@@ -93,6 +94,9 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(payload.updatedAt ?? ts, ts),
     };
     await deps.repos!.expedition.upsertBatch([row]);
+    // 同步内存 deck 快照，否则 mapinfo 的 idle 检测和面板的 ↗ 标记
+    // 要等下一次 /api_port/port 才会刷新。
+    patchDeckExpedition(row.deckId, row.missionId, row.returnTime || null);
     triggerExpeditionChanged();
   }
 
@@ -105,6 +109,10 @@ class ExpeditionHandler implements Handler{
       updatedAt: i64(s.updatedAt ?? ts, ts),
     }));
     await deps.repos!.expedition.upsertBatch(rows);
+    for (const r of rows) {
+      const running = r.progress === ExpeditionProgress.RUNNING;
+      patchDeckExpedition(r.deckId, running ? r.missionId : 0, running ? r.returnTime : null);
+    }
     triggerExpeditionChanged();
   }
 
@@ -118,6 +126,7 @@ class ExpeditionHandler implements Handler{
       updatedAt: finishedAt,
     };
     await deps.repos!.expedition.upsertBatch([stateRow]);
+    patchDeckExpedition(stateRow.deckId, 0, null);
 
     try {
       const resultRow: ExpeditionResultRow = {

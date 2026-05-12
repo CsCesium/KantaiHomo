@@ -266,6 +266,34 @@ class GameStateManager {
   }
 
   /**
+   * 局部更新某个舰队的远征状态。用于 `/api_req_mission/start` 等远征类
+   * API 在下一次 `/api_port/port` 到来之前同步 UI；deckId 在内存里不存在
+   * 时静默忽略（port 刷新会兜底）。
+   */
+  patchDeckExpedition(deckId: number, missionId: number, returnTime: number | null): void {
+    let mutated = false;
+    this.state.decks = this.state.decks.map(d => {
+      if (d.deckId !== deckId) return d;
+      if (d.expeditionMissionId === missionId && d.expeditionReturnTime === returnTime) {
+        return d;
+      }
+      mutated = true;
+      return {
+        deckId: d.deckId,
+        name: d.name,
+        shipUids: d.shipUids,
+        expeditionReturnTime: returnTime,
+        expeditionMissionId: missionId,
+        capturedAt: Date.now(),
+      };
+    });
+    if (mutated) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('decks');
+    }
+  }
+
+  /**
    * 更新任务（仅维护当前可见任务页）
    */
   updateQuests(quests: Quest[]): void {
@@ -1200,6 +1228,8 @@ export const getSortieResourceGains = () => gameStateManager.getSortieResourceGa
 export const updateNdocks = (ndocks:Ndock[]) => gameStateManager.updateNDocks(ndocks);
 export const updateKdocks = (kdocks:Kdock[]) => gameStateManager.updateKDocks(kdocks);
 export const updateDecks = (decks: Deck[]) => gameStateManager.updateDecks(decks);
+export const patchDeckExpedition = (deckId: number, missionId: number, returnTime: number | null) =>
+  gameStateManager.patchDeckExpedition(deckId, missionId, returnTime);
 export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(quests);
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>

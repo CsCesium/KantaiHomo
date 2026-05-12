@@ -43,6 +43,7 @@ export {
   updateNdocks,
   updateKdocks,
   updateDecks,
+  patchDeckExpedition,
   updateQuests,
   updateShips,
   patchShipsSupply,

@@ -26,6 +26,32 @@ import { buildHpOverrideMap, pickSourceFleet, applyBattleHp } from '../../../../
 
 const OVERLAY_MAP_TAB_IDX = 4;
 
+// ArkUI ForEach 在 key 不变时会复用旧子组件且不重新下发 @Param，所以仅
+// 用 uid 作 key 时，HP/cond/补给/装备变化都不会触发 ShipRow 重渲（这
+// 也是回港 / 战斗结算后面板信息偶发不刷新的根因）。把所有会影响显示
+// 的动态字段拼进 key，配合 @Param 引用变化让行级强制重建，与 sidebar
+// 的 shipEntryKey 思路一致。
+function shipRowKey(ship: ShipItem): string {
+  return [
+    ship.id,
+    ship.masterId,
+    ship.level,
+    ship.expToNext,
+    ship.hp,
+    ship.hpMax,
+    ship.s1,
+    ship.s2,
+    ship.s3,
+    ship.exSlot,
+    ship.exSlotLevel,
+    ship.exSlotAlv,
+    ship.slots.join(','),
+    ship.slotLevels.join(','),
+    ship.slotAlvs.join(','),
+    ship.slotAirs.join(','),
+  ].join('_');
+}
+
 function shipStateToItem(
   s: ShipState,
   slotItemIndex: Map<number, number>,
@@ -420,7 +446,7 @@ export default struct FloatOverlayPanel {
                 onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
-            }, (ship: ShipItem) => `ship-${ship.id}`)
+            }, shipRowKey)
           } else {
             Text('NO DATA')
               .fontSize(PanelDimens.fontSm)
