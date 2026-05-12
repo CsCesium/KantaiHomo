@@ -4,7 +4,6 @@ import {
   subscribeGameState,
   getCurrentBattle,
 } from '../../../../features/state';
-import { APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../ability/Entry';
 import {
   ShipSpecialEquip,
   ShipState,
@@ -54,7 +53,7 @@ function shipEntryKey(entry: ShipEntry): string {
 @ComponentV2
 export default struct FleetStatusSidebar {
   @Param sidebarWidth: number = 72;
-  @StorageProp(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private showAvatarPref: boolean = true;
+  @Param showAvatar: boolean = true;
 
   @Local private entries: ShipEntry[] = [];
   /** 联合舰队出击时是否正在显示护卫舰队（第二舰队） */
@@ -125,7 +124,7 @@ export default struct FleetStatusSidebar {
               equip: entry.equip,
               totalWidth: this.sidebarWidth,
               totalHeight: this.sidebarWidth,
-              showAvatar: this.showAvatarPref,
+              showAvatar: this.showAvatar,
             })
               .layoutWeight(1)
           },

@@ -15,7 +15,7 @@ import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
 import { getAlertConfig, subscribeAlert, SortieNextAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
 import { resourceGainIconPath, resourceGainName } from "../../features/resources/resourceMeta";
@@ -59,6 +59,8 @@ export default struct WebHost {
   @State private sidebarWidthVp: number = 0;
   /** Mirrors ui.showSidebar AppStorage preference; updates immediately when user toggles in Settings. */
   @StorageProp(APP_STORAGE_SHOW_SIDEBAR) private showSidebarPref: boolean = true;
+  /** Mirrors ui.sidebar.showAvatar AppStorage preference; forwarded into the V2 sidebar component. */
+  @StorageProp(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private showSidebarAvatarPref: boolean = true;
   /** Mirrors alerts.yasen.enabled; controls YasenDetect JS injection on each page load. */
   @StorageProp(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenDetectEnabled: boolean = true;
   /** Mirrors alerts.advanceGuard.enabled; controls AdvanceDetect JS injection. */
@@ -674,7 +676,10 @@ export default struct WebHost {
         // Use absolute position to anchor to the right edge of the Stack (align() only
         // sets internal content alignment and does NOT reposition within the parent).
         if (this.showSidebarPref && this.sidebarWidthVp > 0 && this.shouldShowFloatingButtons()) {
-          FleetStatusSidebar({ sidebarWidth: this.sidebarWidthVp })
+          FleetStatusSidebar({
+            sidebarWidth: this.sidebarWidthVp,
+            showAvatar: this.showSidebarAvatarPref,
+          })
             .width(this.sidebarWidthVp)
             .height('100%')
             .align(Alignment.TopEnd)
