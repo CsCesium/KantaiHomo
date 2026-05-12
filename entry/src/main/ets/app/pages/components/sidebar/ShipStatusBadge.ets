@@ -58,6 +58,7 @@ export default struct ShipStatusBadge {
   @Param equip: ShipSpecialEquip = { hasDamageControl: false, hasGoddess: false };
   @Param totalHeight: number = 48;
   @Param totalWidth: number = 60;
+  @Param showAvatar: boolean = true;
   @Local private failedAvatarUrl: string = '';
 
   // Canvas 渲染上下文，在整个组件生命周期内复用
@@ -123,7 +124,7 @@ export default struct ShipStatusBadge {
 
   @Computed
   get shouldShowAvatarImage(): boolean {
-    return this.avatarUrl.length > 0 && this.failedAvatarUrl !== this.avatarUrl;
+    return this.showAvatar && this.avatarUrl.length > 0 && this.failedAvatarUrl !== this.avatarUrl;
   }
 
   @Computed

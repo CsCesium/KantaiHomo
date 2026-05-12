@@ -3,7 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
 
@@ -22,6 +22,8 @@ struct Setting {
   // ── UI preferences ─────────────────────────────────────────────
   /** Two-way binding to AppStorage; writing this immediately updates WebHost. */
   @StorageLink(APP_STORAGE_SHOW_SIDEBAR) private showSidebar: boolean = true;
+  /** Two-way binding to AppStorage; writing this immediately updates sidebar badges. */
+  @StorageLink(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private sidebarShowAvatar: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
@@ -119,6 +121,11 @@ struct Setting {
   private onPanelShowProficiencyToggle(v: boolean): void {
     this.panelShowProficiency = v;
     void kvSet(APP_STORAGE_PANEL_SHOW_PROFICIENCY, v);
+  }
+
+  private onSidebarShowAvatarToggle(v: boolean): void {
+    this.sidebarShowAvatar = v;
+    void kvSet(APP_STORAGE_SIDEBAR_SHOW_AVATAR, v);
   }
 
   private async saveConfig(): Promise<void> {
@@ -443,6 +450,13 @@ struct Setting {
                 this.showSidebar = v;            // 写入 AppStorage，WebHost 立即响应
                 void kvSet(APP_STORAGE_SHOW_SIDEBAR, v); // 持久化
               }
+            )
+
+            this.ToggleRow(
+              '侧边栏头像',
+              '开启时显示舰娘头像，关闭时回退显示舰娘名称',
+              this.sidebarShowAvatar,
+              (v: boolean) => { this.onSidebarShowAvatarToggle(v); }
             )
 
             this.ToggleRow(
