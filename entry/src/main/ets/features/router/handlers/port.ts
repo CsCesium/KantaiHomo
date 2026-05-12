@@ -15,7 +15,7 @@ import {
   shipToRow
 } from '../../../domain/models';
 import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks, updateKdocks,
-  updateShips, clearBattleState, clearEscapedShips } from '../../state';
+  updateShips, clearBattleState, clearEscapedShips, clearSortieResourceGains } from '../../state';
 import { clearSortieContext } from '../../../domain/service';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -52,13 +52,14 @@ class PortPersistHandler implements Handler {
   }
   private async handleSnapshot(payload: PortSnapshot, ts: number, deps: PersistDeps): Promise<void> {
     const snapshot = payload;
-    // 先清空战斗 / 出击 / 退避状态，再写入入港数据。否则 updateFromPort
+    // 先清空战斗 / 出击 / 退避 / 出击资源累计状态，再写入入港数据。否则 updateFromPort
     // 同步触发的 'all' 监听里 applyBattleHp 仍会读到旧的 battle.result，
     // 把战斗时的 hpAfter 覆盖在最新入港 HP 上，造成 panel/sidebar 闪现
     // 错误血量。
     clearBattleState();
     clearSortieContext();
     clearEscapedShips();
+    clearSortieResourceGains();
     updateFromPort({
       admiral: snapshot.admiral,
       materials: snapshot.materials,
