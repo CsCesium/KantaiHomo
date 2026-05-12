@@ -16,14 +16,21 @@ import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "..
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
-import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
+import { getAlertConfig, subscribeAlert, SortieNextAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
+import { resourceGainIconPath, resourceGainName } from "../../features/resources/resourceMeta";
 
 interface RpcPayload {
   op: string;
   key?: string;
   value?: string;
   def?: string;
+}
+
+interface ResourceToastItem {
+  icon: string;
+  label: string;
+  count: number;
 }
 
 @Component
@@ -68,10 +75,14 @@ export default struct WebHost {
   @State private lrLayoutForced: boolean = false;
   @State private battlePreviewAvailable: boolean = false;
   @State private battlePreviewVisible: boolean = true;
+  @State private resourceToastItems: ResourceToastItem[] = [];
+  @State private resourceToastVisible: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
+  private unsubSortieNext?: () => void;
   private unsubGameState?: () => void;
+  private resourceToastTimer: number = -1;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
     channelName: defaultInjectOptions.channelName,
@@ -321,6 +332,78 @@ export default struct WebHost {
     }).catch((_e: Error) => {});
   }
 
+  private showResourceGainToast(alert: SortieNextAlert): void {
+    if (!getAlertConfig().enableToast) {
+      return;
+    }
+
+    const gains = alert.resourceGains ?? [];
+    if (gains.length === 0) {
+      return;
+    }
+
+    this.resourceToastItems = gains.map((gain): ResourceToastItem => {
+      return {
+        icon: resourceGainIconPath(gain.itemId, gain.iconId),
+        label: resourceGainName(gain.itemId, gain.iconId, gain.name) || gain.name,
+        count: gain.count,
+      };
+    });
+    this.resourceToastVisible = true;
+
+    if (this.resourceToastTimer !== -1) {
+      clearTimeout(this.resourceToastTimer);
+    }
+    this.resourceToastTimer = setTimeout((): void => {
+      this.resourceToastVisible = false;
+      this.resourceToastTimer = -1;
+    }, 2600);
+  }
+
+  @Builder private ResourceGainToast() {
+    if (this.resourceToastVisible && this.resourceToastItems.length > 0) {
+      Column({ space: 6 }) {
+        Text('获得资源')
+          .fontSize(12)
+          .fontColor('#B8D5E8')
+          .fontWeight(FontWeight.Medium)
+
+        Row({ space: 10 }) {
+          ForEach(
+            this.resourceToastItems,
+            (item: ResourceToastItem) => {
+              Row({ space: 3 }) {
+                if (item.icon.length > 0) {
+                  Image(item.icon)
+                    .width(15)
+                    .height(15)
+                    .objectFit(ImageFit.Contain)
+                } else {
+                  Text(item.label)
+                    .fontSize(10)
+                    .fontColor('#A8C8D8')
+                }
+                Text(`+${item.count}`)
+                  .fontSize(12)
+                  .fontColor('#D6F4A4')
+                  .fontWeight(FontWeight.Medium)
+              }
+              .alignItems(VerticalAlign.Center)
+            },
+            (item: ResourceToastItem, idx: number) => `${idx}_${item.label}_${item.count}`
+          )
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .padding({ left: 14, right: 14, top: 8, bottom: 8 })
+      .backgroundColor('#CC08111C')
+      .border({ width: 1, color: '#33485A' })
+      .borderRadius(8)
+      .align(Alignment.Top)
+      .margin({ top: 44 })
+    }
+  }
+
   private refreshBattlePreviewState(): void {
     const available: boolean = isInBattle();
     if (!available) {
@@ -347,6 +430,9 @@ export default struct WebHost {
     this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
     this.unsubSortieStartTaiha = subscribeAlert<SortieStartTaihaAlert>('sortie_start_taiha', (a) => {
       this.showSortieStartTaihaDialog(a);
+    });
+    this.unsubSortieNext = subscribeAlert<SortieNextAlert>('sortie_next', (a) => {
+      this.showResourceGainToast(a);
     });
     this.refreshBattlePreviewState();
     this.unsubGameState = subscribeGameState((changeType, _state) => {
@@ -387,9 +473,19 @@ export default struct WebHost {
       this.unsubSortieStartTaiha = undefined;
     }
 
+    if (this.unsubSortieNext) {
+      this.unsubSortieNext();
+      this.unsubSortieNext = undefined;
+    }
+
     if (this.unsubGameState) {
       this.unsubGameState();
       this.unsubGameState = undefined;
+    }
+
+    if (this.resourceToastTimer !== -1) {
+      clearTimeout(this.resourceToastTimer);
+      this.resourceToastTimer = -1;
     }
 
     if (this.windowStatusCb) {
@@ -584,6 +680,8 @@ export default struct WebHost {
             .align(Alignment.TopEnd)
             .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
         }
+
+        this.ResourceGainToast()
 
         // FloatOverlay panel — overlaid on the game viewport.
         // Only shown when explicitly triggered (overlayForced / fairy ball event).

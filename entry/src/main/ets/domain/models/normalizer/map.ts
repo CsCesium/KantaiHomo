@@ -1,16 +1,6 @@
 import { ApiMapStartRespRaw, ApiMapNextRespRaw, ApiMapResourceItemRaw } from "../api/map";
 import { SortieCell, MapResourceGain } from "../struct/map";
-
-const RESOURCE_NAME_BY_ID: Record<number, string> = {
-  1: '燃料',
-  2: '弹药',
-  3: '钢材',
-  4: '铝土',
-  5: '高速建造材',
-  6: '高速修复材',
-  7: '开发资材',
-  8: '改修资材',
-};
+import { resourceGainName } from "../../../features/resources/resourceMeta";
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -29,8 +19,8 @@ function isBossCell(
 }
 
 function getResourceName(itemId: number | undefined, iconId: number | undefined): string {
-  if (itemId !== undefined && RESOURCE_NAME_BY_ID[itemId]) return RESOURCE_NAME_BY_ID[itemId];
-  if (iconId !== undefined && RESOURCE_NAME_BY_ID[iconId]) return RESOURCE_NAME_BY_ID[iconId];
+  const name = resourceGainName(itemId, iconId);
+  if (name) return name;
   const fallbackId = itemId ?? iconId;
   return fallbackId !== undefined ? `物资${fallbackId}` : '资源';
 }

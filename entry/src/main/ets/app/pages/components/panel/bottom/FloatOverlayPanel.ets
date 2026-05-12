@@ -17,8 +17,10 @@ import {
 } from '../../../../../features/calc';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
 import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
+import { resourceIconPath } from '../../../../../features/resources/resourceMeta';
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
+import ResourceAmount from '../common/ResourceAmount';
 import { isPeriodicMapGauge } from './rows/shipHelpers';
 import { buildHpOverrideMap, pickSourceFleet, applyBattleHp } from '../../../../../features/state/battleHpOverride';
 
@@ -271,47 +273,33 @@ export default struct FloatOverlayPanel {
     }
   }
 
-  @Builder GainText(amount: number) {
-    if (amount > 0) {
-      Text(`+${amount}`)
-        .fontSize(PanelDimens.fontSm)
-        .fontColor(PanelColors.hpOk)
-        .margin({ left: 2 })
-    }
-  }
-
   build() {
     Column() {
       // Compact resource status line
-      Row() {
-        if (this.materials) {
-          Text(`燃${this.materials.fuel}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          this.GainText(this.sortieGains?.fuel ?? 0)
-          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-          Text(`弾${this.materials.ammo}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          this.GainText(this.sortieGains?.ammo ?? 0)
-          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-          Text(`鋼${this.materials.steel}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          this.GainText(this.sortieGains?.steel ?? 0)
-          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-          Text(`ボ${this.materials.bauxite}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          this.GainText(this.sortieGains?.bauxite ?? 0)
-          Blank().layoutWeight(1)
-          Text(`修${this.materials.instantRepair}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          this.GainText(this.sortieGains?.instantRepair ?? 0)
-        } else {
-          Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+      Scroll() {
+        Row({ space: 7 }) {
+          if (this.materials) {
+            ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ label: '建', value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.overlayTxt })
+          } else {
+            Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+          }
         }
+        .height(PanelDimens.statusBarH)
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
       .height(PanelDimens.statusBarH)
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.None)
       .padding({ left: 8, right: 8 })
-      .alignItems(VerticalAlign.Center)
       .borderWidth({ bottom: PanelDimens.borderW })
       .borderColor(PanelColors.overlayHdr)
 
