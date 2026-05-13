@@ -82,16 +82,17 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
   const size: number = totalSize(dump)
 
   let result: ParseResult = { preEvents: [], mainEvents: [] };
-  // 提取状态（补给 API 的 api_material 为 number[] 格式，由专用 pipeline 处理，跳过通用提取）
+  // 提取状态（补给 API 的 api_material 为 number[] 格式，由专用 pipeline 处理，跳过通用提取；
+  // port 也交给专用 handler，保证先清战斗/出击临时状态再写入港内数据）
   const isCharge = dump.url?.includes('/api_req_hokyu/charge');
-  if (!isCharge) {
+  const isPort = dump.url?.includes('/api_port/port');
+  if (!isCharge && !isPort) {
     try {
       const apiData = parseSvdataAndUnwrap<ApiStateFields>(dump.responseText);
       if(apiData) {
         const fields = detectStateFields(apiData);
         if(fields.any){
-          const isPort = dump.url?.includes('./api_port/port');
-          extractAndUpdateState(apiData,{batchUpdate: isPort});
+          extractAndUpdateState(apiData);
         }
       }
     } catch (e) {

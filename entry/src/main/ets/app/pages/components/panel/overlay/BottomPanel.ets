@@ -29,6 +29,32 @@ const QUEST_TAB_IDX = 7;
 /** QuestState.ACTIVE — duplicated to keep this UI file decoupled from domain enum import. */
 const QUEST_STATE_ACTIVE = 2;
 
+function shipRowKey(ship: ShipItem): string {
+  return [
+    ship.id,
+    ship.masterId,
+    ship.level,
+    ship.expToNext,
+    ship.hp,
+    ship.hpMax,
+    ship.s1,
+    ship.s2,
+    ship.s3,
+    ship.tags.join(','),
+    ship.exSlot,
+    ship.exSlotType,
+    ship.exSlotIconType,
+    ship.exSlotLevel,
+    ship.exSlotAlv,
+    ship.slots.join(','),
+    ship.slotTypes.join(','),
+    ship.slotIconTypes.join(','),
+    ship.slotLevels.join(','),
+    ship.slotAlvs.join(','),
+    ship.slotAirs.join(','),
+  ].join('_');
+}
+
 function shipStateToItem(
   s: ShipState,
   slotItemIndex: Map<number, number>,
@@ -511,7 +537,7 @@ export default struct BottomPanel {
                 onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
-            }, (ship: ShipItem) => `ship-${ship.id}`)
+            }, shipRowKey)
           } else {
             this.EmptyState()
           }

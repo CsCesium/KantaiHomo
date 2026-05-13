@@ -972,14 +972,28 @@ class GameStateManager {
    * 更新装备实例索引（来自 api_get_member/slot_item，uid → masterId/level/alv）
    */
   updateSlotItemIndex(items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>): void {
+    let changed = false;
     for (const item of items) {
-      this.state.slotItemIndex.set(item.uid, item.masterId);
+      if (this.state.slotItemIndex.get(item.uid) !== item.masterId) {
+        this.state.slotItemIndex.set(item.uid, item.masterId);
+        changed = true;
+      }
       if (item.level !== undefined) {
-        this.state.slotItemLevels.set(item.uid, item.level);
+        if (this.state.slotItemLevels.get(item.uid) !== item.level) {
+          this.state.slotItemLevels.set(item.uid, item.level);
+          changed = true;
+        }
       }
       if (item.alv !== undefined) {
-        this.state.slotItemAlvs.set(item.uid, item.alv);
+        if (this.state.slotItemAlvs.get(item.uid) !== item.alv) {
+          this.state.slotItemAlvs.set(item.uid, item.alv);
+          changed = true;
+        }
       }
+    }
+    if (changed) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('ships');
     }
   }
 
