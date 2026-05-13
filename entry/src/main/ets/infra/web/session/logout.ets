@@ -3,10 +3,18 @@ import { promptAction } from '@kit.ArkUI';
 import { kvDelete } from '../../storage/kv';
 
 const DMM_COOKIE_BACKUP_KEY = 'dmm.cookie.backup.v1';
+export const APP_STORAGE_SESSION_LOGOUT_REV = 'session.logout.rev';
+
+function notifySessionLogout(): void {
+  const current = AppStorage.get<number>(APP_STORAGE_SESSION_LOGOUT_REV) ?? 0;
+  AppStorage.setOrCreate(APP_STORAGE_SESSION_LOGOUT_REV, current + 1);
+  AppStorage.set(APP_STORAGE_SESSION_LOGOUT_REV, current + 1);
+}
 
 export function logoutGameSession(): void {
   webview.WebCookieManager.clearAllCookiesSync();
   void kvDelete(DMM_COOKIE_BACKUP_KEY);
+  notifySessionLogout();
 }
 
 export function promptLogout(): void {

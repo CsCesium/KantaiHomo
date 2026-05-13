@@ -18,6 +18,7 @@ import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
+import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
 
 interface RpcPayload {
   op: string;
@@ -62,6 +63,7 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
+  @StorageProp(APP_STORAGE_SESSION_LOGOUT_REV) private logoutRevision: number = 0;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
@@ -74,6 +76,7 @@ export default struct WebHost {
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
   private unsubGameState?: () => void;
+  private handledLogoutRevision: number = 0;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
     channelName: defaultInjectOptions.channelName,
@@ -323,6 +326,15 @@ export default struct WebHost {
     }).catch((_e: Error) => {});
   }
 
+  private applyPendingLogout(): void {
+    if (this.logoutRevision <= this.handledLogoutRevision) {
+      return;
+    }
+    this.handledLogoutRevision = this.logoutRevision;
+    this.firstPageLoad = false;
+    this.controller.loadUrl(this.HOME);
+  }
+
   private refreshBattlePreviewState(): void {
     const available: boolean = isInBattle();
     if (!available) {
@@ -359,6 +371,7 @@ export default struct WebHost {
     this.host.bindDisplay();
     void this.host.applyOrientationByMode(true);
     void this.loadRuntimeConfig();
+    this.applyPendingLogout();
 
     const mainWin = getMainWindowCached();
     if (mainWin) {

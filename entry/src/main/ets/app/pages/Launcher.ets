@@ -6,11 +6,19 @@ import { promptLogout } from '../../infra/web/session/logout';
 @Entry
 @Component
 struct Launcher {
+  @State private resumeGameMode: boolean = false;
+
   private navigate(url: string): void {
     router.pushUrl({ url }).catch(() => {});
   }
 
+  private isResumeGameRoute(): boolean {
+    const params = router.getParams() as Record<string, string | boolean> | undefined;
+    return params?.resumeGame === true || params?.resumeGame === 'true';
+  }
+
   aboutToAppear(): void {
+    this.resumeGameMode = this.isResumeGameRoute();
     const win = getMainWindowCached();
     if (!win) return;
     void win.setWindowSystemBarEnable(['status', 'navigation']);
@@ -35,6 +43,10 @@ struct Launcher {
       ? win.setPreferredOrientation(this.getCurrentOrientation(win))
       : Promise.resolve();
     orientationPromise.catch(() => {}).finally(() => {
+      if (this.resumeGameMode) {
+        router.back();
+        return;
+      }
       router.pushUrl({ url: 'app/pages/WebRoot' }).catch(() => {});
     });
   }
