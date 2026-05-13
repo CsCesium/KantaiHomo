@@ -24,6 +24,7 @@ import { updateShipGraphFilenames } from '../features/state';
 import { ShipGraphRow } from '../infra/storage/types';
 import { shipGraphFilename } from '../features/state/type';
 import { initBattlePredictionService, gameStateAdapter } from '../features/simulator';
+import { initAppVolumeMuteStorage } from '../infra/audio/appVolume';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -56,6 +57,8 @@ export default class EntryAbility extends UIAbility {
 
     // Pre-seed AppStorage with defaults so @StorageProp bindings are valid
     // before any page renders. Actual persisted values are loaded below.
+    initAppVolumeMuteStorage();
+
     AppStorage.setOrCreate(APP_STORAGE_SHOW_SIDEBAR, true);
     void kvGetBool(APP_STORAGE_SHOW_SIDEBAR, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_SHOW_SIDEBAR, v);

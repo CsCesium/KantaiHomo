@@ -23,6 +23,11 @@ import ShipRow from '../bottom/rows/ShipRow';
 import MapGaugeRow from '../bottom/rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
+import {
+  APP_STORAGE_APP_VOLUME_MUTED,
+  setAppVolumeMuted,
+  syncAppVolumeMuted
+} from '../../../../../infra/audio/appVolume';
 
 const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任務'];
 const MAP_TAB_IDX = 6;
@@ -201,7 +206,6 @@ export default struct BottomPanel {
   @Local admiralExperience: string = '--';
   @Local todaySenka: string = '--';
   @Local shipCapacity: string = '--/--';
-  @Local slotItemCapacity: string = '--/--';
   @Local panelWidth: number = 9999;
   /** UID of slot whose detail popup is currently open; 0 = none. EquipDetailPanel 自加载行。 */
   @Local detailUid: number = 0;
@@ -209,11 +213,14 @@ export default struct BottomPanel {
   @Local showKaisyuu: boolean = true;
   /** Show aircraft proficiency badge; mirrors AppStorage setting. */
   @Local showProficiency: boolean = true;
+  /** App-level volume mute state from the panel button bar. */
+  @Local appVolumeMuted: boolean = false;
 
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
     this.refreshSettings();
+    this.syncAppVolumeMuteState();
     this.loadState();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
@@ -228,8 +235,10 @@ export default struct BottomPanel {
   private refreshSettings(): void {
     const k = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_KAISYUU);
     const p = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_PROFICIENCY);
+    const muted = AppStorage.get<boolean>(APP_STORAGE_APP_VOLUME_MUTED);
     this.showKaisyuu = k !== undefined ? k : true;
     this.showProficiency = p !== undefined ? p : true;
+    this.appVolumeMuted = muted !== undefined ? muted : false;
   }
 
   aboutToDisappear(): void {
@@ -254,7 +263,6 @@ export default struct BottomPanel {
     this.admiralExperience = admiral ? `${admiral.experience}` : '--';
     this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
     this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
-    this.slotItemCapacity = formatLimitCount(st.slotItemIndex.size, admiral?.maxSlotItems);
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -326,6 +334,24 @@ export default struct BottomPanel {
     this.loadCalcStats();
   }
 
+  private syncAppVolumeMuteState(): void {
+    void syncAppVolumeMuted().then((muted: boolean) => {
+      this.appVolumeMuted = muted;
+    }).catch(() => {
+      this.appVolumeMuted = false;
+    });
+  }
+
+  private toggleAppVolumeMuted(): void {
+    const next = !this.appVolumeMuted;
+    this.appVolumeMuted = next;
+    void setAppVolumeMuted(next).then((muted: boolean) => {
+      this.appVolumeMuted = muted;
+    }).catch(() => {
+      this.syncAppVolumeMuteState();
+    });
+  }
+
   private tabLabel(idx: number): string {
     if (idx >= 4) return FLEET_TABS_LABEL[idx];
     const deck = this.decks.find(d => d.deckId === idx + 1);
@@ -352,12 +378,26 @@ export default struct BottomPanel {
       }, (_tab: string, idx: number) => `fleet-${idx}`)
 
       Blank().layoutWeight(1)
+
+      this.MuteButton()
     }
     .width('100%')
     .height(PanelDimens.tabBarH)
     .backgroundColor(PanelColors.bgTabs)
     .padding({ left: 8, right: 8 })
     .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder MuteButton() {
+    Text('静音')
+      .fontSize(PanelDimens.fontLg)
+      .fontWeight(this.appVolumeMuted ? FontWeight.Bold : FontWeight.Normal)
+      .fontColor(PanelColors.txtTabOn)
+      .backgroundColor(this.appVolumeMuted ? '#6A2E2E' : PanelColors.bgTabInactive)
+      .opacity(this.appVolumeMuted ? 1.0 : 0.45)
+      .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+      .borderRadius(PanelDimens.radius)
+      .onClick(() => { this.toggleAppVolumeMuted(); })
   }
 
   @Builder AdmiralTag(text: string) {
@@ -381,7 +421,6 @@ export default struct BottomPanel {
         this.AdmiralTag(`提督经验 ${this.admiralExperience}`)
         this.AdmiralTag(`今日: ${this.todaySenka}`)
         this.AdmiralTag(`舰娘: ${this.shipCapacity}`)
-        this.AdmiralTag(`装备: ${this.slotItemCapacity}`)
       }
       .height(PanelDimens.statusBarH)
       .alignItems(VerticalAlign.Center)

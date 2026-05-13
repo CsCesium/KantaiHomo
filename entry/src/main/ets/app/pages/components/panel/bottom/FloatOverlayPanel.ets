@@ -22,6 +22,11 @@ import MapGaugeRow from './rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import { isPeriodicMapGauge } from './rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
+import {
+  APP_STORAGE_APP_VOLUME_MUTED,
+  setAppVolumeMuted,
+  syncAppVolumeMuted
+} from '../../../../../infra/audio/appVolume';
 
 const OVERLAY_MAP_TAB_IDX = 4;
 const RESOURCE_NARROW_WIDTH = 460;
@@ -198,7 +203,6 @@ export default struct FloatOverlayPanel {
   @Local admiralExperience: string = '--';
   @Local todaySenka: string = '--';
   @Local shipCapacity: string = '--/--';
-  @Local slotItemCapacity: string = '--/--';
   @Local panelWidth: number = PanelDimens.overlayPanelW;
   /** UID of slot whose detail popup is currently open; 0 = none. EquipSlot 自己加载详情。 */
   @Local detailUid: number = 0;
@@ -206,11 +210,14 @@ export default struct FloatOverlayPanel {
   @Local showKaisyuu: boolean = true;
   /** Show aircraft proficiency badge; mirrors AppStorage setting. */
   @Local showProficiency: boolean = true;
+  /** App-level volume mute state from the panel button bar. */
+  @Local appVolumeMuted: boolean = false;
 
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
     this.refreshSettings();
+    this.syncAppVolumeMuteState();
     this.loadState();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
@@ -226,8 +233,10 @@ export default struct FloatOverlayPanel {
   private refreshSettings(): void {
     const k = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_KAISYUU);
     const p = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_PROFICIENCY);
+    const muted = AppStorage.get<boolean>(APP_STORAGE_APP_VOLUME_MUTED);
     this.showKaisyuu = k !== undefined ? k : true;
     this.showProficiency = p !== undefined ? p : true;
+    this.appVolumeMuted = muted !== undefined ? muted : false;
   }
 
   aboutToDisappear(): void {
@@ -250,7 +259,6 @@ export default struct FloatOverlayPanel {
     this.admiralExperience = admiral ? `${admiral.experience}` : '--';
     this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
     this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
-    this.slotItemCapacity = formatLimitCount(st.slotItemIndex.size, admiral?.maxSlotItems);
     // 已通关的海图直接隐藏；活动海图例外，即使 cleared 也保留显示。
     this.mapGauges = getMapGauges().filter(g => !g.cleared || !isPeriodicMapGauge(g));
     this.refreshShips();
@@ -324,6 +332,24 @@ export default struct FloatOverlayPanel {
     this.loadCalcStats();
   }
 
+  private syncAppVolumeMuteState(): void {
+    void syncAppVolumeMuted().then((muted: boolean) => {
+      this.appVolumeMuted = muted;
+    }).catch(() => {
+      this.appVolumeMuted = false;
+    });
+  }
+
+  private toggleAppVolumeMuted(): void {
+    const next = !this.appVolumeMuted;
+    this.appVolumeMuted = next;
+    void setAppVolumeMuted(next).then((muted: boolean) => {
+      this.appVolumeMuted = muted;
+    }).catch(() => {
+      this.syncAppVolumeMuteState();
+    });
+  }
+
   private isOnExpedition(idx: number): boolean {
     if (idx >= 4) return false;
     const deck = this.decks.find(d => d.deckId === idx + 1);
@@ -370,7 +396,6 @@ export default struct FloatOverlayPanel {
         this.AdmiralTag(`提督经验: ${this.admiralExperience}`)
         this.AdmiralTag(`今日: ${this.todaySenka}`)
         this.AdmiralTag(`舰娘: ${this.shipCapacity}`)
-        this.AdmiralTag(`装备: ${this.slotItemCapacity}`)
       }
       .height(PanelDimens.statusBarH)
       .alignItems(VerticalAlign.Center)
@@ -477,6 +502,18 @@ export default struct FloatOverlayPanel {
     .borderColor(PanelColors.overlayHdr)
   }
 
+  @Builder private MuteButton(): void {
+    Text('静音')
+      .fontSize(PanelDimens.fontSm)
+      .fontWeight(this.appVolumeMuted ? FontWeight.Bold : FontWeight.Normal)
+      .fontColor(PanelColors.txtTabOn)
+      .backgroundColor(this.appVolumeMuted ? '#6A2E2E' : PanelColors.bgTabInactive)
+      .opacity(this.appVolumeMuted ? 1.0 : 0.55)
+      .padding({ left: 9, right: 9, top: 3, bottom: 3 })
+      .borderRadius(PanelDimens.radius)
+      .onClick(() => { this.toggleAppVolumeMuted(); })
+  }
+
   build() {
     Column() {
       this.AdmiralHeader()
@@ -555,16 +592,19 @@ export default struct FloatOverlayPanel {
 
         Blank().layoutWeight(1)
 
-        Text('地図')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtTabOn)
-          .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
-          .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
-          .padding({ left: 9, right: 9, top: 3, bottom: 3 })
-          .borderRadius(PanelDimens.radius)
-          .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
+        Row({ space: 6 }) {
+          Text('地図')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtTabOn)
+            .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
+            .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
+            .padding({ left: 9, right: 9, top: 3, bottom: 3 })
+            .borderRadius(PanelDimens.radius)
+            .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
 
-        Blank().layoutWeight(1)
+          this.MuteButton()
+        }
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
       .height(PanelDimens.tabBarH - 4)
