@@ -365,12 +365,12 @@ export default struct FloatOverlayPanel {
   @Builder private AdmiralHeader(): void {
     Scroll() {
       Row({ space: 4 }) {
-        this.AdmiralTag(`名称 ${this.admiralName}`)
-        this.AdmiralTag(`头衔 ${this.admiralRank}`)
-        this.AdmiralTag(`提督经验 ${this.admiralExperience}`)
-        this.AdmiralTag(`今日战果 ${this.todaySenka}`)
-        this.AdmiralTag(`舰娘数 ${this.shipCapacity}`)
-        this.AdmiralTag(`装备数 ${this.slotItemCapacity}`)
+        this.AdmiralTag(`${this.admiralName}`)
+        this.AdmiralTag(`${this.admiralRank}`)
+        this.AdmiralTag(`提督经验: ${this.admiralExperience}`)
+        this.AdmiralTag(`今日: ${this.todaySenka}`)
+        this.AdmiralTag(`舰娘: ${this.shipCapacity}`)
+        this.AdmiralTag(`装备: ${this.slotItemCapacity}`)
       }
       .height(PanelDimens.statusBarH)
       .alignItems(VerticalAlign.Center)
