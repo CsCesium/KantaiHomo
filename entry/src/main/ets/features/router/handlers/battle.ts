@@ -378,28 +378,10 @@ class BattleHandler implements Handler {
       endedAt: now,
     };
 
-    // 3. 更新战斗结果状态快照 (供前端显示)
-    if (context && context.pendingBattle && context.pendingBattle.prediction) {
-      const resultSnapshot = buildBattleResultSnapshot({
-        battleId,
-        sortieContext: context,
-        battleContext: context.pendingBattle,
-        prediction: context.pendingBattle.prediction,
-        rank: normalizedResult.rank,
-        mvp: normalizedResult.mvp.main,
-        mvpCombined: normalizedResult.mvp.combined,
-        dropShipId: normalizedResult.drop?.shipId,
-        dropShipName: normalizedResult.drop?.shipName,
-        dropItemId: normalizedResult.drop?.itemId,
-        baseExp: normalizedResult.exp.base,
-      });
-      updateBattleResult(resultSnapshot);
-    }
-
-    // 3b. 把战后 HP 写回 GameState.ships，使主面板与侧边栏在
-    // 下一次 /api_port/port 之前就反映真实战后 HP（与侧边栏 BATTLE_RESULT
-    // 覆盖逻辑保持一致）。BattleResult 响应不含 api_ship_data，
-    // 故依赖战斗段（来自模拟器或包结算）的 hpEnd。
+    // 3. 先把战后 HP 写回 GameState.ships，再发布 battle.result。
+    // battle.result 会让 PanelHost 立即切回 main panel；如果先切回再 patch，
+    // 普通面板挂载时可能读到旧 GameState，表现为战斗结束那一帧数据不正确。
+    // BattleResult 响应不含 api_ship_data，故依赖战斗段的 hpEnd。
     // 演习是模拟战斗，舰船 HP 实际不会下降，跳过 HP 回写避免污染主面板。
     if (context && !isPractice) {
       const hpPatches: { uid: number; hpNow: number; hpMax: number }[] = [];
@@ -426,6 +408,24 @@ class BattleHandler implements Handler {
       if (hpPatches.length > 0) {
         patchShipsHp(hpPatches);
       }
+    }
+
+    // 3b. 更新战斗结果状态快照 (供前端显示，并触发切回 main panel)
+    if (context && context.pendingBattle && context.pendingBattle.prediction) {
+      const resultSnapshot = buildBattleResultSnapshot({
+        battleId,
+        sortieContext: context,
+        battleContext: context.pendingBattle,
+        prediction: context.pendingBattle.prediction,
+        rank: normalizedResult.rank,
+        mvp: normalizedResult.mvp.main,
+        mvpCombined: normalizedResult.mvp.combined,
+        dropShipId: normalizedResult.drop?.shipId,
+        dropShipName: normalizedResult.drop?.shipName,
+        dropItemId: normalizedResult.drop?.itemId,
+        baseExp: normalizedResult.exp.base,
+      });
+      updateBattleResult(resultSnapshot);
     }
 
     // 4. 持久化（非演习才存储）

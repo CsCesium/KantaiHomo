@@ -5,7 +5,6 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getMapGauges,
-  getCurrentBattle,
   getSortieResourceGains,
   SortieResourceGains,
 } from '../../../../../features/state';
@@ -22,7 +21,6 @@ import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import { isPeriodicMapGauge } from './rows/shipHelpers';
-import { buildHpOverrideMap, pickSourceFleet, applyBattleHp } from '../../../../../features/state/battleHpOverride';
 
 const OVERLAY_MAP_TAB_IDX = 4;
 
@@ -221,11 +219,9 @@ export default struct FloatOverlayPanel {
   private refreshShips(): void {
     if (this.activeFleet < 4) {
       const st = getGameState().getState();
-      const deckId = this.activeFleet + 1;
-      const rawShips = getDeckShips(deckId);
-      const overrides = buildHpOverrideMap(pickSourceFleet(deckId, getCurrentBattle()));
+      const rawShips = getDeckShips(this.activeFleet + 1);
       this.ships = rawShips.map(s => shipStateToItem(
-        applyBattleHp(s, overrides),
+        s,
         st.slotItemIndex,
         st.slotItemEquipTypes,
         st.slotItemIconTypes,
