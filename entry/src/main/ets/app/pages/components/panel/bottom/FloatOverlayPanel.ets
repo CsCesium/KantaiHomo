@@ -302,31 +302,58 @@ export default struct FloatOverlayPanel {
 
   build() {
     Column() {
-      // Compact resource status line
-      Scroll() {
-        Row({ space: 7 }) {
-          if (this.materials) {
-            ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.overlayTxt })
-            ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.overlayTxt })
-            ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.overlayTxt })
-            ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.overlayTxt })
-            ResourceAmount({ label: '建', value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.overlayTxt })
-            ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.overlayTxt })
-            ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.overlayTxt })
-            ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.overlayTxt })
-          } else {
+      // Compact resource status rows
+      Column() {
+        if (this.materials) {
+          Row() {
+            Row({ space: 7 }) {
+              ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.overlayTxt })
+              ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.overlayTxt })
+            }
+            .alignItems(VerticalAlign.Center)
+
+            Blank().layoutWeight(1)
+
+            Row({ space: 7 }) {
+              ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.overlayTxt })
+              ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.overlayTxt })
+            }
+            .alignItems(VerticalAlign.Center)
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .alignItems(VerticalAlign.Center)
+
+          Row() {
+            Row({ space: 7 }) {
+              ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.overlayTxt })
+              ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.overlayTxt })
+            }
+            .alignItems(VerticalAlign.Center)
+
+            Blank().layoutWeight(1)
+
+            Row({ space: 7 }) {
+              ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.overlayTxt })
+              ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.overlayTxt })
+            }
+            .alignItems(VerticalAlign.Center)
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .alignItems(VerticalAlign.Center)
+        } else {
+          Row() {
             Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
           }
+          .width('100%')
+          .layoutWeight(1)
+          .alignItems(VerticalAlign.Center)
         }
-        .height(PanelDimens.statusBarH)
-        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .height(PanelDimens.statusBarH)
-      .scrollable(ScrollDirection.Horizontal)
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.None)
-      .padding({ left: 8, right: 8 })
+      .height(PanelDimens.statusBarH * 2)
+      .padding({ left: 8, right: 8, top: 2, bottom: 2 })
       .borderWidth({ bottom: PanelDimens.borderW })
       .borderColor(PanelColors.overlayHdr)
 

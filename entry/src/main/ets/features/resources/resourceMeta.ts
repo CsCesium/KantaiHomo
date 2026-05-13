@@ -21,7 +21,7 @@ const RESOURCE_BY_ID: Record<number, ResourceMeta> = {
   2: { kind: 'ammo', name: '弹药', icon: `${RES_ICON_DIR}ammo.png` },
   3: { kind: 'steel', name: '钢材', icon: `${RES_ICON_DIR}iron.png` },
   4: { kind: 'bauxite', name: '铝土', icon: `${RES_ICON_DIR}bauxite.png` },
-  5: { kind: 'instantBuild', name: '高速建造材' },
+  5: { kind: 'instantBuild', name: '高速建造材', icon: `${RES_ICON_DIR}build.png` },
   6: { kind: 'instantRepair', name: '高速修复材', icon: `${RES_ICON_DIR}repair.png` },
   7: { kind: 'devMaterial', name: '开发资材', icon: `${RES_ICON_DIR}dev.png` },
   8: { kind: 'screw', name: '改修资材', icon: `${RES_ICON_DIR}nail.png` },

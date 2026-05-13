@@ -68,6 +68,16 @@ const SENKA_EXP_PER_POINT = 1428;
 const DAMAGE_CONTROL_MASTER_ID = 42;
 const GODDESS_MASTER_ID = 43;
 
+function sortieResourceGainId(gain: MapResourceGain): number | undefined {
+  const itemId = gain.itemId;
+  if (itemId !== undefined && itemId >= 1 && itemId <= 8) return itemId;
+
+  const iconId = gain.iconId;
+  if (iconId !== undefined && iconId >= 1 && iconId <= 8) return iconId;
+
+  return undefined;
+}
+
 class GameStateManager {
   private state: GameState = {
     admiral: null,
@@ -181,34 +191,41 @@ class GameStateManager {
   addSortieResourceGains(gains: ReadonlyArray<MapResourceGain>): void {
     if (!gains || gains.length === 0) return;
 
-    const cur: SortieResourceGains = this.state.sortieResourceGains ?? {
-      fuel: 0, ammo: 0, steel: 0, bauxite: 0,
-      instantBuild: 0, instantRepair: 0, devMaterial: 0, screw: 0,
-      updatedAt: 0,
+    const prev = this.state.sortieResourceGains;
+    const next: SortieResourceGains = {
+      fuel: prev?.fuel ?? 0,
+      ammo: prev?.ammo ?? 0,
+      steel: prev?.steel ?? 0,
+      bauxite: prev?.bauxite ?? 0,
+      instantBuild: prev?.instantBuild ?? 0,
+      instantRepair: prev?.instantRepair ?? 0,
+      devMaterial: prev?.devMaterial ?? 0,
+      screw: prev?.screw ?? 0,
+      updatedAt: prev?.updatedAt ?? 0,
     };
 
     let changed = false;
     for (const g of gains) {
-      const id = g.itemId ?? g.iconId;
+      const id = sortieResourceGainId(g);
       const count = g.count ?? 0;
       if (!id || count <= 0) continue;
       switch (id) {
-        case 1: cur.fuel += count; changed = true; break;
-        case 2: cur.ammo += count; changed = true; break;
-        case 3: cur.steel += count; changed = true; break;
-        case 4: cur.bauxite += count; changed = true; break;
-        case 5: cur.instantBuild += count; changed = true; break;
-        case 6: cur.instantRepair += count; changed = true; break;
-        case 7: cur.devMaterial += count; changed = true; break;
-        case 8: cur.screw += count; changed = true; break;
+        case 1: next.fuel += count; changed = true; break;
+        case 2: next.ammo += count; changed = true; break;
+        case 3: next.steel += count; changed = true; break;
+        case 4: next.bauxite += count; changed = true; break;
+        case 5: next.instantBuild += count; changed = true; break;
+        case 6: next.instantRepair += count; changed = true; break;
+        case 7: next.devMaterial += count; changed = true; break;
+        case 8: next.screw += count; changed = true; break;
         default: break;
       }
     }
 
     if (!changed) return;
-    cur.updatedAt = Date.now();
-    this.state.sortieResourceGains = cur;
-    this.state.lastUpdatedAt = cur.updatedAt;
+    next.updatedAt = Date.now();
+    this.state.sortieResourceGains = next;
+    this.state.lastUpdatedAt = next.updatedAt;
     this.notifyListeners('sortieGains');
   }
 

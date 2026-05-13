@@ -320,27 +320,59 @@ export default struct BottomPanel {
   }
 
   @Builder StatusBar() {
-    Row({ space: 7 }) {
+    Column() {
       if (this.materials) {
-        ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.txtMuted })
-        ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.txtMuted })
-        ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.txtMuted })
-        ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.txtMuted })
-        Blank().layoutWeight(1)
-        ResourceAmount({ label: '建', value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.txtMuted })
-        ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.txtMuted })
-        ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.txtMuted })
-        ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.txtMuted })
+        Row() {
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.txtMuted })
+            ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.txtMuted })
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank().layoutWeight(1)
+
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.txtMuted })
+            ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.txtMuted })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+
+        Row() {
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.txtMuted })
+            ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.txtMuted })
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank().layoutWeight(1)
+
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.txtMuted })
+            ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.txtMuted })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
       } else {
-        Text('Loading Data...')
-          .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        Row() {
+          Text('Loading Data...')
+            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
       }
     }
     .width('100%')
-    .height(PanelDimens.statusBarH)
-    .padding({ left: 8, right: 8 })
+    .height(PanelDimens.statusBarH * 2)
+    .padding({ left: 8, right: 8, top: 2, bottom: 2 })
     .backgroundColor(PanelColors.bg)
-    .alignItems(VerticalAlign.Center)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
   }
