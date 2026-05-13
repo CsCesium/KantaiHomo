@@ -14,7 +14,7 @@ import {
   SortieCell,
   SortieContext,
 } from '../../../domain/models';
-import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
+import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk, predictBattle } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
 import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId } from '../../state/game_state';
 import type { ShipState } from '../../state/type';
@@ -205,9 +205,12 @@ class BattleHandler implements Handler {
     if (context) {
       // 用舰船信息丰富预测；基地空袭的 friend 一侧是基地，parser 已用 LBAS 名填好，
       // 此处跳过避免被舰队名覆盖。
+      // parser 在 TaskPool worker 里跑时拿不到 simulator/上下文，prediction 退化为
+      // 起始 HP 占位，看起来就是"没伤害"。在主线程的 handler 里基于 segment 重新
+      // 跑一次纯函数 predictBattle，保证 hp / damage / 大破等字段始终反映本次 dump。
       if (!isAirRaid) {
         prediction = enrichPredictionWithShipInfo(
-          prediction,
+          predictBattle(segment),
           context.fleetSnapshot.ships.map(s => ({ uid: s.uid, name: s.name })),
           context.fleetSnapshotEscort?.ships.map(s => ({ uid: s.uid, name: s.name }))
         );
@@ -274,8 +277,12 @@ class BattleHandler implements Handler {
 
     // 3. 更新内存状态
     if (context) {
+      // parser 在 TaskPool worker 中跑时拿不到 simulator，payload.prediction 会退化为
+      // 「夜战起点 HP, 无伤害」的占位，导致 BattlePreview 看起来一直停在昼战结果。
+      // 在主线程基于 merged segment 重新跑 predictBattle，确保夜战的 HP / 伤害 /
+      // 大破状态被正确显示，并保持下标对齐。
       prediction = enrichPredictionWithShipInfo(
-        prediction,
+        predictBattle(merged),
         context.fleetSnapshot.ships.map(s => ({ uid: s.uid, name: s.name })),
         context.fleetSnapshotEscort?.ships.map(s => ({ uid: s.uid, name: s.name }))
       );
