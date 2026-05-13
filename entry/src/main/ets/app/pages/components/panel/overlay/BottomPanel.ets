@@ -22,10 +22,14 @@ import { resourceIconPath } from '../../../../../features/resources/resourceMeta
 import ShipRow from '../bottom/rows/ShipRow';
 import MapGaugeRow from '../bottom/rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
+import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任務'];
 const MAP_TAB_IDX = 6;
 const QUEST_TAB_IDX = 7;
+const RESOURCE_NARROW_WIDTH = 460;
+const RESOURCE_BAR_H = 20;
+const RESOURCE_BAR_NARROW_H = 36;
 /** QuestState.ACTIVE — duplicated to keep this UI file decoupled from domain enum import. */
 const QUEST_STATE_ACTIVE = 2;
 
@@ -198,6 +202,7 @@ export default struct BottomPanel {
   @Local todaySenka: string = '--';
   @Local shipCapacity: string = '--/--';
   @Local slotItemCapacity: string = '--/--';
+  @Local panelWidth: number = 9999;
   /** UID of slot whose detail popup is currently open; 0 = none. EquipDetailPanel 自加载行。 */
   @Local detailUid: number = 0;
   /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
@@ -380,6 +385,8 @@ export default struct BottomPanel {
       }
       .height(PanelDimens.statusBarH)
       .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Start)
+      .alignSelf(ItemAlign.Start)
     }
     .width('100%')
     .height(PanelDimens.statusBarH)
@@ -388,11 +395,42 @@ export default struct BottomPanel {
     .edgeEffect(EdgeEffect.None)
     .padding({ left: 8, right: 8 })
     .backgroundColor(PanelColors.bg)
+    .align(Alignment.TopStart)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
   }
 
-  @Builder StatusBar() {
+  private useNarrowResourceLayout(): boolean {
+    return this.panelWidth < RESOURCE_NARROW_WIDTH;
+  }
+
+  private resourceBarHeight(): number {
+    return this.useNarrowResourceLayout() ? RESOURCE_BAR_NARROW_H : RESOURCE_BAR_H;
+  }
+
+  @Builder ResourceWideRow() {
+    Row({ space: 7 }) {
+      if (this.materials) {
+        ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.txtMuted })
+        Blank().layoutWeight(1)
+        ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.txtMuted })
+      } else {
+        Text('Loading Data...')
+          .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+      }
+    }
+    .width('100%')
+    .height(RESOURCE_BAR_H)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder ResourceNarrowRows() {
     Column() {
       if (this.materials) {
         Row() {
@@ -443,8 +481,20 @@ export default struct BottomPanel {
       }
     }
     .width('100%')
-    .height(PanelDimens.statusBarH * 2)
-    .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+    .height(RESOURCE_BAR_NARROW_H)
+  }
+
+  @Builder StatusBar() {
+    Column() {
+      if (this.useNarrowResourceLayout()) {
+        this.ResourceNarrowRows()
+      } else {
+        this.ResourceWideRow()
+      }
+    }
+    .width('100%')
+    .height(this.resourceBarHeight())
+    .padding({ left: 8, right: 8 })
     .backgroundColor(PanelColors.bg)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
@@ -659,5 +709,11 @@ export default struct BottomPanel {
     .height('100%')
     .backgroundColor(PanelColors.bg)
     .clip(true)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      const width = lengthToNumber(area.width);
+      if (width > 0) {
+        this.panelWidth = width;
+      }
+    })
   }
 }

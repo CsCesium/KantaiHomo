@@ -21,8 +21,12 @@ import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import { isPeriodicMapGauge } from './rows/shipHelpers';
+import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const OVERLAY_MAP_TAB_IDX = 4;
+const RESOURCE_NARROW_WIDTH = 460;
+const RESOURCE_BAR_H = 20;
+const RESOURCE_BAR_NARROW_H = 36;
 
 // ArkUI ForEach 在 key 不变时会复用旧子组件且不重新下发 @Param，所以仅
 // 用 uid 作 key 时，HP/cond/补给/装备变化都不会触发 ShipRow 重渲（这
@@ -195,6 +199,7 @@ export default struct FloatOverlayPanel {
   @Local todaySenka: string = '--';
   @Local shipCapacity: string = '--/--';
   @Local slotItemCapacity: string = '--/--';
+  @Local panelWidth: number = PanelDimens.overlayPanelW;
   /** UID of slot whose detail popup is currently open; 0 = none. EquipSlot 自己加载详情。 */
   @Local detailUid: number = 0;
   /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
@@ -336,6 +341,14 @@ export default struct FloatOverlayPanel {
     }
   }
 
+  private useNarrowResourceLayout(): boolean {
+    return this.panelWidth < RESOURCE_NARROW_WIDTH;
+  }
+
+  private resourceBarHeight(): number {
+    return this.useNarrowResourceLayout() ? RESOURCE_BAR_NARROW_H : RESOURCE_BAR_H;
+  }
+
   @Builder private AdmiralTag(text: string): void {
     Text(text)
       .fontSize(PanelDimens.fontSm)
@@ -361,12 +374,104 @@ export default struct FloatOverlayPanel {
       }
       .height(PanelDimens.statusBarH)
       .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Start)
+      .alignSelf(ItemAlign.Start)
     }
     .width('100%')
     .height(PanelDimens.statusBarH)
     .scrollable(ScrollDirection.Horizontal)
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.None)
+    .padding({ left: 8, right: 8 })
+    .align(Alignment.TopStart)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.overlayHdr)
+  }
+
+  @Builder private ResourceWideRow(): void {
+    Row({ space: 7 }) {
+      if (this.materials) {
+        ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.overlayTxt })
+        Blank().layoutWeight(1)
+        ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.overlayTxt })
+      } else {
+        Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+      }
+    }
+    .width('100%')
+    .height(RESOURCE_BAR_H)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder private ResourceNarrowRows(): void {
+    Column() {
+      if (this.materials) {
+        Row() {
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.overlayTxt })
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank().layoutWeight(1)
+
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.overlayTxt })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+
+        Row() {
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.overlayTxt })
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank().layoutWeight(1)
+
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.overlayTxt })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+      } else {
+        Row() {
+          Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+      }
+    }
+    .width('100%')
+    .height(RESOURCE_BAR_NARROW_H)
+  }
+
+  @Builder private ResourceStatusBar(): void {
+    Column() {
+      if (this.useNarrowResourceLayout()) {
+        this.ResourceNarrowRows()
+      } else {
+        this.ResourceWideRow()
+      }
+    }
+    .width('100%')
+    .height(this.resourceBarHeight())
     .padding({ left: 8, right: 8 })
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.overlayHdr)
@@ -375,61 +480,7 @@ export default struct FloatOverlayPanel {
   build() {
     Column() {
       this.AdmiralHeader()
-
-      // Compact resource status rows
-      Column() {
-        if (this.materials) {
-          Row() {
-            Row({ space: 7 }) {
-              ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.overlayTxt })
-              ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.overlayTxt })
-            }
-            .alignItems(VerticalAlign.Center)
-
-            Blank().layoutWeight(1)
-
-            Row({ space: 7 }) {
-              ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.overlayTxt })
-              ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.overlayTxt })
-            }
-            .alignItems(VerticalAlign.Center)
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .alignItems(VerticalAlign.Center)
-
-          Row() {
-            Row({ space: 7 }) {
-              ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.overlayTxt })
-              ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.overlayTxt })
-            }
-            .alignItems(VerticalAlign.Center)
-
-            Blank().layoutWeight(1)
-
-            Row({ space: 7 }) {
-              ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.overlayTxt })
-              ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.overlayTxt })
-            }
-            .alignItems(VerticalAlign.Center)
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .alignItems(VerticalAlign.Center)
-        } else {
-          Row() {
-            Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .alignItems(VerticalAlign.Center)
-        }
-      }
-      .width('100%')
-      .height(PanelDimens.statusBarH * 2)
-      .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-      .borderWidth({ bottom: PanelDimens.borderW })
-      .borderColor(PanelColors.overlayHdr)
+      this.ResourceStatusBar()
 
       // 制空 + 速度 stacked (left) | 輸送 + 索敵 stacked (right). Hidden on map tab.
       if (this.activeFleet !== OVERLAY_MAP_TAB_IDX) {
@@ -574,5 +625,11 @@ export default struct FloatOverlayPanel {
     .backgroundColor(PanelColors.overlayBg)
     .backdropBlur(PanelDimens.overlayBlur)
     .clip(true)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      const width = lengthToNumber(area.width);
+      if (width > 0) {
+        this.panelWidth = width;
+      }
+    })
   }
 }
