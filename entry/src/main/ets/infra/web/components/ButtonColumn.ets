@@ -4,7 +4,6 @@ export default struct LeftButtonColumn {
   @Event onToggleLrMode: () => void;
   @Event onTogglePanel: () => void;
   @Event onToggleBattlePreview: () => void;
-  @Event onLogout: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
@@ -52,20 +51,6 @@ export default struct LeftButtonColumn {
     })
   }
 
-  // Logout button — red tint to signal destructive action.
-  @Builder private LogoutBtn() {
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Text('↩')
-        .fontSize(18)
-        .fontWeight(FontWeight.Medium)
-        .fontColor('#e57373')
-    }
-    .width(48).height(48)
-    .backgroundColor(Color.Transparent)
-    .border({ width: 0 })
-    .onClick(() => this.onLogout?.())
-  }
-
   build() {
     Column({ space: 8 }) {
       this.IconBtn('⟳',  () => this.onRefresh?.())
@@ -74,7 +59,6 @@ export default struct LeftButtonColumn {
         this.PanelBtn()
       }
       this.BattlePreviewBtn()
-      this.LogoutBtn()
     }
     .width(56).padding({ left: 4, right: 4, top: 8, bottom: 8 })
   }

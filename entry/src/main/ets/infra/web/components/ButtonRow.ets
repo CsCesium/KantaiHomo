@@ -1,6 +1,6 @@
 /**
  * 横向按钮栏：位于游戏画面下方、底部面板上方。
- * 内容与 ButtonColumn 一致（刷新 / 横竖切换 / 面板开关 / 登出），
+ * 内容与 ButtonColumn 一致（刷新 / 横竖切换 / 面板开关），
  * 仅排列方向改为水平，便于在 BottomPanel 模式下嵌入到 game 与 panel 之间。
  */
 @ComponentV2
@@ -9,7 +9,6 @@ export default struct ButtonRow {
   @Event onToggleLrMode: () => void;
   @Event onTogglePanel: () => void;
   @Event onToggleBattlePreview: () => void;
-  @Event onLogout: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
@@ -56,19 +55,6 @@ export default struct ButtonRow {
     })
   }
 
-  @Builder private LogoutBtn() {
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Text('↩')
-        .fontSize(18)
-        .fontWeight(FontWeight.Medium)
-        .fontColor('#e57373')
-    }
-    .width(48).height(40)
-    .backgroundColor(Color.Transparent)
-    .border({ width: 0 })
-    .onClick(() => this.onLogout?.())
-  }
-
   build() {
     Row() {
       Row({ space: 8 }) {
@@ -78,7 +64,6 @@ export default struct ButtonRow {
           this.PanelBtn()
         }
         this.BattlePreviewBtn()
-        this.LogoutBtn()
       }
       .height(40)
       .padding({ left: 8, right: 8 })

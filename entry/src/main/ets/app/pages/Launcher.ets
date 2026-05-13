@@ -1,12 +1,21 @@
 import router from '@ohos.router';
 import { window } from '@kit.ArkUI';
 import { getMainWindowCached } from '../../infra/appContext';
+import { promptLogout } from '../../infra/web/session/logout';
 
 @Entry
 @Component
 struct Launcher {
   private navigate(url: string): void {
     router.pushUrl({ url }).catch(() => {});
+  }
+
+  aboutToAppear(): void {
+    const win = getMainWindowCached();
+    if (!win) return;
+    void win.setWindowSystemBarEnable(['status', 'navigation']);
+    void win.setWindowLayoutFullScreen(false);
+    void win.setPreferredOrientation(window.Orientation.AUTO_ROTATION);
   }
 
   private getCurrentOrientation(win: window.Window): window.Orientation {
@@ -26,7 +35,7 @@ struct Launcher {
       ? win.setPreferredOrientation(this.getCurrentOrientation(win))
       : Promise.resolve();
     orientationPromise.catch(() => {}).finally(() => {
-      router.replaceUrl({ url: 'app/pages/WebRoot' }).catch(() => {});
+      router.pushUrl({ url: 'app/pages/WebRoot' }).catch(() => {});
     });
   }
 
@@ -117,6 +126,10 @@ struct Launcher {
         this.MenuCard(
           '📋', '更新日志', '版本变更记录', false,
           () => this.navigate('app/pages/Changelog')
+        )
+        this.MenuCard(
+          '↩', '登出', '清除登录 Cookie 与会话缓存', false,
+          () => promptLogout()
         )
       }
       .padding({ left: 20, right: 20 })

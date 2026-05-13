@@ -402,25 +402,6 @@ export default struct WebHost {
     }
   }
 
-  private doLogout(): void {
-    webview.WebCookieManager.clearAllCookiesSync();
-    void kvDelete('dmm.cookie.backup.v1');
-    this.controller.loadUrl(this.HOME);
-  }
-
-  private promptLogout(): void {
-    promptAction.showDialog({
-      title: '确认登出',
-      message: '将清除登录 Cookie 及页面缓存，并跳转到登录页。',
-      buttons: [
-        { text: '取消',   color: '#888888' },
-        { text: '确认登出', color: '#e53935' },
-      ],
-    }).then((result) => {
-      if (result.index === 1) { this.doLogout(); }
-    }).catch((_e: Error) => {});
-  }
-
   private reloadFullPage(): void {
     this.firstPageLoad = false;
     try {
@@ -560,7 +541,6 @@ export default struct WebHost {
               onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onToggleBattlePreview: () => this.toggleBattlePreview(),
-              onLogout: () => this.promptLogout(),
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               battlePreviewAvailable: this.battlePreviewAvailable,
@@ -636,7 +616,6 @@ export default struct WebHost {
                 onToggleLrMode: () => this.toggleLrLayout(),
                 onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
                 onToggleBattlePreview: () => this.toggleBattlePreview(),
-                onLogout: () => this.promptLogout(),
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 panelActive: this.overlayForced,
                 showPanelToggle: false,
@@ -664,7 +643,6 @@ export default struct WebHost {
               onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onToggleBattlePreview: () => this.toggleBattlePreview(),
-              onLogout: () => this.promptLogout(),
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               showPanelToggle: false,
