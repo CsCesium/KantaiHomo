@@ -2,17 +2,11 @@ import {
   getDeckShips,
   getShipSpecialEquip,
   subscribeGameState,
-  getCurrentBattle,
 } from '../../../../features/state';
 import {
   ShipSpecialEquip,
   ShipState,
 } from '../../../../features/state/type';
-import {
-  applyBattleHp,
-  buildHpOverrideMap,
-  pickSourceFleet,
-} from '../../../../features/state/battleHpOverride';
 import { getSortieContext } from '../../../../domain/service/sortie';
 import ShipStatusBadge from './ShipStatusBadge';
 
@@ -42,10 +36,9 @@ function shipEntryKey(entry: ShipEntry): string {
 /**
  * 舰队状态侧边栏 — 在 compact 全屏模式下展示在游戏画面右侧黑边区域。
  *
- * HP 数据来源优先级：
- *   1. 战斗结算快照（BATTLE_RESULT）中的 hpAfter — 结算后立即生效
- *   2. GameState 中的 ShipState.hpNow — 入港时写入的真实值
- * 昼/夜战预测值不在侧边栏显示，避免与实际结果产生混淆。
+ * HP 数据来源：GameState 中的 ShipState.hpNow。BATTLE_RESULT 不再回写
+ * GameState，战斗期间的预测/结算 HP 由 BattlePreview 面板展示，侧边栏只反映
+ * sortie_next / port 阶段刷新的真实值。
  *
  * 舰队选择：优先出击舰队（getSortieContext().deckId），无出击时回退第一舰队。
  * 联合舰队出击时，双击侧边栏可在第一（主力）与第二（护卫）舰队间切换。
@@ -79,7 +72,7 @@ export default struct FleetStatusSidebar {
     }
   }
 
-  /** 刷新舰队条目，并用战斗快照覆盖 HP */
+  /** 刷新舰队条目（仅显示 GameState 中的真实 HP） */
   private refreshEntries(): void {
     const ctx = getSortieContext();
     const combined = ctx !== null && ctx.combinedType > 0;
@@ -94,11 +87,10 @@ export default struct FleetStatusSidebar {
     const deckId = combined && this.showingEscort ? 2 : (ctx ? ctx.deckId : 1);
     const ships = getDeckShips(deckId);
 
-    // 从战斗状态取最新的 HP 覆盖数据（仅使用已结算的 BATTLE_RESULT）
-    const overrides = buildHpOverrideMap(pickSourceFleet(deckId, getCurrentBattle()));
-
+    // 仅显示 GameState 中的真实 HP。战斗结算的预测 HP 留在 BattlePreview 面板里展示，
+    // 避免预测索引偏差污染侧边栏。GameState 会在 sortie_next / port 阶段被刷新。
     this.entries = ships.map((s: ShipState): ShipEntry => ({
-      ship: applyBattleHp(s, overrides),
+      ship: s,
       equip: getShipSpecialEquip(s.uid),
     }));
   }

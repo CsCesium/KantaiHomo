@@ -1166,11 +1166,12 @@ class GameStateManager {
   }
 
   /**
-   * 检查是否在战斗中
+   * 检查是否在战斗中（含战斗结算阶段）。
+   * BATTLE_RESULT 不再立即切回 main panel；BattlePreview 持续显示到 sortie_next
+   * 调用 clearBattleState() 为止，避免战斗结算瞬间出现错位的 HP 显示。
    */
   isInBattle(): boolean {
-    return this.state.currentBattle.status !== null &&
-      this.state.currentBattle.result === null;
+    return this.state.currentBattle.status !== null;
   }
 
   /**

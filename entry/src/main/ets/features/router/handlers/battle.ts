@@ -16,7 +16,7 @@ import {
 } from '../../../domain/models';
 import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
-import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, patchShipsHp, isShipEscaped, getDeck, getDeckShips, getSlotItemMasterId } from '../../state/game_state';
+import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId } from '../../state/game_state';
 import type { ShipState } from '../../state/type';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -378,39 +378,12 @@ class BattleHandler implements Handler {
       endedAt: now,
     };
 
-    // 3. 先把战后 HP 写回 GameState.ships，再发布 battle.result。
-    // battle.result 会让 PanelHost 立即切回 main panel；如果先切回再 patch，
-    // 普通面板挂载时可能读到旧 GameState，表现为战斗结束那一帧数据不正确。
-    // BattleResult 响应不含 api_ship_data，故依赖战斗段的 hpEnd。
-    // 演习是模拟战斗，舰船 HP 实际不会下降，跳过 HP 回写避免污染主面板。
-    if (context && !isPractice) {
-      const hpPatches: { uid: number; hpNow: number; hpMax: number }[] = [];
-      const mainShips = context.fleetSnapshot?.ships ?? [];
-      const mainNow = record.hpEnd.friend.main.now;
-      const mainMax = record.hpEnd.friend.main.max;
-      for (let i = 0; i < mainShips.length && i < mainNow.length; i++) {
-        const uid = mainShips[i].uid;
-        if (!uid) continue;
-        const hpMax = mainMax[i] > 0 ? mainMax[i] : mainShips[i].hpMax;
-        hpPatches.push({ uid, hpNow: mainNow[i], hpMax });
-      }
-      if (context.combinedType > 0) {
-        const escortShips = context.fleetSnapshotEscort?.ships ?? [];
-        const escortNow = record.hpEnd.friend.escort?.now ?? [];
-        const escortMax = record.hpEnd.friend.escort?.max ?? [];
-        for (let i = 0; i < escortShips.length && i < escortNow.length; i++) {
-          const uid = escortShips[i].uid;
-          if (!uid) continue;
-          const hpMax = escortMax[i] > 0 ? escortMax[i] : escortShips[i].hpMax;
-          hpPatches.push({ uid, hpNow: escortNow[i], hpMax });
-        }
-      }
-      if (hpPatches.length > 0) {
-        patchShipsHp(hpPatches);
-      }
-    }
+    // 3. 战斗结算阶段不再回写 GameState.ships。
+    //    BattlePreview 显示的结果数据来自 prediction（在战斗段时就已计算好），
+    //    main panel 的 GameState 留到下一次 api_req_map/next 或 /api_port/port
+    //    再统一刷新，避免本地预测的索引偏差污染主面板 HP。
 
-    // 3b. 更新战斗结果状态快照 (供前端显示，并触发切回 main panel)
+    // 3b. 更新战斗结果状态快照 (供 BattlePreview 渲染 result header / drop 等)
     if (context && context.pendingBattle && context.pendingBattle.prediction) {
       const resultSnapshot = buildBattleResultSnapshot({
         battleId,
