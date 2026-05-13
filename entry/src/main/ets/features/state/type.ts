@@ -6,6 +6,8 @@ export interface AdmiralSnapshot {
   nickname: string;
   level: number;
   experience: number;
+  maxShips: number;
+  maxSlotItems: number;
   rank?: number;
   capturedAt: number;
 }

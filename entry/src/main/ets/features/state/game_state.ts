@@ -147,6 +147,8 @@ class GameStateManager {
       nickname: admiral.nickname,
       level: admiral.level,
       experience: admiral.experience,
+      maxShips: admiral.maxShips,
+      maxSlotItems: admiral.maxSlotItems,
       rank: admiral.rank,
       capturedAt: Date.now(),
     };
@@ -472,6 +474,8 @@ class GameStateManager {
         nickname: data.admiral.nickname,
         level: data.admiral.level,
         experience: data.admiral.experience,
+        maxShips: data.admiral.maxShips,
+        maxSlotItems: data.admiral.maxSlotItems,
         rank: data.admiral.rank,
         capturedAt: Date.now(),
       };

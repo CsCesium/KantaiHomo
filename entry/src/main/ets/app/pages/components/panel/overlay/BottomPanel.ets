@@ -151,6 +151,26 @@ function formatFleetSpeed(speed: number): string {
   return '陸上';
 }
 
+function formatAdmiralRank(rank: number | undefined): string {
+  switch (rank) {
+    case 1: return '元帥';
+    case 2: return '大将';
+    case 3: return '中将';
+    case 4: return '少将';
+    case 5: return '大佐';
+    case 6: return '中佐';
+    case 7: return '新米中佐';
+    case 8: return '少佐';
+    case 9: return '中堅少佐';
+    case 10: return '新米少佐';
+    default: return '--';
+  }
+}
+
+function formatLimitCount(current: number, limit: number | undefined): string {
+  return `${current}/${limit && limit > 0 ? limit : '--'}`;
+}
+
 /**
  * Bottom-docked info panel for EXPANDED mode (portrait / wide-split).
  * Shows fleet air power, LoS(×3), and special attack eligibility
@@ -172,6 +192,12 @@ export default struct BottomPanel {
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
   @Local activeQuests: QuestSnapshot[] = [];
+  @Local admiralName: string = '--';
+  @Local admiralRank: string = '--';
+  @Local admiralExperience: string = '--';
+  @Local todaySenka: string = '--';
+  @Local shipCapacity: string = '--/--';
+  @Local slotItemCapacity: string = '--/--';
   /** UID of slot whose detail popup is currently open; 0 = none. EquipDetailPanel 自加载行。 */
   @Local detailUid: number = 0;
   /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
@@ -209,11 +235,21 @@ export default struct BottomPanel {
   }
 
   private loadState(): void {
+    const manager = getGameState();
+    const st = manager.getState();
+    const admiral = st.admiral;
+    const senka = manager.getSenkaInfo();
     this.materials = getMaterials();
     this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
     this.mapGauges = [...getMapGauges()];
     this.activeQuests = getQuests().filter(q => q.state === QUEST_STATE_ACTIVE);
+    this.admiralName = admiral?.nickname || '--';
+    this.admiralRank = formatAdmiralRank(admiral?.rank);
+    this.admiralExperience = admiral ? `${admiral.experience}` : '--';
+    this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
+    this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
+    this.slotItemCapacity = formatLimitCount(st.slotItemIndex.size, admiral?.maxSlotItems);
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -317,6 +353,43 @@ export default struct BottomPanel {
     .backgroundColor(PanelColors.bgTabs)
     .padding({ left: 8, right: 8 })
     .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder AdmiralTag(text: string) {
+    Text(text)
+      .fontSize(PanelDimens.fontSm)
+      .fontColor(PanelColors.txtMuted)
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+      .backgroundColor(PanelColors.bgSection)
+      .borderRadius(PanelDimens.radius)
+      .borderWidth(PanelDimens.borderW)
+      .borderColor(PanelColors.rowBorder)
+  }
+
+  @Builder AdmiralHeader() {
+    Scroll() {
+      Row({ space: 4 }) {
+        this.AdmiralTag(`名称 ${this.admiralName}`)
+        this.AdmiralTag(`头衔 ${this.admiralRank}`)
+        this.AdmiralTag(`提督经验 ${this.admiralExperience}`)
+        this.AdmiralTag(`今日战果 ${this.todaySenka}`)
+        this.AdmiralTag(`舰娘数 ${this.shipCapacity}`)
+        this.AdmiralTag(`装备数 ${this.slotItemCapacity}`)
+      }
+      .height(PanelDimens.statusBarH)
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .height(PanelDimens.statusBarH)
+    .scrollable(ScrollDirection.Horizontal)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.None)
+    .padding({ left: 8, right: 8 })
+    .backgroundColor(PanelColors.bg)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
   }
 
   @Builder StatusBar() {
@@ -514,6 +587,7 @@ export default struct BottomPanel {
   build() {
     Column() {
       this.TabBar()
+      this.AdmiralHeader()
       this.StatusBar()
       this.FleetStatsBar()
 
