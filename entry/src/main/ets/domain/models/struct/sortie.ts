@@ -49,6 +49,14 @@ export interface SortieContext {
   result: SortieResult;
   bossReached: boolean;
   bossKilled: boolean;
+
+  /**
+   * BATTLE_RESULT 时从 simulator 快照计算出的 friend HP patches，
+   * 在下一次 SORTIE_NEXT (进击) 时一次性写回 GameState.ships。
+   * 这样 mainpanel 在「进击之后」才看到更新，符合用户预期；同时也
+   * 保证下一格战斗 simulator 用最新 GameState 初始化，HP 不会漂移。
+   */
+  pendingHpPatches?: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>;
 }
 
 // ==================== 战斗上下文 ====================

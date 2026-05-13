@@ -46,7 +46,17 @@ export type SortieNextEvent = PayloadEvent<'SORTIE_NEXT', SortieNextPayload>;
 export interface BattleDayPayload {
   apiPath: string;
   segment: BattleSegment;
+  /**
+   * Parser 给出的占位 prediction（fallback / 空袭 / 演习上下文合成用）。
+   * BattlePreview 展示用的预测在主线程 handler 里基于 simulator 重算，
+   * 避免 worker 线程取不到 simulator 状态导致的「HP 不更新」。
+   */
   prediction: BattlePrediction;
+  /**
+   * 原始 dump 解出来的 api_data。handler 在主线程上 feed simulator 时用。
+   * 基地空袭走纯函数预测，可以为空。
+   */
+  apiData?: Record<string, unknown>;
   isPractice: boolean;
   /** 基地空袭战（api_req_map/next 中的 api_destruction_battle） */
   isAirRaid?: boolean;
@@ -56,7 +66,10 @@ export interface BattleDayPayload {
 export interface BattleNightPayload {
   apiPath: string;
   segment: BattleSegment;
+  /** Parser 占位 prediction；handler 会用 simulator 重算（见 BattleDayPayload） */
   prediction: BattlePrediction;
+  /** 原始 api_data，handler 主线程 feed simulator 用 */
+  apiData?: Record<string, unknown>;
   isPractice: boolean;
 }
 
