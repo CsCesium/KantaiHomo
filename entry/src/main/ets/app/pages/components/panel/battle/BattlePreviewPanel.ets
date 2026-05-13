@@ -70,7 +70,7 @@ function shipBadgeText(ship: ShipBattleStatus, landBased: boolean = false): stri
 
 function shipBadgeColor(ship: ShipBattleStatus): string {
   if (ship.isSunk) return PanelColors.txtMuted;
-  if (ship.isTaiha) return PanelColors.hpCrit;
+  if (ship.isTaiha) return ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.hpCrit;
   if (ship.isChuuha) return PanelColors.hpMid;
   return PanelColors.hpOk;
 }
@@ -191,7 +191,10 @@ export default struct BattlePreviewPanel {
       Row({ space: 3 }) {
         Text(ship.name)
           .fontSize(PanelDimens.fontMd)
-          .fontColor(ship.isSunk ? PanelColors.txtMuted : PanelColors.txtPrimary)
+          .fontColor(ship.isSunk
+            ? PanelColors.txtMuted
+            : (ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.txtPrimary))
+          .fontWeight(ship.hasSinkRisk ? FontWeight.Bold : FontWeight.Normal)
           .layoutWeight(1)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })

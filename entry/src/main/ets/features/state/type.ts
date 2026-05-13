@@ -301,6 +301,8 @@ export interface ShipBattleStatus {
   isChuuha: boolean;
   /** 是否小破 (≤75%) */
   isShouha: boolean;
+  /** 大破时是否有进击击沉风险（非旗舰 + 无应急修理装备）。空袭基地恒为 false。 */
+  hasSinkRisk: boolean;
 }
 
 /** 舰队战斗状态 */

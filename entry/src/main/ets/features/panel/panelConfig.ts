@@ -40,6 +40,7 @@ export const PanelColors = {
   hpMid:         '#fb8c00',   // hp ratio 25-50% — orange (中破)
   hpWarn:        '#fdd835',   // warning yellow (engagement, condition — NOT hp bars)
   hpCrit:        '#e53935',   // hp ratio ≤ 25%  — red
+  hpSinkRisk:    '#8b0000',   // 大破 + 进击击沉风险 — 深红
   hpDamage:      '#6b6f7e',   // hp lost in batle
   escapeLabel:   '#42a5f5',   // 退避 (goback_port) label — blue
   // Row separators
