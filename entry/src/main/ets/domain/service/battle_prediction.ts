@@ -27,11 +27,11 @@ export function predictBattle(segment: BattleSegment): BattlePrediction {
   const friendTaihaCount = countTaiha(friendMain) + (friendEscort ? countTaiha(friendEscort) : 0);
   const enemySunkCount = countSunk(enemyMain) + (enemyEscort ? countSunk(enemyEscort) : 0);
 
-  // 预测等级
+  // 预测等级。total 仅统计有效舰（hpMax>0），跳过下标对齐用的空槽占位。
   const predictedRank = predictRank(
-    friendMain.length + (friendEscort?.length ?? 0),
+    countActive(friendMain) + (friendEscort ? countActive(friendEscort) : 0),
     friendSunkCount,
-    enemyMain.length + (enemyEscort?.length ?? 0),
+    countActive(enemyMain) + (enemyEscort ? countActive(enemyEscort) : 0),
     enemySunkCount,
     friendMain,
     enemyMain,
@@ -55,7 +55,12 @@ export function predictBattle(segment: BattleSegment): BattlePrediction {
 }
 
 /**
- * 构建单个舰队的预测数组
+ * 构建单个舰队的预测数组。
+ *
+ * 空槽（hpMax<=0）会作为占位项保留，让 prediction 的下标与原始 HP 数组、
+ * 舰队 ships 数组完全对齐——否则下游 enrichPredictionWithShipInfo
+ * (按下标贴 uid) 和 buildEnemyBattleStatus (用 predictions 重组血量数组)
+ * 会因跳过空槽而错位，导致"位置 N 的伤害贴到位置 N-1"。
  */
 function buildPredictions(
   side: 'friend' | 'enemy',
@@ -76,7 +81,23 @@ function buildPredictions(
     const hpBefore = startFleet.now[i] ?? 0;
     const hpAfter = endFleet.now[i] ?? 0;
 
-    if (hpMax <= 0) continue;  // 跳过空槽
+    if (hpMax <= 0) {
+      // 空槽：保留占位以维持下标对齐，所有状态位置 false 避免误计入统计。
+      predictions.push({
+        uid: 0,
+        name: '',
+        hpBefore: 0,
+        hpAfter: 0,
+        hpMax: 0,
+        damageReceived: 0,
+        damageTaken: 0,
+        isSunk: false,
+        isTaiha: false,
+        isChuuha: false,
+        isShouha: false,
+      });
+      continue;
+    }
 
     const damageReceived = Math.max(0, hpBefore - hpAfter);
     const damageTaken = hpMax > 0 ? Math.round((1 - hpAfter / hpMax) * 100) : 0;
@@ -114,6 +135,10 @@ function countSunk(predictions: ShipPrediction[]): number {
 
 function countTaiha(predictions: ShipPrediction[]): number {
   return predictions.filter(p => p.isTaiha).length;
+}
+
+function countActive(predictions: ShipPrediction[]): number {
+  return predictions.filter(p => p.hpMax > 0).length;
 }
 
 /**

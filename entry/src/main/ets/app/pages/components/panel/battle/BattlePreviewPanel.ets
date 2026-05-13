@@ -444,7 +444,9 @@ export default struct BattlePreviewPanel {
     }
 
       ForEach(fleet.ships, (ship: ShipBattleStatus) => {
-      this.BattleShipRow(ship, landBased)
+        if (ship.hpMax > 0) {
+          this.BattleShipRow(ship, landBased)
+        }
     }, (ship: ShipBattleStatus) => `bship-${ship.uid}-${ship.hpBefore}-${ship.hpAfter}-${ship.damageReceived}`)
   }
 
