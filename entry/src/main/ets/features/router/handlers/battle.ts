@@ -14,7 +14,7 @@ import {
   SortieCell,
   SortieContext,
 } from '../../../domain/models';
-import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk, predictBattle } from '../../../domain/service';
+import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
 import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId } from '../../state/game_state';
 import type { ShipState } from '../../state/type';
@@ -23,7 +23,7 @@ import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
 import { setLastBattleHasTaihaRisk, setLastBattleTaihaShips } from '../../alerts/lastBattleState';
 import type { BattleResultAlert } from '../../alerts/type';
-import { getBattlePredictionService } from '../../simulator';
+import { getBattlePredictionService, simSnapshotToDomainPrediction } from '../../simulator';
 
 // ==================== 演习预览支持 ====================
 //
@@ -166,6 +166,49 @@ function ensurePracticeContext(segment: BattleSegment, prediction: BattlePredict
 }
 
 
+/**
+ * 在主线程上 feed simulator 并把它的快照转成领域层 prediction。
+ *
+ * Parser 走 TaskPool worker 时拿不到主线程 simulator 单例；所以 simulator
+ * 的累计状态必须由 handler 自己维护：BATTLE_DAY 时 reset 重开一局，
+ * BATTLE_NIGHT 时不 reset、继续累计。
+ *
+ * 返回 null 表示 simulator 暂时不可用（service 没初始化、init 失败等），
+ * 调用方应回退到 payload 自带的占位 prediction。
+ */
+function predictFromSimulator(
+  apiPath: string,
+  apiData: Record<string, unknown> | undefined,
+  resetFirst: boolean,
+): BattlePrediction | null {
+  if (!apiData) return null;
+  let svc;
+  try {
+    svc = getBattlePredictionService();
+  } catch (_) {
+    return null;
+  }
+
+  const simPath = '/kcsapi/' + apiPath;
+  try {
+    if (resetFirst) svc.reset();
+    svc.onBattlePacket(simPath, { ...apiData, _path: simPath });
+  } catch (e) {
+    console.warn('[battle] simulator feed failed:', String(e));
+    return null;
+  }
+
+  const snap = svc.getCurrentSnapshot();
+  if (!snap) return null;
+
+  const context = getSortieContext();
+  return simSnapshotToDomainPrediction(
+    snap,
+    context?.fleetSnapshot?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+    context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+  );
+}
+
 class BattleHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     const e = ev as AnyBattleEvt;
@@ -192,8 +235,16 @@ class BattleHandler implements Handler {
     payload: BattleDayPayload,
     deps: PersistDeps
   ): Promise<void> {
-    const { apiPath, segment, isPractice, isAirRaid } = payload;
+    const { apiPath, segment, apiData, isPractice, isAirRaid } = payload;
     let { prediction } = payload;
+
+    // 非空袭：在主线程 feed simulator（reset 后喂入），用它的快照作为预测来源。
+    // 基地空袭的 prediction 由 parser 的 buildAirRaidPrediction 提供 —— simulator
+    // 的 mainFleet 是出击舰娘，与空袭基地语义不符，所以走原 payload。
+    if (!isAirRaid) {
+      const simPred = predictFromSimulator(apiPath, apiData, /*resetFirst*/ true);
+      if (simPred) prediction = simPred;
+    }
 
     // 演习首个事件：按当前 deck 合成一个最小 SortieContext 让预览生效。
     if (isPractice) {
@@ -203,14 +254,12 @@ class BattleHandler implements Handler {
     // 1. 获取出击上下文，更新内存状态
     const context = getSortieContext();
     if (context) {
-      // 用舰船信息丰富预测；基地空袭的 friend 一侧是基地，parser 已用 LBAS 名填好，
-      // 此处跳过避免被舰队名覆盖。
-      // parser 在 TaskPool worker 里跑时拿不到 simulator/上下文，prediction 退化为
-      // 起始 HP 占位，看起来就是"没伤害"。在主线程的 handler 里基于 segment 重新
-      // 跑一次纯函数 predictBattle，保证 hp / damage / 大破等字段始终反映本次 dump。
+      // simSnapshotToDomainPrediction 已经按 s.pos 贴了 uid/name，但对于在
+      // 模拟器初始化前已经存在的演习上下文，或舰队 snapshot 与 simulator
+      // 初始化时序错位时，下标可能仍需要修正。再 enrich 一次保证一致。
       if (!isAirRaid) {
         prediction = enrichPredictionWithShipInfo(
-          predictBattle(segment),
+          prediction,
           context.fleetSnapshot.ships.map(s => ({ uid: s.uid, name: s.name })),
           context.fleetSnapshotEscort?.ships.map(s => ({ uid: s.uid, name: s.name }))
         );
@@ -256,8 +305,13 @@ class BattleHandler implements Handler {
     payload: BattleNightPayload,
     deps: PersistDeps
   ): Promise<void> {
-    const { apiPath, segment, isPractice } = payload;
+    const { apiPath, segment, apiData, isPractice } = payload;
     let { prediction } = payload;
+
+    // 夜战累计到当前 simulator（不 reset），保证 hpAfter 是昼夜累计后的真值。
+    // simulator 如果还没被昼战 init，会在这里从当前 GameState 初始化一份 fleet。
+    const simPred = predictFromSimulator(apiPath, apiData, /*resetFirst*/ false);
+    if (simPred) prediction = simPred;
 
     // 演习直入夜战(api_req_practice/midnight_battle 罕见但可能)：合成上下文。
     if (isPractice) {
@@ -267,7 +321,7 @@ class BattleHandler implements Handler {
     // 1. 获取出击上下文
     const context = getSortieContext();
 
-    // 2. 合并昼夜战
+    // 2. 合并昼夜战（仅用于 BattleRecord.hpEnd 等下游消费者；preview 直接看 prediction）
     let merged: BattleSegment;
     if (context?.pendingBattle?.daySegment) {
       merged = mergeBattleSegments(context.pendingBattle.daySegment, segment);
@@ -277,12 +331,10 @@ class BattleHandler implements Handler {
 
     // 3. 更新内存状态
     if (context) {
-      // parser 在 TaskPool worker 中跑时拿不到 simulator，payload.prediction 会退化为
-      // 「夜战起点 HP, 无伤害」的占位，导致 BattlePreview 看起来一直停在昼战结果。
-      // 在主线程基于 merged segment 重新跑 predictBattle，确保夜战的 HP / 伤害 /
-      // 大破状态被正确显示，并保持下标对齐。
+      // 再 enrich 一次：simulator 可能在演习/开幕夜战等场景下还没收到 sortie
+      // 上下文的舰队信息（init 用的是 GameState），这里用当前 fleetSnapshot 兜底。
       prediction = enrichPredictionWithShipInfo(
-        predictBattle(merged),
+        prediction,
         context.fleetSnapshot.ships.map(s => ({ uid: s.uid, name: s.name })),
         context.fleetSnapshotEscort?.ships.map(s => ({ uid: s.uid, name: s.name }))
       );
@@ -485,7 +537,37 @@ class BattleHandler implements Handler {
       }
     }
 
-    // 6. 清理战斗上下文
+    // 6a. 把 simulator 的最终 HP 攒成「待写回」patches，挂到 SortieContext 上。
+    //     不在这里写 GameState：BattlePreview 仍在显示战斗结果，mainpanel 应保持
+    //     原样直到下一次进击 (SORTIE_NEXT) 再统一刷新。把 patches 现在算好是
+    //     因为 simulator 马上要 reset，错过就拿不到了。
+    if (context && !isPractice) {
+      try {
+        const snap = getBattlePredictionService().getCurrentSnapshot();
+        if (snap) {
+          const patches: { uid: number; hpNow: number; hpMax: number }[] = [];
+          const mainShips = context.fleetSnapshot?.ships ?? [];
+          for (const s of snap.mainFleet) {
+            const uid = mainShips[s.pos]?.uid;
+            if (!uid || uid <= 0) continue;
+            patches.push({ uid, hpNow: Math.max(0, s.nowHP), hpMax: s.maxHP });
+          }
+          if (context.combinedType > 0) {
+            const escortShips = context.fleetSnapshotEscort?.ships ?? [];
+            for (const s of snap.escortFleet) {
+              const uid = escortShips[s.pos - 6]?.uid;
+              if (!uid || uid <= 0) continue;
+              patches.push({ uid, hpNow: Math.max(0, s.nowHP), hpMax: s.maxHP });
+            }
+          }
+          context.pendingHpPatches = patches;
+        }
+      } catch (e) {
+        console.warn('[battle] capturing HP patches failed:', String(e));
+      }
+    }
+
+    // 6b. 清理战斗上下文
     if (context) {
       context.pendingBattle = null;
     }

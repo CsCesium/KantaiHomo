@@ -12,7 +12,6 @@ import {
 import { BattleApiPath, normalizeBattleSegment, normalizeBattleResult } from "../../../domain/models";
 import type { BattleSegment } from "../../../domain/models/struct/battle";
 import { normalizeSortieCell } from "../../../domain/models/normalizer/map";
-import { getSortieContext } from "../../../domain/service";
 import type {
   BattlePrediction,
   ShipPrediction,
@@ -23,8 +22,7 @@ import type {
 import { ApiDump } from "../../../infra/web/types";
 import { parseSvdata, parseFormBody, extractApiPath, matchAnyPattern } from "../../utils/common";
 import { ParserCtx, mkEvt } from "./common";
-import { getBattlePredictionService } from "../../simulator/battle_prediction_service";
-import type { BattlePredictionSnapshot, ShipHPSnapshot } from "../../simulator/battle_prediction_service";
+import { buildFallbackPrediction } from "../../simulator/snapshot_to_domain";
 import { getDeck, getDeckShips, getSlotItemMasterId, getLbas } from "../../state/game_state";
 import type { ShipState } from "../../state/type";
 
@@ -273,99 +271,13 @@ function buildAirRaidPrediction(segment: BattleSegment): BattlePrediction {
   };
 }
 
-// ==================== 模拟器结果转换 ====================
-
-/**
- * 将模拟器快照转换为领域层 BattlePrediction。
- * friendShips / friendEscortShips 来自出击上下文的舰队快照，用于填充 uid/name。
- */
-function simSnapshotToDomainPrediction(
-  snap: BattlePredictionSnapshot,
-  friendShips?: { uid: number; name: string }[],
-  friendEscortShips?: { uid: number; name: string }[],
-): BattlePrediction {
-  function toShipPred(
-    s: ShipHPSnapshot,
-    ships: { uid: number; name: string }[] | undefined,
-    posOffset: number,
-  ): ShipPrediction {
-    const hpAfter = Math.max(0, s.nowHP);
-    const damageReceived = Math.max(0, s.initHP - hpAfter);
-    const idx = s.pos - posOffset;
-    return {
-      uid:            ships?.[idx]?.uid  ?? 0,
-      name:           ships?.[idx]?.name ?? '',
-      hpBefore:       s.initHP,
-      hpAfter,
-      hpMax:          s.maxHP,
-      damageReceived,
-      damageTaken:    s.maxHP > 0 ? Math.round((1 - hpAfter / s.maxHP) * 100) : 0,
-      isSunk:         s.isSunk,
-      isTaiha:        s.isTaiha,
-      isChuuha:       s.isChuuha,
-      isShouha:       s.isShouha,
-    };
-  }
-
-  const friendMain   = snap.mainFleet.map(s => toShipPred(s, friendShips, 0));
-  const friendEscort = snap.escortFleet.length > 0
-    ? snap.escortFleet.map(s => toShipPred(s, friendEscortShips, 6))
-    : undefined;
-  const enemyMain    = snap.enemyFleet.map(s => toShipPred(s, undefined, 0));
-  const enemyEscort  = snap.enemyEscort.length > 0
-    ? snap.enemyEscort.map(s => toShipPred(s, undefined, 0))
-    : undefined;
-
-  const friendSunkCount  = friendMain.filter(s => s.isSunk).length  + (friendEscort?.filter(s => s.isSunk).length  ?? 0);
-  const friendTaihaCount = friendMain.filter(s => s.isTaiha).length + (friendEscort?.filter(s => s.isTaiha).length ?? 0);
-  const enemySunkCount   = enemyMain.filter(s => s.isSunk).length   + (enemyEscort?.filter(s => s.isSunk).length   ?? 0);
-
-  return {
-    friendMain,
-    friendEscort,
-    enemyMain,
-    enemyEscort,
-    predictedRank:  snap.rank,
-    friendSunkCount,
-    friendTaihaCount,
-    enemySunkCount,
-    hasTaihaFriend: friendTaihaCount > 0,
-    hasSunkFriend:  friendSunkCount  > 0,
-    calculatedAt:   snap.updatedAt,
-  };
-}
-
-/**
- * 模拟器未就绪时的占位预测：使用战斗开始前的 HP，不计算伤害。
- * 仅作为数据缺失时的安全占位，不应被 UI 当作真实结算结果展示。
- */
-function buildFallbackPrediction(segment: BattleSegment): BattlePrediction {
-  function fromFleet(fleet: { now: number[]; max: number[] } | undefined): ShipPrediction[] {
-    if (!fleet) return [];
-    return fleet.now
-      .map((hp, i) => ({ hp, max: fleet.max[i] ?? 0 }))
-      .filter(({ max }) => max > 0)
-      .map(({ hp, max }) => ({
-        uid: 0, name: '',
-        hpBefore: hp, hpAfter: hp, hpMax: max,
-        damageReceived: 0, damageTaken: 0,
-        isSunk: false, isTaiha: false, isChuuha: false, isShouha: false,
-      }));
-  }
-  return {
-    friendMain:      fromFleet(segment.start.friend.main),
-    friendEscort:    segment.start.friend.escort ? fromFleet(segment.start.friend.escort) : undefined,
-    enemyMain:       fromFleet(segment.start.enemy.main),
-    enemyEscort:     segment.start.enemy.escort  ? fromFleet(segment.start.enemy.escort)  : undefined,
-    predictedRank:   'D',
-    friendSunkCount: 0, friendTaihaCount: 0, enemySunkCount: 0,
-    hasTaihaFriend:  false, hasSunkFriend: false,
-    calculatedAt:    Date.now(),
-  };
-}
-
 /**
  * 解析昼战
+ *
+ * Parser 可能跑在 TaskPool worker 里（dump ≥ 256KB），worker 拿不到
+ * 主线程的 BattlePredictionService 单例。所以这里**不**喂 simulator、
+ * 也不读 snapshot —— 只产出占位 prediction 和 apiData，让主线程上的
+ * handler 自己 feed simulator 并基于真正的快照算最终预测。
  */
 function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const raw = parseSvdata<any>(dump.responseText);
@@ -375,35 +287,11 @@ function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const isPractice = dump.url.includes('practice');
   const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
 
-  // 每场新的昼战重置模拟器，然后喂入首个数据包
-  // 注意：simulator 内部路径格式为 '/kcsapi/...'，而 extractApiPath 返回短格式
-  const simPath = '/kcsapi/' + apiPath;
-  try {
-    const svc = getBattlePredictionService();
-    svc.reset();
-    svc.onBattlePacket(simPath, { ...apiData, _path: simPath });
-  } catch (_) { /* service 未初始化时静默跳过 */ }
-
   const segment = normalizeBattleSegment(apiPath, raw);
   if (!segment) return [];
 
-  // 优先使用模拟器结果（含精确敌我 HP）；模拟器未就绪时使用开战前 HP 占位
-  let prediction: BattlePrediction;
-  try {
-    const snap = getBattlePredictionService().getCurrentSnapshot();
-    if (snap) {
-      const context = getSortieContext();
-      prediction = simSnapshotToDomainPrediction(
-        snap,
-        context?.fleetSnapshot?.ships?.map(s => ({ uid: s.uid, name: s.name })),
-        context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
-      );
-    } else {
-      prediction = buildFallbackPrediction(segment);
-    }
-  } catch (_) {
-    prediction = buildFallbackPrediction(segment);
-  }
+  // 占位 prediction：供 handler fallback / ensurePracticeContext 兜底舰队用。
+  const prediction = buildFallbackPrediction(segment);
 
   const event: BattleDayEvent = mkEvt(
     ctx,
@@ -413,6 +301,7 @@ function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
       apiPath,
       segment,
       prediction,
+      apiData,
       isPractice,
     }
   );
@@ -422,6 +311,9 @@ function parseDayBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
 
 /**
  * 解析夜战
+ *
+ * 与昼战相同：handler 主线程负责 simulator feed/snapshot，parser 只透传
+ * segment + apiData。夜战在 handler 里走「累计模式」(不 reset)。
  */
 function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const raw = parseSvdata<any>(dump.responseText);
@@ -431,31 +323,10 @@ function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const isPractice = dump.url.includes('practice');
   const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
 
-  // 夜战累计到当前模拟器（不 reset）
-  const simPath = '/kcsapi/' + apiPath;
-  try {
-    getBattlePredictionService().onBattlePacket(simPath, { ...apiData, _path: simPath });
-  } catch (_) { /* ignore */ }
-
   const segment = normalizeBattleSegment(apiPath, raw);
   if (!segment) return [];
 
-  let prediction: BattlePrediction;
-  try {
-    const snap = getBattlePredictionService().getCurrentSnapshot();
-    if (snap) {
-      const context = getSortieContext();
-      prediction = simSnapshotToDomainPrediction(
-        snap,
-        context?.fleetSnapshot?.ships?.map(s => ({ uid: s.uid, name: s.name })),
-        context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
-      );
-    } else {
-      prediction = buildFallbackPrediction(segment);
-    }
-  } catch (_) {
-    prediction = buildFallbackPrediction(segment);
-  }
+  const prediction = buildFallbackPrediction(segment);
 
   const event: BattleNightEvent = mkEvt(
     ctx,
@@ -465,6 +336,7 @@ function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
       apiPath,
       segment,
       prediction,
+      apiData,
       isPractice,
     }
   );
@@ -474,6 +346,10 @@ function parseNightBattle(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
 
 /**
  * 解析战斗结果
+ *
+ * BATTLE_RESULT 不进 simulator —— handler 在结算阶段会把 simulator reset
+ * 掉为下一场战斗做准备，UI 显示用的 rank/MVP/drop 全部由 normalizeBattleResult
+ * 直接给出。
  */
 function parseBattleResultDump(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
   const raw = parseSvdata<any>(dump.responseText);
@@ -481,13 +357,6 @@ function parseBattleResultDump(dump: ApiDump, ctx: ParserCtx): AnyBattleEvt[] {
 
   const apiPath = extractApiPath(dump.url);
   const isPractice = dump.url.includes('practice');
-  const apiData = (raw.api_data ?? raw) as Record<string, unknown>;
-
-  // 将实际结果喂给模拟器（使其发布最终快照）
-  const simPath = '/kcsapi/' + apiPath;
-  try {
-    getBattlePredictionService().onBattlePacket(simPath, { ...apiData, _path: simPath });
-  } catch (_) { /* ignore */ }
 
   const result = normalizeBattleResult(raw);
 

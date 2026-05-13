@@ -21,7 +21,7 @@ import {
 } from '../../../domain/models';
 import type { AirBaseSnapshot, AirBaseSquadronSnapshot } from '../../../domain/models/struct/battle_record';
 import type { FleetSnapshot, ShipSnapshot, SlotItemSnapshot } from '../../../domain/models/struct/battle_record';
-import { startSortie, moveToNextCell } from '../../../domain/service';
+import { startSortie, moveToNextCell, getSortieContext } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
 import { SortieNextAlert, SortieStartTaihaAlert, TaihaWarningAlert } from '../../alerts/type';
 import { getLastBattleHasTaihaRisk, getLastBattleTaihaShips, resetLastBattleState } from '../../alerts/lastBattleState';
@@ -30,7 +30,8 @@ import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId,
   getDeckShips,
   getShipSpecialEquip,
   addSortieResourceGains,
-  clearSortieResourceGains } from '../../state/game_state';
+  clearSortieResourceGains,
+  patchShipsHp } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -221,6 +222,19 @@ class SortieHandler implements Handler {
     PersistDeps: PersistDeps
   ): Promise<void> {
     const { cell } = payload;
+
+    // 进击之后才把上一次战斗的 HP 写回 GameState：BATTLE_RESULT 时 simulator
+    // 已经把战后 HP 攒成 patches 挂在 SortieContext 上，这里一次性 flush，
+    // 保证 mainpanel 和下一格战斗 simulator 都拿到正确的初始 HP。
+    const ctxBeforeMove = getSortieContext();
+    if (ctxBeforeMove?.pendingHpPatches && ctxBeforeMove.pendingHpPatches.length > 0) {
+      try {
+        patchShipsHp(ctxBeforeMove.pendingHpPatches);
+      } catch (e) {
+        console.warn('[sortie] flush pendingHpPatches failed:', String(e));
+      }
+      ctxBeforeMove.pendingHpPatches = undefined;
+    }
 
     // Clear any battle state from the previous cell so the normal panel is restored.
     clearBattleState();
