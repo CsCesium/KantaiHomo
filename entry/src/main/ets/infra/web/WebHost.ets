@@ -520,6 +520,10 @@ export default struct WebHost {
   }
 
   build() {
+    // Outer Stack: wraps the entire host so the Ship info overlay can cover every
+    // child of WebHost (game area, button bar, bottom panel) — not just the game
+    // sub-Stack. WebHost itself remains mounted so the WebView/controller survive.
+    Stack({ alignContent: Alignment.TopStart }) {
     Column() {
       if (this.progress > 0 && this.progress < 100) {
         Progress({ value: this.progress }).width('100%').height(2).backgroundColor('#222')
@@ -588,18 +592,6 @@ export default struct WebHost {
             .height('100%')
             .align(Alignment.TopEnd)
             .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
-        }
-
-        // Ship info overlay — full-screen page rendered above the game.
-        // Sits inside the same Stack so the GameWeb / WebviewController stay mounted;
-        // closing the overlay returns the user to the live game with no reload.
-        // Right-swipe on the page itself triggers close (handled in ShipInfoPage).
-        if (this.shipInfoVisible) {
-          ShipInfoPage({
-            onClose: () => { this.shipInfoVisible = false; },
-          })
-            .width('100%')
-            .height('100%')
         }
 
         // FloatOverlay panel — overlaid on the game viewport.
@@ -697,7 +689,6 @@ export default struct WebHost {
     .height('100%')
     .width('100%')
     .backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM], this.getSafeAreaEdges())
     .onAreaChange((_oldArea: Area, area: Area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);
@@ -711,5 +702,21 @@ export default struct WebHost {
       }
       this.recalcLayout(w, h);
     })
+
+      // Ship info overlay — covers the entire WebHost area (game + button bar +
+      // bottom panel) regardless of layout mode. Rendered as a sibling of the
+      // root Column inside the outer Stack so the WebviewController and game
+      // session stay mounted underneath; close to return to the live game.
+      if (this.shipInfoVisible) {
+        ShipInfoPage({
+          onClose: () => { this.shipInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], this.getSafeAreaEdges())
   }
 }
