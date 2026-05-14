@@ -15,6 +15,7 @@ import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
+import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
@@ -68,6 +69,9 @@ export default struct WebHost {
   @State private lrLayoutForced: boolean = false;
   @State private battlePreviewAvailable: boolean = false;
   @State private battlePreviewVisible: boolean = true;
+  // Info overlay (ship list etc.) — rendered above the game without unmounting WebHost,
+  // so the WebviewController instance and game state survive open/close.
+  @State private shipInfoVisible: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
@@ -559,6 +563,7 @@ export default struct WebHost {
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onToggleBattlePreview: () => this.toggleBattlePreview(),
               onLogout: () => this.promptLogout(),
+              onOpenShipInfo: () => { this.shipInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               battlePreviewAvailable: this.battlePreviewAvailable,
@@ -583,6 +588,18 @@ export default struct WebHost {
             .height('100%')
             .align(Alignment.TopEnd)
             .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
+        }
+
+        // Ship info overlay — full-screen page rendered above the game.
+        // Sits inside the same Stack so the GameWeb / WebviewController stay mounted;
+        // closing the overlay returns the user to the live game with no reload.
+        // Right-swipe on the page itself triggers close (handled in ShipInfoPage).
+        if (this.shipInfoVisible) {
+          ShipInfoPage({
+            onClose: () => { this.shipInfoVisible = false; },
+          })
+            .width('100%')
+            .height('100%')
         }
 
         // FloatOverlay panel — overlaid on the game viewport.
@@ -632,6 +649,7 @@ export default struct WebHost {
                 onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
                 onToggleBattlePreview: () => this.toggleBattlePreview(),
                 onLogout: () => this.promptLogout(),
+                onOpenShipInfo: () => { this.shipInfoVisible = true; },
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 panelActive: this.overlayForced,
                 showPanelToggle: false,
@@ -660,6 +678,7 @@ export default struct WebHost {
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onToggleBattlePreview: () => this.toggleBattlePreview(),
               onLogout: () => this.promptLogout(),
+              onOpenShipInfo: () => { this.shipInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               showPanelToggle: false,
