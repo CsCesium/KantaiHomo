@@ -6,6 +6,7 @@ export default struct LeftButtonColumn {
   @Event onToggleBattlePreview: () => void;
   @Event onLogout: () => void;
   @Event onOpenShipInfo: () => void;
+  @Event onOpenEquipInfo: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
@@ -64,6 +65,7 @@ export default struct LeftButtonColumn {
     .border({ width: 0 })
     .bindMenu([
       { value: '舰娘', action: () => this.onOpenShipInfo?.() },
+      { value: '装备', action: () => this.onOpenEquipInfo?.() },
     ])
   }
 
