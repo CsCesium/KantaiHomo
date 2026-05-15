@@ -28,7 +28,6 @@ export interface LayoutDecision {
 
 const NARROW_SHORT_SIDE_VP = 420;
 const MIN_SPLIT_BOTTOM_PANEL_VP = 96;
-const TALL_PORTRAIT_SPLIT_RATIO = 1.45;
 const GAME_HEIGHT_WIDTH_RATIO = 720 / 1200;
 /** 游戏画面宽高比（宽/高） */
 export const GAME_ASPECT_RATIO = 1200 / 720;
@@ -82,18 +81,18 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
     };
   }
 
-  // Portrait-like split: scale game to full width and dock panel below when
-  // width-fit leaves enough vertical room. A left/right split on a high-DPI
-  // device may be visually wide in px but still narrow in vp, so allow tall
-  // portrait split windows through without enabling short top/bottom splits.
+  // Split (incl. panoramic multi-window): scale game to full width and dock
+  // panel below when the width-fit leaves enough vertical room. Portrait
+  // splits always qualify since the width-fit naturally leaves room for the
+  // panel — including narrow halves of foldables (e.g. 420×600 vp), where
+  // hiding the panel would also hide the toolbar (the floating buttons are
+  // fullscreen-only) and leave a large empty band beneath the game.
+  // Landscape splits still require width ≥ 700 to keep the game playable.
   if (scene === WindowScene.SPLIT) {
     const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
     const bottomPanelH: number = heightVp - contentH;
-    const tallPortraitSplit: boolean = portrait && heightVp >= widthVp * TALL_PORTRAIT_SPLIT_RATIO;
-    const portraitSplitWithPanel: boolean = portrait && (!narrow || tallPortraitSplit);
-    const landscapeSplitWithPanel: boolean = widthVp >= 700 && bottomPanelH >= MIN_SPLIT_BOTTOM_PANEL_VP;
     const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_SPLIT_BOTTOM_PANEL_VP &&
-      (portraitSplitWithPanel || landscapeSplitWithPanel);
+      (portrait || widthVp >= 700);
     if (canShowSplitBottomPanel) {
       return {
         mode: HostMode.EXPANDED,
