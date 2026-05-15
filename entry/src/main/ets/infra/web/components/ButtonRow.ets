@@ -12,6 +12,7 @@ export default struct ButtonRow {
   @Event onLogout: () => void;
   @Event onOpenShipInfo: () => void;
   @Event onOpenEquipInfo: () => void;
+  @Event onOpenExpeditionInfo: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
@@ -68,6 +69,7 @@ export default struct ButtonRow {
     .bindMenu([
       { value: '舰娘', action: () => this.onOpenShipInfo?.() },
       { value: '装备', action: () => this.onOpenEquipInfo?.() },
+      { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
     ])
   }
 
