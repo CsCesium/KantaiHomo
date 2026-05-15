@@ -10,6 +10,9 @@ export default struct ButtonRow {
   @Event onTogglePanel: () => void;
   @Event onToggleBattlePreview: () => void;
   @Event onLogout: () => void;
+  @Event onOpenShipInfo: () => void;
+  @Event onOpenEquipInfo: () => void;
+  @Event onOpenExpeditionInfo: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
@@ -56,6 +59,20 @@ export default struct ButtonRow {
     })
   }
 
+  @Builder private InfoBtn() {
+    Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Text('信').fontSize(18).fontWeight(FontWeight.Medium).fontColor('#999')
+    }
+    .width(48).height(40)
+    .backgroundColor(Color.Transparent)
+    .border({ width: 0 })
+    .bindMenu([
+      { value: '舰娘', action: () => this.onOpenShipInfo?.() },
+      { value: '装备', action: () => this.onOpenEquipInfo?.() },
+      { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
+    ])
+  }
+
   @Builder private LogoutBtn() {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
       Text('↩')
@@ -78,6 +95,7 @@ export default struct ButtonRow {
           this.PanelBtn()
         }
         this.BattlePreviewBtn()
+        this.InfoBtn()
         this.LogoutBtn()
       }
       .height(40)

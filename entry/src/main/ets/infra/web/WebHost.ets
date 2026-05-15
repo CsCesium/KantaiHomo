@@ -15,6 +15,9 @@ import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
+import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
+import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
+import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
@@ -68,6 +71,11 @@ export default struct WebHost {
   @State private lrLayoutForced: boolean = false;
   @State private battlePreviewAvailable: boolean = false;
   @State private battlePreviewVisible: boolean = true;
+  // Info overlay (ship list etc.) — rendered above the game without unmounting WebHost,
+  // so the WebviewController instance and game state survive open/close.
+  @State private shipInfoVisible: boolean = false;
+  @State private equipInfoVisible: boolean = false;
+  @State private expeditionInfoVisible: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
@@ -516,6 +524,10 @@ export default struct WebHost {
   }
 
   build() {
+    // Outer Stack: wraps the entire host so the Ship info overlay can cover every
+    // child of WebHost (game area, button bar, bottom panel) — not just the game
+    // sub-Stack. WebHost itself remains mounted so the WebView/controller survive.
+    Stack({ alignContent: Alignment.TopStart }) {
     Column() {
       if (this.progress > 0 && this.progress < 100) {
         Progress({ value: this.progress }).width('100%').height(2).backgroundColor('#222')
@@ -559,6 +571,9 @@ export default struct WebHost {
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onToggleBattlePreview: () => this.toggleBattlePreview(),
               onLogout: () => this.promptLogout(),
+              onOpenShipInfo: () => { this.shipInfoVisible = true; },
+              onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+              onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               battlePreviewAvailable: this.battlePreviewAvailable,
@@ -632,6 +647,9 @@ export default struct WebHost {
                 onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
                 onToggleBattlePreview: () => this.toggleBattlePreview(),
                 onLogout: () => this.promptLogout(),
+                onOpenShipInfo: () => { this.shipInfoVisible = true; },
+                onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+                onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 panelActive: this.overlayForced,
                 showPanelToggle: false,
@@ -660,6 +678,9 @@ export default struct WebHost {
               onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
               onToggleBattlePreview: () => this.toggleBattlePreview(),
               onLogout: () => this.promptLogout(),
+              onOpenShipInfo: () => { this.shipInfoVisible = true; },
+              onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+              onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               showPanelToggle: false,
@@ -678,7 +699,6 @@ export default struct WebHost {
     .height('100%')
     .width('100%')
     .backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM], this.getSafeAreaEdges())
     .onAreaChange((_oldArea: Area, area: Area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);
@@ -692,5 +712,35 @@ export default struct WebHost {
       }
       this.recalcLayout(w, h);
     })
+
+      // Info overlays — cover the entire WebHost area (game + button bar +
+      // bottom panel) regardless of layout mode. Rendered as siblings of the
+      // root Column inside the outer Stack so the WebviewController and game
+      // session stay mounted underneath; closing returns to the live game.
+      if (this.shipInfoVisible) {
+        ShipInfoPage({
+          onClose: () => { this.shipInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+      if (this.equipInfoVisible) {
+        EquipInfoPage({
+          onClose: () => { this.equipInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+      if (this.expeditionInfoVisible) {
+        ExpeditionInfoPage({
+          onClose: () => { this.expeditionInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], this.getSafeAreaEdges())
   }
 }
