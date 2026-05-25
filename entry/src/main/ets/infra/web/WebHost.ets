@@ -18,6 +18,7 @@ import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
 import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
 import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
+import BattleHistoryPage from "../../app/pages/components/info/BattleHistoryPage";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
@@ -76,6 +77,7 @@ export default struct WebHost {
   @State private shipInfoVisible: boolean = false;
   @State private equipInfoVisible: boolean = false;
   @State private expeditionInfoVisible: boolean = false;
+  @State private battleHistoryVisible: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
@@ -574,6 +576,7 @@ export default struct WebHost {
               onOpenShipInfo: () => { this.shipInfoVisible = true; },
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
+              onOpenBattleHistory: () => { this.battleHistoryVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               battlePreviewAvailable: this.battlePreviewAvailable,
@@ -650,6 +653,7 @@ export default struct WebHost {
                 onOpenShipInfo: () => { this.shipInfoVisible = true; },
                 onOpenEquipInfo: () => { this.equipInfoVisible = true; },
                 onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
+                onOpenBattleHistory: () => { this.battleHistoryVisible = true; },
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 panelActive: this.overlayForced,
                 showPanelToggle: false,
@@ -681,6 +685,7 @@ export default struct WebHost {
               onOpenShipInfo: () => { this.shipInfoVisible = true; },
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
+              onOpenBattleHistory: () => { this.battleHistoryVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               panelActive: this.overlayForced,
               showPanelToggle: false,
@@ -734,6 +739,13 @@ export default struct WebHost {
       if (this.expeditionInfoVisible) {
         ExpeditionInfoPage({
           onClose: () => { this.expeditionInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+      if (this.battleHistoryVisible) {
+        BattleHistoryPage({
+          onClose: () => { this.battleHistoryVisible = false; },
         })
           .width('100%')
           .height('100%')

@@ -8,6 +8,7 @@ export default struct LeftButtonColumn {
   @Event onOpenShipInfo: () => void;
   @Event onOpenEquipInfo: () => void;
   @Event onOpenExpeditionInfo: () => void;
+  @Event onOpenBattleHistory: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
@@ -68,6 +69,7 @@ export default struct LeftButtonColumn {
       { value: '舰娘', action: () => this.onOpenShipInfo?.() },
       { value: '装备', action: () => this.onOpenEquipInfo?.() },
       { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
+      { value: '战斗', action: () => this.onOpenBattleHistory?.() },
     ])
   }
 
