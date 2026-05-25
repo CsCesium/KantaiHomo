@@ -22,6 +22,7 @@ import { resourceIconPath } from '../../../../../features/resources/resourceMeta
 import ShipRow from '../bottom/rows/ShipRow';
 import MapGaugeRow from '../bottom/rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
+import { shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任務'];
@@ -246,7 +247,7 @@ export default struct BottomPanel {
     this.materials = getMaterials();
     this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
-    this.mapGauges = [...getMapGauges()];
+    this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
     this.activeQuests = getQuests().filter(q => q.state === QUEST_STATE_ACTIVE);
     this.admiralName = admiral?.nickname || '--';
     this.admiralRank = formatAdmiralRank(admiral?.rank);

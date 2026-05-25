@@ -6,6 +6,7 @@ import {
   shouldShowMapGaugeBar,
   isGridStyleMapGauge,
   rangeIndices,
+  getRemainingDefeatCount,
 } from './shipHelpers';
 
 /** 进度条/格子的固定颜色 —— 不随比例变化。 */
@@ -17,9 +18,9 @@ const BAR_TRACK_COLOR: string = PanelColors.overlayRow;
  *
  * 显示规则：
  * - 活动海图：hpNow/hpMax 数值 + 线性 HP 条
- * - EO 月度海域 (requiredDefeats ≥ 10)：defeatCount/requiredDefeats + 线性击破条
- * - EO 月度海域 (requiredDefeats < 10)：defeatCount/requiredDefeats + 格子风格
- *   每格代表 1 次击破，达成的格子填色，未达成的格子留底色
+ * - EO 月度海域 (requiredDefeats ≥ 10)：剩余击破次数/requiredDefeats + 线性条
+ * - EO 月度海域 (requiredDefeats < 10)：剩余击破次数/requiredDefeats + 格子风格
+ *   每格代表 1 次仍需击破，剩余次数填色，已完成次数留底色
  */
 @ComponentV2
 export default struct MapGaugeRow {
@@ -38,7 +39,7 @@ export default struct MapGaugeRow {
           .layoutWeight(1)
           .height(PanelDimens.hpBarCompH + 2)
           .borderRadius(2)
-          .backgroundColor(i < this.gauge.defeatCount ? BAR_FILL_COLOR : BAR_TRACK_COLOR)
+          .backgroundColor(i < getRemainingDefeatCount(this.gauge) ? BAR_FILL_COLOR : BAR_TRACK_COLOR)
       }, (i: number) => `cell-${this.gauge.mapId}-${this.gauge.gaugeNum}-${i}`)
     }
     .width('100%')
@@ -72,7 +73,7 @@ export default struct MapGaugeRow {
             .fontSize(PanelDimens.fontMd)
             .fontColor(BAR_FILL_COLOR)
         } else if (this.gauge.requiredDefeats !== null && this.gauge.requiredDefeats > 0) {
-          Text(`${this.gauge.defeatCount}/${this.gauge.requiredDefeats}`)
+          Text(`残${getRemainingDefeatCount(this.gauge)}/${this.gauge.requiredDefeats}`)
             .fontSize(PanelDimens.fontMd)
             .fontColor(BAR_FILL_COLOR)
         } else {

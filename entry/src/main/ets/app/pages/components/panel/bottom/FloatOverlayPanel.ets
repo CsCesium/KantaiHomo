@@ -20,7 +20,7 @@ import { resourceIconPath } from '../../../../../features/resources/resourceMeta
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
-import { isPeriodicMapGauge } from './rows/shipHelpers';
+import { shouldDisplayMapGauge } from './rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const OVERLAY_MAP_TAB_IDX = 4;
@@ -249,8 +249,7 @@ export default struct FloatOverlayPanel {
     this.admiralExperience = admiral ? `${admiral.experience}` : '--';
     this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
     this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
-    // 已通关的海图直接隐藏；活动海图例外，即使 cleared 也保留显示。
-    this.mapGauges = getMapGauges().filter(g => !g.cleared || !isPeriodicMapGauge(g));
+    this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
     this.refreshShips();
     this.loadCalcStats();
   }
