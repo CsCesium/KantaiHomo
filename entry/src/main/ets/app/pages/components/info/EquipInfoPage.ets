@@ -179,12 +179,17 @@ function compareEquips(a: EquipInfoItem, b: EquipInfoItem, key: EquipSortKey): n
   }
 }
 
+interface TmpEntry {
+  uid: number;
+  name: string;
+}
+
 /** Build slot uid → ship-name map by scanning every ship's slots + exSlot. */
-function buildEquipperIndex(): Map<number, { uid: number; name: string }> {
-  const out = new Map<number, { uid: number; name: string }>();
+function buildEquipperIndex(): Map<number, TmpEntry> {
+  const out = new Map<number, TmpEntry>();
   const state = getGameState().getState();
   state.ships.forEach((ship) => {
-    const entry = { uid: ship.uid, name: ship.name };
+    const entry: TmpEntry = { uid: ship.uid, name: ship.name };
     for (const slotUid of ship.slots) {
       if (slotUid > 0) out.set(slotUid, entry);
     }

@@ -39,6 +39,11 @@ type AreaFilter = 'all' | 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a7' | 'other';
 type FlagFilter = 'all' | 'normal' | 'monthly' | 'has_cond' | 'no_cond';
 type SortKey = 'id_asc' | 'area_asc' | 'time_desc' | 'time_asc' | 'difficulty_desc';
 
+interface MissionReward {
+  id: number;
+  count: number;
+}
+
 interface MissionView {
   id: number;
   code: string;
@@ -52,8 +57,8 @@ interface MissionView {
   difficulty: number;
   fuelPct: number;
   ammoPct: number;
-  reward1: { id: number; count: number } | null;
-  reward2: { id: number; count: number } | null;
+  reward1: MissionReward | null;
+  reward2: MissionReward | null;
   matLevels: [number, number, number, number];
   returnCancelable: boolean;
   /** 来自 conditions JSON 的判断条件；null 表示未提供。 */
@@ -157,6 +162,10 @@ function formatDuration(min: number): string {
   return m === 0 ? `${h}h` : `${h}h${m}m`;
 }
 
+function makeMissionReward(id: number, count: number): MissionReward {
+  return { id: id, count: count };
+}
+
 function toView(row: MissionRow, conds: Map<number, ExpeditionCondition>): MissionView {
   return {
     id: row.id,
@@ -172,10 +181,10 @@ function toView(row: MissionRow, conds: Map<number, ExpeditionCondition>): Missi
     fuelPct: row.fuelPct ?? 0,
     ammoPct: row.ammoPct ?? 0,
     reward1: (row.reward_item1_id !== null && row.reward_item1_id !== undefined && row.reward_item1_id > 0)
-      ? { id: row.reward_item1_id, count: row.reward_item1_count ?? 0 }
+      ? makeMissionReward(row.reward_item1_id, row.reward_item1_count ?? 0)
       : null,
     reward2: (row.reward_item2_id !== null && row.reward_item2_id !== undefined && row.reward_item2_id > 0)
-      ? { id: row.reward_item2_id, count: row.reward_item2_count ?? 0 }
+      ? makeMissionReward(row.reward_item2_id, row.reward_item2_count ?? 0)
       : null,
     matLevels: [row.mat0 ?? 0, row.mat1 ?? 0, row.mat2 ?? 0, row.mat3 ?? 0],
     returnCancelable: (row.returnCancelable ?? 0) === 1,
@@ -211,10 +220,10 @@ export default struct ExpeditionInfoPage {
     this.loadError = '';
     try {
       // 并行加载：DB 的 mission 目录 + rawfile 中的条件 JSON。
-      const [rows, conds] = await Promise.all([
-        this.loadMissions(),
-        this.loadConditions(),
-      ]);
+      const rowsPromise: Promise<MissionRow[]> = this.loadMissions();
+      const condsPromise: Promise<Map<number, ExpeditionCondition>> = this.loadConditions();
+      const rows: MissionRow[] = await rowsPromise;
+      const conds: Map<number, ExpeditionCondition> = await condsPromise;
       this.conditions = conds;
       const views = rows.map((r) => toView(r, conds));
       this.allMissions = views;

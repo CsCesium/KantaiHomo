@@ -15,9 +15,14 @@ import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
+  APP_STORAGE_SIDEBAR_SHOW_AVATAR } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
+import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
+import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
+import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
+import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
 
 interface RpcPayload {
   op: string;
