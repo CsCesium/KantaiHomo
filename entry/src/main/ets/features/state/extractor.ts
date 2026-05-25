@@ -1,5 +1,5 @@
 // ==================== 类型定义 ====================
-import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateShips, updateSlotItemIndex, getGameState } from ".";
+import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateShips, updateSlotItemIndex, getGameState, getMaterials } from ".";
 import {
   ApiBasicRaw,
   ApiMaterialItemRaw,
@@ -160,6 +160,27 @@ export function extractAndUpdateState(
   if (doMaterials && materialsRaw && materialsRaw.length > 0) {
     try {
       const materials = normalizeMaterials(materialsRaw, now);
+      // /api_get_member/material 仅返回 4 项基础资源（api_id 1-4），
+      // normalizeMaterials 会把缺失的道具资源（api_id 5-8）默认为 0；
+      // 直接 updateMaterials 会清空 GameState 中的速建/速修/开发/螺母。
+      // 缺项时用当前快照回填，避免补给/收获远征界面切换时资源栏被清空。
+      const presentIds = new Set<number>();
+      for (const it of materialsRaw) presentIds.add(it.api_id);
+      const allPresent = presentIds.has(1) && presentIds.has(2) && presentIds.has(3) && presentIds.has(4)
+        && presentIds.has(5) && presentIds.has(6) && presentIds.has(7) && presentIds.has(8);
+      if (!allPresent) {
+        const current = getMaterials();
+        if (current) {
+          if (!presentIds.has(1)) materials.fuel = current.fuel;
+          if (!presentIds.has(2)) materials.ammo = current.ammo;
+          if (!presentIds.has(3)) materials.steel = current.steel;
+          if (!presentIds.has(4)) materials.bauxite = current.bauxite;
+          if (!presentIds.has(5)) materials.instantBuild = current.instantBuild;
+          if (!presentIds.has(6)) materials.instantRepair = current.instantRepair;
+          if (!presentIds.has(7)) materials.devMaterial = current.devMaterial;
+          if (!presentIds.has(8)) materials.screw = current.screw;
+        }
+      }
       updateMaterials(materials);
       result.updated = true;
       console.debug('[StateExtractor] materials updated');
