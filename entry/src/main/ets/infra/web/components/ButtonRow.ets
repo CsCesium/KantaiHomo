@@ -1,6 +1,6 @@
 /**
  * 横向按钮栏：位于游戏画面下方、底部面板上方。
- * 内容与 ButtonColumn 一致（刷新 / 横竖切换 / 面板开关 / 静音），
+ * 内容与 ButtonColumn 一致（刷新 / 横竖切换 / 面板开关 / 登出），
  * 仅排列方向改为水平，便于在 BottomPanel 模式下嵌入到 game 与 panel 之间。
  */
 import {
@@ -15,6 +15,9 @@ export default struct ButtonRow {
   @Event onToggleLrMode: () => void;
   @Event onTogglePanel: () => void;
   @Event onToggleBattlePreview: () => void;
+  @Event onOpenShipInfo: () => void;
+  @Event onOpenEquipInfo: () => void;
+  @Event onOpenExpeditionInfo: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
@@ -86,6 +89,20 @@ export default struct ButtonRow {
     })
   }
 
+  @Builder private InfoBtn() {
+    Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Text('信').fontSize(18).fontWeight(FontWeight.Medium).fontColor('#999')
+    }
+    .width(48).height(40)
+    .backgroundColor(Color.Transparent)
+    .border({ width: 0 })
+    .bindMenu([
+      { value: '舰娘', action: () => this.onOpenShipInfo?.() },
+      { value: '装备', action: () => this.onOpenEquipInfo?.() },
+      { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
+    ])
+  }
+
   @Builder private MuteBtn() {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
       Text('静')
@@ -108,6 +125,7 @@ export default struct ButtonRow {
           this.PanelBtn()
         }
         this.BattlePreviewBtn()
+        this.InfoBtn()
         this.MuteBtn()
       }
       .height(40)

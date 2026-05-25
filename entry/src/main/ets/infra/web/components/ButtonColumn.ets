@@ -10,6 +10,9 @@ export default struct LeftButtonColumn {
   @Event onToggleLrMode: () => void;
   @Event onTogglePanel: () => void;
   @Event onToggleBattlePreview: () => void;
+  @Event onOpenShipInfo: () => void;
+  @Event onOpenEquipInfo: () => void;
+  @Event onOpenExpeditionInfo: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
@@ -82,6 +85,23 @@ export default struct LeftButtonColumn {
     })
   }
 
+  // Info button — opens a sub-menu of in-app info pages (ship list, etc.).
+  // Each menu item triggers an overlay that preserves the game WebView.
+  @Builder private InfoBtn() {
+    Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Text('信').fontSize(18).fontWeight(FontWeight.Medium).fontColor('#999')
+    }
+    .width(48).height(48)
+    .backgroundColor(Color.Transparent)
+    .border({ width: 0 })
+    .bindMenu([
+      { value: '舰娘', action: () => this.onOpenShipInfo?.() },
+      { value: '装备', action: () => this.onOpenEquipInfo?.() },
+      { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
+    ])
+  }
+
+  // Logout button — red tint to signal destructive action.
   @Builder private MuteBtn() {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
       Text('静')
@@ -104,6 +124,7 @@ export default struct LeftButtonColumn {
       }
       this.BattlePreviewBtn()
       this.MuteBtn()
+      this.InfoBtn()
     }
     .width(56).padding({ left: 4, right: 4, top: 8, bottom: 8 })
   }
