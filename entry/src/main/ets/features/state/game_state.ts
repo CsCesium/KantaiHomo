@@ -78,6 +78,18 @@ function sortieResourceGainId(gain: MapResourceGain): number | undefined {
   return undefined;
 }
 
+function deckToSnapshot(deck: Deck, capturedAt: number): DeckSnapshot {
+  const snapshot: DeckSnapshot = {
+    deckId: deck.deckId,
+    name: deck.name,
+    shipUids: deck.shipUids.slice(),
+    expeditionReturnTime: deck.expedition?.returnTime ?? null,
+    expeditionMissionId: deck.expedition?.missionId ?? 0,
+    capturedAt,
+  };
+  return snapshot;
+}
+
 class GameStateManager {
   private state: GameState = {
     admiral: null,
@@ -271,14 +283,33 @@ class GameStateManager {
    * 更新舰队
    */
   updateDecks(decks: Deck[]): void {
-    this.state.decks = decks.map(deck => ({
-      deckId: deck.deckId,
-      name: deck.name,
-      shipUids: [...deck.shipUids],
-      expeditionReturnTime: deck.expedition?.returnTime ?? null,
-      expeditionMissionId: deck.expedition?.missionId ?? 0,
-      capturedAt: Date.now(),
-    }));
+    if (decks.length === 0) return;
+
+    const capturedAt = Date.now();
+    const incoming = new Map<number, DeckSnapshot>();
+    for (const deck of decks) {
+      incoming.set(deck.deckId, deckToSnapshot(deck, capturedAt));
+    }
+
+    const seen = new Set<number>();
+    const merged: DeckSnapshot[] = [];
+    for (const deck of this.state.decks) {
+      const nextDeck = incoming.get(deck.deckId);
+      merged.push(nextDeck ?? deck);
+      seen.add(deck.deckId);
+    }
+    for (const deck of decks) {
+      if (seen.has(deck.deckId)) continue;
+      const nextDeck = incoming.get(deck.deckId);
+      if (nextDeck) {
+        merged.push(nextDeck);
+        seen.add(deck.deckId);
+      }
+    }
+
+    // Non-port APIs can return only the touched sortie fleet. Merge those
+    // partial updates so absent fleets are not cleared from the panel.
+    this.state.decks = merged.sort((a, b) => a.deckId - b.deckId);
 
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('decks');
@@ -500,14 +531,8 @@ class GameStateManager {
     }
 
     if (data.decks) {
-      this.state.decks = data.decks.map(deck => ({
-        deckId: deck.deckId,
-        name: deck.name,
-        shipUids: [...deck.shipUids],
-        expeditionReturnTime: deck.expedition?.returnTime ?? null,
-        expeditionMissionId: deck.expedition?.missionId ?? 0,
-        capturedAt: Date.now(),
-      }));
+      const capturedAt = Date.now();
+      this.state.decks = data.decks.map(deck => deckToSnapshot(deck, capturedAt));
     }
 
     if (data.ships) {

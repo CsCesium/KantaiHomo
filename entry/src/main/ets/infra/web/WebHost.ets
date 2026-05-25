@@ -236,7 +236,7 @@ export default struct WebHost {
     };
     this.panelConfig = decidePanelLayout(finalDecision, heightVp);
 
-    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
+    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT, this.shouldUsePortraitOnlyRotation());
     if (modeChanged) {
       this.host.onPageEnd();
     }
@@ -373,7 +373,7 @@ export default struct WebHost {
       }
     });
     this.host.bindDisplay();
-    void this.host.applyOrientationByMode(true);
+    void this.host.applyOrientationByMode(true, this.shouldUsePortraitOnlyRotation());
     void this.loadRuntimeConfig();
     this.applyPendingLogout();
 
@@ -456,7 +456,7 @@ export default struct WebHost {
   private onEnd = () => {
     this.progress = 100;
     this.host.onPageEnd();
-    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
+    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT, this.shouldUsePortraitOnlyRotation());
 
     // One-shot redirect to configured home URL on first load.
     if (this.firstPageLoad && this.homeOverride) {
@@ -483,6 +483,10 @@ export default struct WebHost {
     }
     // Fullscreen and floating: expand all edges for true edge-to-edge layout.
     return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
+  }
+
+  private shouldUsePortraitOnlyRotation(): boolean {
+    return this.lrLayoutForced && this.scene === WindowScene.FULLSCREEN;
   }
 
   /**

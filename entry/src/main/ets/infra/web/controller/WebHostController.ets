@@ -166,8 +166,8 @@ export class WebHostController {
     }
   }
 
-  async applyOrientationByMode(isCompact: boolean): Promise<void> {
-    await this.ori.applyByMode(isCompact);
+  async applyOrientationByMode(isCompact: boolean, portraitOnly: boolean = false): Promise<void> {
+    await this.ori.applyByMode(isCompact, portraitOnly);
   }
 
   onPostMessage(raw: string): void {
