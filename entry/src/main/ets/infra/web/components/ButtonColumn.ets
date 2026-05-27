@@ -44,23 +44,38 @@ export default struct LeftButtonColumn {
     });
   }
 
-  @Builder private IconBtn(txt: string, onTap: () => void) {
+  @Builder private RefreshBtn() {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Text(txt).fontSize(18).fontWeight(FontWeight.Medium).fontColor('#999')
+      SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+        .fontSize(22)
+        .fontColor(['#999'])
     }
     .width(48).height(48)
     .backgroundColor(Color.Transparent)
     .border({ width: 0 })
-    .onClick(onTap)
+    .onClick(() => this.onRefresh?.())
+  }
+
+  @Builder private RotateBtn() {
+    Button({ type: ButtonType.Normal, stateEffect: true }) {
+      SymbolGlyph(this.lrMode === 'portraitFit'
+        ? $r('sys.symbol.rectangle_portrait_rotate')
+        : $r('sys.symbol.rectangle_rotate'))
+        .fontSize(22)
+        .fontColor(['#999'])
+    }
+    .width(48).height(48)
+    .backgroundColor(Color.Transparent)
+    .border({ width: 0 })
+    .onClick(() => this.onToggleLrMode?.())
   }
 
   // Panel toggle button — highlighted when overlay is active.
   @Builder private PanelBtn() {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Text('面')
-        .fontSize(18)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.panelActive ? '#56d8e0' : '#999')
+      SymbolGlyph($r('sys.symbol.rectangle_on_rectangle'))
+        .fontSize(22)
+        .fontColor([this.panelActive ? '#56d8e0' : '#999'])
     }
     .width(48).height(48)
     .backgroundColor(this.panelActive ? '#1c3535' : Color.Transparent)
@@ -70,10 +85,11 @@ export default struct LeftButtonColumn {
 
   @Builder private BattlePreviewBtn() {
     Button({ type: ButtonType.Normal, stateEffect: this.battlePreviewAvailable }) {
-      Text(!this.battlePreviewAvailable ? '战' : (this.battlePreviewVisible ? '主' : '战'))
-        .fontSize(18)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(!this.battlePreviewAvailable ? '#444' : (this.battlePreviewVisible ? '#C8B99A' : '#56d8e0'))
+      SymbolGlyph(this.battlePreviewAvailable && this.battlePreviewVisible
+        ? $r('sys.symbol.house')
+        : $r('sys.symbol.scope'))
+        .fontSize(22)
+        .fontColor([!this.battlePreviewAvailable ? '#444' : (this.battlePreviewVisible ? '#C8B99A' : '#56d8e0')])
     }
     .width(48).height(48)
     .backgroundColor(this.battlePreviewAvailable && this.battlePreviewVisible ? '#2a2a20' : Color.Transparent)
@@ -89,7 +105,9 @@ export default struct LeftButtonColumn {
   // Each menu item triggers an overlay that preserves the game WebView.
   @Builder private InfoBtn() {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Text('信').fontSize(18).fontWeight(FontWeight.Medium).fontColor('#999')
+      SymbolGlyph($r('sys.symbol.list_bullet'))
+        .fontSize(22)
+        .fontColor(['#999'])
     }
     .width(48).height(48)
     .backgroundColor(Color.Transparent)
@@ -101,13 +119,12 @@ export default struct LeftButtonColumn {
     ])
   }
 
-  // Logout button — red tint to signal destructive action.
+  // Mute button — red tint when audio is muted.
   @Builder private MuteBtn() {
     Button({ type: ButtonType.Normal, stateEffect: true }) {
-      Text('静')
-        .fontSize(18)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.appVolumeMuted ? '#e57373' : '#999')
+      SymbolGlyph(this.appVolumeMuted ? $r('sys.symbol.speaker_slash') : $r('sys.symbol.speaker'))
+        .fontSize(22)
+        .fontColor([this.appVolumeMuted ? '#e57373' : '#999'])
     }
     .width(48).height(48)
     .backgroundColor(this.appVolumeMuted ? '#351c1c' : Color.Transparent)
@@ -117,8 +134,8 @@ export default struct LeftButtonColumn {
 
   build() {
     Column({ space: 8 }) {
-      this.IconBtn('⟳',  () => this.onRefresh?.())
-      this.IconBtn(this.lrMode === 'portraitFit' ? '竖' : '横', () => this.onToggleLrMode?.())
+      this.RefreshBtn()
+      this.RotateBtn()
       if (this.showPanelToggle) {
         this.PanelBtn()
       }
