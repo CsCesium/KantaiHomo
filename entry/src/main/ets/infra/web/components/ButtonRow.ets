@@ -90,8 +90,8 @@ export default struct ButtonRow {
   @Builder private BattlePreviewBtn() {
     Button({ type: ButtonType.Normal, stateEffect: this.battlePreviewAvailable }) {
       SymbolGlyph(this.battlePreviewAvailable && this.battlePreviewVisible
-        ? $r('sys.symbol.house')
-        : $r('sys.symbol.scope'))
+        ? $r('sys.symbol.scope')
+        :$r('sys.symbol.house'))
         .fontSize(22)
         .fontColor([!this.battlePreviewAvailable ? '#444' : (this.battlePreviewVisible ? '#C8B99A' : '#56d8e0')])
     }
