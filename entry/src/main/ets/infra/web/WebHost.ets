@@ -658,6 +658,7 @@ export default struct WebHost {
                 battlePreviewAvailable: this.battlePreviewAvailable,
                 battlePreviewVisible: this.battlePreviewVisible,
               })
+              .height('100%')
             }
             .width(56)
             .height('100%')

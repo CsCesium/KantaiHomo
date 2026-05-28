@@ -133,16 +133,23 @@ export default struct LeftButtonColumn {
   }
 
   build() {
-    Column({ space: 8 }) {
-      this.RefreshBtn()
-      this.RotateBtn()
-      if (this.showPanelToggle) {
-        this.PanelBtn()
+    Scroll() {
+      Column({ space: 8 }) {
+        this.RefreshBtn()
+        this.RotateBtn()
+        if (this.showPanelToggle) {
+          this.PanelBtn()
+        }
+        this.BattlePreviewBtn()
+        this.MuteBtn()
+        this.InfoBtn()
       }
-      this.BattlePreviewBtn()
-      this.MuteBtn()
-      this.InfoBtn()
+      .width(56)
+      .padding({ left: 4, right: 4, top: 8, bottom: 8 })
     }
-    .width(56).padding({ left: 4, right: 4, top: 8, bottom: 8 })
+    .width(56)
+    .scrollable(ScrollDirection.Vertical)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
   }
 }
