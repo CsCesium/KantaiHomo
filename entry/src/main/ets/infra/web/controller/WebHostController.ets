@@ -4,6 +4,7 @@ import common from '@ohos.app.ability.common';
 import { WebBridge } from '../bridge/WebBridge';
 import { FitAndDisplay } from '../layout/fit';
 import { buildInjectionBundle } from '../../web/inject';
+import { buildAudioMuteCommand } from '../inject/modules/audioMute';
 import {  InjectOptions, AppChannelMessage, ApiDump,
   isApiDump,
   isYasenUiEvent,
@@ -179,6 +180,12 @@ export class WebHostController {
     if (typeof this.ctl.runJavaScript === 'function') {
       this.ctl.runJavaScript(script);
     }
+  }
+
+  setWebAudioMuted(muted: boolean): void {
+    try {
+      this.ctl.runJavaScript?.(buildAudioMuteCommand(muted));
+    } catch (_e) {}
   }
 
   private onHookPayload(raw: string): void {

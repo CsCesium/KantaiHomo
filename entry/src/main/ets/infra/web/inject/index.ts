@@ -14,6 +14,7 @@ import { promoteGameFrameSnippet } from './modules/promoteGameFrame';
 import { postMessageGuardSnippet } from './modules/postMessageGuard';
 import { yasenDetectorJS } from './modules/YasenDetect';
 import { advanceDetectorJS } from './modules/AdvanceDetect';
+import { audioMuteSnippet } from './modules/audioMute';
 
 
 function asEvalChunk(name: string, code: string): string {
@@ -31,6 +32,7 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   out.push(asEvalChunk('hm-inject://postMessageGuard.js', postMessageGuardSnippet));
   out.push(asEvalChunk('hm-inject://bridge.js', bridgeSnippet(o.channelName, o.postMethod)));
   out.push(asEvalChunk('hm-inject://promote.js', promoteGameFrameSnippet));
+  out.push(asEvalChunk('hm-inject://audioMute.js', audioMuteSnippet));
   //debug
   if (o.enableDebug) out.push(asEvalChunk('hm-inject://debug.js',kcDebugSnippet))
 

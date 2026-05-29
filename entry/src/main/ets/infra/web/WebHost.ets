@@ -23,6 +23,11 @@ import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
 import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
 import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
 import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
+import {
+  APP_STORAGE_APP_VOLUME_MUTED,
+  subscribeAppVolumeMuted,
+  syncAppVolumeMuted
+} from "../audio/appVolume";
 
 const NARROW_SHORT_SIDE_VP: number = 420;
 const LEFT_BUTTON_COLUMN_WIDTH_VP: number = 56;
@@ -94,6 +99,7 @@ export default struct WebHost {
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
   private unsubGameState?: () => void;
+  private unsubAppVolumeMuted?: () => void;
   private handledLogoutRevision: number = 0;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
@@ -374,6 +380,11 @@ export default struct WebHost {
     this.controller.loadUrl(this.HOME);
   }
 
+  private applyWebAudioMuteState(muted?: boolean): void {
+    const nextMuted = muted ?? (AppStorage.get<boolean>(APP_STORAGE_APP_VOLUME_MUTED) ?? false);
+    this.host.setWebAudioMuted(nextMuted);
+  }
+
   private refreshBattlePreviewState(): void {
     const available: boolean = isInBattle();
     if (!available) {
@@ -445,6 +456,14 @@ export default struct WebHost {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
     this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
+    this.unsubAppVolumeMuted = subscribeAppVolumeMuted((muted: boolean) => {
+      this.applyWebAudioMuteState(muted);
+    });
+    void syncAppVolumeMuted().then((muted: boolean) => {
+      this.applyWebAudioMuteState(muted);
+    }).catch(() => {
+      this.applyWebAudioMuteState(false);
+    });
     this.unsubSortieStartTaiha = subscribeAlert<SortieStartTaihaAlert>('sortie_start_taiha', (a) => {
       this.showSortieStartTaihaDialog(a);
     });
@@ -497,6 +516,11 @@ export default struct WebHost {
       this.unsubGameState = undefined;
     }
 
+    if (this.unsubAppVolumeMuted) {
+      this.unsubAppVolumeMuted();
+      this.unsubAppVolumeMuted = undefined;
+    }
+
     if (this.windowStatusCb) {
       const mainWin = getMainWindowCached();
       if (mainWin) {
@@ -536,12 +560,20 @@ export default struct WebHost {
     }).catch((_e: Error) => {});
   }
 
-  private onWebAttached = () => { this.host.attach(); }
-  private onBegin = () => { this.progress = 5; this.host.onPageBegin(); }
+  private onWebAttached = () => {
+    this.host.attach();
+    this.applyWebAudioMuteState();
+  }
+  private onBegin = () => {
+    this.progress = 5;
+    this.host.onPageBegin();
+    this.applyWebAudioMuteState();
+  }
   private onProg = (p: number) => { this.progress = p; }
   private onEnd = () => {
     this.progress = 100;
     this.host.onPageEnd();
+    this.applyWebAudioMuteState();
     void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT, this.shouldUsePortraitOnlyRotation());
 
     // One-shot redirect to configured home URL on first load.
