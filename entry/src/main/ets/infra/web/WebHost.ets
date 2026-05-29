@@ -78,6 +78,8 @@ export default struct WebHost {
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
+  @State private battlePreviewAutoOverlayActive: boolean = false;
+  @State private battlePreviewAutoOverlaySuppressed: boolean = false;
   // 折叠态全屏下手动切换为"游戏在上 + 底部面板"布局（与左右分屏的展开模式一致）。
   // 由 ButtonColumn 的 横/竖 按钮触发。
   @State private lrLayoutForced: boolean = false;
@@ -377,12 +379,15 @@ export default struct WebHost {
     if (!available) {
       this.battlePreviewAvailable = false;
       this.battlePreviewVisible = true;
+      this.updateBattlePreviewAutoOverlay();
       return;
     }
     if (!this.battlePreviewAvailable) {
       this.battlePreviewVisible = true;
+      this.battlePreviewAutoOverlaySuppressed = false;
     }
     this.battlePreviewAvailable = true;
+    this.updateBattlePreviewAutoOverlay();
   }
 
   private toggleBattlePreview(): void {
@@ -390,6 +395,50 @@ export default struct WebHost {
       return;
     }
     this.battlePreviewVisible = !this.battlePreviewVisible;
+  }
+
+  private toggleFloatOverlayPanel(): void {
+    if (this.overlayForced) {
+      this.closeFloatOverlayPanel();
+      return;
+    }
+    this.overlayForced = true;
+    this.battlePreviewAutoOverlayActive = false;
+  }
+
+  private closeFloatOverlayPanel(): void {
+    if (this.battlePreviewAutoOverlayActive ||
+      (this.battlePreviewAvailable && this.shouldAvoidLeftCutoutForButtons())) {
+      this.battlePreviewAutoOverlaySuppressed = true;
+      this.battlePreviewAutoOverlayActive = false;
+    }
+    this.overlayForced = false;
+  }
+
+  private updateBattlePreviewAutoOverlay(): void {
+    if (!this.battlePreviewAvailable) {
+      if (this.battlePreviewAutoOverlayActive) {
+        this.overlayForced = false;
+      }
+      this.battlePreviewAutoOverlayActive = false;
+      this.battlePreviewAutoOverlaySuppressed = false;
+      return;
+    }
+
+    const shouldAutoOpen: boolean = this.shouldAvoidLeftCutoutForButtons() &&
+      this.panelConfig.mode !== PanelMode.BottomPanel;
+    if (!shouldAutoOpen) {
+      if (this.battlePreviewAutoOverlayActive) {
+        this.overlayForced = false;
+      }
+      this.battlePreviewAutoOverlayActive = false;
+      return;
+    }
+
+    if (!this.overlayForced && !this.battlePreviewAutoOverlaySuppressed) {
+      this.overlayForced = true;
+      this.battlePreviewAutoOverlayActive = true;
+    }
   }
 
   aboutToAppear() {
@@ -419,6 +468,7 @@ export default struct WebHost {
       this.applyImmersiveLayoutForScene(mainWin);
       this.refreshLeftCutoutInset();
       this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+      this.updateBattlePreviewAutoOverlay();
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
@@ -426,6 +476,7 @@ export default struct WebHost {
         this.applyImmersiveLayoutForScene(mainWin);
         this.refreshLeftCutoutInset();
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+        this.updateBattlePreviewAutoOverlay();
       };
       mainWin.on('windowStatusChange', this.windowStatusCb);
     }
@@ -551,6 +602,10 @@ export default struct WebHost {
     return Math.min(LEFT_BUTTON_COLUMN_FULL_HEIGHT_VP, availableHeight);
   }
 
+  private getFloatOverlayLeftDismissWidthVp(): number {
+    return Math.max(PanelDimens.overlaySideGap, this.getLeftButtonRailWidthVp());
+  }
+
   private shouldUsePortraitOnlyRotation(): boolean {
     return this.lrLayoutForced && this.scene === WindowScene.FULLSCREEN;
   }
@@ -630,7 +685,7 @@ export default struct WebHost {
             ButtonColumn({
               onRefresh: () => this.promptRefresh(),
               onToggleLrMode: () => this.toggleLrLayout(),
-              onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+              onTogglePanel: () => this.toggleFloatOverlayPanel(),
               onToggleBattlePreview: () => this.toggleBattlePreview(),
               onOpenShipInfo: () => { this.shipInfoVisible = true; },
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
@@ -649,6 +704,8 @@ export default struct WebHost {
           .padding({ left: this.getLeftButtonCutoutInsetVp() })
           .align(Alignment.BottomStart)
           .alignItems(HorizontalAlign.Start)
+          .onClick(() => {})
+          .zIndex(2)
         }
 
         // Fleet status sidebar — right-side persistent status bar.
@@ -672,10 +729,10 @@ export default struct WebHost {
         if (this.overlayForced && this.panelConfig.mode !== PanelMode.BottomPanel) {
           Row() {
             Column()
-              .width(PanelDimens.overlaySideGap)
+              .width(this.getFloatOverlayLeftDismissWidthVp())
               .height('100%')
               .backgroundColor(Color.Transparent)
-              .onClick(() => { this.overlayForced = false; })
+              .onClick(() => this.closeFloatOverlayPanel())
             PanelHost({
               config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 },
               showBattlePreview: this.battlePreviewVisible
@@ -686,10 +743,11 @@ export default struct WebHost {
               .width(PanelDimens.overlaySideGap)
               .height('100%')
               .backgroundColor(Color.Transparent)
-              .onClick(() => { this.overlayForced = false; })
+              .onClick(() => this.closeFloatOverlayPanel())
           }
           .width('100%')
           .height('100%')
+          .zIndex(1)
         }
       }
       .height(this.showBottomTools ? this.gameHeightVp : '100%')
@@ -710,7 +768,7 @@ export default struct WebHost {
               ButtonColumn({
                 onRefresh: () => this.promptRefresh(),
                 onToggleLrMode: () => this.toggleLrLayout(),
-                onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+                onTogglePanel: () => this.toggleFloatOverlayPanel(),
                 onToggleBattlePreview: () => this.toggleBattlePreview(),
                 onOpenShipInfo: () => { this.shipInfoVisible = true; },
                 onOpenEquipInfo: () => { this.equipInfoVisible = true; },
@@ -742,7 +800,7 @@ export default struct WebHost {
             ButtonRow({
               onRefresh: () => this.promptRefresh(),
               onToggleLrMode: () => this.toggleLrLayout(),
-              onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+              onTogglePanel: () => this.toggleFloatOverlayPanel(),
               onToggleBattlePreview: () => this.toggleBattlePreview(),
               onOpenShipInfo: () => { this.shipInfoVisible = true; },
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
@@ -778,6 +836,7 @@ export default struct WebHost {
       }
       this.refreshLeftCutoutInset();
       this.recalcLayout(w, h);
+      this.updateBattlePreviewAutoOverlay();
     })
 
       // Info overlays — cover the entire WebHost area (game + button bar +
