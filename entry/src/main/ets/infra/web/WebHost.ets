@@ -24,6 +24,12 @@ import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPa
 import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
 import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
 
+const NARROW_SHORT_SIDE_VP: number = 420;
+const LEFT_BUTTON_COLUMN_WIDTH_VP: number = 56;
+const LEFT_BUTTON_COLUMN_FULL_HEIGHT_VP: number = 344;
+const FLOATING_BATTLE_STATS_RESERVED_HEIGHT_VP: number = 48;
+const CUTOUT_BUTTON_GUTTER_VP: number = 4;
+
 interface RpcPayload {
   op: string;
   key?: string;
@@ -55,6 +61,7 @@ export default struct WebHost {
   @State private scene: WindowScene = WindowScene.FULLSCREEN;
   @State private panelConfig: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
   @State private sidebarWidthVp: number = 0;
+  @State private leftCutoutInsetVp: number = 0;
   /** Mirrors ui.showSidebar AppStorage preference; updates immediately when user toggles in Settings. */
   @StorageProp(APP_STORAGE_SHOW_SIDEBAR) private showSidebarPref: boolean = true;
   /** Mirrors ui.sidebar.showAvatar AppStorage preference; forwarded into the V2 sidebar component. */
@@ -159,6 +166,27 @@ export default struct WebHost {
     // Fullscreen and floating are edge-to-edge: immersive layout required so
     // the hidden system bars don't leave a reserved-but-empty inset at the edges.
     void win.setWindowLayoutFullScreen(this.scene !== WindowScene.SPLIT);
+  }
+
+  private refreshLeftCutoutInset(): void {
+    if (!this.shouldAvoidLeftCutoutForButtons()) {
+      this.leftCutoutInsetVp = 0;
+      return;
+    }
+
+    const mainWin = getMainWindowCached();
+    if (!mainWin) {
+      this.leftCutoutInsetVp = 0;
+      return;
+    }
+
+    try {
+      const cutoutArea = mainWin.getWindowAvoidArea(window.AvoidAreaType.TYPE_CUTOUT);
+      const leftInsetPx: number = cutoutArea.leftRect.width;
+      this.leftCutoutInsetVp = leftInsetPx > 0 ? Math.ceil(px2vp(leftInsetPx)) + CUTOUT_BUTTON_GUTTER_VP : 0;
+    } catch (_e) {
+      this.leftCutoutInsetVp = 0;
+    }
   }
 
   // Centralized layout update for area/window changes.
@@ -389,12 +417,14 @@ export default struct WebHost {
       const status = mainWin.getWindowStatus();
       this.scene = this.resolveScene(status);
       this.applyImmersiveLayoutForScene(mainWin);
+      this.refreshLeftCutoutInset();
       this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
 
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveScene(nextStatus);
         this.applyImmersiveLayoutForScene(mainWin);
+        this.refreshLeftCutoutInset();
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
       };
       mainWin.on('windowStatusChange', this.windowStatusCb);
@@ -486,8 +516,39 @@ export default struct WebHost {
       // Split mode: respect side system UI shared with other windows.
       return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM];
     }
+    if (this.shouldAvoidTopSafeArea()) {
+      return [SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
+    }
     // Fullscreen and floating: expand all edges for true edge-to-edge layout.
     return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
+  }
+
+  private shouldAvoidTopSafeArea(): boolean {
+    return this.scene === WindowScene.FULLSCREEN &&
+      this.viewportHeightVp > this.viewportWidthVp &&
+      this.viewportWidthVp <= NARROW_SHORT_SIDE_VP;
+  }
+
+  private shouldAvoidLeftCutoutForButtons(): boolean {
+    return this.scene === WindowScene.FULLSCREEN &&
+      this.viewportWidthVp > this.viewportHeightVp &&
+      this.viewportHeightVp <= NARROW_SHORT_SIDE_VP;
+  }
+
+  private getLeftButtonCutoutInsetVp(): number {
+    return this.shouldAvoidLeftCutoutForButtons() ? this.leftCutoutInsetVp : 0;
+  }
+
+  private getLeftButtonRailWidthVp(): number {
+    return LEFT_BUTTON_COLUMN_WIDTH_VP + this.getLeftButtonCutoutInsetVp();
+  }
+
+  private getFloatingButtonColumnHeightVp(): number {
+    if (this.viewportHeightVp <= 0) {
+      return LEFT_BUTTON_COLUMN_FULL_HEIGHT_VP;
+    }
+    const availableHeight = Math.max(LEFT_BUTTON_COLUMN_WIDTH_VP, this.viewportHeightVp - FLOATING_BATTLE_STATS_RESERVED_HEIGHT_VP);
+    return Math.min(LEFT_BUTTON_COLUMN_FULL_HEIGHT_VP, availableHeight);
   }
 
   private shouldUsePortraitOnlyRotation(): boolean {
@@ -579,11 +640,13 @@ export default struct WebHost {
               battlePreviewAvailable: this.battlePreviewAvailable,
               battlePreviewVisible: this.battlePreviewVisible,
             })
-              .width(56)
-              .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+              .width(LEFT_BUTTON_COLUMN_WIDTH_VP)
+              .height(this.getFloatingButtonColumnHeightVp())
             BattleStatsWidget()
               .margin({ left: 4, bottom: 6 })
           }
+          .width(this.getLeftButtonRailWidthVp())
+          .padding({ left: this.getLeftButtonCutoutInsetVp() })
           .align(Alignment.BottomStart)
           .alignItems(HorizontalAlign.Start)
         }
@@ -660,8 +723,9 @@ export default struct WebHost {
               })
               .height('100%')
             }
-            .width(56)
+            .width(this.getLeftButtonRailWidthVp())
             .height('100%')
+            .padding({ left: this.getLeftButtonCutoutInsetVp() })
             .backgroundColor('#0f1118')
             .alignItems(HorizontalAlign.Start)
             .justifyContent(FlexAlign.Start)
@@ -712,6 +776,7 @@ export default struct WebHost {
         this.scene = this.resolveScene(status);
         this.applyImmersiveLayoutForScene(mainWin);
       }
+      this.refreshLeftCutoutInset();
       this.recalcLayout(w, h);
     })
 

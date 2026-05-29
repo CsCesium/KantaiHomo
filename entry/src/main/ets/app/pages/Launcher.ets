@@ -1,6 +1,7 @@
 import router from '@ohos.router';
+import settings from '@ohos.settings';
 import { window } from '@kit.ArkUI';
-import { getMainWindowCached } from '../../infra/appContext';
+import { getAppContext, getMainWindowCached } from '../../infra/appContext';
 import { promptLogout } from '../../infra/web/session/logout';
 
 @Entry
@@ -23,18 +24,41 @@ struct Launcher {
     if (!win) return;
     void win.setWindowSystemBarEnable(['status', 'navigation']);
     void win.setWindowLayoutFullScreen(false);
-    void win.setPreferredOrientation(window.Orientation.AUTO_ROTATION);
+    this.applyLauncherOrientation(win);
   }
 
-  private getCurrentOrientation(win: window.Window): window.Orientation {
+  private isSystemRotationUnlocked(): boolean {
+    try {
+      const value = settings.getValueSync(
+        getAppContext(),
+        settings.general.ACCELEROMETER_ROTATION_STATUS,
+        '1'
+      );
+      return value === '1';
+    } catch (_e) {
+      return true;
+    }
+  }
+
+  private getCurrentOrientation(
+    win: window.Window,
+    fallback: window.Orientation = window.Orientation.AUTO_ROTATION
+  ): window.Orientation {
     try {
       const rect = win.getWindowProperties().windowRect;
       return rect.width >= rect.height
         ? window.Orientation.LANDSCAPE
         : window.Orientation.PORTRAIT;
     } catch (_e) {
-      return window.Orientation.AUTO_ROTATION;
+      return fallback;
     }
+  }
+
+  private applyLauncherOrientation(win: window.Window): void {
+    const orientation = this.isSystemRotationUnlocked()
+      ? window.Orientation.AUTO_ROTATION
+      : this.getCurrentOrientation(win, window.Orientation.PORTRAIT);
+    void win.setPreferredOrientation(orientation);
   }
 
   private enterGame(): void {

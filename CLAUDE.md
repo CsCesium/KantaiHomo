@@ -4,7 +4,7 @@
 
 **KantaiHomo** is a HarmonyOS native companion application for the Kantai Collection (HTML5) browser game. It embeds the game in a WebView and adds native tooling around it: battle calculators, expedition/quest tracking, ship/item management dashboards, database persistence, and a floating assistant overlay.
 
-- **Bundle ID:** `com.cesium.kchomo`
+- **Bundle ID:** `io.github.cesium.kchomo`
 - **Version:** 1.0.0 (versionCode: 1000000)
 - **Target SDK:** HarmonyOS 6.0.0 (API level 20)
 - **Supported devices:** phone, tablet, 2in1

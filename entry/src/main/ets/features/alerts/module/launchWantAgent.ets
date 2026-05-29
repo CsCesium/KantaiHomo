@@ -13,7 +13,7 @@ export async function getLaunchWantAgent(): Promise<WantAgent | null> {
   try {
     _agent = await wantAgent.getWantAgent({
       wants: [{
-        bundleName: 'com.cesium.kchomo',
+        bundleName: 'io.github.cesium.kchomo',
         abilityName: 'EntryAbility',
       }],
       operationType: wantAgent.OperationType.START_ABILITY,
