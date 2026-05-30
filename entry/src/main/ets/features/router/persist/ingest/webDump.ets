@@ -22,7 +22,15 @@ import { parseDump, ParseResult } from '../../../parsers/pipeline';
 import { dispatchEvent } from '../executor';
 import { parseSvdata, parseSvdataAndUnwrap } from '../../../utils/common';
 import { ApiStateFields, detectStateFields } from '../../../../domain/models/api/response';
-import { extractAndUpdateState, markShipsEscaped } from '../../../state';
+import {
+  extractAndUpdateState,
+  markShipsEscaped,
+  patchDeckShip,
+  patchShipSlot,
+  patchShipExSlot,
+  patchShipUnsetSlots,
+  patchShipSlotExchange
+} from '../../../state';
 import { getSortieContext } from '../../../../domain/service';
 import { parseFormBody } from '../../../utils/common';
 
@@ -78,6 +86,56 @@ function isEmptyResult(result: ParseResult): boolean {
     && (!result.postEvents || result.postEvents.length === 0);
 }
 
+function isSuccessfulApiResponse(responseText: string | null | undefined): boolean {
+  const root = parseSvdata<Record<string, unknown>>(responseText);
+  if (!root) return false;
+  const result = root.api_result;
+  return result === undefined || Number(result) === 1;
+}
+
+function patchPanelStateFromHenseiChange(dump: ApiDump): void {
+  if (!dump.url?.includes('/api_req_hensei/change')) return;
+  if (!isSuccessfulApiResponse(dump.responseText)) return;
+
+  const params = parseFormBody(dump.requestBody);
+  const deckId = params.getInt('api_id', 0);
+  const shipUid = params.getInt('api_ship_id', 0);
+  const shipIdx = params.getInt('api_ship_idx', 0);
+  patchDeckShip(deckId, shipIdx, shipUid);
+}
+
+function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
+  const url = dump.url ?? '';
+  if (!url.includes('/api_req_kaisou/')) return;
+  if (!isSuccessfulApiResponse(dump.responseText)) return;
+
+  const params = parseFormBody(dump.requestBody);
+
+  if (url.includes('/api_req_kaisou/slotset_ex')) {
+    patchShipExSlot(params.getInt('api_id', 0), params.getInt('api_item_id', -1));
+    return;
+  }
+  if (url.includes('/api_req_kaisou/slotset')) {
+    patchShipSlot(
+      params.getInt('api_id', 0),
+      params.getInt('api_slot_idx', -1),
+      params.getInt('api_item_id', -1)
+    );
+    return;
+  }
+  if (url.includes('/api_req_kaisou/unsetslot_all')) {
+    patchShipUnsetSlots(params.getInt('api_id', 0));
+    return;
+  }
+  if (url.includes('/api_req_kaisou/slot_exchange_index')) {
+    patchShipSlotExchange(
+      params.getInt('api_id', 0),
+      params.getInt('api_src_idx', -1),
+      params.getInt('api_dst_idx', -1)
+    );
+  }
+}
+
 export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void> {
   const size: number = totalSize(dump)
 
@@ -99,6 +157,8 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
       console.debug('[ingest] state extract skipped:', String(e));
     }
   }
+  patchPanelStateFromHenseiChange(dump);
+  patchPanelStateFromKaisouRequest(dump);
 
   // 退避机制：解析请求体的 api_escape_idx，把对应位置的舰娘 UID 标记为已退避。
   // - 联合舰队 (combined_battle/goback_port)：位置 1-12，1-6 主力，7-12 护卫。

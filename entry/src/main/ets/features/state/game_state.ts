@@ -197,6 +197,34 @@ class GameStateManager {
     this.notifyListeners('materials');
   }
 
+  patchMaterials(update: {
+    fuel?: number;
+    ammo?: number;
+    steel?: number;
+    bauxite?: number;
+    instantBuild?: number;
+    instantRepair?: number;
+    devMaterial?: number;
+    screw?: number;
+  }): void {
+    const current = this.state.materials;
+    if (!current) return;
+
+    this.state.materials = {
+      fuel: update.fuel ?? current.fuel,
+      ammo: update.ammo ?? current.ammo,
+      steel: update.steel ?? current.steel,
+      bauxite: update.bauxite ?? current.bauxite,
+      instantBuild: update.instantBuild ?? current.instantBuild,
+      instantRepair: update.instantRepair ?? current.instantRepair,
+      devMaterial: update.devMaterial ?? current.devMaterial,
+      screw: update.screw ?? current.screw,
+      capturedAt: Date.now(),
+    };
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('materials');
+  }
+
   /**
    * 累加本次出击获得的资源（来自资源点 api_itemget）。
    * api_id/api_icon_id: 1=燃料, 2=弹药, 3=钢材, 4=铝土,
@@ -343,6 +371,53 @@ class GameStateManager {
     }
   }
 
+  patchDeckShip(deckId: number, shipIdx: number, shipUid: number): void {
+    if (deckId <= 0) return;
+    if (!this.state.decks.some(d => d.deckId === deckId)) return;
+    const targetIdx = Math.max(0, shipIdx);
+    const capturedAt = Date.now();
+    let mutated = false;
+
+    this.state.decks = this.state.decks.map(d => {
+      const isTargetDeck = d.deckId === deckId;
+      let nextShipUids = d.shipUids.slice();
+
+      if (!isTargetDeck) {
+        if (shipUid > 0 && nextShipUids.indexOf(shipUid) >= 0) {
+          nextShipUids = nextShipUids.filter(uid => uid !== shipUid);
+          mutated = true;
+          return { ...d, shipUids: nextShipUids, capturedAt };
+        }
+        return d;
+      }
+
+      if (shipUid === -2) {
+        nextShipUids = nextShipUids.length > 0 ? [nextShipUids[0]] : [];
+      } else if (shipUid === -1) {
+        if (targetIdx < nextShipUids.length) {
+          nextShipUids.splice(targetIdx, 1);
+        }
+      } else if (shipUid > 0) {
+        nextShipUids = nextShipUids.filter(uid => uid !== shipUid);
+        if (targetIdx >= nextShipUids.length) {
+          nextShipUids.push(shipUid);
+        } else {
+          nextShipUids[targetIdx] = shipUid;
+        }
+      } else {
+        return d;
+      }
+
+      mutated = true;
+      return { ...d, shipUids: nextShipUids.filter(uid => uid > 0), capturedAt };
+    });
+
+    if (mutated) {
+      this.state.lastUpdatedAt = capturedAt;
+      this.notifyListeners('decks');
+    }
+  }
+
   /**
    * 更新任务（仅维护当前可见任务页）
    */
@@ -444,6 +519,100 @@ class GameStateManager {
         needsResupply,
       });
     }
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  private removeSlotItemFromOtherShips(itemUid: number, keepShipUid: number, keepSlotIdx: number, keepExSlot: boolean): boolean {
+    if (itemUid <= 0) return false;
+    let changed = false;
+
+    this.state.ships.forEach((ship, uid) => {
+      let shipChanged = false;
+      const slots = ship.slots.map((slotUid, idx) => {
+        if (slotUid !== itemUid || (uid === keepShipUid && idx === keepSlotIdx && !keepExSlot)) {
+          return slotUid;
+        }
+        shipChanged = true;
+        return -1;
+      });
+      let exSlot = ship.exSlot;
+      if (exSlot === itemUid && !(uid === keepShipUid && keepExSlot)) {
+        exSlot = -1;
+        shipChanged = true;
+      }
+      if (shipChanged) {
+        this.state.ships.set(uid, { ...ship, slots, exSlot });
+        changed = true;
+      }
+    });
+
+    return changed;
+  }
+
+  patchShipSlot(shipUid: number, slotIdx: number, itemUid: number): void {
+    if (shipUid <= 0 || slotIdx < 0) return;
+    const existing = this.state.ships.get(shipUid);
+    if (!existing) return;
+
+    if (slotIdx >= Math.max(existing.slotCount, existing.slots.length)) return;
+    const nextItemUid = itemUid > 0 ? itemUid : -1;
+    const removedElsewhere = this.removeSlotItemFromOtherShips(nextItemUid, shipUid, slotIdx, false);
+    const base = this.state.ships.get(shipUid) ?? existing;
+    const slots = base.slots.slice();
+    while (slots.length <= slotIdx) {
+      slots.push(-1);
+    }
+    if (slots[slotIdx] === nextItemUid && !removedElsewhere) return;
+
+    slots[slotIdx] = nextItemUid;
+    this.state.ships.set(shipUid, { ...base, slots });
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  patchShipExSlot(shipUid: number, itemUid: number): void {
+    if (shipUid <= 0) return;
+    const existing = this.state.ships.get(shipUid);
+    if (!existing) return;
+
+    const nextItemUid = itemUid > 0 ? itemUid : -1;
+    const removedElsewhere = this.removeSlotItemFromOtherShips(nextItemUid, shipUid, -1, true);
+    const base = this.state.ships.get(shipUid) ?? existing;
+    if (base.exSlot === nextItemUid && !removedElsewhere) return;
+
+    this.state.ships.set(shipUid, { ...base, exSlot: nextItemUid });
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  patchShipUnsetSlots(shipUid: number): void {
+    if (shipUid <= 0) return;
+    const existing = this.state.ships.get(shipUid);
+    if (!existing) return;
+
+    const slots = existing.slots.map((_slotUid, idx) => idx < existing.slotCount ? -1 : existing.slots[idx]);
+    this.state.ships.set(shipUid, { ...existing, slots });
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  patchShipSlotExchange(shipUid: number, srcIdx: number, dstIdx: number): void {
+    if (shipUid <= 0 || srcIdx < 0 || dstIdx < 0 || srcIdx === dstIdx) return;
+    const existing = this.state.ships.get(shipUid);
+    if (!existing) return;
+
+    const slots = existing.slots.slice();
+    const limit = Math.max(existing.slotCount, slots.length);
+    if (srcIdx >= limit || dstIdx >= limit) return;
+    while (slots.length < limit) {
+      slots.push(-1);
+    }
+    const tmp = slots[srcIdx];
+    slots[srcIdx] = slots[dstIdx];
+    slots[dstIdx] = tmp;
+
+    this.state.ships.set(shipUid, { ...existing, slots });
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('ships');
   }
@@ -1282,6 +1451,8 @@ export const isShipMasterLandBased = (masterId: number) => gameStateManager.isSh
 
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);
+export const patchMaterials = (update: Parameters<GameStateManager['patchMaterials']>[0]) =>
+  gameStateManager.patchMaterials(update);
 export const addSortieResourceGains = (gains: ReadonlyArray<MapResourceGain>) =>
   gameStateManager.addSortieResourceGains(gains);
 export const clearSortieResourceGains = () => gameStateManager.clearSortieResourceGains();
@@ -1291,10 +1462,20 @@ export const updateKdocks = (kdocks:Kdock[]) => gameStateManager.updateKDocks(kd
 export const updateDecks = (decks: Deck[]) => gameStateManager.updateDecks(decks);
 export const patchDeckExpedition = (deckId: number, missionId: number, returnTime: number | null) =>
   gameStateManager.patchDeckExpedition(deckId, missionId, returnTime);
+export const patchDeckShip = (deckId: number, shipIdx: number, shipUid: number) =>
+  gameStateManager.patchDeckShip(deckId, shipIdx, shipUid);
 export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(quests);
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>
   gameStateManager.patchShipsSupply(updates);
+export const patchShipSlot = (shipUid: number, slotIdx: number, itemUid: number) =>
+  gameStateManager.patchShipSlot(shipUid, slotIdx, itemUid);
+export const patchShipExSlot = (shipUid: number, itemUid: number) =>
+  gameStateManager.patchShipExSlot(shipUid, itemUid);
+export const patchShipUnsetSlots = (shipUid: number) =>
+  gameStateManager.patchShipUnsetSlots(shipUid);
+export const patchShipSlotExchange = (shipUid: number, srcIdx: number, dstIdx: number) =>
+  gameStateManager.patchShipSlotExchange(shipUid, srcIdx, dstIdx);
 export const patchShipsHp = (updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>) =>
   gameStateManager.patchShipsHp(updates);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>
