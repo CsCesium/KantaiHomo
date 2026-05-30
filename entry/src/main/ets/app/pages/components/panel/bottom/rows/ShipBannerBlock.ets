@@ -22,6 +22,7 @@ export default struct ShipBannerBlock {
   @Param isFlag: boolean = false;
   /** Special-attack short label; empty string hides the badge. */
   @Param specialAttack: string = '';
+  @Param showAvatar: boolean = true;
 
   /** Last URL that failed to load — suppresses retry loops on the same source. */
   @Local private failedRemodelUrl: string = '';
@@ -60,21 +61,29 @@ export default struct ShipBannerBlock {
       // 第 1 层：背景图。优先使用真实 remodel 舰图（基于
       // SuffixUtil.create(masterId, 'ship_remodel') 计算的 cipher URL），
       // 资源不可用或加载失败时回退到内置测试 banner。
-      if (this.shouldUseRealRemodel) {
-        Image(this.remodelUrl)
-          .width('100%')
-          .height('100%')
-          .objectFit(ImageFit.Cover)
-          .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
-          .onError(() => {
-            this.failedRemodelUrl = this.remodelUrl;
-          })
+      if (this.showAvatar) {
+        if (this.shouldUseRealRemodel) {
+          Image(this.remodelUrl)
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Cover)
+            .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+            .onError(() => {
+              this.failedRemodelUrl = this.remodelUrl;
+            })
+        } else {
+          Image($rawfile('test/remodel.png'))
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Cover)
+            .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+        }
       } else {
-        Image($rawfile('test/remodel.png'))
+        Row()
           .width('100%')
           .height('100%')
-          .objectFit(ImageFit.Cover)
           .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
+          .backgroundColor('#18232d')
       }
 
       // 第 2 层：全局轻遮罩，避免白色文字在亮色背景上看不清

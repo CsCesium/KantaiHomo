@@ -16,7 +16,7 @@ import {
   getFleetTP,
   detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
-import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
+import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../../ability/Entry';
 import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
 import { resourceIconPath } from '../../../../../features/resources/resourceMeta';
 import ShipRow from '../bottom/rows/ShipRow';
@@ -209,6 +209,8 @@ export default struct BottomPanel {
   @Local showKaisyuu: boolean = true;
   /** Show aircraft proficiency badge; mirrors AppStorage setting. */
   @Local showProficiency: boolean = true;
+  /** Show ship avatar/remodel banner; mirrors AppStorage setting. */
+  @Local showAvatar: boolean = true;
 
   private unsubscribe: (() => void) | null = null;
 
@@ -228,8 +230,10 @@ export default struct BottomPanel {
   private refreshSettings(): void {
     const k = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_KAISYUU);
     const p = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_PROFICIENCY);
+    const a = AppStorage.get<boolean>(APP_STORAGE_SIDEBAR_SHOW_AVATAR);
     this.showKaisyuu = k !== undefined ? k : true;
     this.showProficiency = p !== undefined ? p : true;
+    this.showAvatar = a !== undefined ? a : true;
   }
 
   aboutToDisappear(): void {
@@ -683,6 +687,7 @@ export default struct BottomPanel {
                 ship,
                 isFlag: idx === 0,
                 specialAttack: this.specialAttack,
+                showAvatar: this.showAvatar,
                 showKaisyuu: this.showKaisyuu,
                 showProficiency: this.showProficiency,
                 detailUid: this.detailUid,

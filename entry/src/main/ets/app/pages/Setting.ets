@@ -468,7 +468,7 @@ struct Setting {
             )
 
             this.ToggleRow(
-              '侧边栏头像',
+              '是否显示舰娘头像',
               '开启时显示舰娘头像，关闭时回退显示舰娘名称',
               this.sidebarShowAvatar,
               (v: boolean) => { this.onSidebarShowAvatarToggle(v); }

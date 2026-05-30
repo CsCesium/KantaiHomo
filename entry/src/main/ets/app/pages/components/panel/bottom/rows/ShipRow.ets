@@ -26,6 +26,7 @@ export default struct ShipRow {
   @Param isFlag: boolean = false;
   @Param specialAttack: string = '';
 
+  @Param showAvatar: boolean = true;
   @Param showKaisyuu: boolean = true;
   @Param showProficiency: boolean = true;
   @Param detailUid: number = 0;
@@ -41,6 +42,7 @@ export default struct ShipRow {
           ship: this.ship,
           isFlag: this.isFlag,
           specialAttack: this.specialAttack,
+          showAvatar: this.showAvatar,
         })
       }
       .layoutWeight(5)
