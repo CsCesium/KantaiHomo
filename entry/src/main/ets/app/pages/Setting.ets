@@ -3,7 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
 
@@ -31,6 +31,7 @@ struct Setting {
   @StorageLink(APP_STORAGE_ADVANCE_GUARD_ENABLED) private advanceGuardEnabled: boolean = true;
   @StorageLink(APP_STORAGE_INJECT_FPS) private injectFpsEnabled: boolean = false;
   @StorageLink(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
+  @StorageLink(APP_STORAGE_INJECT_TOUCH_HOVER) private injectTouchHover: boolean = true;
   @StorageLink(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageLink(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
   /** Equipment label badge overlays in main panel. */
@@ -111,6 +112,11 @@ struct Setting {
   private onInjectTouchPatchToggle(v: boolean): void {
     this.injectTouchPatch = v;
     void kvSet(APP_STORAGE_INJECT_TOUCH_PATCH, v);
+  }
+
+  private onInjectTouchHoverToggle(v: boolean): void {
+    this.injectTouchHover = v;
+    void kvSet(APP_STORAGE_INJECT_TOUCH_HOVER, v);
   }
 
   private onInjectTickerRafToggle(v: boolean): void {
@@ -567,6 +573,13 @@ struct Setting {
               '修正部分设备上触摸坐标偏移问题',
               this.injectTouchPatch,
               (v: boolean) => { this.onInjectTouchPatchToggle(v); }
+            )
+
+            this.ToggleRow(
+              '触摸悬停支持',
+              '触摸并滑动时模拟鼠标悬停，用于展开装备分类和改修入口',
+              this.injectTouchHover,
+              (v: boolean) => { this.onInjectTouchHoverToggle(v); }
             )
 
             this.ToggleRow(

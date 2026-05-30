@@ -43,6 +43,7 @@ export const APP_STORAGE_REPAIR_ALERT_ENABLED = 'alerts.repair.enabled';
 /** AppStorage keys for optional WebView injection feature flags */
 export const APP_STORAGE_INJECT_FPS = 'inject.fps';
 export const APP_STORAGE_INJECT_TOUCH_PATCH = 'inject.touchPatch';
+export const APP_STORAGE_INJECT_TOUCH_HOVER = 'inject.touchHover';
 export const APP_STORAGE_INJECT_TICKER_RAF = 'inject.tickerRaf';
 export const APP_STORAGE_INJECT_PIXI_PATCH = 'inject.pixiPatch';
 /** AppStorage keys for equipment label badge overlays in the main panel */
@@ -90,7 +91,8 @@ export default class EntryAbility extends UIAbility {
       AppStorage.set(APP_STORAGE_ADVANCE_GUARD_ENABLED, v);
     });
 
-    // Optional injection features; all off by default.
+    // Optional injection features. Touch hover is enabled by default because it
+    // restores PC-only hover menus on touch devices.
     AppStorage.setOrCreate(APP_STORAGE_INJECT_FPS, false);
     void kvGetBool(APP_STORAGE_INJECT_FPS, false).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_INJECT_FPS, v);
@@ -99,6 +101,11 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_INJECT_TOUCH_PATCH, false);
     void kvGetBool(APP_STORAGE_INJECT_TOUCH_PATCH, false).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_INJECT_TOUCH_PATCH, v);
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_INJECT_TOUCH_HOVER, true);
+    void kvGetBool(APP_STORAGE_INJECT_TOUCH_HOVER, true).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_INJECT_TOUCH_HOVER, v);
     });
 
     AppStorage.setOrCreate(APP_STORAGE_INJECT_TICKER_RAF, false);
