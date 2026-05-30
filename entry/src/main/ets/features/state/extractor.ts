@@ -336,13 +336,15 @@ export function hasStateFields(apiData: unknown): {
     rawFieldToArray<ApiDeckPortRaw>(data.api_deck, isDeckRaw).length > 0;
   const hasShips = rawFieldToArray<ApiShipRaw>(data.api_ship, isShipRaw).length > 0 ||
     rawFieldToArray<ApiShipRaw>(data.api_ship_data, isShipRaw).length > 0;
+  const hasNdocks = rawFieldToArray<ApiNdockRaw>(data.api_ndock, isNdockRaw).length > 0;
+  const hasKdocks = rawFieldToArray<ApiKdockRaw>(data.api_kdock, isKdockRaw).length > 0;
 
   return {
     hasAdmiral,
     hasMaterials,
     hasDecks,
     hasShips,
-    any: hasAdmiral || hasMaterials || hasDecks || hasShips,
+    any: hasAdmiral || hasMaterials || hasDecks || hasShips || hasNdocks || hasKdocks,
   };
 }
 
