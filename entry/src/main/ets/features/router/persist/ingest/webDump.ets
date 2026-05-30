@@ -25,6 +25,11 @@ import { ApiStateFields, detectStateFields } from '../../../../domain/models/api
 import {
   extractAndUpdateState,
   markShipsEscaped,
+  getNDocks,
+  getShip,
+  getMaterials,
+  patchMaterials,
+  patchShipsHp,
   patchDeckShip,
   patchShipSlot,
   patchShipExSlot,
@@ -36,6 +41,15 @@ import { parseFormBody } from '../../../utils/common';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
 const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB
+
+interface ApiResponseProbeData {
+  api_material?: object[];
+}
+
+interface ApiResponseProbe {
+  api_result?: number | string;
+  api_data?: ApiResponseProbeData | null;
+}
 
 function totalSize(d: ApiDump): number {
   const a: number = d.requestBody?.length ?? 0
@@ -87,10 +101,17 @@ function isEmptyResult(result: ParseResult): boolean {
 }
 
 function isSuccessfulApiResponse(responseText: string | null | undefined): boolean {
-  const root = parseSvdata<Record<string, unknown>>(responseText);
+  const root = parseSvdata<ApiResponseProbe>(responseText);
   if (!root) return false;
   const result = root.api_result;
-  return result === undefined || Number(result) === 1;
+  if (result === undefined) return true;
+  return Number(result) === 1;
+}
+
+function responseHasMaterial(responseText: string | null | undefined): boolean {
+  const root = parseSvdata<ApiResponseProbe>(responseText);
+  const data = root?.api_data;
+  return data !== null && data !== undefined && Array.isArray(data.api_material);
 }
 
 function patchPanelStateFromHenseiChange(dump: ApiDump): void {
@@ -102,6 +123,38 @@ function patchPanelStateFromHenseiChange(dump: ApiDump): void {
   const shipUid = params.getInt('api_ship_id', 0);
   const shipIdx = params.getInt('api_ship_idx', 0);
   patchDeckShip(deckId, shipIdx, shipUid);
+}
+
+function completeRepairForShip(shipUid: number, consumeBucket: boolean): void {
+  if (shipUid <= 0) return;
+  const ship = getShip(shipUid);
+  if (!ship || ship.hpMax <= 0) return;
+
+  patchShipsHp([{ uid: shipUid, hpNow: ship.hpMax, hpMax: ship.hpMax }]);
+  const materials = getMaterials();
+  if (consumeBucket && materials && materials.instantRepair > 0) {
+    patchMaterials({ instantRepair: materials.instantRepair - 1 });
+  }
+}
+
+function patchPanelStateFromNyukyoRequest(dump: ApiDump): void {
+  const url = dump.url ?? '';
+  if (!url.includes('/api_req_nyukyo/')) return;
+  if (!isSuccessfulApiResponse(dump.responseText)) return;
+
+  const params = parseFormBody(dump.requestBody);
+  const consumeBucket = !responseHasMaterial(dump.responseText);
+  if (url.includes('/api_req_nyukyo/start')) {
+    if (params.getInt('api_highspeed', 0) === 1) {
+      completeRepairForShip(params.getInt('api_ship_id', 0), consumeBucket);
+    }
+    return;
+  }
+  if (url.includes('/api_req_nyukyo/speedchange')) {
+    const dockId = params.getInt('api_ndock_id', 0);
+    const dock = getNDocks().find(item => item.dockId === dockId);
+    completeRepairForShip(dock?.shipUid ?? 0, consumeBucket);
+  }
 }
 
 function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
@@ -149,7 +202,8 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
       const apiData = parseSvdataAndUnwrap<ApiStateFields>(dump.responseText);
       if(apiData) {
         const fields = detectStateFields(apiData);
-        if(fields.any){
+        if (fields.hasAdmiral || fields.hasMaterials || fields.hasDecks || fields.hasShips ||
+            fields.hasNdock || fields.hasKdock) {
           extractAndUpdateState(apiData);
         }
       }
@@ -158,6 +212,7 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
     }
   }
   patchPanelStateFromHenseiChange(dump);
+  patchPanelStateFromNyukyoRequest(dump);
   patchPanelStateFromKaisouRequest(dump);
 
   // 退避机制：解析请求体的 api_escape_idx，把对应位置的舰娘 UID 标记为已退避。

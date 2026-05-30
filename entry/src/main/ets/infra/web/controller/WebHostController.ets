@@ -150,6 +150,12 @@ export class WebHostController {
     );
   }
 
+  reapplyFit(): void {
+    const f: FitGetter = this.getFit();
+    this.layout.resetFitCache();
+    this.pushFitStrong(f.policy, f.locked, f.viewportW, f.viewportH);
+  }
+
   bindDisplay(): void {
     const cb = (_id: number): void => {
       const f: FitGetter = this.getFit();
@@ -167,8 +173,12 @@ export class WebHostController {
     }
   }
 
-  async applyOrientationByMode(isCompact: boolean, portraitOnly: boolean = false): Promise<void> {
-    await this.ori.applyByMode(isCompact, portraitOnly);
+  async applyOrientationByMode(
+    isCompact: boolean,
+    portraitOnly: boolean = false,
+    landscapeOnly: boolean = false
+  ): Promise<void> {
+    await this.ori.applyByMode(isCompact, portraitOnly, landscapeOnly);
   }
 
   onPostMessage(raw: string): void {

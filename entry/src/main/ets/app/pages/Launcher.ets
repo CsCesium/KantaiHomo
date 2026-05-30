@@ -1,7 +1,8 @@
 import router from '@ohos.router';
 import settings from '@ohos.settings';
-import { window } from '@kit.ArkUI';
+import window from '@ohos.window';
 import { getAppContext, getMainWindowCached } from '../../infra/appContext';
+import { getLastGamePreferredOrientation } from '../../infra/web/layout/orientation';
 import { promptLogout } from '../../infra/web/session/logout';
 
 @Entry
@@ -64,7 +65,7 @@ struct Launcher {
   private enterGame(): void {
     const win = getMainWindowCached();
     const orientationPromise = win
-      ? win.setPreferredOrientation(this.getCurrentOrientation(win))
+      ? win.setPreferredOrientation(this.resumeGameMode ? getLastGamePreferredOrientation() : this.getCurrentOrientation(win))
       : Promise.resolve();
     orientationPromise.catch(() => {}).finally(() => {
       if (this.resumeGameMode) {

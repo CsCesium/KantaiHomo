@@ -23,6 +23,7 @@ import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
 import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
 import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
 import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
+import { registerWebHostPageVisibleHandler } from "./pageVisibility";
 import {
   APP_STORAGE_APP_VOLUME_MUTED,
   subscribeAppVolumeMuted,
@@ -101,6 +102,7 @@ export default struct WebHost {
   private unsubSortieStartTaiha?: () => void;
   private unsubGameState?: () => void;
   private unsubAppVolumeMuted?: () => void;
+  private unregisterPageVisible?: () => void;
   private handledLogoutRevision: number = 0;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
@@ -170,11 +172,31 @@ export default struct WebHost {
     return byStatus;
   }
 
-  private applyImmersiveLayoutForScene(win: window.Window): void {
+  private applyGameWindowChrome(win: window.Window): void {
+    void win.setWindowSystemBarEnable([]);
     // Split windows share system bars with other apps; keep non-immersive.
     // Fullscreen and floating are edge-to-edge: immersive layout required so
     // the hidden system bars don't leave a reserved-but-empty inset at the edges.
     void win.setWindowLayoutFullScreen(this.scene !== WindowScene.SPLIT);
+  }
+
+  private refreshSceneAndChrome(win: window.Window): void {
+    const status = win.getWindowStatus();
+    this.scene = this.resolveScene(status);
+    this.applyGameWindowChrome(win);
+  }
+
+  private restoreVisibleWindowState(pushWebFit: boolean = false): void {
+    const mainWin = getMainWindowCached();
+    if (mainWin) {
+      this.refreshSceneAndChrome(mainWin);
+    }
+    this.refreshLeftCutoutInset();
+    this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+    this.updateBattlePreviewAutoOverlay();
+    if (pushWebFit && this.viewportWidthVp > 0 && this.viewportHeightVp > 0) {
+      this.host.reapplyFit();
+    }
   }
 
   private refreshLeftCutoutInset(): void {
@@ -278,7 +300,11 @@ export default struct WebHost {
     };
     this.panelConfig = decidePanelLayout(finalDecision, heightVp);
 
-    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT, this.shouldUsePortraitOnlyRotation());
+    void this.host.applyOrientationByMode(
+      this.mode === HostMode.COMPACT,
+      this.shouldUsePortraitOnlyRotation(),
+      this.shouldUseLandscapeOnlyRotation()
+    );
     if (modeChanged) {
       this.host.onPageEnd();
     }
@@ -473,6 +499,10 @@ export default struct WebHost {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
     this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
+    this.unregisterPageVisible = registerWebHostPageVisibleHandler(() => {
+      this.restoreVisibleWindowState(true);
+      this.applyWebAudioMuteState();
+    });
     this.unsubAppVolumeMuted = subscribeAppVolumeMuted((muted: boolean) => {
       this.applyWebAudioMuteState(muted);
     });
@@ -491,25 +521,17 @@ export default struct WebHost {
       }
     });
     this.host.bindDisplay();
-    void this.host.applyOrientationByMode(true, this.shouldUsePortraitOnlyRotation());
+    void this.host.applyOrientationByMode(true, this.shouldUsePortraitOnlyRotation(), false);
     void this.loadRuntimeConfig();
     this.applyPendingLogout();
 
     const mainWin = getMainWindowCached();
+    this.restoreVisibleWindowState(false);
     if (mainWin) {
-      void mainWin.setWindowSystemBarEnable([]);
-
-      const status = mainWin.getWindowStatus();
-      this.scene = this.resolveScene(status);
-      this.applyImmersiveLayoutForScene(mainWin);
-      this.refreshLeftCutoutInset();
-      this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
-      this.updateBattlePreviewAutoOverlay();
-
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveScene(nextStatus);
-        this.applyImmersiveLayoutForScene(mainWin);
+        this.applyGameWindowChrome(mainWin);
         this.refreshLeftCutoutInset();
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
         this.updateBattlePreviewAutoOverlay();
@@ -536,6 +558,11 @@ export default struct WebHost {
     if (this.unsubAppVolumeMuted) {
       this.unsubAppVolumeMuted();
       this.unsubAppVolumeMuted = undefined;
+    }
+
+    if (this.unregisterPageVisible) {
+      this.unregisterPageVisible();
+      this.unregisterPageVisible = undefined;
     }
 
     if (this.windowStatusCb) {
@@ -591,7 +618,11 @@ export default struct WebHost {
     this.progress = 100;
     this.host.onPageEnd();
     this.applyWebAudioMuteState();
-    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT, this.shouldUsePortraitOnlyRotation());
+    void this.host.applyOrientationByMode(
+      this.mode === HostMode.COMPACT,
+      this.shouldUsePortraitOnlyRotation(),
+      this.shouldUseLandscapeOnlyRotation()
+    );
 
     // One-shot redirect to configured home URL on first load.
     if (this.firstPageLoad && this.homeOverride) {
@@ -657,6 +688,14 @@ export default struct WebHost {
 
   private shouldUsePortraitOnlyRotation(): boolean {
     return this.lrLayoutForced && this.scene === WindowScene.FULLSCREEN;
+  }
+
+  private shouldUseLandscapeOnlyRotation(): boolean {
+    return !this.shouldUsePortraitOnlyRotation() &&
+      this.scene === WindowScene.FULLSCREEN &&
+      this.mode === HostMode.COMPACT &&
+      this.viewportWidthVp > this.viewportHeightVp &&
+      this.viewportHeightVp <= NARROW_SHORT_SIDE_VP;
   }
 
   /**
@@ -879,9 +918,7 @@ export default struct WebHost {
       this.viewportHeightVp = h;
       const mainWin = getMainWindowCached();
       if (mainWin) {
-        const status = mainWin.getWindowStatus();
-        this.scene = this.resolveScene(status);
-        this.applyImmersiveLayoutForScene(mainWin);
+        this.refreshSceneAndChrome(mainWin);
       }
       this.refreshLeftCutoutInset();
       this.recalcLayout(w, h);
