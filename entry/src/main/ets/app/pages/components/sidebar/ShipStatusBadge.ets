@@ -1,18 +1,13 @@
 import { ShipSpecialEquip, ShipState } from '../../../../features/state/type';
 import { isShipEscaped } from '../../../../features/state';
 import { getShipAvatarPath } from '../../../../features/game/shipAvatar';
-import { equipLabel } from '../../../../features/panel/panelConfig';
+import { equipLabel, hpColor as panelHpColor } from '../../../../features/panel/panelConfig';
 import { SlotItemIconId } from '../../../../domain/models/struct/slotitem';
 
 /**
- * HP 颜色常量（按损伤等级）
- * 绿色: HP > 50%（小破以上）
- * 黄色: 25% < HP ≤ 50%（中破）
- * 红色: HP ≤ 25%（大破）
+ * HP 颜色（按损伤等级）
+ * 颜色阈值与面板 HP 进度条保持一致。
  */
-const HP_COLOR_GREEN = '#4caf50';
-const HP_COLOR_YELLOW = '#ffeb3b';
-const HP_COLOR_RED = '#f44336';
 const HP_COLOR_BG = '#2a2a2a';
 const ESCAPE_LABEL_COLOR = '#42a5f5';
 const RING_STROKE_WIDTH = 3.5;
@@ -139,10 +134,7 @@ export default struct ShipStatusBadge {
 
   /** HP 颜色 */
   private hpColor(): string {
-    const pct = this.ship.hpMax > 0 ? this.ship.hpNow / this.ship.hpMax : 1;
-    if (pct > 0.5) return HP_COLOR_GREEN;
-    if (pct > 0.25) return HP_COLOR_YELLOW;
-    return HP_COLOR_RED;
+    return panelHpColor(this.ship.hpNow, this.ship.hpMax);
   }
 
   @Builder

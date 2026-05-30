@@ -101,7 +101,7 @@ export default struct ShipBannerBlock {
         Row()
           .width('58%')
           .height('100%')
-          .backgroundColor('#30000000')
+          .backgroundColor('#dcedfd5a')
       }
       .width('100%')
       .height('100%')

@@ -72,6 +72,7 @@ function shipBadgeColor(ship: ShipBattleStatus): string {
   if (ship.isSunk) return PanelColors.txtMuted;
   if (ship.isTaiha) return ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.hpCrit;
   if (ship.isChuuha) return PanelColors.hpMid;
+  if (ship.isShouha) return PanelColors.hpShouha;
   return PanelColors.hpOk;
 }
 

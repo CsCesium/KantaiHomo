@@ -36,7 +36,8 @@ export const PanelColors = {
   stat:          '#56d8e0',   // all stat value columns (bright teal)
 
   // HP states
-  hpOk:          '#43a047',   // hp ratio > 50%  — green
+  hpOk:          '#43a047',   // hp ratio > 75%  — green
+  hpShouha:      '#DCEDFD5A', // hp ratio 50-75% — 小破
   hpMid:         '#fb8c00',   // hp ratio 25-50% — orange (中破)
   hpWarn:        '#fdd835',   // warning yellow (engagement, condition — NOT hp bars)
   hpCrit:        '#e53935',   // hp ratio ≤ 25%  — red
@@ -180,14 +181,16 @@ export const ShipDiems = {
 
 // ── HP color helper ────────────────────────────────────────────────────────
 
-const HP_OK_RATIO   = 0.5;
-const HP_WARN_RATIO = 0.25;
+const HP_OK_RATIO     = 0.75;
+const HP_SHOUHA_RATIO = 0.5;
+const HP_WARN_RATIO   = 0.25;
 
 /** Returns the HP bar / text color for the given HP ratio. */
 export function hpColor(hp: number, hpMax: number): string {
   const ratio = hpMax > 0 ? hp / hpMax : 0;
-  if (ratio > HP_OK_RATIO)   { return PanelColors.hpOk; }
-  if (ratio > HP_WARN_RATIO) { return PanelColors.hpMid; }
+  if (ratio > HP_OK_RATIO)     { return PanelColors.hpOk; }
+  if (ratio > HP_SHOUHA_RATIO) { return PanelColors.hpShouha; }
+  if (ratio > HP_WARN_RATIO)   { return PanelColors.hpMid; }
   return PanelColors.hpCrit;
 }
 
