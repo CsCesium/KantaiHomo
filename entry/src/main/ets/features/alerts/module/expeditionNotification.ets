@@ -35,22 +35,23 @@ const REFRESH_INTERVAL_MS = 30_000;
 
 class ExpeditionLiveNotificationService {
   private timer: number | null = null;
+  private running: boolean = false;
   private unsubscribeExpeditionChanged: (() => void) | null = null;
 
   async start(): Promise<void> {
-    if (this.timer !== null) return;
+    if (this.running) return;
+    this.running = true;
     // Only registers refresh — scheduler poke is registered separately in Entry.ets
     this.unsubscribeExpeditionChanged = addOnExpeditionChanged(() => { void this.refresh(); });
     await this.refresh();
-    this.timer = setInterval(() => {
-      void this.refresh();
-    }, REFRESH_INTERVAL_MS) as number;
+    this.scheduleNextRefresh();
     console.info('[ExpeditionLiveNotification] started');
   }
 
   stop(): void {
+    this.running = false;
     if (this.timer !== null) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = null;
     }
     if (this.unsubscribeExpeditionChanged !== null) {
@@ -59,6 +60,15 @@ class ExpeditionLiveNotificationService {
     }
     void this._cancel();
     console.info('[ExpeditionLiveNotification] stopped');
+  }
+
+  private scheduleNextRefresh(): void {
+    if (!this.running) return;
+    this.timer = setTimeout(async () => {
+      this.timer = null;
+      await this.refresh();
+      this.scheduleNextRefresh();
+    }, REFRESH_INTERVAL_MS) as number;
   }
 
   // ── 核心刷新 ──
@@ -106,6 +116,7 @@ class ExpeditionLiveNotificationService {
       const earliestCountdown = formatCountdown(earliest.returnTime - now);
       const earliestDeckName = deckNameMap.get(earliest.deckId) ?? `第${earliest.deckId}舰队`;
       const earliestMissionName = getMissionName(earliest.missionId);
+      const summaryText = `最快返回：${earliestDeckName}「${earliestMissionName}」 ${earliestCountdown}`;
 
       const agent = await getLaunchWantAgent();
 
@@ -120,15 +131,15 @@ class ExpeditionLiveNotificationService {
           notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_MULTILINE,
           multiLine: {
             title: '舰队远征倒计时',
-            text: briefText,
+            text: summaryText,
             briefText,
-            longTitle: `最快返回：${earliestDeckName} 「${earliestMissionName}」 ${earliestCountdown}`,
+            longTitle: summaryText,
             lines,
           },
         },
       });
 
-      console.debug(`[ExpeditionLiveNotification] published, fleets=${active.length}`);
+      console.debug(`[ExpeditionLiveNotification] published, fleets=${active.length}, countdown=${earliestCountdown}`);
     } catch (e) {
       console.warn('[ExpeditionLiveNotification] refresh failed:', e);
     }

@@ -32,6 +32,8 @@ const HILOG_DOM: number = 0x1357;
 export const APP_STORAGE_SHOW_SIDEBAR = 'ui.showSidebar';
 /** AppStorage key for fleet sidebar ship avatar visibility preference */
 export const APP_STORAGE_SIDEBAR_SHOW_AVATAR = 'ui.sidebar.showAvatar';
+/** AppStorage key controlling automatic FloatOverlay opening for battle preview on narrow landscape screens */
+export const APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW = 'ui.floatOverlay.autoBattlePreview';
 /** AppStorage key controlling whether YasenDetect JS is injected */
 export const APP_STORAGE_YASEN_DETECT_ENABLED = 'alerts.yasen.enabled';
 /** AppStorage key controlling whether AdvanceDetect (进击大破警告) is enabled */
@@ -69,6 +71,11 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_SIDEBAR_SHOW_AVATAR, true);
     void kvGetBool(APP_STORAGE_SIDEBAR_SHOW_AVATAR, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_SIDEBAR_SHOW_AVATAR, v);
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, true);
+    void kvGetBool(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, true).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, v);
     });
 
     // Yasen detect: default enabled; drives inject options in WebHost.

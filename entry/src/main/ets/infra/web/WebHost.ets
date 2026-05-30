@@ -15,7 +15,7 @@ import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
   APP_STORAGE_SIDEBAR_SHOW_AVATAR } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
@@ -71,6 +71,7 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_SHOW_SIDEBAR) private showSidebarPref: boolean = true;
   /** Mirrors ui.sidebar.showAvatar AppStorage preference; forwarded into the V2 sidebar component. */
   @StorageProp(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private showSidebarAvatarPref: boolean = true;
+  @StorageProp(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW) private autoBattlePreviewFloatOverlay: boolean = true;
   /** Mirrors alerts.yasen.enabled; controls YasenDetect JS injection on each page load. */
   @StorageProp(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenDetectEnabled: boolean = true;
   /** Mirrors alerts.advanceGuard.enabled; controls AdvanceDetect JS injection. */
@@ -409,7 +410,7 @@ export default struct WebHost {
   }
 
   private toggleFloatOverlayPanel(): void {
-    if (this.overlayForced) {
+    if (this.isFloatOverlayVisible()) {
       this.closeFloatOverlayPanel();
       return;
     }
@@ -427,6 +428,15 @@ export default struct WebHost {
   }
 
   private updateBattlePreviewAutoOverlay(): void {
+    if (!this.autoBattlePreviewFloatOverlay) {
+      if (this.battlePreviewAutoOverlayActive) {
+        this.overlayForced = false;
+      }
+      this.battlePreviewAutoOverlayActive = false;
+      this.battlePreviewAutoOverlaySuppressed = false;
+      return;
+    }
+
     if (!this.battlePreviewAvailable) {
       if (this.battlePreviewAutoOverlayActive) {
         this.overlayForced = false;
@@ -450,6 +460,13 @@ export default struct WebHost {
       this.overlayForced = true;
       this.battlePreviewAutoOverlayActive = true;
     }
+  }
+
+  private isFloatOverlayVisible(): boolean {
+    if (!this.overlayForced || this.panelConfig.mode === PanelMode.BottomPanel) {
+      return false;
+    }
+    return !this.battlePreviewAutoOverlayActive || this.autoBattlePreviewFloatOverlay;
   }
 
   aboutToAppear() {
@@ -723,7 +740,7 @@ export default struct WebHost {
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
-              panelActive: this.overlayForced,
+              panelActive: this.isFloatOverlayVisible(),
               battlePreviewAvailable: this.battlePreviewAvailable,
               battlePreviewVisible: this.battlePreviewVisible,
             })
@@ -758,7 +775,7 @@ export default struct WebHost {
         // FloatOverlay panel — overlaid on the game viewport.
         // Only shown when explicitly triggered (overlayForced / fairy ball event).
         // Side margins act as dismiss areas; tapping outside panel hides it.
-        if (this.overlayForced && this.panelConfig.mode !== PanelMode.BottomPanel) {
+        if (this.isFloatOverlayVisible()) {
           Row() {
             Column()
               .width(this.getFloatOverlayLeftDismissWidthVp())
@@ -806,7 +823,7 @@ export default struct WebHost {
                 onOpenEquipInfo: () => { this.equipInfoVisible = true; },
                 onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
-                panelActive: this.overlayForced,
+                panelActive: this.isFloatOverlayVisible(),
                 showPanelToggle: false,
                 battlePreviewAvailable: this.battlePreviewAvailable,
                 battlePreviewVisible: this.battlePreviewVisible,
@@ -838,7 +855,7 @@ export default struct WebHost {
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
-              panelActive: this.overlayForced,
+              panelActive: this.isFloatOverlayVisible(),
               showPanelToggle: false,
               battlePreviewAvailable: this.battlePreviewAvailable,
               battlePreviewVisible: this.battlePreviewVisible,

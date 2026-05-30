@@ -3,7 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
 
@@ -24,6 +24,7 @@ struct Setting {
   @StorageLink(APP_STORAGE_SHOW_SIDEBAR) private showSidebar: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates sidebar badges. */
   @StorageLink(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private sidebarShowAvatar: boolean = true;
+  @StorageLink(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW) private autoBattlePreviewFloatOverlay: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
@@ -135,6 +136,11 @@ struct Setting {
   private onSidebarShowAvatarToggle(v: boolean): void {
     this.sidebarShowAvatar = v;
     void kvSet(APP_STORAGE_SIDEBAR_SHOW_AVATAR, v);
+  }
+
+  private onAutoBattlePreviewFloatOverlayToggle(v: boolean): void {
+    this.autoBattlePreviewFloatOverlay = v;
+    void kvSet(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, v);
   }
 
   private async saveConfig(): Promise<void> {
@@ -466,6 +472,13 @@ struct Setting {
               '开启时显示舰娘头像，关闭时回退显示舰娘名称',
               this.sidebarShowAvatar,
               (v: boolean) => { this.onSidebarShowAvatarToggle(v); }
+            )
+
+            this.ToggleRow(
+              '战斗预测自动浮窗',
+              '窄屏横屏出现战斗预测时自动打开浮动面板',
+              this.autoBattlePreviewFloatOverlay,
+              (v: boolean) => { this.onAutoBattlePreviewFloatOverlayToggle(v); }
             )
 
             this.ToggleRow(
