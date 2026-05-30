@@ -4,7 +4,10 @@ import { DumpPipeline, ParseResult, registerPipeline } from '../pipeline';
 
 export const ndockPipeline: DumpPipeline = {
   name: 'ndock',
-  match: (url) => url.includes('/api_get_member/ndock'),
+  match: (url) =>
+    url.includes('/api_get_member/ndock') ||
+      url.includes('/api_req_nyukyo/start') ||
+      url.includes('/api_req_nyukyo/speedchange'),
 
   parse: (dump: ApiDump): ParseResult | null => {
     const evts = parseNdock(dump);

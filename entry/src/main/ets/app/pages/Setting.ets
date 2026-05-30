@@ -3,7 +3,7 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
 
@@ -38,6 +38,7 @@ struct Setting {
 
   // ── Alert settings ─────────────────────────────────────────────
   @State private battleResultAlertEnabled: boolean = true;
+  @State private repairAlertEnabled: boolean = true;
   @State private alertMode: AlertMode = 'both';
 
   // ── UI state ───────────────────────────────────────────────────
@@ -55,6 +56,7 @@ struct Setting {
       kvGetString('account.username', ''),
       kvGetString('account.password', ''),
       kvGetBool('alerts.battle.enabled', true),
+      kvGetBool(APP_STORAGE_REPAIR_ALERT_ENABLED, true),
       kvGetString('alerts.mode', 'both'),
     ]);
     this.homeUrl = results[0] as string;
@@ -62,7 +64,8 @@ struct Setting {
     this.username = results[2] as string;
     this.password = results[3] as string;
     this.battleResultAlertEnabled = results[4] as boolean;
-    this.alertMode = (results[5] as string) as AlertMode;
+    this.repairAlertEnabled = results[5] as boolean;
+    this.alertMode = (results[6] as string) as AlertMode;
     this.configDirty = false;
     this.accountDirty = false;
   }
@@ -86,6 +89,12 @@ struct Setting {
     this.battleResultAlertEnabled = v;
     void kvSet('alerts.battle.enabled', v);
     setAlertConfig({ enableBattleResultAlert: v });
+  }
+
+  private onRepairAlertToggle(v: boolean): void {
+    this.repairAlertEnabled = v;
+    void kvSet(APP_STORAGE_REPAIR_ALERT_ENABLED, v);
+    setAlertConfig({ enableRepairAlert: v });
   }
 
   private onAdvanceGuardToggle(v: boolean): void {
@@ -498,6 +507,19 @@ struct Setting {
               '进击/撤退选择出现时，若存在无损管大破舰则弹窗提示',
               this.advanceGuardEnabled,
               (v: boolean) => { this.onAdvanceGuardToggle(v); }
+            )
+          }
+          .width('100%')
+
+          // ── SECTION: 日常提醒 ─────────────────────────────────
+          this.SectionHeader('日常提醒')
+
+          Column({ space: 8 }) {
+            this.ToggleRow(
+              '入渠完成提醒',
+              '维修渠修理完成时震动 / 铃声提醒',
+              this.repairAlertEnabled,
+              (v: boolean) => { this.onRepairAlertToggle(v); }
             )
           }
           .width('100%')

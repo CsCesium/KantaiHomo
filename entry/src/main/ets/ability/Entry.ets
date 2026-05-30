@@ -36,6 +36,8 @@ export const APP_STORAGE_SIDEBAR_SHOW_AVATAR = 'ui.sidebar.showAvatar';
 export const APP_STORAGE_YASEN_DETECT_ENABLED = 'alerts.yasen.enabled';
 /** AppStorage key controlling whether AdvanceDetect (进击大破警告) is enabled */
 export const APP_STORAGE_ADVANCE_GUARD_ENABLED = 'alerts.advanceGuard.enabled';
+/** AppStorage key controlling whether repair completion alerts are enabled */
+export const APP_STORAGE_REPAIR_ALERT_ENABLED = 'alerts.repair.enabled';
 /** AppStorage keys for optional WebView injection feature flags */
 export const APP_STORAGE_INJECT_FPS = 'inject.fps';
 export const APP_STORAGE_INJECT_TOUCH_PATCH = 'inject.touchPatch';
@@ -124,14 +126,17 @@ export default class EntryAbility extends UIAbility {
       void Promise.all([
         kvGetBool('alerts.yasen.enabled', true),
         kvGetBool('alerts.battle.enabled', true),
+        kvGetBool(APP_STORAGE_REPAIR_ALERT_ENABLED, true),
         kvGetString('alerts.mode', 'both'),
       ]).then((results: Array<boolean | string>) => {
         const yasen = results[0] as boolean;
         const battle = results[1] as boolean;
-        const mode = results[2] as string;
+        const repair = results[2] as boolean;
+        const mode = results[3] as string;
         setAlertConfig({
           enableYasenAlert: yasen,
           enableBattleResultAlert: battle,
+          enableRepairAlert: repair,
           enableVibrate: mode === 'vibrate' || mode === 'both',
           enableNotification: mode === 'ring' || mode === 'both',
         });

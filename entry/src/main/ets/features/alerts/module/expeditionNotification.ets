@@ -2,7 +2,7 @@
  * ExpeditionLiveNotificationService
  *
  * 维护常驻通知栏，显示所有正在执行的远征及倒计时。
- * - start()   : 立即刷新并开启每分钟定时器
+ * - start()   : 立即刷新并开启 30 秒定时器
  * - stop()    : 停止定时器并取消常驻通知
  * - refresh() : 查询 DB → 更新/取消通知，可在外部任意调用
  */
@@ -31,15 +31,16 @@ function formatCountdown(remainingMs: number): string {
 
 // ── 服务主体 ─────────────────────────────────────────────────────
 
-const REFRESH_INTERVAL_MS = 60_000; // 每分钟刷新
+const REFRESH_INTERVAL_MS = 30_000;
 
 class ExpeditionLiveNotificationService {
   private timer: number | null = null;
+  private unsubscribeExpeditionChanged: (() => void) | null = null;
 
   async start(): Promise<void> {
     if (this.timer !== null) return;
     // Only registers refresh — scheduler poke is registered separately in Entry.ets
-    addOnExpeditionChanged(() => { void this.refresh(); });
+    this.unsubscribeExpeditionChanged = addOnExpeditionChanged(() => { void this.refresh(); });
     await this.refresh();
     this.timer = setInterval(() => {
       void this.refresh();
@@ -51,6 +52,10 @@ class ExpeditionLiveNotificationService {
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+    if (this.unsubscribeExpeditionChanged !== null) {
+      this.unsubscribeExpeditionChanged();
+      this.unsubscribeExpeditionChanged = null;
     }
     void this._cancel();
     console.info('[ExpeditionLiveNotification] stopped');

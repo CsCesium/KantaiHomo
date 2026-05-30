@@ -160,7 +160,7 @@ hub.deck.list()       → 获取舰队名称
 
 `refresh()` 的触发时机：
 - `start()` 调用时（立即一次）
-- `setInterval(60s)`（每分钟更新倒计时）
+- `setInterval(30s)`（每 30 秒更新倒计时）
 - `triggerExpeditionChanged()`（任何远征状态写入 DB 后）
 - `handleExpeditionReturn()`（归来通知触发后）
 
@@ -181,7 +181,7 @@ onWindowStageCreate()
      ├─ 授权 → liveNotification.start()
      │           ├─ addOnExpeditionChanged(refresh)  注册刷新监听
      │           ├─ refresh() 立即同步一次
-     │           └─ setInterval(refresh, 60s)
+     │           └─ setInterval(refresh, 30s)
      └─ 拒绝 → scheduler 与 Toast/震动 继续正常工作
 
 onWindowStageDestroy()
@@ -210,5 +210,5 @@ onWindowStageDestroy()
 | `minDelayMs` | `500ms` | `expedition.ts` scheduler |
 | `maxSnoozeMs` | `60000ms` | `expedition.ts` scheduler |
 | `pollIntervalMs` | `60000ms` | `expedition.ts` scheduler |
-| `REFRESH_INTERVAL_MS` | `60000ms` | `expeditionNotification.ets` |
+| `REFRESH_INTERVAL_MS` | `30000ms` | `expeditionNotification.ets` |
 | `debounceMs` | `1200ms` | `type.ts` DEFAULT_ALERT_CONFIG |
