@@ -110,6 +110,10 @@ function toHPSnapshot(ships: (SimShip | null)[] | null | undefined): ShipHPSnaps
     }, new Array<ShipHPSnapshot>())
 }
 
+function toApiRank(rank: Rank | undefined): Rank {
+  return rank === Rank.SS ? Rank.S : (rank ?? Rank.D);
+}
+
 /** 从 battle API response body（svdata= 格式或已解析对象）中提取 api_deck_id */
 function extractDeckId(body: unknown): number {
   if (typeof body === 'object' && body != null) {
@@ -238,7 +242,7 @@ export class BattlePredictionService {
     const result = pred.result;
 
     return {
-      rank:        result.rank ?? 'D' as Rank,
+      rank:        toApiRank(result.rank),
       mvp:         result.mvp  ?? [-1, -1],
       mainFleet:   toHPSnapshot(pred.mainFleet),
       escortFleet: toHPSnapshot(pred.escortFleet),

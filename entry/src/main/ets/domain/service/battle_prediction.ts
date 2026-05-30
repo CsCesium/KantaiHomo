@@ -141,6 +141,11 @@ function countActive(predictions: ShipPrediction[]): number {
   return predictions.filter(p => p.hpMax > 0).length;
 }
 
+function requiredEnemySunkForRankA(enemyTotal: number): number {
+  if (enemyTotal <= 1) return enemyTotal + 1;
+  return Math.floor(enemyTotal * 2 / 3);
+}
+
 /**
  * 预测战斗等级
  * 基于舰C的胜利判定逻辑
@@ -155,37 +160,21 @@ function predictRank(
   friendEscort?: ShipPrediction[],
   enemyEscort?: ShipPrediction[]
 ): Rank {
-  // E: 旗舰击沉 (flagship sunk) — checked first, highest priority loss condition
-  if (friendMain.length > 0 && friendMain[0].isSunk) {
-    return 'E';
-  }
-
-  // S / A: 敌方全灭
+  // S / B: 敌方全灭。有我方沉没时最高只能到 B。
   if (enemySunk >= enemyTotal && enemyTotal > 0) {
-    return friendSunk === 0 ? 'S' : 'A';
+    return friendSunk === 0 ? 'S' : 'B';
   }
 
   const enemyFlagshipSunk = enemyMain.length > 0 && enemyMain[0].isSunk;
-  const enemySunkOverHalf = enemySunk > enemyTotal / 2;
+  const enemySunkEnoughForA = enemySunk >= requiredEnemySunkForRankA(enemyTotal);
 
-  // A: 敌舰旗沉没 + 我方无沉没 + 敌过半沉没
-  if (enemyFlagshipSunk && friendSunk === 0 && enemySunkOverHalf) {
+  // A: 我方无沉没，敌方击沉数达到 2/3 阈值；敌旗舰是否击沉不影响 A。
+  if (friendSunk === 0 && enemySunkEnoughForA) {
     return 'A';
   }
 
-  // B: 敌旗舰沉没
-  if (enemyFlagshipSunk) {
-    return 'B';
-  }
-
-  // B: 敌过半沉没
-  if (enemySunkOverHalf) {
-    return 'B';
-  }
-
-  // B: 敌旗舰大破
-  const enemyFlagshipTaiha = enemyMain.length > 0 && enemyMain[0].isTaiha;
-  if (enemyFlagshipTaiha) {
+  // B: 敌旗舰沉没。若我方有沉没，则要求我方沉没数少于敌方沉没数。
+  if (enemyFlagshipSunk && (friendSunk === 0 || friendSunk < enemySunk)) {
     return 'B';
   }
 
@@ -194,26 +183,28 @@ function predictRank(
   const enemyDamageRatio = calculateDamageRatio([...enemyMain, ...(enemyEscort ?? [])]);
   const ratio = friendDamageRatio > 0 ? enemyDamageRatio / friendDamageRatio : (enemyDamageRatio > 0 ? 99 : 1);
 
-  if (ratio >= 2.5) return 'B';
-  if (ratio > 1.0) return 'C';
+  if (ratio > 2.5) return 'B';
+  if (ratio > 0.9) return 'C';
+  if (enemyFlagshipSunk && friendSunk > 0) return 'C';
+  if (friendTotal > 1 && friendSunk > 0 && (friendTotal - friendSunk) === 1) return 'E';
   return 'D';
 }
 
 /**
- * 计算伤害比例 (总伤害 / 总最大HP)
+ * 计算战果比例 (总伤害 / 战斗开始时总HP)
  */
 function calculateDamageRatio(predictions: ShipPrediction[]): number {
   let totalDamage = 0;
-  let totalMaxHp = 0;
+  let totalInitialHp = 0;
 
   for (const p of predictions) {
-    if (p.hpMax > 0) {
+    if (p.hpBefore > 0) {
       totalDamage += p.damageReceived;
-      totalMaxHp += p.hpMax;
+      totalInitialHp += p.hpBefore;
     }
   }
 
-  return totalMaxHp > 0 ? totalDamage / totalMaxHp : 0;
+  return totalInitialHp > 0 ? totalDamage / totalInitialHp : 0;
 }
 
 /**

@@ -173,7 +173,7 @@ function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnyBattleModuleEvt[] {
     if (destructionSegment) {
       // 直接基于 segment HP + LBAS 状态构建预测：
       // - friend 一侧是基地（不是舰娘），用 getLbas() 的 name 填充
-      // - rank 用空袭专用公式（无伤为 SS，按损耗率分级）
+      // - rank 用空袭专用公式（无伤为 S，按损耗率分级）
       // - 不喂模拟器：模拟器 mainFleet 是出击舰队的舰娘，与基地空袭语义不符
       const prediction = buildAirRaidPrediction(destructionSegment);
 
@@ -249,7 +249,7 @@ function buildAirRaidPrediction(segment: BattleSegment): BattlePrediction {
   const initSum = friendMain.reduce((x, p) => x + p.hpMax, 0);
   const nowSum  = friendMain.reduce((x, p) => x + p.hpAfter, 0);
   const rate = initSum > 0 ? (initSum - nowSum) / initSum * 100 : 0;
-  let predictedRank: 'SS' | 'A' | 'B' | 'C' | 'D' | 'E' = 'SS';
+  let predictedRank: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' = 'S';
   if (rate > 0)  predictedRank = 'A';
   if (rate >= 10) predictedRank = 'B';
   if (rate >= 20) predictedRank = 'C';
