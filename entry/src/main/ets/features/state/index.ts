@@ -120,6 +120,10 @@ export {
   clearEscapedShips,
   isShipEscaped,
   getEscapedShipUids,
+  markSpecialAttackTriggeredShips,
+  clearSpecialAttackTriggeredShips,
+  isSpecialAttackTriggeredShip,
+  getSpecialAttackTriggeredShipUids,
 
   // 工具
   clearGameState,

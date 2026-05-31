@@ -16,7 +16,8 @@ import {
 } from '../../../domain/models';
 import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
-import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId } from '../../state/game_state';
+import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId,
+  markSpecialAttackTriggeredShips } from '../../state/game_state';
 import type { ShipState } from '../../state/type';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -24,6 +25,7 @@ import { publishAlert } from '../../alerts/bus';
 import { setLastBattleHasTaihaRisk, setLastBattleTaihaShips } from '../../alerts/lastBattleState';
 import type { BattleResultAlert } from '../../alerts/type';
 import { getBattlePredictionService, simSnapshotToDomainPrediction } from '../../simulator';
+import { isSpecialAttackApiCode } from '../../calc';
 
 // ==================== 演习预览支持 ====================
 //
@@ -209,6 +211,73 @@ function predictFromSimulator(
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asNumberArray(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((v: unknown): number => typeof v === 'number' ? v : Number(v));
+}
+
+function resolveFriendAttackerUid(context: SortieContext, rawIndex: number): number {
+  if (!Number.isFinite(rawIndex)) return 0;
+  const idx = Math.floor(rawIndex);
+  if (idx >= 1 && idx <= 6) {
+    return context.fleetSnapshot.ships[idx - 1]?.uid ?? 0;
+  }
+  if (idx >= 7 && idx <= 12) {
+    return context.fleetSnapshotEscort?.ships[idx - 7]?.uid ?? 0;
+  }
+  return 0;
+}
+
+function scanSpecialAttackHougeki(value: Record<string, unknown>, context: SortieContext, out: Set<number>): void {
+  const atList = asNumberArray(value.api_at_list);
+  if (atList.length === 0) return;
+
+  const atType = asNumberArray(value.api_at_type);
+  const spList = asNumberArray(value.api_sp_list);
+  const atEflag = asNumberArray(value.api_at_eflag);
+  const count = Math.max(atList.length, atType.length, spList.length);
+
+  for (let i = 0; i < count; i++) {
+    if ((atEflag[i] ?? 0) === 1) continue;
+
+    const spCode = spList[i] ?? 0;
+    const atCode = atType[i] ?? 0;
+    const code = spCode > 0 ? spCode : atCode;
+    if (!Number.isFinite(code) || !isSpecialAttackApiCode(code)) continue;
+
+    const uid = resolveFriendAttackerUid(context, atList[i] ?? 0);
+    if (uid > 0) out.add(uid);
+  }
+}
+
+function collectTriggeredSpecialAttackUids(
+  apiData: Record<string, unknown> | undefined,
+  context: SortieContext,
+): number[] {
+  const out: Set<number> = new Set();
+  if (!apiData) return [];
+
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (!isRecord(value)) return;
+
+    scanSpecialAttackHougeki(value, context, out);
+    for (const key of Object.keys(value)) {
+      visit(value[key]);
+    }
+  };
+
+  visit(apiData);
+  return Array.from(out);
+}
+
 class BattleHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     const e = ev as AnyBattleEvt;
@@ -290,6 +359,10 @@ class BattleHandler implements Handler {
           context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
         }
 
+        if (!isPractice) {
+          markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context));
+        }
+
         // 更新战斗状态快照 (供前端显示)
         const battleStatus = buildDayBattleStatus(context, context.pendingBattle, prediction);
         updateBattleStatus(battleStatus);
@@ -360,6 +433,10 @@ class BattleHandler implements Handler {
         if (segment.enemyMain) {
           context.pendingBattle.enemyFleet = segment.enemyMain;
           context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
+        }
+
+        if (!isPractice) {
+          markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context));
         }
 
         // 更新战斗状态快照 (供前端显示)

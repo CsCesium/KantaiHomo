@@ -139,6 +139,9 @@ class GameStateManager {
    * 这些舰娘不计入大破警告，UI 会以蓝色"退避"标签显示。 */
   private escapedShipUids: Set<number> = new Set();
 
+  /** 当前出击中已经发动过旗舰特殊攻击的舰娘 UID 集合。 */
+  private specialAttackTriggeredShipUids: Set<number> = new Set();
+
   /** 每日战果追踪（含 CST 周期 ID，用于跨周期重置） */
   private dailySenkaStart: { exp: number; time: number; date: string } | null = null;
 
@@ -1096,6 +1099,7 @@ class GameStateManager {
       gameServerUrl:null,
     };
     this.expHistory = [];
+    this.specialAttackTriggeredShipUids.clear();
     this.dailySenkaStart = null;
     this.notifyListeners('all');
   }
@@ -1359,6 +1363,39 @@ class GameStateManager {
     return Array.from(this.escapedShipUids);
   }
 
+  /** 标记本次出击中已经发动过旗舰特殊攻击的舰娘。 */
+  markSpecialAttackTriggeredShips(uids: ReadonlyArray<number>): void {
+    let added = false;
+    for (const uid of uids) {
+      if (uid > 0 && !this.specialAttackTriggeredShipUids.has(uid)) {
+        this.specialAttackTriggeredShipUids.add(uid);
+        added = true;
+      }
+    }
+    if (added) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('battle');
+    }
+  }
+
+  /** 清空当前出击的特殊攻击发动记录。 */
+  clearSpecialAttackTriggeredShips(): void {
+    if (this.specialAttackTriggeredShipUids.size === 0) return;
+    this.specialAttackTriggeredShipUids.clear();
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('battle');
+  }
+
+  /** 判断指定舰娘是否已在当前出击中发动过旗舰特殊攻击。 */
+  isSpecialAttackTriggeredShip(uid: number): boolean {
+    return this.specialAttackTriggeredShipUids.has(uid);
+  }
+
+  /** 获取当前出击中已发动过旗舰特殊攻击的舰娘 UID（只读副本）。 */
+  getSpecialAttackTriggeredShipUids(): ReadonlyArray<number> {
+    return Array.from(this.specialAttackTriggeredShipUids);
+  }
+
   /**
    * 获取当前战斗状态
    */
@@ -1525,3 +1562,8 @@ export const markShipsEscaped = (uids: ReadonlyArray<number>) => gameStateManage
 export const clearEscapedShips = () => gameStateManager.clearEscapedShips();
 export const isShipEscaped = (uid: number) => gameStateManager.isShipEscaped(uid);
 export const getEscapedShipUids = () => gameStateManager.getEscapedShipUids();
+export const markSpecialAttackTriggeredShips = (uids: ReadonlyArray<number>) =>
+  gameStateManager.markSpecialAttackTriggeredShips(uids);
+export const clearSpecialAttackTriggeredShips = () => gameStateManager.clearSpecialAttackTriggeredShips();
+export const isSpecialAttackTriggeredShip = (uid: number) => gameStateManager.isSpecialAttackTriggeredShip(uid);
+export const getSpecialAttackTriggeredShipUids = () => gameStateManager.getSpecialAttackTriggeredShipUids();

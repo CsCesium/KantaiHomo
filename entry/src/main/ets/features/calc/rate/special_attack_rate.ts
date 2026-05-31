@@ -58,6 +58,22 @@ export interface SpecialAttackPositions {
   positions: number[];
 }
 
+export interface SpecialAttackFleetShip {
+  uid?: number;
+  masterId: number;
+  hpNow?: number;
+  hpMax?: number;
+}
+
+export interface DetectFleetSpecialAttackOptions {
+  /**
+   * Ship UIDs that have already triggered a flagship special attack in the
+   * current sortie. Those attacks are once-per-sortie, so the badge should be
+   * hidden after the corresponding ship has fired.
+   */
+  triggeredShipUids?: ReadonlyArray<number>;
+}
+
 /**
  * Get attack positions for special attack type
  */
@@ -223,6 +239,25 @@ export const SPECIAL_ATTACK_PARTNER_SPECS: Record<SpecialAttackType, PartnerSpec
   ],
 };
 
+export function specialAttackTypeFromApiCode(code: number): SpecialAttackType | null {
+  switch (code) {
+    case 100: return SpecialAttackType.NelsonTouch;
+    case 101: return SpecialAttackType.NagatoTouch;
+    case 102: return SpecialAttackType.MutsuTouch;
+    case 103: return SpecialAttackType.ColoradoTouch;
+    case 104: return SpecialAttackType.KongouNightAttack;
+    case 105: return SpecialAttackType.RichelieuTouch;
+    case 106: return SpecialAttackType.WarspiteTouch;
+    case 400: return SpecialAttackType.YamatoTouch3;
+    case 401: return SpecialAttackType.YamatoTouch2;
+    default: return null;
+  }
+}
+
+export function isSpecialAttackApiCode(code: number): boolean {
+  return specialAttackTypeFromApiCode(code) !== null;
+}
+
 /** Ordered list used when iterating all types for detection. */
 const ALL_SPECIAL_ATTACK_TYPES: SpecialAttackType[] = [
   SpecialAttackType.NagatoTouch,
@@ -236,24 +271,73 @@ const ALL_SPECIAL_ATTACK_TYPES: SpecialAttackType[] = [
   SpecialAttackType.KongouNightAttack,
 ];
 
+function isShipTriggered(ship: SpecialAttackFleetShip, options?: DetectFleetSpecialAttackOptions): boolean {
+  const uid = ship.uid ?? 0;
+  if (uid <= 0) return false;
+  return (options?.triggeredShipUids ?? []).indexOf(uid) >= 0;
+}
+
+function isSunk(ship: SpecialAttackFleetShip): boolean {
+  if (ship.hpNow === undefined) return false;
+  return ship.hpNow <= 0;
+}
+
+function isChuuhaOrWorse(ship: SpecialAttackFleetShip): boolean {
+  if (ship.hpNow === undefined || ship.hpMax === undefined || ship.hpMax <= 0) return false;
+  return ship.hpNow <= 0 || ship.hpNow / ship.hpMax <= 0.5;
+}
+
+function isTaihaOrWorse(ship: SpecialAttackFleetShip): boolean {
+  if (ship.hpNow === undefined || ship.hpMax === undefined || ship.hpMax <= 0) return false;
+  return ship.hpNow <= 0 || ship.hpNow / ship.hpMax <= 0.25;
+}
+
+function canFlagshipTriggerSpecialAttack(type: SpecialAttackType, ship: SpecialAttackFleetShip): boolean {
+  if (isSunk(ship)) return false;
+  if (type === SpecialAttackType.KongouNightAttack) {
+    return !isTaihaOrWorse(ship);
+  }
+  return !isChuuhaOrWorse(ship);
+}
+
+function canPartnerJoinSpecialAttack(type: SpecialAttackType, ship: SpecialAttackFleetShip): boolean {
+  if (isSunk(ship)) return false;
+  if (type === SpecialAttackType.KongouNightAttack ||
+      type === SpecialAttackType.YamatoTouch2 ||
+      type === SpecialAttackType.YamatoTouch3) {
+    return !isTaihaOrWorse(ship);
+  }
+  return true;
+}
+
 /**
- * Detect whether a fleet composition is eligible for a special attack.
- * Ships must be in fleet order (index 0 = flagship).
+ * Detect whether a fleet composition and current ship state can still use a
+ * special attack. Ships must be in fleet order (index 0 = flagship).
  * Returns the first matching SpecialAttackType, or null if none.
  */
 export function detectFleetSpecialAttack(
-  ships: ReadonlyArray<{ masterId: number }>
+  ships: ReadonlyArray<SpecialAttackFleetShip>,
+  options?: DetectFleetSpecialAttackOptions,
 ): SpecialAttackType | null {
   if (ships.length === 0) return null;
-  const flagMid = ships[0].masterId;
+  const flagship = ships[0];
+  if (isShipTriggered(flagship, options)) return null;
+
+  const flagMid = flagship.masterId;
   for (const type of ALL_SPECIAL_ATTACK_TYPES) {
     if (!SPECIAL_ATTACK_FLAGSHIP_IDS[type].has(flagMid)) continue;
+    if (!canFlagshipTriggerSpecialAttack(type, flagship)) continue;
+
     const specs = SPECIAL_ATTACK_PARTNER_SPECS[type];
     let eligible = true;
     for (const spec of specs) {
       const partner = ships[spec.fleetIndex];
       if (!partner) { eligible = false; break; }
       if (spec.validMasterIds !== null && !spec.validMasterIds.has(partner.masterId)) {
+        eligible = false;
+        break;
+      }
+      if (!canPartnerJoinSpecialAttack(type, partner)) {
         eligible = false;
         break;
       }
@@ -266,15 +350,15 @@ export function detectFleetSpecialAttack(
 /** Short display label for use in compact UI badges. */
 export function getSpecialAttackShortLabel(type: SpecialAttackType): string {
   switch (type) {
-    case SpecialAttackType.NelsonTouch:      return 'ネルソンタッチ';
-    case SpecialAttackType.NagatoTouch:      return '長門一斉射';
-    case SpecialAttackType.MutsuTouch:       return '陸奥一斉射';
-    case SpecialAttackType.ColoradoTouch:    return 'コロラドタッチ';
-    case SpecialAttackType.RichelieuTouch:   return 'リシュリュータッチ';
-    case SpecialAttackType.WarspiteTouch:    return '姉妹艦連携砲撃';
-    case SpecialAttackType.YamatoTouch2:     return '大和特殊砲撃(2連)';
-    case SpecialAttackType.YamatoTouch3:     return '大和特殊砲撃(3連)';
-    case SpecialAttackType.KongouNightAttack: return '金剛夜戦突撃';
+    case SpecialAttackType.NelsonTouch:      return 'NT';
+    case SpecialAttackType.NagatoTouch:      return '長門斉射';
+    case SpecialAttackType.MutsuTouch:       return '陸奥斉射';
+    case SpecialAttackType.ColoradoTouch:    return '科摸';
+    case SpecialAttackType.RichelieuTouch:   return '法国砲撃';
+    case SpecialAttackType.WarspiteTouch:    return '红茶砲撃';
+    case SpecialAttackType.YamatoTouch2:     return '大和摸(2)';
+    case SpecialAttackType.YamatoTouch3:     return '大和摸(3)';
+    case SpecialAttackType.KongouNightAttack: return '金剛突撃';
     default: return '';
   }
 }

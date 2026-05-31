@@ -8,7 +8,8 @@ import {
   getQuests,
   QuestSnapshot,
   getSortieResourceGains,
-  SortieResourceGains
+  SortieResourceGains,
+  getSpecialAttackTriggeredShipUids
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
@@ -222,7 +223,8 @@ export default struct BottomPanel {
           changeType === 'decks' || changeType === 'materials' ||
           changeType === 'ndocks' ||
           changeType === 'admiral' || changeType === 'quests' ||
-          changeType === 'mapinfo' || changeType === 'sortieGains') {
+          changeType === 'mapinfo' || changeType === 'sortieGains' ||
+          changeType === 'battle') {
         this.loadState();
       }
     });
@@ -281,7 +283,9 @@ export default struct BottomPanel {
         st.shipMasterStype,
         st.shipMasterCtype
       ));
-      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
+      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips, {
+        triggeredShipUids: getSpecialAttackTriggeredShipUids(),
+      });
       this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
       this.fleetSpeed = rawShips.length > 0
         ? rawShips.reduce((min, s) => Math.min(min, s.speed), Number.POSITIVE_INFINITY)
@@ -695,7 +699,7 @@ export default struct BottomPanel {
                 onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
-            }, shipRowKey)
+            }, (ship: ShipItem) => `${shipRowKey(ship)}_${this.specialAttack}`)
           } else {
             this.EmptyState()
           }

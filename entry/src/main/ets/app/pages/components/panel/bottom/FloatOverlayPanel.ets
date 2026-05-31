@@ -7,6 +7,7 @@ import {
   getMapGauges,
   getSortieResourceGains,
   SortieResourceGains,
+  getSpecialAttackTriggeredShipUids,
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
@@ -277,7 +278,9 @@ export default struct FloatOverlayPanel {
         st.shipMasterStype,
         st.shipMasterCtype
       ));
-      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
+      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips, {
+        triggeredShipUids: getSpecialAttackTriggeredShipUids(),
+      });
       this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
       this.fleetSpeed = rawShips.length > 0
         ? rawShips.reduce((min, s) => Math.min(min, s.speed), Number.POSITIVE_INFINITY)
@@ -602,7 +605,7 @@ export default struct FloatOverlayPanel {
                 onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
-            }, shipRowKey)
+            }, (ship: ShipItem) => `${shipRowKey(ship)}_${this.specialAttack}`)
           } else {
             Text('NO DATA')
               .fontSize(PanelDimens.fontSm)

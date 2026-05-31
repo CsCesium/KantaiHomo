@@ -15,7 +15,8 @@ import {
   shipToRow
 } from '../../../domain/models';
 import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks, updateKdocks,
-  updateShips, clearBattleState, clearEscapedShips, clearSortieResourceGains } from '../../state';
+  updateShips, clearBattleState, clearEscapedShips, clearSortieResourceGains,
+  clearSpecialAttackTriggeredShips } from '../../state';
 import { clearSortieContext } from '../../../domain/service';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -58,6 +59,7 @@ class PortPersistHandler implements Handler {
     clearSortieContext();
     clearEscapedShips();
     clearSortieResourceGains();
+    clearSpecialAttackTriggeredShips();
     updateFromPort({
       admiral: snapshot.admiral,
       materials: snapshot.materials,
