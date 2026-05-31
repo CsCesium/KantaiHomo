@@ -10,6 +10,7 @@ import { initHandlerRegistry } from '../features/router/persist/registry';
 import { initAlerts, initExpeditionScheduler, getExpeditionScheduler, setAlertConfig,
   initRepairScheduler, getRepairScheduler } from '../features/alerts';
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
+import { getExpeditionReminderService } from '../features/alerts/module/expeditionReminder';
 import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
 import { addOnNdockChanged } from '../features/alerts/module/ndockTrigger';
 import { getRepositoryHub } from '../infra/storage/repo';
@@ -167,6 +168,7 @@ export default class EntryAbility extends UIAbility {
       // 每当 expedition 状态写入 DB 后立即重新规划 timer，与通知权限无关
       addOnExpeditionChanged(() => { void getExpeditionScheduler()?.poke(); });
       void scheduler.start();
+      void getExpeditionReminderService().start();
 
       // 启动入渠修理完成调度器
       const repairScheduler = initRepairScheduler(getRepositoryHub().repair);
@@ -238,6 +240,7 @@ export default class EntryAbility extends UIAbility {
   onWindowStageDestroy(): void {
     getExpeditionScheduler()?.stop();
     getRepairScheduler()?.stop();
+    getExpeditionReminderService().stop();
     getExpeditionLiveNotificationService().stop();
     this.mainWindow?.disableLandscapeMultiWindow().catch((error: BusinessError): void => {
       hilog.error(HILOG_DOM, 'App', 'disableLandscapeMultiWindow failed: %{public}s', JSON.stringify(error));
@@ -246,5 +249,15 @@ export default class EntryAbility extends UIAbility {
   }
 
   onDestroy(): void | Promise<void> {
+  }
+
+  onForeground(): void {
+    void getExpeditionLiveNotificationService().refresh();
+    void getExpeditionReminderService().syncFromDb();
+  }
+
+  onBackground(): void {
+    void getExpeditionLiveNotificationService().refresh();
+    void getExpeditionReminderService().syncFromDb();
   }
 }
