@@ -105,6 +105,7 @@ export default struct WebHost {
   private unsubGameState?: () => void;
   private unsubAppVolumeMuted?: () => void;
   private unregisterPageVisible?: () => void;
+  private chromeRefreshTimer: number = -1;
   private handledLogoutRevision: number = 0;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
@@ -178,10 +179,21 @@ export default struct WebHost {
 
   private applyGameWindowChrome(win: window.Window): void {
     void win.setWindowSystemBarEnable([]);
+    void win.setSpecificSystemBarEnabled('navigationIndicator', false, false);
     // Split windows share system bars with other apps; keep non-immersive.
     // Fullscreen and floating are edge-to-edge: immersive layout required so
     // the hidden system bars don't leave a reserved-but-empty inset at the edges.
     void win.setWindowLayoutFullScreen(this.scene !== WindowScene.SPLIT);
+  }
+
+  private scheduleGameWindowChromeRefresh(win: window.Window): void {
+    if (this.chromeRefreshTimer >= 0) {
+      clearTimeout(this.chromeRefreshTimer);
+    }
+    this.chromeRefreshTimer = setTimeout((): void => {
+      this.chromeRefreshTimer = -1;
+      this.applyGameWindowChrome(win);
+    }, 1500);
   }
 
   private refreshSceneAndChrome(win: window.Window): void {
@@ -194,6 +206,7 @@ export default struct WebHost {
     const mainWin = getMainWindowCached();
     if (mainWin) {
       this.refreshSceneAndChrome(mainWin);
+      this.scheduleGameWindowChromeRefresh(mainWin);
     }
     this.refreshLeftCutoutInset();
     this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
@@ -536,6 +549,7 @@ export default struct WebHost {
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveScene(nextStatus);
         this.applyGameWindowChrome(mainWin);
+        this.scheduleGameWindowChromeRefresh(mainWin);
         this.refreshLeftCutoutInset();
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
         this.updateBattlePreviewAutoOverlay();
@@ -574,6 +588,10 @@ export default struct WebHost {
       if (mainWin) {
         mainWin.off('windowStatusChange', this.windowStatusCb);
       }
+    }
+    if (this.chromeRefreshTimer >= 0) {
+      clearTimeout(this.chromeRefreshTimer);
+      this.chromeRefreshTimer = -1;
     }
   }
 
@@ -923,6 +941,7 @@ export default struct WebHost {
       const mainWin = getMainWindowCached();
       if (mainWin) {
         this.refreshSceneAndChrome(mainWin);
+        this.scheduleGameWindowChromeRefresh(mainWin);
       }
       this.refreshLeftCutoutInset();
       this.recalcLayout(w, h);

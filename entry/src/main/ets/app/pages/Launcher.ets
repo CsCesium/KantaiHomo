@@ -24,6 +24,7 @@ struct Launcher {
     const win = getMainWindowCached();
     if (!win) return;
     void win.setWindowSystemBarEnable(['status', 'navigation']);
+    void win.setSpecificSystemBarEnabled('navigationIndicator', true, false);
     void win.setWindowLayoutFullScreen(false);
     this.applyLauncherOrientation(win);
   }
