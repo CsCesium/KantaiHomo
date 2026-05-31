@@ -6,6 +6,17 @@ export const touchHoverSnippet = `
     var raf = 0;
     var pending = null;
     var lastCanvas = null;
+    var STYLE_ID = 'kca-touch-hover-style';
+
+    function installStyle() {
+      if (document.getElementById(STYLE_ID)) return;
+      var s = document.createElement('style');
+      s.id = STYLE_ID;
+      s.textContent =
+        'canvas{-webkit-tap-highlight-color:rgba(0,0,0,0)!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;touch-action:none!important;-ms-touch-action:none!important;outline:none!important}' +
+        '#game_frame,[data-kc-scale="1"]{-webkit-tap-highlight-color:rgba(0,0,0,0)!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}';
+      (document.head || document.documentElement).appendChild(s);
+    }
 
     function isUsableCanvas(canvas) {
       if (!canvas || !canvas.getBoundingClientRect) return false;
@@ -22,6 +33,29 @@ export const touchHoverSnippet = `
         if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return c;
       }
       return null;
+    }
+
+    function hasUsableCanvas() {
+      var list = document.getElementsByTagName('canvas');
+      for (var i = 0; i < list.length; i++) {
+        if (isUsableCanvas(list[i])) return true;
+      }
+      return false;
+    }
+
+    function isEditableTarget(target) {
+      var n = target;
+      while (n && n.nodeType === 1) {
+        var tag = String(n.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || n.isContentEditable) return true;
+        n = n.parentElement;
+      }
+      return false;
+    }
+
+    function preventSelection(e) {
+      if (!hasUsableCanvas() || isEditableTarget(e && e.target)) return;
+      try { e.preventDefault(); } catch (_) {}
     }
 
     function mouseOpts(x, y) {
@@ -73,15 +107,16 @@ export const touchHoverSnippet = `
 
     function queueHover(x, y) {
       var canvas = canvasAt(x, y);
-      if (!canvas) return;
+      if (!canvas) return false;
       pending = { canvas: canvas, x: x, y: y };
-      if (raf) return;
+      if (raf) return true;
       raf = requestAnimationFrame(function(){
         raf = 0;
         var p = pending;
         pending = null;
         if (p) dispatchHover(p.canvas, p.x, p.y);
       });
+      return true;
     }
 
     function firstTouch(e) {
@@ -92,12 +127,14 @@ export const touchHoverSnippet = `
     function onTouch(e) {
       var t = firstTouch(e);
       if (!t) return;
-      queueHover(t.clientX, t.clientY);
+      if (!queueHover(t.clientX, t.clientY)) return;
+      try { e.preventDefault(); } catch (_) {}
     }
 
     function onPointer(e) {
       if (!e || e.pointerType === 'mouse') return;
-      queueHover(e.clientX, e.clientY);
+      if (!queueHover(e.clientX, e.clientY)) return;
+      try { e.preventDefault(); } catch (_) {}
     }
 
     window.__kcaHoverAtClientPoint = function(x, y) {
@@ -125,10 +162,13 @@ export const touchHoverSnippet = `
       return dispatchHover(canvas, r.left + x / GAME_W * r.width, r.top + y / GAME_H * r.height);
     };
 
-    document.addEventListener('touchstart', onTouch, { capture: true, passive: true });
-    document.addEventListener('touchmove', onTouch, { capture: true, passive: true });
-    document.addEventListener('pointerdown', onPointer, { capture: true, passive: true });
-    document.addEventListener('pointermove', onPointer, { capture: true, passive: true });
+    installStyle();
+    document.addEventListener('touchstart', onTouch, { capture: true, passive: false });
+    document.addEventListener('touchmove', onTouch, { capture: true, passive: false });
+    document.addEventListener('pointerdown', onPointer, { capture: true, passive: false });
+    document.addEventListener('pointermove', onPointer, { capture: true, passive: false });
+    document.addEventListener('selectstart', preventSelection, { capture: true, passive: false });
+    document.addEventListener('dragstart', preventSelection, { capture: true, passive: false });
     console.log('[touch-hover] installed');
   });
 })();
