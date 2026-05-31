@@ -6,6 +6,7 @@ import { hookFetchSnippet } from './modules/hookFetch';
 import { fpsSnippet } from './modules/fps';
 import { touchPatchSnippet } from './modules/touchPatch';
 import { touchHoverSnippet } from './modules/touchHover';
+import { touchWheelSnippet } from './modules/touchWheel';
 import { tickerRafSnippet } from './modules/tickerRaf';
 import { pixiPatchSnippet } from './modules/pixiPatch';
 import { iframeFitSnippet } from './modules/ifrFit';
@@ -46,6 +47,7 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   if (o.enableFPS)        out.push(asEvalChunk('hm-inject://fps.js',       fpsSnippet(o.channelName, o.postMethod)));
   if (o.enableTouchPatch) out.push(asEvalChunk('hm-inject://touchPatch.js',touchPatchSnippet));
   if (o.enableTouchHover) out.push(asEvalChunk('hm-inject://touchHover.js',touchHoverSnippet));
+  if (o.enableTouchWheel) out.push(asEvalChunk('hm-inject://touchWheel.js',touchWheelSnippet));
   if (o.enableTickerRAF)  out.push(asEvalChunk('hm-inject://tickerRaf.js', tickerRafSnippet));
   if (o.enablePixiPatch)  out.push(asEvalChunk('hm-inject://pixiPatch.js', pixiPatchSnippet));
   if (o.enableYasenDetect) out.push(asEvalChunk('hm-inject://yasenDetect.js', yasenDetectorJS()));

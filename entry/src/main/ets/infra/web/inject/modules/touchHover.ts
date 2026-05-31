@@ -120,7 +120,7 @@ export const touchHoverSnippet = `
     }
 
     function firstTouch(e) {
-      if (!e || !e.touches || e.touches.length < 1) return null;
+      if (!e || !e.touches || e.touches.length !== 1) return null;
       return e.touches[0];
     }
 
@@ -132,6 +132,7 @@ export const touchHoverSnippet = `
     }
 
     function onPointer(e) {
+      if (window.__kcaTouchWheelActive) return;
       if (!e || e.pointerType === 'mouse') return;
       if (!queueHover(e.clientX, e.clientY)) return;
       try { e.preventDefault(); } catch (_) {}

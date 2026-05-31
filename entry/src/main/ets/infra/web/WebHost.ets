@@ -16,7 +16,7 @@ import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "..
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
-  APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_INJECT_TOUCH_HOVER } from "../../ability/Entry";
+  APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { isInBattle, subscribeGameState } from "../../features/state";
 import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
@@ -80,6 +80,7 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_INJECT_FPS) private injectFpsEnabled: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_TOUCH_HOVER) private injectTouchHover: boolean = true;
+  @StorageProp(APP_STORAGE_INJECT_TOUCH_WHEEL) private injectTouchWheel: boolean = true;
   @StorageProp(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
   @StorageProp(APP_STORAGE_SESSION_LOGOUT_REV) private logoutRevision: number = 0;
@@ -120,6 +121,7 @@ export default struct WebHost {
     enableFPS: this.injectFpsEnabled,
     enableTouchPatch: this.injectTouchPatch,
     enableTouchHover: this.injectTouchHover,
+    enableTouchWheel: this.injectTouchWheel,
     enableTickerRAF: this.injectTickerRaf,
     enablePixiPatch: this.injectPixiPatch,
   });

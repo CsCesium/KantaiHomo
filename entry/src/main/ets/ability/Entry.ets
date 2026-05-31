@@ -44,6 +44,7 @@ export const APP_STORAGE_REPAIR_ALERT_ENABLED = 'alerts.repair.enabled';
 export const APP_STORAGE_INJECT_FPS = 'inject.fps';
 export const APP_STORAGE_INJECT_TOUCH_PATCH = 'inject.touchPatch';
 export const APP_STORAGE_INJECT_TOUCH_HOVER = 'inject.touchHover';
+export const APP_STORAGE_INJECT_TOUCH_WHEEL = 'inject.touchWheel';
 export const APP_STORAGE_INJECT_TICKER_RAF = 'inject.tickerRaf';
 export const APP_STORAGE_INJECT_PIXI_PATCH = 'inject.pixiPatch';
 /** AppStorage keys for equipment label badge overlays in the main panel */
@@ -106,6 +107,11 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_INJECT_TOUCH_HOVER, true);
     void kvGetBool(APP_STORAGE_INJECT_TOUCH_HOVER, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_INJECT_TOUCH_HOVER, v);
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_INJECT_TOUCH_WHEEL, true);
+    void kvGetBool(APP_STORAGE_INJECT_TOUCH_WHEEL, true).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_INJECT_TOUCH_WHEEL, v);
     });
 
     AppStorage.setOrCreate(APP_STORAGE_INJECT_TICKER_RAF, false);

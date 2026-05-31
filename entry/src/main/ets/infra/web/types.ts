@@ -198,6 +198,7 @@ export interface InjectOptions {
   enableFPS?: boolean;                    // 默认 false
   enableTouchPatch?: boolean;             // 默认 false
   enableTouchHover?: boolean;             // 默认 true
+  enableTouchWheel?: boolean;             // 默认 true
   enableTickerRAF?: boolean;              // 默认 true
   enablePixiPatch?: boolean;              // 默认 false
 
@@ -217,6 +218,7 @@ export const defaultInjectOptions: Required<InjectOptions> = {
   enableFPS: false,
   enableTouchPatch: false,
   enableTouchHover: true,
+  enableTouchWheel: true,
   enableTickerRAF: false,
   enablePixiPatch: false,
   enableSessionPersist: true,
