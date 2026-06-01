@@ -18,7 +18,7 @@ import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
   APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
-import { APP_STORAGE_RESOURCE_CACHE_ENABLED } from "../../features/resourceCache";
+import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED } from "../../features/resourceCache";
 import { isInBattle, subscribeGameState } from "../../features/state";
 import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
 import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
@@ -85,6 +85,7 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
   @StorageProp(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
+  @StorageProp(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
   @StorageProp(APP_STORAGE_SESSION_LOGOUT_REV) private logoutRevision: number = 0;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
@@ -773,6 +774,7 @@ export default struct WebHost {
               src: this.HOME,
               controller: this.controller,
               resourceCacheEnabled: this.resourceCacheEnabled,
+              resourceCacheAudioEnabled: this.resourceCacheAudioEnabled,
               onWebAttached: this.onWebAttached,
               onWebPageBegin: this.onBegin,
               onWebProgress: this.onProg,

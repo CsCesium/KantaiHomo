@@ -20,7 +20,7 @@ import BuildProfile from 'BuildProfile';
 import { FairyService } from '../infra/fairy/service/FairyService';
 import { kvGetBool, kvGetString } from '../infra/storage/kv';
 import { loadSenkaFromKV } from '../features/state/senkaInit';
-import { APP_STORAGE_RESOURCE_CACHE_ENABLED, initResourceCache } from '../features/resourceCache';
+import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED, initResourceCache } from '../features/resourceCache';
 import { updateShipGraphFilenames } from '../features/state';
 import { ShipGraphRow } from '../infra/storage/types';
 import { shipGraphFilename } from '../features/state/type';
@@ -81,10 +81,14 @@ export default class EntryAbility extends UIAbility {
       AppStorage.set(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, v);
     });
 
-    // Optional local cache for game image resources.
+    // Optional local cache for game resources.
     AppStorage.setOrCreate(APP_STORAGE_RESOURCE_CACHE_ENABLED, false);
     void kvGetBool(APP_STORAGE_RESOURCE_CACHE_ENABLED, false).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_RESOURCE_CACHE_ENABLED, v);
+    });
+    AppStorage.setOrCreate(APP_STORAGE_RESOURCE_CACHE_AUDIO, false);
+    void kvGetBool(APP_STORAGE_RESOURCE_CACHE_AUDIO, false).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_RESOURCE_CACHE_AUDIO, v);
     });
 
     // Yasen detect: default enabled; drives inject options in WebHost.

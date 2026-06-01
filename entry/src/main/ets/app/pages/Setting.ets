@@ -6,7 +6,12 @@ import { HOME_URL, USER_AGENT } from '../../infra/web/config';
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
-import { APP_STORAGE_RESOURCE_CACHE_ENABLED, clearResourceCache, getResourceCacheStats } from '../../features/resourceCache';
+import {
+  APP_STORAGE_RESOURCE_CACHE_AUDIO,
+  APP_STORAGE_RESOURCE_CACHE_ENABLED,
+  clearResourceCache,
+  getResourceCacheStats,
+} from '../../features/resourceCache';
 import type { ResourceCacheStats } from '../../features/resourceCache';
 
 @Entry
@@ -28,6 +33,7 @@ struct Setting {
   @StorageLink(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private sidebarShowAvatar: boolean = true;
   @StorageLink(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW) private autoBattlePreviewFloatOverlay: boolean = true;
   @StorageLink(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
+  @StorageLink(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
@@ -167,6 +173,12 @@ struct Setting {
   private onResourceCacheToggle(v: boolean): void {
     this.resourceCacheEnabled = v;
     void kvSet(APP_STORAGE_RESOURCE_CACHE_ENABLED, v);
+    void this.refreshResourceCacheStats();
+  }
+
+  private onResourceCacheAudioToggle(v: boolean): void {
+    this.resourceCacheAudioEnabled = v;
+    void kvSet(APP_STORAGE_RESOURCE_CACHE_AUDIO, v);
     void this.refreshResourceCacheStats();
   }
 
@@ -650,6 +662,13 @@ struct Setting {
               (v: boolean) => { this.onResourceCacheToggle(v); }
             )
 
+            this.ToggleRow(
+              '音频资源缓存',
+              '实验功能：缓存 BGM / 音效；命中 Range 请求时返回本地分段数据',
+              this.resourceCacheAudioEnabled,
+              (v: boolean) => { this.onResourceCacheAudioToggle(v); }
+            )
+
             Column({ space: 6 }) {
               this.StatLine('缓存文件', `${this.resourceCacheFileCount}`)
               this.StatLine('占用空间', this.resourceCacheSizeText)
@@ -674,7 +693,7 @@ struct Setting {
           }
           .width('100%')
 
-          Text('当前阶段仅缓存图片资源，BGM / 音频资源暂不拦截')
+          Text('图片资源默认支持；音频缓存需同时开启资源本地缓存和音频资源缓存')
             .fontSize(11)
             .fontColor('#2A3A45')
             .padding({ left: 4, top: 4 })
@@ -752,7 +771,7 @@ struct Setting {
 
             this.DangerActionRow(
               '清除资源缓存',
-              '清理本地缓存的游戏图片资源，不影响 Cookies',
+              '清理本地缓存的游戏图片 / 音频资源，不影响 Cookies',
               '立即清除',
               () => { void this.doClearResourceCache(); }
             )

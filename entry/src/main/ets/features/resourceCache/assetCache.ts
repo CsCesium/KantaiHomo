@@ -1,8 +1,9 @@
 /**
  * Local cache for game static assets.
  *
- * Phase 1 intentionally caches image resources only. Audio often uses Range
- * requests; serving it safely needs 206 Partial Content support.
+ * Image resources are enabled by the main feature switch. Audio resources are
+ * gated behind a separate experimental switch because playback often depends
+ * on Range requests.
  */
 import fs from '@ohos.file.fs';
 import http from '@ohos.net.http';
@@ -82,6 +83,11 @@ export function mimeTypeForPath(urlPath: string): string {
   if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
   if (lower.endsWith('.gif')) return 'image/gif';
   if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.mp3')) return 'audio/mpeg';
+  if (lower.endsWith('.m4a')) return 'audio/mp4';
+  if (lower.endsWith('.aac')) return 'audio/aac';
+  if (lower.endsWith('.ogg')) return 'audio/ogg';
+  if (lower.endsWith('.wav')) return 'audio/wav';
   return 'application/octet-stream';
 }
 
@@ -94,8 +100,19 @@ export function isImageAssetPath(urlPath: string): boolean {
     lower.endsWith('.webp');
 }
 
-export function isCacheableGameAssetPath(urlPath: string): boolean {
-  return urlPath.indexOf(GAME_RESOURCE_PREFIX) >= 0 && isImageAssetPath(urlPath);
+export function isAudioAssetPath(urlPath: string): boolean {
+  const lower = urlPath.toLowerCase();
+  return lower.endsWith('.mp3') ||
+    lower.endsWith('.m4a') ||
+    lower.endsWith('.aac') ||
+    lower.endsWith('.ogg') ||
+    lower.endsWith('.wav');
+}
+
+export function isCacheableGameAssetPath(urlPath: string, enableAudio: boolean = false): boolean {
+  if (urlPath.indexOf(GAME_RESOURCE_PREFIX) < 0) return false;
+  if (isImageAssetPath(urlPath)) return true;
+  return enableAudio && isAudioAssetPath(urlPath);
 }
 
 export function tryReadCachedAsset(urlPath: string, search: string = ''): CachedAsset | null {

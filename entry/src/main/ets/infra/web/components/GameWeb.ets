@@ -16,6 +16,7 @@ export default struct GameWeb {
   @Event onWebProgress?: (p: number) => void;
   @Event onWebPageEnd?: () => void;
   @Param resourceCacheEnabled: boolean = false;
+  @Param resourceCacheAudioEnabled: boolean = false;
 
   build() {
     Web({ src: this.src, controller: this.controller })
@@ -32,7 +33,7 @@ export default struct GameWeb {
         if (!reqUrl) return undefined;
         if (shouldBlock(reqUrl)) return createEmptyResp();
         if (this.resourceCacheEnabled) {
-          const cached = gameAssetInterceptor(ev);
+          const cached = gameAssetInterceptor(ev, { enableAudio: this.resourceCacheAudioEnabled });
           if (cached) return cached;
         }
         return undefined;
