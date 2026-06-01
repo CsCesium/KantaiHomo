@@ -12,10 +12,32 @@ const GAME_RESOURCE_PREFIX = '/kcs2/resources/';
 
 let cacheBase: string | null = null;
 const pendingDownloads: Set<string> = new Set();
+const sessionStats: ResourceCacheSessionStats = {
+  hitCount: 0,
+  missCount: 0,
+  downloadQueuedCount: 0,
+  downloadSuccessCount: 0,
+  downloadFailCount: 0,
+};
 
 export interface CachedAsset {
   data: Uint8Array;
   mimeType: string;
+}
+
+export interface ResourceCacheSessionStats {
+  hitCount: number;
+  missCount: number;
+  downloadQueuedCount: number;
+  downloadSuccessCount: number;
+  downloadFailCount: number;
+}
+
+export interface ResourceCacheStats extends ResourceCacheSessionStats {
+  ready: boolean;
+  fileCount: number;
+  totalBytes: number;
+  pendingDownloadCount: number;
 }
 
 export function initResourceCache(filesDir: string): void {
@@ -98,6 +120,14 @@ export function tryReadCachedAsset(urlPath: string, search: string = ''): Cached
   }
 }
 
+export function recordResourceCacheHit(): void {
+  sessionStats.hitCount++;
+}
+
+export function recordResourceCacheMiss(): void {
+  sessionStats.missCount++;
+}
+
 export function queueAssetDownload(fullUrl: string, urlPath: string, search: string = ''): void {
   const cachePath = toCachePath(urlPath, search);
   if (!cachePath) return;
@@ -105,9 +135,11 @@ export function queueAssetDownload(fullUrl: string, urlPath: string, search: str
   if (pendingDownloads.has(cachePath)) return;
 
   pendingDownloads.add(cachePath);
+  sessionStats.downloadQueuedCount++;
   (async () => {
     const req = http.createHttp();
     const tmpPath = `${cachePath}.tmp`;
+    let saved = false;
     try {
       const resp = await req.request(fullUrl, {
         method: http.RequestMethod.GET,
@@ -125,9 +157,15 @@ export function queueAssetDownload(fullUrl: string, urlPath: string, search: str
         fs.closeSync(file.fd);
       }
       fs.renameSync(tmpPath, cachePath);
+      saved = true;
     } catch (_e) {
       // Cache failures must never affect game loading.
     } finally {
+      if (saved) {
+        sessionStats.downloadSuccessCount++;
+      } else {
+        sessionStats.downloadFailCount++;
+      }
       pendingDownloads.delete(cachePath);
       req.destroy();
     }
@@ -156,8 +194,68 @@ function deletePath(path: string): void {
   try { fs.unlinkSync(path); } catch (_e) {}
 }
 
+function resetSessionStats(): void {
+  sessionStats.hitCount = 0;
+  sessionStats.missCount = 0;
+  sessionStats.downloadQueuedCount = 0;
+  sessionStats.downloadSuccessCount = 0;
+  sessionStats.downloadFailCount = 0;
+}
+
+function collectDiskStats(path: string): { fileCount: number; totalBytes: number } {
+  let isDirectory = false;
+  let size = 0;
+  try {
+    const stat = fs.statSync(path);
+    isDirectory = stat.isDirectory();
+    size = stat.size;
+  } catch (_e) {
+    return { fileCount: 0, totalBytes: 0 };
+  }
+
+  if (!isDirectory) {
+    if (path.endsWith('.tmp')) {
+      return { fileCount: 0, totalBytes: 0 };
+    }
+    return { fileCount: 1, totalBytes: size };
+  }
+
+  const total = { fileCount: 0, totalBytes: 0 };
+  let children: string[] = [];
+  try {
+    children = fs.listFileSync(path);
+  } catch (_e) {
+    return total;
+  }
+
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    const childPath = child.indexOf('/') >= 0 ? child : `${path}/${child}`;
+    const childStats = collectDiskStats(childPath);
+    total.fileCount += childStats.fileCount;
+    total.totalBytes += childStats.totalBytes;
+  }
+  return total;
+}
+
+export async function getResourceCacheStats(): Promise<ResourceCacheStats> {
+  const diskStats = cacheBase ? collectDiskStats(cacheBase) : { fileCount: 0, totalBytes: 0 };
+  return {
+    ready: cacheBase !== null,
+    fileCount: diskStats.fileCount,
+    totalBytes: diskStats.totalBytes,
+    pendingDownloadCount: pendingDownloads.size,
+    hitCount: sessionStats.hitCount,
+    missCount: sessionStats.missCount,
+    downloadQueuedCount: sessionStats.downloadQueuedCount,
+    downloadSuccessCount: sessionStats.downloadSuccessCount,
+    downloadFailCount: sessionStats.downloadFailCount,
+  };
+}
+
 export async function clearResourceCache(): Promise<void> {
   if (!cacheBase) return;
   pendingDownloads.clear();
   deletePath(cacheBase);
+  resetSessionStats();
 }

@@ -1,5 +1,12 @@
 import { url } from '@kit.ArkTS';
-import { CachedAsset, isCacheableGameAssetPath, queueAssetDownload, tryReadCachedAsset } from './assetCache';
+import {
+  CachedAsset,
+  isCacheableGameAssetPath,
+  queueAssetDownload,
+  recordResourceCacheHit,
+  recordResourceCacheMiss,
+  tryReadCachedAsset,
+} from './assetCache';
 
 function buildAssetResponse(asset: CachedAsset): WebResourceResponse {
   const resp = new WebResourceResponse();
@@ -37,8 +44,12 @@ export function gameAssetInterceptor(event: OnInterceptRequestEvent): WebResourc
   if (!isCacheableGameAssetPath(urlPath)) return null;
 
   const cached = tryReadCachedAsset(urlPath, search);
-  if (cached) return buildAssetResponse(cached);
+  if (cached) {
+    recordResourceCacheHit();
+    return buildAssetResponse(cached);
+  }
 
+  recordResourceCacheMiss();
   queueAssetDownload(reqUrl, urlPath, search);
   return null;
 }

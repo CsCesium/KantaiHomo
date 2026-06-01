@@ -6,7 +6,8 @@ import { HOME_URL, USER_AGENT } from '../../infra/web/config';
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
-import { APP_STORAGE_RESOURCE_CACHE_ENABLED, clearResourceCache } from '../../features/resourceCache';
+import { APP_STORAGE_RESOURCE_CACHE_ENABLED, clearResourceCache, getResourceCacheStats } from '../../features/resourceCache';
+import type { ResourceCacheStats } from '../../features/resourceCache';
 
 @Entry
 @Component
@@ -49,9 +50,15 @@ struct Setting {
   // ── UI state ───────────────────────────────────────────────────
   @State private configDirty: boolean = false;
   @State private accountDirty: boolean = false;
+  @State private resourceCacheFileCount: number = 0;
+  @State private resourceCacheSizeText: string = '0 B';
+  @State private resourceCacheSessionText: string = '命中 0 / 未命中 0 / 下载 0';
+  @State private resourceCachePendingText: string = '等待 0 / 失败 0';
+  @State private resourceCacheStatsRefreshing: boolean = false;
 
   aboutToAppear(): void {
     void this.loadAll();
+    void this.refreshResourceCacheStats();
   }
 
   private async loadAll(): Promise<void> {
@@ -160,6 +167,7 @@ struct Setting {
   private onResourceCacheToggle(v: boolean): void {
     this.resourceCacheEnabled = v;
     void kvSet(APP_STORAGE_RESOURCE_CACHE_ENABLED, v);
+    void this.refreshResourceCacheStats();
   }
 
   private async saveConfig(): Promise<void> {
@@ -221,9 +229,45 @@ struct Setting {
   private async doClearResourceCache(): Promise<void> {
     try {
       await clearResourceCache();
+      await this.refreshResourceCacheStats();
       promptAction.showToast({ message: '资源缓存已清除', duration: 2000 });
     } catch (e) {
       promptAction.showToast({ message: '清除失败: ' + String(e), duration: 2500 });
+    }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(kb >= 100 ? 0 : 1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+    const gb = mb / 1024;
+    return `${gb.toFixed(gb >= 100 ? 0 : 1)} GB`;
+  }
+
+  private applyResourceCacheStats(stats: ResourceCacheStats): void {
+    this.resourceCacheFileCount = stats.fileCount;
+    this.resourceCacheSizeText = this.formatBytes(stats.totalBytes);
+    this.resourceCacheSessionText =
+      `命中 ${stats.hitCount} / 未命中 ${stats.missCount} / 下载 ${stats.downloadSuccessCount}`;
+    this.resourceCachePendingText =
+      `等待 ${stats.pendingDownloadCount} / 失败 ${stats.downloadFailCount}`;
+  }
+
+  private async refreshResourceCacheStats(): Promise<void> {
+    if (this.resourceCacheStatsRefreshing) return;
+    this.resourceCacheStatsRefreshing = true;
+    try {
+      const stats = await getResourceCacheStats();
+      this.applyResourceCacheStats(stats);
+    } catch (_e) {
+      this.resourceCacheFileCount = 0;
+      this.resourceCacheSizeText = '统计失败';
+      this.resourceCacheSessionText = '命中 0 / 未命中 0 / 下载 0';
+      this.resourceCachePendingText = '等待 0 / 失败 0';
+    } finally {
+      this.resourceCacheStatsRefreshing = false;
     }
   }
 
@@ -301,6 +345,22 @@ struct Setting {
       .height(36)
       .layoutWeight(1)
       .onClick(() => { this.applyAlertMode(mode); })
+  }
+
+  @Builder
+  private StatLine(label: string, value: string) {
+    Row() {
+      Text(label)
+        .fontSize(13)
+        .fontColor('#5A7A8A')
+      Blank()
+      Text(value)
+        .fontSize(13)
+        .fontColor('#90B0C0')
+    }
+    .width('100%')
+    .height(24)
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -589,6 +649,28 @@ struct Setting {
               this.resourceCacheEnabled,
               (v: boolean) => { this.onResourceCacheToggle(v); }
             )
+
+            Column({ space: 6 }) {
+              this.StatLine('缓存文件', `${this.resourceCacheFileCount}`)
+              this.StatLine('占用空间', this.resourceCacheSizeText)
+              this.StatLine('本次会话', this.resourceCacheSessionText)
+              this.StatLine('后台下载', this.resourceCachePendingText)
+              Row() {
+                Blank()
+                this.ActionBtn(
+                  this.resourceCacheStatsRefreshing ? '统计中' : '刷新统计',
+                  this.resourceCacheStatsRefreshing ? '#3A5060' : '#6A9AB5',
+                  () => { void this.refreshResourceCacheStats(); }
+                )
+              }
+              .width('100%')
+              .height(42)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+            .backgroundColor('#0C1420')
+            .borderRadius(10)
+            .border({ width: 1, color: '#15202C' })
           }
           .width('100%')
 
