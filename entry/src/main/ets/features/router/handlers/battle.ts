@@ -548,15 +548,15 @@ class BattleHandler implements Handler {
       }
     }
     // 5a. 战斗结算提醒
-    if (isPractice) {
-      // 演习不进击下一节点，跳过提醒；同时清掉上一节点遗留的大破标记。
-      setLastBattleHasTaihaRisk(false);
-      setLastBattleTaihaShips([]);
-    } else {
-      try {
+    try {
+      let hasTaihaRisk = false;
+      const taihaShipsList: { uid: number; name: string; hpAfter: number; hpMax: number }[] = [];
+      if (isPractice) {
+        // 演习没有进击风险，但仍发送战斗结束提醒；同时清掉上一节点遗留的大破标记。
+        setLastBattleHasTaihaRisk(false);
+        setLastBattleTaihaShips([]);
+      } else {
         // 计算大破无损管击沉风险（旗舰 i=0 不会击沉，从 i=1 开始）
-        let hasTaihaRisk = false;
-        const taihaShipsList: { uid: number; name: string; hpAfter: number; hpMax: number }[] = [];
         const prediction = context?.pendingBattle?.prediction;
         const mainPred = prediction?.friendMain ?? [];
         for (let i = 1; i < mainPred.length; i++) {
@@ -599,19 +599,19 @@ class BattleHandler implements Handler {
         // 保存本次大破风险及大破舰娘列表，供下一节点进击提醒使用
         setLastBattleHasTaihaRisk(hasTaihaRisk);
         setLastBattleTaihaShips(taihaShipsList);
-
-        const battleResultAlert: BattleResultAlert = {
-          type: 'battle_result',
-          timestamp: now,
-          cellId: record.cellId,
-          isBoss: record.isBoss,
-          rank: record.rank,
-          hasTaihaRisk,
-        };
-        publishAlert(battleResultAlert);
-      } catch (e) {
-        console.warn('[battle] publishAlert(BattleResultAlert) failed:', String(e));
       }
+
+      const battleResultAlert: BattleResultAlert = {
+        type: 'battle_result',
+        timestamp: now,
+        cellId: record.cellId,
+        isBoss: record.isBoss,
+        rank: record.rank,
+        hasTaihaRisk,
+      };
+      publishAlert(battleResultAlert);
+    } catch (e) {
+      console.warn('[battle] publishAlert(BattleResultAlert) failed:', String(e));
     }
 
     // 6a. 把 simulator 的最终 HP 攒成「待写回」patches，挂到 SortieContext 上。
