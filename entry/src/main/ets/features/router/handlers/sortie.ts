@@ -239,6 +239,11 @@ class SortieHandler implements Handler {
     }
 
     // Clear any battle state from the previous cell so the normal panel is restored.
+    // Base air raids do not have BATTLE_RESULT, so their pending context must be
+    // discarded on the next node before another battle prediction is built.
+    if (ctxBeforeMove && ctxBeforeMove.pendingBattle) {
+      ctxBeforeMove.pendingBattle = null;
+    }
     clearBattleState();
 
     // 1. 调用 Service 更新节点

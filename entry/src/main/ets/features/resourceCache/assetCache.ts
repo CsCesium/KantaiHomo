@@ -22,7 +22,7 @@ const sessionStats: ResourceCacheSessionStats = {
 };
 
 export interface CachedAsset {
-  data: Uint8Array;
+  data: ArrayBuffer;
   mimeType: string;
 }
 
@@ -65,7 +65,7 @@ function ensureDirs(filePath: string): void {
   const index = filePath.lastIndexOf('/');
   if (index <= 0) return;
   const dir = filePath.substring(0, index);
-  try { fs.mkdirSync(dir); } catch (_e) { /* may already exist */ }
+  try { fs.mkdirSync(dir, true); } catch (_e) { /* may already exist */ }
 }
 
 function fileExists(filePath: string): boolean {
@@ -126,7 +126,7 @@ export function tryReadCachedAsset(urlPath: string, search: string = ''): Cached
       const buf = new ArrayBuffer(stat.size);
       fs.readSync(file.fd, buf);
       return {
-        data: new Uint8Array(buf),
+        data: buf,
         mimeType: mimeTypeForPath(urlPath),
       };
     } finally {
@@ -177,6 +177,7 @@ export function queueAssetDownload(fullUrl: string, urlPath: string, search: str
       saved = true;
     } catch (_e) {
       // Cache failures must never affect game loading.
+      console.debug(_e)
     } finally {
       if (saved) {
         sessionStats.downloadSuccessCount++;

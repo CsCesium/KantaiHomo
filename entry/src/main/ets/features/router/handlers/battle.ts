@@ -323,6 +323,10 @@ class BattleHandler implements Handler {
     // 1. 获取出击上下文，更新内存状态
     const context = getSortieContext();
     if (context) {
+      if (context.pendingBattle?.isAirRaid && !isAirRaid) {
+        context.pendingBattle = null;
+      }
+
       // simSnapshotToDomainPrediction 已经按 s.pos 贴了 uid/name，但对于在
       // 模拟器初始化前已经存在的演习上下文，或舰队 snapshot 与 simulator
       // 初始化时序错位时，下标可能仍需要修正。再 enrich 一次保证一致。
@@ -349,9 +353,7 @@ class BattleHandler implements Handler {
         context.pendingBattle.merged = segment;
         context.pendingBattle.prediction = prediction;
         context.pendingBattle.isPractice = isPractice;
-        if (isAirRaid) {
-          context.pendingBattle.isAirRaid = true;
-        }
+        context.pendingBattle.isAirRaid = isAirRaid;
 
         // 填充敌方舰队信息（供 UI 显示敌舰 ID）
         if (segment.enemyMain) {
@@ -393,6 +395,9 @@ class BattleHandler implements Handler {
 
     // 1. 获取出击上下文
     const context = getSortieContext();
+    if (context && context.pendingBattle?.isAirRaid) {
+      context.pendingBattle = null;
+    }
 
     // 2. 合并昼夜战（仅用于 BattleRecord.hpEnd 等下游消费者；preview 直接看 prediction）
     let merged: BattleSegment;

@@ -30,7 +30,6 @@ function buildAssetResponse(asset: CachedAsset): WebResourceResponse {
   resp.setResponseCode(200);
   resp.setReasonMessage('OK');
   resp.setResponseMimeType(asset.mimeType);
-  resp.setResponseEncoding('utf-8');
   resp.setResponseData(asset.data);
 
   const headers = new Array<Header>();
@@ -41,11 +40,10 @@ function buildAssetResponse(asset: CachedAsset): WebResourceResponse {
 
 function buildPartialAssetResponse(asset: CachedAsset, range: ByteRange): WebResourceResponse {
   const resp = new WebResourceResponse();
-  const data = asset.data.subarray(range.start, range.end + 1);
+  const data = asset.data.slice(range.start, range.end + 1);
   resp.setResponseCode(206);
   resp.setReasonMessage('Partial Content');
   resp.setResponseMimeType(asset.mimeType);
-  resp.setResponseEncoding('utf-8');
   resp.setResponseData(data);
 
   const headers = new Array<Header>();
