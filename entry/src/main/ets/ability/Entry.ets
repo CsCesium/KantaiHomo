@@ -20,7 +20,7 @@ import BuildProfile from 'BuildProfile';
 import { FairyService } from '../infra/fairy/service/FairyService';
 import { kvGetBool, kvGetString } from '../infra/storage/kv';
 import { loadSenkaFromKV } from '../features/state/senkaInit';
-import { initShipGraphCache } from '../infra/assets/shipGraphCache';
+import { APP_STORAGE_RESOURCE_CACHE_ENABLED, initResourceCache } from '../features/resourceCache';
 import { updateShipGraphFilenames } from '../features/state';
 import { ShipGraphRow } from '../infra/storage/types';
 import { shipGraphFilename } from '../features/state/type';
@@ -57,7 +57,7 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     setAppContext(this.context);
-    initShipGraphCache(this.context.filesDir);
+    initResourceCache(this.context.filesDir);
 
     webview.WebCookieManager.putAcceptCookieEnabled(true);
     webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true);
@@ -79,6 +79,12 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, true);
     void kvGetBool(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, v);
+    });
+
+    // Optional local cache for game image resources.
+    AppStorage.setOrCreate(APP_STORAGE_RESOURCE_CACHE_ENABLED, false);
+    void kvGetBool(APP_STORAGE_RESOURCE_CACHE_ENABLED, false).then((v: boolean) => {
+      AppStorage.set(APP_STORAGE_RESOURCE_CACHE_ENABLED, v);
     });
 
     // Yasen detect: default enabled; drives inject options in WebHost.

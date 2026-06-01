@@ -6,6 +6,7 @@ import { HOME_URL, USER_AGENT } from '../../infra/web/config';
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
+import { APP_STORAGE_RESOURCE_CACHE_ENABLED, clearResourceCache } from '../../features/resourceCache';
 
 @Entry
 @Component
@@ -25,6 +26,7 @@ struct Setting {
   /** Two-way binding to AppStorage; writing this immediately updates sidebar badges. */
   @StorageLink(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private sidebarShowAvatar: boolean = true;
   @StorageLink(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW) private autoBattlePreviewFloatOverlay: boolean = true;
+  @StorageLink(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
@@ -155,6 +157,11 @@ struct Setting {
     void kvSet(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, v);
   }
 
+  private onResourceCacheToggle(v: boolean): void {
+    this.resourceCacheEnabled = v;
+    void kvSet(APP_STORAGE_RESOURCE_CACHE_ENABLED, v);
+  }
+
   private async saveConfig(): Promise<void> {
     const url = this.homeUrl.trim() || HOME_URL;
     const ua = this.userAgent.trim();
@@ -209,6 +216,15 @@ struct Setting {
   private async doClearCache(): Promise<void> {
     await kvSet('clear.cache.pending', true);
     promptAction.showToast({ message: '缓存将在下次进入游戏时清除', duration: 2500 });
+  }
+
+  private async doClearResourceCache(): Promise<void> {
+    try {
+      await clearResourceCache();
+      promptAction.showToast({ message: '资源缓存已清除', duration: 2000 });
+    } catch (e) {
+      promptAction.showToast({ message: '清除失败: ' + String(e), duration: 2500 });
+    }
   }
 
   // ── Builders ───────────────────────────────────────────────────
@@ -563,6 +579,24 @@ struct Setting {
           .borderRadius(10)
           .border({ width: 1, color: '#15202C' })
 
+          // ── SECTION: 资源缓存 ─────────────────────────────────
+          this.SectionHeader('资源缓存')
+
+          Column({ space: 8 }) {
+            this.ToggleRow(
+              '资源本地缓存',
+              '缓存游戏图片资源；命中时从本地返回，失败时自动回源',
+              this.resourceCacheEnabled,
+              (v: boolean) => { this.onResourceCacheToggle(v); }
+            )
+          }
+          .width('100%')
+
+          Text('当前阶段仅缓存图片资源，BGM / 音频资源暂不拦截')
+            .fontSize(11)
+            .fontColor('#2A3A45')
+            .padding({ left: 4, top: 4 })
+
           // ── SECTION: WebView 注入 ─────────────────────────────
           this.SectionHeader('WebView 注入')
 
@@ -632,6 +666,13 @@ struct Setting {
               '清理页面缓存文件，下次进入游戏时执行',
               '标记清除',
               () => { void this.doClearCache(); }
+            )
+
+            this.DangerActionRow(
+              '清除资源缓存',
+              '清理本地缓存的游戏图片资源，不影响 Cookies',
+              '立即清除',
+              () => { void this.doClearResourceCache(); }
             )
           }
           .width('100%')
