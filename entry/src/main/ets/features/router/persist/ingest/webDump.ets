@@ -45,6 +45,7 @@ const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB
 
 interface ApiResponseProbeData {
   api_material?: object[];
+  api_bauxite?: number;
   api_ship?: object | object[] | null;
   api_ship_data?: object | object[] | null;
 }
@@ -52,6 +53,26 @@ interface ApiResponseProbeData {
 interface ApiResponseProbe {
   api_result?: number | string;
   api_data?: ApiResponseProbeData | null;
+}
+
+interface ApiDeckData {
+  api_id?: number;
+  api_name?: string;
+  api_ship?: number[];
+  api_mission?: number[];
+}
+
+interface ApiDeckResponseData extends ApiDeckData {
+  api_deck_data?: ApiDeckData[] | null;
+}
+
+interface ApiDeckResponseProbe {
+  api_result?: number | string;
+  api_data?: ApiDeckResponseData | null;
+}
+
+interface ApiDeckStatePatch {
+  api_deck_data: ApiDeckData[];
 }
 
 function totalSize(d: ApiDump): number {
@@ -125,9 +146,49 @@ function responseHasShipData(responseText: string | null | undefined): boolean {
     (data.api_ship_data !== undefined && data.api_ship_data !== null);
 }
 
-function patchPanelStateFromHenseiChange(dump: ApiDump): void {
-  if (!dump.url?.includes('/api_req_hensei/change')) return;
+function patchBauxiteFromResponse(responseText: string | null | undefined): void {
+  const root = parseSvdata<ApiResponseProbe>(responseText);
+  const data = root?.api_data;
+  if (data === null || data === undefined || typeof data.api_bauxite !== 'number') return;
+
+  patchMaterials({ bauxite: data.api_bauxite });
+}
+
+function deckProbeIsDeck(data: ApiDeckData | null | undefined): boolean {
+  return data !== null && data !== undefined &&
+    typeof data.api_id === 'number' &&
+    Array.isArray(data.api_ship);
+}
+
+function patchDeckFromResponse(responseText: string | null | undefined): void {
+  const root = parseSvdata<ApiDeckResponseProbe>(responseText);
+  const data = root?.api_data;
+  if (data === null || data === undefined) return;
+
+  const decks: ApiDeckData[] = [];
+  if (Array.isArray(data.api_deck_data)) {
+    for (const deck of data.api_deck_data) {
+      if (deckProbeIsDeck(deck)) decks.push(deck);
+    }
+  } else if (deckProbeIsDeck(data)) {
+    decks.push(data);
+  }
+
+  if (decks.length === 0) return;
+  const patch: ApiDeckStatePatch = { api_deck_data: decks };
+  extractAndUpdateState(patch);
+}
+
+function patchPanelStateFromHenseiRequest(dump: ApiDump): void {
+  const url = dump.url ?? '';
+  if (!url.includes('/api_req_hensei/')) return;
   if (!isSuccessfulApiResponse(dump.responseText)) return;
+
+  if (url.includes('/api_req_hensei/preset_select')) {
+    patchDeckFromResponse(dump.responseText);
+    return;
+  }
+  if (!url.includes('/api_req_hensei/change')) return;
 
   const params = parseFormBody(dump.requestBody);
   const deckId = params.getInt('api_id', 0);
@@ -175,6 +236,11 @@ function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
 
   const params = parseFormBody(dump.requestBody);
   const hasResponseShipData = responseHasShipData(dump.responseText);
+
+  if (url.includes('/api_req_kaisou/preset_slot_select')) {
+    patchBauxiteFromResponse(dump.responseText);
+    return;
+  }
 
   if (url.includes('/api_req_kaisou/slot_deprive')) {
     if (!hasResponseShipData) {
@@ -239,7 +305,7 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
       console.debug('[ingest] state extract skipped:', String(e));
     }
   }
-  patchPanelStateFromHenseiChange(dump);
+  patchPanelStateFromHenseiRequest(dump);
   patchPanelStateFromNyukyoRequest(dump);
   patchPanelStateFromKaisouRequest(dump);
 
