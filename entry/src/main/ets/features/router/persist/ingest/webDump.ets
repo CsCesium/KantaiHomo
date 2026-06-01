@@ -34,7 +34,8 @@ import {
   patchShipSlot,
   patchShipExSlot,
   patchShipUnsetSlots,
-  patchShipSlotExchange
+  patchShipSlotExchange,
+  patchShipSlotDeprive
 } from '../../../state';
 import { getSortieContext } from '../../../../domain/service';
 import { parseFormBody } from '../../../utils/common';
@@ -44,6 +45,8 @@ const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB
 
 interface ApiResponseProbeData {
   api_material?: object[];
+  api_ship?: object | object[] | null;
+  api_ship_data?: object | object[] | null;
 }
 
 interface ApiResponseProbe {
@@ -114,6 +117,14 @@ function responseHasMaterial(responseText: string | null | undefined): boolean {
   return data !== null && data !== undefined && Array.isArray(data.api_material);
 }
 
+function responseHasShipData(responseText: string | null | undefined): boolean {
+  const root = parseSvdata<ApiResponseProbe>(responseText);
+  const data = root?.api_data;
+  if (data === null || data === undefined) return false;
+  return (data.api_ship !== undefined && data.api_ship !== null) ||
+    (data.api_ship_data !== undefined && data.api_ship_data !== null);
+}
+
 function patchPanelStateFromHenseiChange(dump: ApiDump): void {
   if (!dump.url?.includes('/api_req_hensei/change')) return;
   if (!isSuccessfulApiResponse(dump.responseText)) return;
@@ -163,6 +174,21 @@ function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
   if (!isSuccessfulApiResponse(dump.responseText)) return;
 
   const params = parseFormBody(dump.requestBody);
+  const hasResponseShipData = responseHasShipData(dump.responseText);
+
+  if (url.includes('/api_req_kaisou/slot_deprive')) {
+    if (!hasResponseShipData) {
+      patchShipSlotDeprive(
+        params.getInt('api_unset_ship', 0),
+        params.getInt('api_set_ship', 0),
+        params.getInt('api_unset_slot_kind', -1),
+        params.getInt('api_set_slot_kind', -1),
+        params.getInt('api_unset_idx', -1),
+        params.getInt('api_set_idx', -1)
+      );
+    }
+    return;
+  }
 
   if (url.includes('/api_req_kaisou/slotset_ex')) {
     patchShipExSlot(params.getInt('api_id', 0), params.getInt('api_item_id', -1));
@@ -181,11 +207,13 @@ function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
     return;
   }
   if (url.includes('/api_req_kaisou/slot_exchange_index')) {
-    patchShipSlotExchange(
-      params.getInt('api_id', 0),
-      params.getInt('api_src_idx', -1),
-      params.getInt('api_dst_idx', -1)
-    );
+    if (!hasResponseShipData) {
+      patchShipSlotExchange(
+        params.getInt('api_id', 0),
+        params.getInt('api_src_idx', -1),
+        params.getInt('api_dst_idx', -1)
+      );
+    }
   }
 }
 

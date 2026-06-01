@@ -376,8 +376,17 @@ class GameStateManager {
 
   patchDeckShip(deckId: number, shipIdx: number, shipUid: number): void {
     if (deckId <= 0) return;
-    if (!this.state.decks.some(d => d.deckId === deckId)) return;
+    const targetDeck = this.state.decks.find(d => d.deckId === deckId);
+    if (!targetDeck) return;
     const targetIdx = Math.max(0, shipIdx);
+    const sourceDeck = shipUid > 0
+      ? this.state.decks.find(d => d.shipUids.indexOf(shipUid) >= 0)
+      : undefined;
+    const sourceDeckId = sourceDeck?.deckId ?? 0;
+    const sourceDeckIdx = sourceDeck?.shipUids.indexOf(shipUid) ?? -1;
+    const displacedShipUid = shipUid > 0 && targetIdx < targetDeck.shipUids.length
+      ? targetDeck.shipUids[targetIdx]
+      : -1;
     const capturedAt = Date.now();
     let mutated = false;
 
@@ -386,10 +395,14 @@ class GameStateManager {
       let nextShipUids = d.shipUids.slice();
 
       if (!isTargetDeck) {
-        if (shipUid > 0 && nextShipUids.indexOf(shipUid) >= 0) {
-          nextShipUids = nextShipUids.filter(uid => uid !== shipUid);
+        if (shipUid > 0 && d.deckId === sourceDeckId && sourceDeckIdx >= 0) {
+          if (displacedShipUid > 0) {
+            nextShipUids[sourceDeckIdx] = displacedShipUid;
+          } else {
+            nextShipUids.splice(sourceDeckIdx, 1);
+          }
           mutated = true;
-          return { ...d, shipUids: nextShipUids, capturedAt };
+          return { ...d, shipUids: nextShipUids.filter(uid => uid > 0), capturedAt };
         }
         return d;
       }
@@ -401,8 +414,20 @@ class GameStateManager {
           nextShipUids.splice(targetIdx, 1);
         }
       } else if (shipUid > 0) {
-        nextShipUids = nextShipUids.filter(uid => uid !== shipUid);
-        if (targetIdx >= nextShipUids.length) {
+        const sourceIdx = nextShipUids.indexOf(shipUid);
+        if (sourceIdx >= 0) {
+          if (sourceIdx === targetIdx) {
+            return d;
+          }
+          if (targetIdx >= nextShipUids.length) {
+            nextShipUids.splice(sourceIdx, 1);
+            nextShipUids.push(shipUid);
+          } else {
+            const targetShipUid = nextShipUids[targetIdx];
+            nextShipUids[targetIdx] = shipUid;
+            nextShipUids[sourceIdx] = targetShipUid;
+          }
+        } else if (targetIdx >= nextShipUids.length) {
           nextShipUids.push(shipUid);
         } else {
           nextShipUids[targetIdx] = shipUid;
@@ -616,6 +641,76 @@ class GameStateManager {
     slots[dstIdx] = tmp;
 
     this.state.ships.set(shipUid, { ...existing, slots });
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  patchShipSlotDeprive(
+    unsetShipUid: number,
+    setShipUid: number,
+    unsetSlotKind: number,
+    setSlotKind: number,
+    unsetIdx: number,
+    setIdx: number
+  ): void {
+    if (unsetShipUid <= 0 || setShipUid <= 0) return;
+    if (unsetSlotKind !== 0 && unsetSlotKind !== 1) return;
+    if (setSlotKind !== 0 && setSlotKind !== 1) return;
+
+    const unsetShip = this.state.ships.get(unsetShipUid);
+    const setShip = this.state.ships.get(setShipUid);
+    if (!unsetShip || !setShip) return;
+    if (unsetSlotKind === 0 && unsetIdx < 0) return;
+    if (setSlotKind === 0 && setIdx < 0) return;
+    if (unsetShipUid === setShipUid && unsetSlotKind === setSlotKind && unsetIdx === setIdx) return;
+
+    const unsetSlots = unsetShip.slots.slice();
+    const setSlots = unsetShipUid === setShipUid ? unsetSlots : setShip.slots.slice();
+    const unsetLimit = Math.max(unsetShip.slotCount, unsetSlots.length);
+    const setLimit = Math.max(setShip.slotCount, setSlots.length);
+    if (unsetSlotKind === 0 && unsetIdx >= unsetLimit) return;
+    if (setSlotKind === 0 && setIdx >= setLimit) return;
+    while (unsetSlotKind === 0 && unsetSlots.length < unsetLimit) {
+      unsetSlots.push(-1);
+    }
+    while (setSlotKind === 0 && setSlots.length < setLimit) {
+      setSlots.push(-1);
+    }
+
+    const unsetItemUid = unsetSlotKind === 1 ? unsetShip.exSlot : unsetSlots[unsetIdx];
+    if (unsetItemUid <= 0) return;
+
+    let nextUnsetExSlot = unsetShip.exSlot;
+    let nextSetExSlot = setShip.exSlot;
+    if (unsetSlotKind === 1) {
+      nextUnsetExSlot = -1;
+    } else {
+      unsetSlots[unsetIdx] = -1;
+    }
+    if (setSlotKind === 1) {
+      nextSetExSlot = unsetItemUid;
+    } else {
+      setSlots[setIdx] = unsetItemUid;
+    }
+
+    if (unsetShipUid === setShipUid) {
+      this.state.ships.set(unsetShipUid, {
+        ...unsetShip,
+        slots: unsetSlots,
+        exSlot: setSlotKind === 1 ? nextSetExSlot : nextUnsetExSlot,
+      });
+    } else {
+      this.state.ships.set(unsetShipUid, {
+        ...unsetShip,
+        slots: unsetSlots,
+        exSlot: nextUnsetExSlot,
+      });
+      this.state.ships.set(setShipUid, {
+        ...setShip,
+        slots: setSlots,
+        exSlot: nextSetExSlot,
+      });
+    }
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('ships');
   }
@@ -1513,6 +1608,14 @@ export const patchShipUnsetSlots = (shipUid: number) =>
   gameStateManager.patchShipUnsetSlots(shipUid);
 export const patchShipSlotExchange = (shipUid: number, srcIdx: number, dstIdx: number) =>
   gameStateManager.patchShipSlotExchange(shipUid, srcIdx, dstIdx);
+export const patchShipSlotDeprive = (
+  unsetShipUid: number,
+  setShipUid: number,
+  unsetSlotKind: number,
+  setSlotKind: number,
+  unsetIdx: number,
+  setIdx: number
+) => gameStateManager.patchShipSlotDeprive(unsetShipUid, setShipUid, unsetSlotKind, setSlotKind, unsetIdx, setIdx);
 export const patchShipsHp = (updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>) =>
   gameStateManager.patchShipsHp(updates);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>

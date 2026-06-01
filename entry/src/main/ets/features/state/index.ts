@@ -53,6 +53,7 @@ export {
   patchShipExSlot,
   patchShipUnsetSlots,
   patchShipSlotExchange,
+  patchShipSlotDeprive,
   patchShipsHp,
   updateFromPort,
 
