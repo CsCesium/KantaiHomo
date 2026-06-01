@@ -140,9 +140,9 @@ export default struct LeftButtonColumn {
           this.PanelBtn()
         }
         this.BattlePreviewBtn()
-        this.MuteBtn()
         this.InfoBtn()
-      }
+        this.MuteBtn()
+        }
       .width(56)
       .padding({ left: 4, right: 4, top: 8, bottom: 8 })
     }
