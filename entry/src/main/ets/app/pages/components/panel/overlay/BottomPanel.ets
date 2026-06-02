@@ -25,6 +25,7 @@ import MapGaugeRow from '../bottom/rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import { shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
+import { promptAction } from '@kit.ArkUI';
 
 const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任务'];
 const MAP_TAB_IDX = 6;
@@ -34,6 +35,7 @@ const RESOURCE_BAR_H = 20;
 const RESOURCE_BAR_NARROW_H = 36;
 /** QuestState.ACTIVE — duplicated to keep this UI file decoupled from domain enum import. */
 const QUEST_STATE_ACTIVE = 2;
+const QUEST_STATE_COMPLETE = 3;
 
 function shipRowKey(ship: ShipItem): string {
   return [
@@ -255,7 +257,7 @@ export default struct BottomPanel {
     this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
     this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
-    this.activeQuests = getQuests().filter(q => q.state === QUEST_STATE_ACTIVE);
+    this.activeQuests = getQuests().filter(q => q.state === QUEST_STATE_ACTIVE || q.state === QUEST_STATE_COMPLETE);
     this.admiralName = admiral?.nickname || '--';
     this.admiralRank = formatAdmiralRank(admiral?.rank);
     this.admiralExperience = admiral ? `${admiral.experience}` : '--';
@@ -574,6 +576,23 @@ export default struct BottomPanel {
     }
   }
 
+  private showQuestDetail(quest: QuestSnapshot): void {
+    const detailText = quest.detail || '无任务描述';
+    const message = [
+      `周期：${questResetTypeLabel(quest.type)}`,
+      `进度：${questProgressLabel(quest.progress, quest.state)}`,
+      '',
+      detailText,
+    ].join('\n');
+    promptAction.showDialog({
+      title: quest.title || '任务详情',
+      message,
+      buttons: [
+        { text: '关闭', color: '#6A9AB5' },
+      ],
+    }).catch((_e: Error) => {});
+  }
+
   /**
    * Single quest row:
    *   [category icon] | [period chip] | [title/detail] | [progress]
@@ -633,6 +652,7 @@ export default struct BottomPanel {
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
     .alignItems(VerticalAlign.Center)
+    .onClick(() => { this.showQuestDetail(quest); })
   }
 
   @Builder EmptyState() {
@@ -664,7 +684,7 @@ export default struct BottomPanel {
               }, (quest: QuestSnapshot) => `quest-${quest.questId}`)
             } else {
               Column() {
-                Text('未接受的任务')
+                Text('没有任务数据')
                   .fontSize(PanelDimens.fontMd)
                   .fontColor(PanelColors.txtMuted)
                   .margin({ top: 24 })
