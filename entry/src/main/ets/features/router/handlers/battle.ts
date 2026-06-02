@@ -223,12 +223,21 @@ function asNumberArray(value: unknown): number[] {
 function resolveFriendAttackerUid(context: SortieContext, rawIndex: number): number {
   if (!Number.isFinite(rawIndex)) return 0;
   const idx = Math.floor(rawIndex);
-  if (idx >= 1 && idx <= 6) {
-    return context.fleetSnapshot.ships[idx - 1]?.uid ?? 0;
-  }
-  if (idx >= 7 && idx <= 12) {
-    return context.fleetSnapshotEscort?.ships[idx - 7]?.uid ?? 0;
-  }
+  const mainShips = context.fleetSnapshot.ships;
+  const escortShips = context.fleetSnapshotEscort?.ships ?? [];
+
+  // Battle hougeki attacker indices in raw packets are 0-based.  The previous
+  // 1-based mapping missed flagship index 0, so a fired special attack was not
+  // recorded and the panel tag stayed visible.
+  if (idx >= 0 && idx < mainShips.length) return mainShips[idx]?.uid ?? 0;
+  const escortIdx = idx - mainShips.length;
+  if (escortIdx >= 0 && escortIdx < escortShips.length) return escortShips[escortIdx]?.uid ?? 0;
+
+  // Keep a fallback for normalized/legacy 1-based inputs.
+  const idx1 = idx - 1;
+  if (idx1 >= 0 && idx1 < mainShips.length) return mainShips[idx1]?.uid ?? 0;
+  const escortIdx1 = idx1 - mainShips.length;
+  if (escortIdx1 >= 0 && escortIdx1 < escortShips.length) return escortShips[escortIdx1]?.uid ?? 0;
   return 0;
 }
 
