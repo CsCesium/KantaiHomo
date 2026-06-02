@@ -5,6 +5,8 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getMapGauges,
+  getQuests,
+  QuestSnapshot,
   getSortieResourceGains,
   SortieResourceGains,
   getSpecialAttackTriggeredShipUids,
@@ -21,10 +23,12 @@ import { resourceIconPath } from '../../../../../features/resources/resourceMeta
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
+import QuestPanel from '../common/QuestPanel';
 import { shouldDisplayMapGauge } from './rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const OVERLAY_MAP_TAB_IDX = 4;
+const OVERLAY_QUEST_TAB_IDX = 5;
 const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
 const RESOURCE_BAR_NARROW_H = 36;
@@ -194,6 +198,7 @@ export default struct FloatOverlayPanel {
   @Local fleetSpeed: number = -1;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  @Local quests: QuestSnapshot[] = [];
   @Local admiralName: string = '--';
   @Local admiralRank: string = '--';
   @Local admiralExperience: string = '--';
@@ -256,6 +261,7 @@ export default struct FloatOverlayPanel {
     this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
     this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
     this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.quests = [...getQuests()];
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -293,7 +299,7 @@ export default struct FloatOverlayPanel {
   }
 
   private async loadCalcStats(): Promise<void> {
-    if (this.activeFleet >= 4 || this.activeFleet === OVERLAY_MAP_TAB_IDX) {
+    if (this.activeFleet >= 4) {
       this.airPower = 0;
       this.fleetLoS = 0;
       this.fleetTpS = 0;
@@ -486,8 +492,8 @@ export default struct FloatOverlayPanel {
       this.AdmiralHeader()
       this.ResourceStatusBar()
 
-      // 制空 + 速度 stacked (left) | 輸送 + 索敵 stacked (right). Hidden on map tab.
-      if (this.activeFleet !== OVERLAY_MAP_TAB_IDX) {
+      // 制空 + 速度 stacked (left) | 輸送 + 索敵 stacked (right). Hidden on non-fleet tabs.
+      if (this.activeFleet < 4) {
         Row() {
           Column() {
             Row() {
@@ -543,14 +549,14 @@ export default struct FloatOverlayPanel {
 
       // Compact fleet selector row — fleets 1-4 grouped on the left, 地図 on the right
       Row() {
-        Row({ space: 8 }) {
+        Row({ space: 4 }) {
           ForEach([0, 1, 2, 3], (idx: number) => {
             Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
               .fontSize(PanelDimens.fontSm)
               .fontColor(PanelColors.txtTabOn)
               .backgroundColor(this.activeFleet === idx ? '#0d47a1' : PanelColors.bgTabInactive)
               .opacity(this.activeFleet === idx ? 1.0 : 0.55)
-              .padding({ left: 9, right: 9, top: 3, bottom: 3 })
+              .padding({ left: 7, right: 7, top: 3, bottom: 3 })
               .borderRadius(PanelDimens.radius)
               .onClick(() => { this.selectFleet(idx); })
           }, (idx: number) => `ftab-${idx}`)
@@ -559,15 +565,24 @@ export default struct FloatOverlayPanel {
 
         Blank().layoutWeight(1)
 
-        Row({ space: 6 }) {
+        Row({ space: 4 }) {
           Text('地図')
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.txtTabOn)
             .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
             .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
-            .padding({ left: 9, right: 9, top: 3, bottom: 3 })
+            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
             .borderRadius(PanelDimens.radius)
             .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
+
+          Text('任务')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtTabOn)
+            .backgroundColor(this.activeFleet === OVERLAY_QUEST_TAB_IDX ? '#37474f' : PanelColors.bgTabInactive)
+            .opacity(this.activeFleet === OVERLAY_QUEST_TAB_IDX ? 1.0 : 0.55)
+            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+            .borderRadius(PanelDimens.radius)
+            .onClick(() => { this.selectFleet(OVERLAY_QUEST_TAB_IDX); })
         }
         .alignItems(VerticalAlign.Center)
       }
@@ -577,10 +592,12 @@ export default struct FloatOverlayPanel {
       .backgroundColor(PanelColors.bgTabs)
       .alignItems(VerticalAlign.Center)
 
-      // Content area: map gauges or ship list — must stack from top, not center
+      // Content area: map gauges, quests, or ship list — must stack from top, not center
       Scroll() {
         Column() {
-          if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {
+          if (this.activeFleet === OVERLAY_QUEST_TAB_IDX) {
+            QuestPanel({ quests: this.quests, compact: true })
+          } else if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {
             if (this.mapGauges.length > 0) {
               ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
                 MapGaugeRow({ gauge })
