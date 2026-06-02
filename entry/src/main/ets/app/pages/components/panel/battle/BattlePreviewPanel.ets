@@ -11,12 +11,16 @@ import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../
 const BATTLE_SHIP_ROW_H = 32;
 
 function rankColor(rank: string): string {
-  if (rank === 'SS' || rank === 'S') return '#FFD700';
+  if (displayRank(rank) === 'S') return '#FFD700';
   if (rank === 'A') return '#ffdd1212';
   if (rank === 'B') return '#ffcb6d22';
   if (rank === 'C') return '#ff917c25';
   if (rank === 'D') return '#ff198311';
   return PanelColors.hpCrit;
+}
+
+function displayRank(rank: string): string {
+  return rank === 'SS' ? 'S' : rank;
 }
 
 function formationName(f: number | undefined): string {
@@ -417,7 +421,7 @@ export default struct BattlePreviewPanel {
           // Text('预测')
           //   .fontSize(PanelDimens.fontSm)
           //   .fontColor(PanelColors.txtMuted)
-          Text(snap.predictedRank)
+          Text(displayRank(snap.predictedRank))
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
             .fontColor(rankColor(snap.predictedRank))
@@ -626,7 +630,7 @@ export default struct BattlePreviewPanel {
           Text('戦果')
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.txtMuted)
-          Text(snap.rank)
+          Text(displayRank(snap.rank))
             .fontSize(32)
             .fontWeight(FontWeight.Bold)
             .fontColor(rankColor(snap.rank))
