@@ -102,17 +102,17 @@ export function questCategoryStyle(category: number): QuestCategoryStyle {
 }
 
 const QUEST_RESET_TYPE_LABELS: Record<number, string> = {
-  1: '単発',   // ONCE
-  2: 'デイリー',   // DAILY
-  3: 'ウィークリー', // WEEKLY
-  4: 'マンスリー',  // MONTHLY_3
-  5: 'マンスリー',  // MONTHLY_2
-  6: 'マンスリー',  // MONTHLY
-  7: 'クォータリー', // QUARTERLY
-  8: 'イヤーリー',   // YEARLY_FEB
-  9: 'イヤーリー',   // YEARLY_AUG
-  10: 'イヤーリー',  // YEARLY_MAR
-  11: 'イヤーリー',  // YEARLY_SEP
+  1: '单次',   // ONCE
+  2: '每日',   // DAILY
+  3: '每周',   // WEEKLY
+  4: '每月',   // MONTHLY_3
+  5: '每月',   // MONTHLY_2
+  6: '每月',   // MONTHLY
+  7: '季度',   // QUARTERLY
+  8: '年度',   // YEARLY_FEB
+  9: '年度',   // YEARLY_AUG
+  10: '年度',  // YEARLY_MAR
+  11: '年度',  // YEARLY_SEP
 };
 
 export function questResetTypeLabel(type: number): string {
@@ -121,11 +121,11 @@ export function questResetTypeLabel(type: number): string {
 
 /** Maps QuestProgress flag (0/1/2) to a display label. */
 export function questProgressLabel(progress: number | undefined, state: number): string {
-  if (state === 3) return '100%';
+  if (state === 3) return '完成';
   switch (progress) {
     case 1: return '50%+';
     case 2: return '80%+';
-    default: return '–';
+    default: return '进行中';
   }
 }
 

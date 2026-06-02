@@ -73,6 +73,7 @@ export interface KDockSnapShot{
 export interface QuestSnapshot {
   questId: number;
   title: string;
+  detail: string;
   state: number;
   category: number;
   type: number;

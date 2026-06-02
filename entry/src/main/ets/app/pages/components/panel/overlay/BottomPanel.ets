@@ -26,7 +26,7 @@ import ResourceAmount from '../common/ResourceAmount';
 import { shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
-const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任務'];
+const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任务'];
 const MAP_TAB_IDX = 6;
 const QUEST_TAB_IDX = 7;
 const RESOURCE_NARROW_WIDTH = 460;
@@ -576,7 +576,7 @@ export default struct BottomPanel {
 
   /**
    * Single quest row:
-   *   [category icon] | [period chip] | [title] | [progress]
+   *   [category icon] | [period chip] | [title/detail] | [progress]
    */
   @Builder QuestRow(quest: QuestSnapshot) {
     Row() {
@@ -600,13 +600,22 @@ export default struct BottomPanel {
         .width(72)
         .textAlign(TextAlign.Center)
 
-      // Column 3: title (description)
-      Text(quest.title)
-        .fontSize(PanelDimens.fontMd)
-        .fontColor(PanelColors.txtPrimary)
+      // Column 3: title and detail
+      Column({ space: 2 }) {
+        Text(quest.title)
+          .fontSize(PanelDimens.fontMd)
+          .fontColor(PanelColors.txtPrimary)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text(quest.detail || '无任务描述')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.txtSub)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+        .justifyContent(FlexAlign.Center)
         .layoutWeight(1)
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
         .padding({ left: 8, right: 8 })
 
       // Column 4: progress

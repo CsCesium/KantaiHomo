@@ -453,6 +453,7 @@ class GameStateManager {
     this.state.quests = quests.map(quest => ({
       questId: quest.questId,
       title: quest.title,
+      detail: quest.detail,
       state: quest.state,
       category: quest.category,
       type: quest.type,
