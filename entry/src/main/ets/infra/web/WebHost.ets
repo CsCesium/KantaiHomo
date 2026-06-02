@@ -598,17 +598,27 @@ export default struct WebHost {
     }
   }
 
+  private buildFullReloadUrl(): string {
+    const baseUrl: string = this.fullReloadUrl || this.HOME;
+    const marker: string = `hmFullReload=${Date.now().toString()}`;
+    const hashIndex: number = baseUrl.indexOf('#');
+    if (hashIndex >= 0) {
+      const withoutHash: string = baseUrl.slice(0, hashIndex);
+      const hash: string = baseUrl.slice(hashIndex + 1);
+      if (hash.length > 0) {
+        return `${withoutHash}#${hash}&${marker}`;
+      }
+      return `${withoutHash}#${marker}`;
+    }
+    return `${baseUrl}#${marker}`;
+  }
+
   private reloadFullPage(): void {
     this.firstPageLoad = false;
     try {
-      const currentUrl = this.controller.getUrl();
-      if (currentUrl) {
-        this.controller.loadUrl(currentUrl);
-        return;
-      }
+      this.controller.runJavaScript?.("try{sessionStorage.removeItem('__hm_promote_last_v2');}catch(e){}");
     } catch (_e) {}
-
-    this.controller.loadUrl(this.fullReloadUrl || this.HOME);
+    this.controller.loadUrl(this.buildFullReloadUrl());
   }
 
   private promptRefresh(): void {

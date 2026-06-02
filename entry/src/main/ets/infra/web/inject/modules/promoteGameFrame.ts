@@ -15,6 +15,12 @@ export const promoteGameFrameSnippet: string = `
   function inShell(){ try { return /^https?:\\/\\/play\\.games\\.dmm\\.com\\/game\\/kancolle/i.test(String(location.href||'')); } catch(e){ return false; } }
   function inGadget(){ try { return /^https?:\\/\\/osapi\\.dmm\\.com\\/gadgets\\/ifr/i.test(String(location.href||'')); } catch(e){ return false; } }
   function inKcs2Top(){ try { return /\\/kcs2\\//i.test(String(location.href||'')) && (window===window.top); } catch(e){ return false; } }
+  function hasManualReloadMarker(){
+    try {
+      return /(?:^|[#&?])hmFullReload=/.test(String(location.hash||'')) ||
+        /(?:^|[?&])hmFullReload=/.test(String(location.search||''));
+    } catch(e) { return false; }
+  }
 
   __safe('promoteGameFrame', function(){
     try {
@@ -24,7 +30,29 @@ export const promoteGameFrameSnippet: string = `
       }
 
       var KEY='__hm_promote_last_v2';
-      var last=''; try { last = sessionStorage.getItem(KEY)||''; } catch(e){}
+      var manualReload=hasManualReloadMarker();
+      var last=''; try {
+        if (manualReload) {
+          sessionStorage.removeItem(KEY);
+        } else {
+          last = sessionStorage.getItem(KEY)||'';
+        }
+      } catch(e){}
+
+      function withManualReloadMarker(u){
+        if (!u || !manualReload) return u;
+        try {
+          var marker='hmFullReload=' + Date.now();
+          var hashIdx=u.indexOf('#');
+          if (hashIdx >= 0) {
+            var before=u.slice(0, hashIdx);
+            var hash=u.slice(hashIdx + 1);
+            if (/(?:^|&)hmFullReload=/.test(hash)) return u;
+            return before + '#' + (hash ? hash + '&' + marker : marker);
+          }
+          return u + '#' + marker;
+        } catch(e) { return u; }
+      }
 
       function pickTarget(){
         // S1: play.games.dmm.com -> gadgets
@@ -33,7 +61,7 @@ export const promoteGameFrameSnippet: string = `
           if (f) {
             var s = f.getAttribute('src') || '';
             if (!s) { try { s = f.src || ''; } catch(e){} }
-            if (s) return { target: absUrl(s), reason: 'gadgets@play' };
+            if (s) return { target: withManualReloadMarker(absUrl(s)), reason: 'gadgets@play' };
           }
         }
         // S2: osapi.dmm.com/gadgets/ifr -> kcs2
@@ -41,14 +69,14 @@ export const promoteGameFrameSnippet: string = `
           var list = document.getElementsByTagName('iframe');
           for (var i=0;i<list.length;i++){
             var t=''; try { t = list[i].getAttribute('src') || list[i].src || ''; } catch(e){}
-            if (t && /\\/kcs2\\//i.test(t)) return { target: absUrl(t), reason: 'kcs2@gadgets' };
+            if (t && /\\/kcs2\\//i.test(t)) return { target: withManualReloadMarker(absUrl(t)), reason: 'kcs2@gadgets' };
           }
         }
         // Fallback：任意页优先找 gadgets
         var frames = document.getElementsByTagName('iframe');
         for (var j=0;j<frames.length;j++){
           var u=''; try { u = frames[j].getAttribute('src') || frames[j].src || ''; } catch(e){}
-          if (u && /osapi\\.dmm\\.com\\/gadgets\\/ifr/i.test(u)) return { target: absUrl(u), reason: 'gadgets@fallback' };
+          if (u && /osapi\\.dmm\\.com\\/gadgets\\/ifr/i.test(u)) return { target: withManualReloadMarker(absUrl(u)), reason: 'gadgets@fallback' };
         }
         return null;
       }
@@ -56,7 +84,7 @@ export const promoteGameFrameSnippet: string = `
       var decided=false;
       function navigate(t){
         if (!t || decided) return;
-        if (last === t.target) { try { console.log('[promote] skip same target:', t.target); } catch(_) {} return; }
+        if (!manualReload && last === t.target) { try { console.log('[promote] skip same target:', t.target); } catch(_) {} return; }
         decided=true;
         try { sessionStorage.setItem(KEY, t.target); } catch(e){}
         try { console.warn('[promote] navigating to ('+t.reason+'):', t.target); } catch(_) {}
