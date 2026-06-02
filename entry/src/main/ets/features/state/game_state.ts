@@ -94,6 +94,7 @@ class GameStateManager {
   private state: GameState = {
     admiral: null,
     materials: null,
+    useItemCounts: new Map(),
     sortieResourceGains: null,
     decks: [],
     Ndocks:[],
@@ -119,6 +120,7 @@ class GameStateManager {
     slotItemAa: new Map(),
     slotItemAsw: new Map(),
     slotItemNames: new Map(),
+    useItemMasterNames: new Map(),
     slotItemIndex: new Map(),
     slotItemLevels: new Map(),
     slotItemAlvs: new Map(),
@@ -139,8 +141,8 @@ class GameStateManager {
    * 这些舰娘不计入大破警告，UI 会以蓝色"退避"标签显示。 */
   private escapedShipUids: Set<number> = new Set();
 
-  /** 当前出击中已经发动过旗舰特殊攻击的舰娘 UID 集合。 */
-  private specialAttackTriggeredShipUids: Set<number> = new Set();
+  /** 当前出击中已经发动过旗舰特殊攻击的舰娘 UID 及发动次数。 */
+  private specialAttackTriggeredShipCounts: Map<number, number> = new Map();
 
   /** 每日战果追踪（含 CST 周期 ID，用于跨周期重置） */
   private dailySenkaStart: { exp: number; time: number; date: string } | null = null;
@@ -198,6 +200,26 @@ class GameStateManager {
 
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('materials');
+  }
+
+  /**
+   * 更新道具数量（来自 require_info / useitem 同类全量数据）。
+   */
+  updateUseItems(items: ReadonlyArray<{ itemId: number; count: number }>): void {
+    const next = new Map<number, number>();
+    for (const item of items) {
+      if (item.itemId > 0) {
+        next.set(item.itemId, item.count);
+      }
+    }
+    this.state.useItemCounts = next;
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('materials');
+  }
+
+  /** 按道具 ID 查询数量（无数据时返回 0）。 */
+  getUseItemCount(itemId: number): number {
+    return this.state.useItemCounts.get(itemId) ?? 0;
   }
 
   patchMaterials(update: {
@@ -838,6 +860,17 @@ class GameStateManager {
     return this.state.materials;
   }
 
+  /** 按道具名称查询数量（无数据时返回 0）。 */
+  getUseItemCountByName(name: string): number {
+    let foundCount = 0;
+    this.state.useItemMasterNames.forEach((itemName: string, itemId: number): void => {
+      if (foundCount === 0 && itemName === name) {
+        foundCount = this.getUseItemCount(itemId);
+      }
+    });
+    return foundCount;
+  }
+
   /**
    * 获取本次出击累计资源（null 表示无累计）
    */
@@ -1163,6 +1196,8 @@ class GameStateManager {
     this.state = {
       admiral: null,
       materials: null,
+      useItemCounts: new Map(),
+      sortieResourceGains: null,
       decks: [],
       Ndocks:[],
       Kdocks:[],
@@ -1187,15 +1222,15 @@ class GameStateManager {
       slotItemAa: new Map(),
       slotItemAsw: new Map(),
       slotItemNames: new Map(),
+      useItemMasterNames: new Map(),
       slotItemIndex: new Map(),
       slotItemLevels: new Map(),
       slotItemAlvs: new Map(),
-      sortieResourceGains: null,
       shipGraphFilenames:new Map(),
       gameServerUrl:null,
     };
     this.expHistory = [];
-    this.specialAttackTriggeredShipUids.clear();
+    this.specialAttackTriggeredShipCounts.clear();
     this.dailySenkaStart = null;
     this.notifyListeners('all');
   }
@@ -1281,6 +1316,19 @@ class GameStateManager {
   /** 按图鉴 ID 查询装备名称（无数据时返回空串） */
   getSlotItemMasterName(masterId: number): string {
     return this.state.slotItemNames.get(masterId) ?? '';
+  }
+
+  /**
+   * 更新道具图鉴名称缓存（来自 api_start2 useitem 数据）。
+   */
+  updateUseItemMasterNames(items: ReadonlyArray<{ id: number; name: string }>): void {
+    for (const item of items) {
+      if (item.id > 0) {
+        this.state.useItemMasterNames.set(item.id, item.name);
+      }
+    }
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('all');
   }
 
   /**
@@ -1463,8 +1511,9 @@ class GameStateManager {
   markSpecialAttackTriggeredShips(uids: ReadonlyArray<number>): void {
     let added = false;
     for (const uid of uids) {
-      if (uid > 0 && !this.specialAttackTriggeredShipUids.has(uid)) {
-        this.specialAttackTriggeredShipUids.add(uid);
+      if (uid > 0) {
+        const current = this.specialAttackTriggeredShipCounts.get(uid) ?? 0;
+        this.specialAttackTriggeredShipCounts.set(uid, current + 1);
         added = true;
       }
     }
@@ -1476,20 +1525,25 @@ class GameStateManager {
 
   /** 清空当前出击的特殊攻击发动记录。 */
   clearSpecialAttackTriggeredShips(): void {
-    if (this.specialAttackTriggeredShipUids.size === 0) return;
-    this.specialAttackTriggeredShipUids.clear();
+    if (this.specialAttackTriggeredShipCounts.size === 0) return;
+    this.specialAttackTriggeredShipCounts.clear();
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('battle');
   }
 
   /** 判断指定舰娘是否已在当前出击中发动过旗舰特殊攻击。 */
   isSpecialAttackTriggeredShip(uid: number): boolean {
-    return this.specialAttackTriggeredShipUids.has(uid);
+    return (this.specialAttackTriggeredShipCounts.get(uid) ?? 0) > 0;
   }
 
   /** 获取当前出击中已发动过旗舰特殊攻击的舰娘 UID（只读副本）。 */
   getSpecialAttackTriggeredShipUids(): ReadonlyArray<number> {
-    return Array.from(this.specialAttackTriggeredShipUids);
+    return Array.from(this.specialAttackTriggeredShipCounts.keys());
+  }
+
+  /** 获取当前出击中特殊攻击发动次数（只读副本）。 */
+  getSpecialAttackTriggeredShipCounts(): Map<number, number> {
+    return new Map(this.specialAttackTriggeredShipCounts);
   }
 
   /**
@@ -1584,6 +1638,12 @@ export const isShipMasterLandBased = (masterId: number) => gameStateManager.isSh
 
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);
+export const updateUseItems = (items: ReadonlyArray<{ itemId: number; count: number }>) =>
+  gameStateManager.updateUseItems(items);
+export const getUseItemCount = (itemId: number): number => gameStateManager.getUseItemCount(itemId);
+export const updateUseItemMasterNames = (items: ReadonlyArray<{ id: number; name: string }>) =>
+  gameStateManager.updateUseItemMasterNames(items);
+export const getUseItemCountByName = (name: string): number => gameStateManager.getUseItemCountByName(name);
 export const patchMaterials = (update: Parameters<GameStateManager['patchMaterials']>[0]) =>
   gameStateManager.patchMaterials(update);
 export const addSortieResourceGains = (gains: ReadonlyArray<MapResourceGain>) =>
@@ -1671,3 +1731,4 @@ export const markSpecialAttackTriggeredShips = (uids: ReadonlyArray<number>) =>
 export const clearSpecialAttackTriggeredShips = () => gameStateManager.clearSpecialAttackTriggeredShips();
 export const isSpecialAttackTriggeredShip = (uid: number) => gameStateManager.isSpecialAttackTriggeredShip(uid);
 export const getSpecialAttackTriggeredShipUids = () => gameStateManager.getSpecialAttackTriggeredShipUids();
+export const getSpecialAttackTriggeredShipCounts = () => gameStateManager.getSpecialAttackTriggeredShipCounts();

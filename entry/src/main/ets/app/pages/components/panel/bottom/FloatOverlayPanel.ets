@@ -9,16 +9,15 @@ import {
   QuestSnapshot,
   getSortieResourceGains,
   SortieResourceGains,
-  getSpecialAttackTriggeredShipUids,
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
   getFleetTP,
-  detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../../ability/Entry';
 import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
+import { detectSpecialAttackBadge } from '../../../../../features/panel/specialAttackBadge';
 import { resourceIconPath } from '../../../../../features/resources/resourceMeta';
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
@@ -284,10 +283,7 @@ export default struct FloatOverlayPanel {
         st.shipMasterStype,
         st.shipMasterCtype
       ));
-      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips, {
-        triggeredShipUids: getSpecialAttackTriggeredShipUids(),
-      });
-      this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
+      this.specialAttack = detectSpecialAttackBadge(rawShips, this.activeFleet);
       this.fleetSpeed = rawShips.length > 0
         ? rawShips.reduce((min, s) => Math.min(min, s.speed), Number.POSITIVE_INFINITY)
         : -1;

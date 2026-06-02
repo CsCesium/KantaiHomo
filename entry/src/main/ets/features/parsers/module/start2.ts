@@ -4,6 +4,7 @@ import type {
   ShipMasterCatalogEvent,
   SlotItemMasterCatalogEvent,
   MissionMasterCatalogEvent,
+  UseItemMasterCatalogEvent,
   ShipGraphCatalogEvent,
 } from '../../../domain/events/start2';
 import { ApiStart2DataRaw } from '../../../domain/models/api/start2';
@@ -52,6 +53,15 @@ export function parseStart2(dump: ApiDump): AnyStart2Evt[] | null {
         ['mission-mst', data.api_mst_mission.length, ctx.ts],
         data.api_mst_mission
       ) as MissionMasterCatalogEvent
+    );
+  }
+
+  if (Array.isArray(data.api_mst_useitem) && data.api_mst_useitem.length > 0) {
+    out.push(
+      mkEvt(ctx, 'USEITEM_MASTER_CATALOG',
+        ['useitem-mst', data.api_mst_useitem.length, ctx.ts],
+        data.api_mst_useitem
+      ) as UseItemMasterCatalogEvent
     );
   }
 

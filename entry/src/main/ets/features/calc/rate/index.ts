@@ -105,6 +105,7 @@ export {
   SpecialAttackType,
   SpecialAttackPositions,
   SpecialAttackFleetShip,
+  SpecialAttackFleetRole,
   DetectFleetSpecialAttackOptions,
   SpecialAttackInput,
   SpecialAttackResult,

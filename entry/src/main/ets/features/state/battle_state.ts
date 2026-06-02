@@ -157,6 +157,7 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
 
     // 战斗类型
     battlePhase,
+    battleApiPath: battleContext.merged?.meta.apiPath,
     isPractice: battleContext.isPractice,
     isAirRaid,
     combinedType: sortieContext.combinedType,

@@ -138,6 +138,8 @@ export interface GameState {
   admiral: AdmiralSnapshot | null;
   /** 资源 */
   materials: MaterialsSnapshot | null;
+  /** 道具数量缓存 (useitem id -> count) */
+  useItemCounts: Map<number, number>;
   /** 本次出击累计获得的资源；null 表示未在出击中或暂未获得 */
   sortieResourceGains: SortieResourceGains | null;
   /** 四个舰队 */
@@ -182,6 +184,8 @@ export interface GameState {
   slotItemAsw: Map<number, number>;
   /** 装备图鉴名称（slotitem masterId → api_name） */
   slotItemNames: Map<number, string>;
+  /** 道具图鉴名称（useitem id → api_name） */
+  useItemMasterNames: Map<number, string>;
   /** 装备实例索引 (slotitem uid → masterId) */
   slotItemIndex: Map<number, number>;
   /** 装备改修度 (slotitem uid → api_level, 0..10) */
@@ -356,6 +360,8 @@ export interface BattleStatusSnapshot {
   // 战斗类型
   /** 战斗种类: day昼战, night夜战, day_to_night昼夜战 */
   battlePhase: 'day' | 'night' | 'day_to_night';
+  /** 原始战斗 API 路径（昼夜合并时为 day+night） */
+  battleApiPath?: string;
   /** 是否演习 */
   isPractice: boolean;
   /** 是否基地空袭（friend/enemy 双方都是路基/航空编队，使用混乱/损害/损壊/破壊术语） */

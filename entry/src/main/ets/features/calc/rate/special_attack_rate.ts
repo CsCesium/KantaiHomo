@@ -21,6 +21,12 @@ import {
   clampRate,
   MAX_RATE,
 } from './rate_types';
+import {
+  ShipType,
+  isBattleshipType,
+  isCarrierType,
+  isSubmarineType,
+} from '../../../domain/models';
 
 // ==================== Special Attack Types ====================
 
@@ -46,6 +52,8 @@ export enum SpecialAttackType {
   YamatoTouch3 = 'yamato_touch_3',
   /** 僚艦夜戦突撃 - Kongou Night Attack */
   KongouNightAttack = 'kongou_night_attack',
+  /** 潜水艦隊攻撃 - Submarine Fleet Attack */
+  SubmarineFleetAttack = 'submarine_fleet_attack',
 }
 
 /**
@@ -61,9 +69,13 @@ export interface SpecialAttackPositions {
 export interface SpecialAttackFleetShip {
   uid?: number;
   masterId: number;
+  stype?: number;
+  level?: number;
   hpNow?: number;
   hpMax?: number;
 }
+
+export type SpecialAttackFleetRole = 'normal' | 'main' | 'escort' | 'other';
 
 export interface DetectFleetSpecialAttackOptions {
   /**
@@ -72,6 +84,32 @@ export interface DetectFleetSpecialAttackOptions {
    * hidden after the corresponding ship has fired.
    */
   triggeredShipUids?: ReadonlyArray<number>;
+  /** Trigger count by flagship UID for attacks that may fire multiple times. */
+  triggeredShipCounts?: Map<number, number>;
+  /** Current fleet role. Combined fleet specials are role-sensitive. */
+  fleetRole?: SpecialAttackFleetRole;
+  /** Current formation, if known. Numeric values use api_formation IDs. */
+  formation?: Formation | number;
+  /** Fleet type used by formation rules. */
+  fleetType?: FleetType;
+  /** api_combined_flag: 0=normal, 1=CTF, 2=STF, 3=TCF. */
+  combinedType?: number;
+  /** Whether this is a practice battle. */
+  isPractice?: boolean;
+  /** Whether the enemy is a combined fleet. Only checked when explicitly set. */
+  enemyCombined?: boolean;
+  /** Current battle is a night battle. Only checked when explicitly set. */
+  isNightBattle?: boolean;
+  /** Combined fleet route night node. */
+  isCombinedRouteNightBattle?: boolean;
+  /** PT-only or PT mixed special node. */
+  isPtNode?: boolean;
+  /** Two-way air battle night node. */
+  isTwoWayAirBattleNight?: boolean;
+  /** Friend fleets never trigger these panel badges. */
+  isFriendFleet?: boolean;
+  /** Required material for submarine fleet attack. */
+  hasSubmarineSupplyMaterial?: boolean;
 }
 
 /**
@@ -92,6 +130,8 @@ export function getAttackPositions(type: SpecialAttackType): number[] {
       return [1, 2, 3]; // 1番艦, 2番艦, 3番艦
     case SpecialAttackType.KongouNightAttack:
       return [1, 2]; // Flagship + 2nd (special rules)
+    case SpecialAttackType.SubmarineFleetAttack:
+      return [1, 2, 3]; // AS flagship + submarines
     default:
       return [];
   }
@@ -116,10 +156,7 @@ export function allowsSpecialAttack(
         return formation === Formation.CruisingFormation2;
       }
 
-    case SpecialAttackType.NagatoTouch:
-    case SpecialAttackType.MutsuTouch:
     case SpecialAttackType.ColoradoTouch:
-    case SpecialAttackType.RichelieuTouch:
     case SpecialAttackType.WarspiteTouch:
       // 梯形陣 or 第二警戒航行序列
       if (fleetType === FleetType.Normal) {
@@ -128,14 +165,37 @@ export function allowsSpecialAttack(
         return formation === Formation.CruisingFormation2;
       }
 
+    case SpecialAttackType.NagatoTouch:
+    case SpecialAttackType.MutsuTouch:
+      if (fleetType === FleetType.Normal) {
+        return formation === Formation.Echelon;
+      } else {
+        return formation === Formation.CruisingFormation2;
+      }
+
+    case SpecialAttackType.RichelieuTouch:
+      if (fleetType === FleetType.Normal) {
+        return formation === Formation.DoubleLine;
+      } else {
+        return formation === Formation.CruisingFormation2;
+      }
+
     case SpecialAttackType.YamatoTouch2:
     case SpecialAttackType.YamatoTouch3:
-      // 第四警戒航行序列 (combined fleet only)
+      if (fleetType === FleetType.Normal) {
+        return formation === Formation.Echelon;
+      }
       return formation === Formation.CruisingFormation4;
 
     case SpecialAttackType.KongouNightAttack:
-      // Night battle only, various formations
-      return true;
+      if (fleetType === FleetType.Normal) {
+        return formation === Formation.LineAhead || formation === Formation.Echelon;
+      }
+      return formation === Formation.CruisingFormation4 || formation === Formation.CruisingFormation2;
+
+    case SpecialAttackType.SubmarineFleetAttack:
+      return fleetType === FleetType.Normal
+        && (formation === Formation.Echelon || formation === Formation.LineAbreast);
 
     default:
       return false;
@@ -151,8 +211,8 @@ export const SPECIAL_ATTACK_FLAGSHIP_IDS: Record<SpecialAttackType, Set<number>>
   [SpecialAttackType.NelsonTouch]: new Set([
     571, // Nelson
     576, // Nelson改
-    573, // Rodney
-    // Add more as needed
+    572, // Rodney
+    577, // Rodney改
   ]),
   [SpecialAttackType.NagatoTouch]: new Set([
     541, // 長門改二
@@ -167,31 +227,80 @@ export const SPECIAL_ATTACK_FLAGSHIP_IDS: Record<SpecialAttackType, Set<number>>
     918, // Maryland改
   ]),
   [SpecialAttackType.RichelieuTouch]: new Set([
-    492, // Richelieu改
-    1037, // Richelieu Deux
-    // Jean Bart as 2nd ship
+    392, // Richelieu改
+    969, // Richelieu Deux
+    724, // Jean Bart改
   ]),
   [SpecialAttackType.WarspiteTouch]: new Set([
-    364, // Warspite
-    439, // Warspite改
-    // Valiant as 2nd ship
+    364, // Warspite改
+    733, // Valiant改
   ]),
   [SpecialAttackType.YamatoTouch2]: new Set([
     911, // 大和改二
     916, // 大和改二重
+    546, // 武蔵改二
   ]),
   [SpecialAttackType.YamatoTouch3]: new Set([
     911, // 大和改二
     916, // 大和改二重
+    546, // 武蔵改二
   ]),
   [SpecialAttackType.KongouNightAttack]: new Set([
     591, // 金剛改二丙
-    593, // 比叡改二丙
-    954, // 榛名改二乙
-    1573, // 榛名改二丙
-    995, // 霧島改二丙
+    592, // 比叡改二丙
+    593, // 榛名改二乙
+    954, // 榛名改二丙
+    694, // 霧島改二丙
+  ]),
+  [SpecialAttackType.SubmarineFleetAttack]: new Set([
+    184, // 大鯨
+    634, // 迅鯨
+    635, // 長鯨
+    639, // 迅鯨改
+    640, // 長鯨改
+    944, // 平安丸
+    949, // 平安丸改
   ]),
 };
+
+const YAMATO_KAI2_IDS: Set<number> = new Set([911, 916]);
+const MUSASHI_KAI2_IDS: Set<number> = new Set([546]);
+const YAMATO_TWO_SHIP_PARTNER_IDS: Set<number> = new Set([
+  546, // 武蔵改二
+  360, // Iowa改
+  392, // Richelieu改
+  969, // Richelieu Deux
+  178, // Bismarck drei
+  724, // Jean Bart改
+]);
+const RICHELIEU_CLASS_TOUCH_IDS: Set<number> = new Set([392, 969, 724]);
+const WARSPITE_CLASS_TOUCH_IDS: Set<number> = new Set([364, 733]);
+const KONGOU_CLASS_KAI2_IDS: Set<number> = new Set([
+  591, // 金剛改二丙
+  592, // 比叡改二丙
+  593, // 榛名改二乙
+  954, // 榛名改二丙
+  694, // 霧島改二丙
+]);
+const KONGOU_KAI2C_EXTRA_PARTNER_IDS: Set<number> = new Set([
+  439, // Warspite
+  364, // Warspite改
+  927, // Valiant
+  733, // Valiant改
+  151, // 榛名改二
+]);
+const HIEI_KAI2C_EXTRA_PARTNER_IDS: Set<number> = new Set([
+  152, // 霧島改二
+]);
+const KIRISHIMA_KAI2C_EXTRA_PARTNER_IDS: Set<number> = new Set([
+  697, // South Dakota改
+]);
+const SUBMARINE_TENDER_MASTER_IDS: Set<number> = new Set([184, 634, 635, 639, 640, 944, 949]);
+const KNOWN_BATTLESHIP_MASTER_IDS: Set<number> = new Set([
+  151, 152, 178, 360, 364, 392, 439, 492, 541, 546, 571, 572, 573, 576,
+  577, 591, 592, 593, 601, 602, 694, 697, 724, 733, 911, 913, 916, 918,
+  927, 935, 954, 969, 1496,
+]);
 
 // ==================== Partner Ship Requirements ====================
 
@@ -212,30 +321,34 @@ export const SPECIAL_ATTACK_PARTNER_SPECS: Record<SpecialAttackType, PartnerSpec
     { fleetIndex: 4, validMasterIds: null }, // position 5: any ship
   ],
   [SpecialAttackType.NagatoTouch]: [
-    { fleetIndex: 1, validMasterIds: new Set([573]) }, // 陸奥改二
+    { fleetIndex: 1, validMasterIds: null }, // battleship / aviation battleship
   ],
   [SpecialAttackType.MutsuTouch]: [
-    { fleetIndex: 1, validMasterIds: new Set([541]) }, // 長門改二
+    { fleetIndex: 1, validMasterIds: null }, // battleship / aviation battleship
   ],
   [SpecialAttackType.ColoradoTouch]: [
-    { fleetIndex: 1, validMasterIds: new Set([601, 1496, 913, 918]) }, // US BB pos2
-    { fleetIndex: 2, validMasterIds: new Set([601, 1496, 913, 918]) }, // US BB pos3
+    { fleetIndex: 1, validMasterIds: null }, // battleship / aviation battleship
+    { fleetIndex: 2, validMasterIds: null }, // battleship / aviation battleship
   ],
   [SpecialAttackType.RichelieuTouch]: [
-    { fleetIndex: 1, validMasterIds: new Set([494, 1498]) }, // Jean Bart/改
+    { fleetIndex: 1, validMasterIds: RICHELIEU_CLASS_TOUCH_IDS },
   ],
   [SpecialAttackType.WarspiteTouch]: [
-    { fleetIndex: 1, validMasterIds: new Set([441]) }, // Valiant改
+    { fleetIndex: 1, validMasterIds: WARSPITE_CLASS_TOUCH_IDS },
   ],
   [SpecialAttackType.YamatoTouch2]: [
-    { fleetIndex: 1, validMasterIds: new Set([546, 912]) }, // 武蔵改二
+    { fleetIndex: 1, validMasterIds: null },
   ],
   [SpecialAttackType.YamatoTouch3]: [
-    { fleetIndex: 1, validMasterIds: new Set([546, 912]) }, // 武蔵改二
-    { fleetIndex: 2, validMasterIds: new Set([911, 916, 546, 912]) }, // Yamato/Musashi K2
+    { fleetIndex: 1, validMasterIds: null },
+    { fleetIndex: 2, validMasterIds: null },
   ],
   [SpecialAttackType.KongouNightAttack]: [
-    { fleetIndex: 1, validMasterIds: new Set([591, 593, 954, 1573, 995]) }, // 金剛型改二丙
+    { fleetIndex: 1, validMasterIds: null },
+  ],
+  [SpecialAttackType.SubmarineFleetAttack]: [
+    { fleetIndex: 1, validMasterIds: null },
+    { fleetIndex: 2, validMasterIds: null },
   ],
 };
 
@@ -248,6 +361,10 @@ export function specialAttackTypeFromApiCode(code: number): SpecialAttackType | 
     case 104: return SpecialAttackType.KongouNightAttack;
     case 105: return SpecialAttackType.RichelieuTouch;
     case 106: return SpecialAttackType.WarspiteTouch;
+    case 300:
+    case 301:
+    case 302:
+      return SpecialAttackType.SubmarineFleetAttack;
     case 400: return SpecialAttackType.YamatoTouch3;
     case 401: return SpecialAttackType.YamatoTouch2;
     default: return null;
@@ -260,21 +377,24 @@ export function isSpecialAttackApiCode(code: number): boolean {
 
 /** Ordered list used when iterating all types for detection. */
 const ALL_SPECIAL_ATTACK_TYPES: SpecialAttackType[] = [
-  SpecialAttackType.NagatoTouch,
-  SpecialAttackType.MutsuTouch,
   SpecialAttackType.YamatoTouch3,
   SpecialAttackType.YamatoTouch2,
+  SpecialAttackType.NagatoTouch,
+  SpecialAttackType.MutsuTouch,
   SpecialAttackType.ColoradoTouch,
   SpecialAttackType.NelsonTouch,
   SpecialAttackType.RichelieuTouch,
   SpecialAttackType.WarspiteTouch,
   SpecialAttackType.KongouNightAttack,
+  SpecialAttackType.SubmarineFleetAttack,
 ];
 
-function isShipTriggered(ship: SpecialAttackFleetShip, options?: DetectFleetSpecialAttackOptions): boolean {
+function getTriggeredCount(ship: SpecialAttackFleetShip, options?: DetectFleetSpecialAttackOptions): number {
   const uid = ship.uid ?? 0;
-  if (uid <= 0) return false;
-  return (options?.triggeredShipUids ?? []).indexOf(uid) >= 0;
+  if (uid <= 0) return 0;
+  const count = options?.triggeredShipCounts?.get(uid);
+  if (count !== undefined) return count;
+  return (options?.triggeredShipUids ?? []).indexOf(uid) >= 0 ? 1 : 0;
 }
 
 function isSunk(ship: SpecialAttackFleetShip): boolean {
@@ -292,9 +412,60 @@ function isTaihaOrWorse(ship: SpecialAttackFleetShip): boolean {
   return ship.hpNow <= 0 || ship.hpNow / ship.hpMax <= 0.25;
 }
 
+function getShipType(ship: SpecialAttackFleetShip): ShipType | null {
+  const stype = ship.stype ?? 0;
+  return stype > 0 ? (stype as ShipType) : null;
+}
+
+function isShipCarrier(ship: SpecialAttackFleetShip): boolean {
+  const stype = getShipType(ship);
+  return stype !== null && isCarrierType(stype);
+}
+
+function isShipSubmarine(ship: SpecialAttackFleetShip): boolean {
+  const stype = getShipType(ship);
+  return stype !== null && isSubmarineType(stype);
+}
+
+function isShipSurface(ship: SpecialAttackFleetShip): boolean {
+  const stype = getShipType(ship);
+  return stype === null || !isSubmarineType(stype);
+}
+
+function isShipBattleship(ship: SpecialAttackFleetShip): boolean {
+  const stype = getShipType(ship);
+  if (stype !== null) return isBattleshipType(stype);
+  return KNOWN_BATTLESHIP_MASTER_IDS.has(ship.masterId);
+}
+
+function isSubmarineTender(ship: SpecialAttackFleetShip): boolean {
+  const stype = getShipType(ship);
+  if (stype !== null) return stype === ShipType.AS;
+  return SUBMARINE_TENDER_MASTER_IDS.has(ship.masterId);
+}
+
+function hasSixSurfaceShips(ships: ReadonlyArray<SpecialAttackFleetShip>): boolean {
+  return ships.length === 6 && ships.every((ship: SpecialAttackFleetShip): boolean => isShipSurface(ship));
+}
+
+function hasKongouFleetShape(ships: ReadonlyArray<SpecialAttackFleetShip>): boolean {
+  if (ships.length < 5 || ships.length > 6) return false;
+  let surfaceCount = 0;
+  let submarineCount = 0;
+  for (const ship of ships) {
+    if (isShipSubmarine(ship)) {
+      submarineCount += 1;
+    } else {
+      surfaceCount += 1;
+    }
+  }
+  return surfaceCount === 5 && submarineCount <= 1;
+}
+
 function canFlagshipTriggerSpecialAttack(type: SpecialAttackType, ship: SpecialAttackFleetShip): boolean {
   if (isSunk(ship)) return false;
-  if (type === SpecialAttackType.KongouNightAttack) {
+  if (type === SpecialAttackType.KongouNightAttack ||
+      type === SpecialAttackType.SubmarineFleetAttack) {
     return !isTaihaOrWorse(ship);
   }
   return !isChuuhaOrWorse(ship);
@@ -302,12 +473,215 @@ function canFlagshipTriggerSpecialAttack(type: SpecialAttackType, ship: SpecialA
 
 function canPartnerJoinSpecialAttack(type: SpecialAttackType, ship: SpecialAttackFleetShip): boolean {
   if (isSunk(ship)) return false;
-  if (type === SpecialAttackType.KongouNightAttack ||
-      type === SpecialAttackType.YamatoTouch2 ||
+  if (type === SpecialAttackType.YamatoTouch2 ||
       type === SpecialAttackType.YamatoTouch3) {
+    return !isChuuhaOrWorse(ship);
+  }
+  if (type === SpecialAttackType.KongouNightAttack ||
+      type === SpecialAttackType.NagatoTouch ||
+      type === SpecialAttackType.MutsuTouch ||
+      type === SpecialAttackType.ColoradoTouch ||
+      type === SpecialAttackType.RichelieuTouch ||
+      type === SpecialAttackType.WarspiteTouch ||
+      type === SpecialAttackType.SubmarineFleetAttack) {
     return !isTaihaOrWorse(ship);
   }
   return true;
+}
+
+function formationFromOption(value?: Formation | number): Formation | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'number') return value;
+  switch (value) {
+    case 1: return Formation.LineAhead;
+    case 2: return Formation.DoubleLine;
+    case 3: return Formation.Diamond;
+    case 4: return Formation.Echelon;
+    case 5: return Formation.LineAbreast;
+    case 6: return Formation.Vanguard;
+    case 11: return Formation.CruisingFormation1;
+    case 12: return Formation.CruisingFormation2;
+    case 13: return Formation.CruisingFormation3;
+    case 14: return Formation.CruisingFormation4;
+    default: return null;
+  }
+}
+
+function fleetTypeFromOptions(options?: DetectFleetSpecialAttackOptions): FleetType {
+  if (options?.fleetType !== undefined) return options.fleetType;
+  switch (options?.combinedType ?? 0) {
+    case 1: return FleetType.CombinedCarrier;
+    case 2: return FleetType.CombinedSurface;
+    case 3: return FleetType.CombinedTransport;
+    default: return FleetType.Normal;
+  }
+}
+
+function isFormationAllowed(type: SpecialAttackType, options?: DetectFleetSpecialAttackOptions): boolean {
+  const formation = formationFromOption(options?.formation);
+  if (formation === null) return true;
+  return allowsSpecialAttack(type, formation, fleetTypeFromOptions(options));
+}
+
+function isFleetRoleAllowed(type: SpecialAttackType, options?: DetectFleetSpecialAttackOptions): boolean {
+  const role = options?.fleetRole ?? 'normal';
+  if (role === 'other') return false;
+  if (type === SpecialAttackType.KongouNightAttack) {
+    return role === 'normal' || role === 'escort';
+  }
+  if (type === SpecialAttackType.SubmarineFleetAttack) {
+    return role === 'normal' && (options?.combinedType ?? 0) === 0;
+  }
+  return role === 'normal' || role === 'main';
+}
+
+function isDisallowedByBattleContext(type: SpecialAttackType, options?: DetectFleetSpecialAttackOptions): boolean {
+  if (options?.isPractice === true || options?.isFriendFleet === true) return true;
+  if (options?.isPtNode === true || options?.isTwoWayAirBattleNight === true) return true;
+  if (type === SpecialAttackType.KongouNightAttack && options?.isNightBattle === false) return true;
+  if (type === SpecialAttackType.NelsonTouch && options?.isCombinedRouteNightBattle === true) return true;
+  const ctfAgainstSingleEnemy = (options?.combinedType ?? 0) === 1 && options?.enemyCombined === false;
+  if (ctfAgainstSingleEnemy &&
+      (type === SpecialAttackType.NagatoTouch ||
+       type === SpecialAttackType.MutsuTouch ||
+       type === SpecialAttackType.RichelieuTouch ||
+       type === SpecialAttackType.WarspiteTouch)) {
+    return true;
+  }
+  return false;
+}
+
+function hasReachedTriggerLimit(
+  type: SpecialAttackType,
+  flagship: SpecialAttackFleetShip,
+  options?: DetectFleetSpecialAttackOptions,
+): boolean {
+  if (type === SpecialAttackType.SubmarineFleetAttack) return false;
+  const count = getTriggeredCount(flagship, options);
+  if (type === SpecialAttackType.KongouNightAttack) return count >= 3;
+  return count > 0;
+}
+
+function isFlagshipCandidate(type: SpecialAttackType, flagship: SpecialAttackFleetShip): boolean {
+  if (type === SpecialAttackType.SubmarineFleetAttack) return isSubmarineTender(flagship);
+  return SPECIAL_ATTACK_FLAGSHIP_IDS[type].has(flagship.masterId);
+}
+
+function isYamatoSecondShipEligible(flagship: SpecialAttackFleetShip, partner: SpecialAttackFleetShip): boolean {
+  if (YAMATO_KAI2_IDS.has(flagship.masterId)) return YAMATO_TWO_SHIP_PARTNER_IDS.has(partner.masterId);
+  if (MUSASHI_KAI2_IDS.has(flagship.masterId)) return YAMATO_KAI2_IDS.has(partner.masterId);
+  return false;
+}
+
+function isKongouPartnerEligible(flagship: SpecialAttackFleetShip, partner: SpecialAttackFleetShip): boolean {
+  if (KONGOU_CLASS_KAI2_IDS.has(partner.masterId)) return true;
+  if (flagship.masterId === 591) return KONGOU_KAI2C_EXTRA_PARTNER_IDS.has(partner.masterId);
+  if (flagship.masterId === 592) return HIEI_KAI2C_EXTRA_PARTNER_IDS.has(partner.masterId);
+  if (flagship.masterId === 694) return KIRISHIMA_KAI2C_EXTRA_PARTNER_IDS.has(partner.masterId);
+  return false;
+}
+
+function hasSubmarineFleetAttackShape(
+  ships: ReadonlyArray<SpecialAttackFleetShip>,
+  options?: DetectFleetSpecialAttackOptions,
+): boolean {
+  if (options?.hasSubmarineSupplyMaterial !== true) return false;
+  if (ships.length < 3) return false;
+  const flagship = ships[0];
+  const ship2 = ships[1];
+  const ship3 = ships[2];
+  if (!isSubmarineTender(flagship) || (flagship.level ?? 0) <= 30) return false;
+  if (!isShipSubmarine(ship2) || !isShipSubmarine(ship3)) return false;
+  const submarines = ships.filter((ship: SpecialAttackFleetShip): boolean => isShipSubmarine(ship));
+  if (submarines.length === 2) {
+    return submarines.every((ship: SpecialAttackFleetShip): boolean => !isChuuhaOrWorse(ship));
+  }
+  if (submarines.length >= 3) {
+    let damagedCoreSubs = 0;
+    const coreShips = ships.slice(1, 4);
+    for (const ship of coreShips) {
+      if (isShipSubmarine(ship) && isChuuhaOrWorse(ship)) damagedCoreSubs += 1;
+    }
+    return damagedCoreSubs < 2;
+  }
+  return false;
+}
+
+function isSpecialAttackCompositionEligible(
+  type: SpecialAttackType,
+  ships: ReadonlyArray<SpecialAttackFleetShip>,
+  options?: DetectFleetSpecialAttackOptions,
+): boolean {
+  const flagship = ships[0];
+  const ship2 = ships[1];
+  const ship3 = ships[2];
+  const ship5 = ships[4];
+
+  switch (type) {
+    case SpecialAttackType.NelsonTouch:
+      return hasSixSurfaceShips(ships)
+        && ship3 !== undefined
+        && ship5 !== undefined
+        && !isShipCarrier(ship3)
+        && !isShipCarrier(ship5)
+        && !isShipSubmarine(ship3)
+        && !isShipSubmarine(ship5);
+
+    case SpecialAttackType.YamatoTouch2:
+      return hasSixSurfaceShips(ships)
+        && ship2 !== undefined
+        && isYamatoSecondShipEligible(flagship, ship2)
+        && canPartnerJoinSpecialAttack(type, ship2);
+
+    case SpecialAttackType.YamatoTouch3:
+      return hasSixSurfaceShips(ships)
+        && ship2 !== undefined
+        && ship3 !== undefined
+        && isYamatoSecondShipEligible(flagship, ship2)
+        && isShipBattleship(ship3)
+        && canPartnerJoinSpecialAttack(type, ship2)
+        && canPartnerJoinSpecialAttack(type, ship3);
+
+    case SpecialAttackType.NagatoTouch:
+    case SpecialAttackType.MutsuTouch:
+      return hasSixSurfaceShips(ships)
+        && ship2 !== undefined
+        && isShipBattleship(ship2)
+        && canPartnerJoinSpecialAttack(type, ship2);
+
+    case SpecialAttackType.ColoradoTouch:
+      return hasSixSurfaceShips(ships)
+        && ship2 !== undefined
+        && ship3 !== undefined
+        && isShipBattleship(ship2)
+        && isShipBattleship(ship3)
+        && canPartnerJoinSpecialAttack(type, ship2)
+        && canPartnerJoinSpecialAttack(type, ship3);
+
+    case SpecialAttackType.RichelieuTouch:
+      return hasSixSurfaceShips(ships)
+        && ship2 !== undefined
+        && RICHELIEU_CLASS_TOUCH_IDS.has(ship2.masterId)
+        && canPartnerJoinSpecialAttack(type, ship2);
+
+    case SpecialAttackType.WarspiteTouch:
+      return hasSixSurfaceShips(ships)
+        && ship2 !== undefined
+        && WARSPITE_CLASS_TOUCH_IDS.has(ship2.masterId)
+        && canPartnerJoinSpecialAttack(type, ship2);
+
+    case SpecialAttackType.KongouNightAttack:
+      return hasKongouFleetShape(ships)
+        && ship2 !== undefined
+        && isKongouPartnerEligible(flagship, ship2)
+        && canPartnerJoinSpecialAttack(type, ship2);
+
+    case SpecialAttackType.SubmarineFleetAttack:
+      return hasSubmarineFleetAttackShape(ships, options);
+
+    default:
+      return false;
+  }
 }
 
 /**
@@ -321,28 +695,16 @@ export function detectFleetSpecialAttack(
 ): SpecialAttackType | null {
   if (ships.length === 0) return null;
   const flagship = ships[0];
-  if (isShipTriggered(flagship, options)) return null;
 
-  const flagMid = flagship.masterId;
   for (const type of ALL_SPECIAL_ATTACK_TYPES) {
-    if (!SPECIAL_ATTACK_FLAGSHIP_IDS[type].has(flagMid)) continue;
+    if (!isFlagshipCandidate(type, flagship)) continue;
+    if (hasReachedTriggerLimit(type, flagship, options)) continue;
     if (!canFlagshipTriggerSpecialAttack(type, flagship)) continue;
-
-    const specs = SPECIAL_ATTACK_PARTNER_SPECS[type];
-    let eligible = true;
-    for (const spec of specs) {
-      const partner = ships[spec.fleetIndex];
-      if (!partner) { eligible = false; break; }
-      if (spec.validMasterIds !== null && !spec.validMasterIds.has(partner.masterId)) {
-        eligible = false;
-        break;
-      }
-      if (!canPartnerJoinSpecialAttack(type, partner)) {
-        eligible = false;
-        break;
-      }
-    }
-    if (eligible) return type;
+    if (!isFleetRoleAllowed(type, options)) continue;
+    if (isDisallowedByBattleContext(type, options)) continue;
+    if (!isFormationAllowed(type, options)) continue;
+    if (!isSpecialAttackCompositionEligible(type, ships, options)) continue;
+    return type;
   }
   return null;
 }
@@ -359,6 +721,7 @@ export function getSpecialAttackShortLabel(type: SpecialAttackType): string {
     case SpecialAttackType.YamatoTouch2:     return '大和摸(2)';
     case SpecialAttackType.YamatoTouch3:     return '大和摸(3)';
     case SpecialAttackType.KongouNightAttack: return '金剛突撃';
+    case SpecialAttackType.SubmarineFleetAttack: return '潜水攻撃';
     default: return '';
   }
 }
@@ -675,6 +1038,9 @@ export function calcSpecialAttackRate(input: SpecialAttackInput): SpecialAttackR
       // Night attack uses different mechanics
       return calcNagatoTouchRate(input); // Simplified
 
+    case SpecialAttackType.SubmarineFleetAttack:
+      return calcNagatoTouchRate(input); // Placeholder for panel compatibility
+
     default:
       return {
         rate: 0,
@@ -738,6 +1104,8 @@ export function getSpecialAttackTypeName(type: SpecialAttackType): string {
       return '第一戦隊、突撃！主砲、全力斉射ッ！';
     case SpecialAttackType.KongouNightAttack:
       return '僚艦夜戦突撃';
+    case SpecialAttackType.SubmarineFleetAttack:
+      return '潜水艦隊攻撃';
     default:
       return 'Unknown';
   }

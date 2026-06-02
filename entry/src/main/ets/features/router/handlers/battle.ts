@@ -220,11 +220,16 @@ function asNumberArray(value: unknown): number[] {
   return value.map((v: unknown): number => typeof v === 'number' ? v : Number(v));
 }
 
-function resolveFriendAttackerUid(context: SortieContext, rawIndex: number): number {
+function resolveFriendAttackerUid(context: SortieContext, rawIndex: number, isNightBattle: boolean): number {
   if (!Number.isFinite(rawIndex)) return 0;
   const idx = Math.floor(rawIndex);
   const mainShips = context.fleetSnapshot.ships;
   const escortShips = context.fleetSnapshotEscort?.ships ?? [];
+
+  // Combined night special attacks are emitted with escort-local indexes.
+  if (isNightBattle && escortShips.length > 0 && idx >= 0 && idx < escortShips.length) {
+    return escortShips[idx]?.uid ?? 0;
+  }
 
   // Battle hougeki attacker indices in raw packets are 0-based.  The previous
   // 1-based mapping missed flagship index 0, so a fired special attack was not
@@ -241,7 +246,12 @@ function resolveFriendAttackerUid(context: SortieContext, rawIndex: number): num
   return 0;
 }
 
-function scanSpecialAttackHougeki(value: Record<string, unknown>, context: SortieContext, out: Set<number>): void {
+function scanSpecialAttackHougeki(
+  value: Record<string, unknown>,
+  context: SortieContext,
+  out: Set<number>,
+  isNightBattle: boolean,
+): void {
   const atList = asNumberArray(value.api_at_list);
   if (atList.length === 0) return;
 
@@ -258,7 +268,7 @@ function scanSpecialAttackHougeki(value: Record<string, unknown>, context: Sorti
     const code = spCode > 0 ? spCode : atCode;
     if (!Number.isFinite(code) || !isSpecialAttackApiCode(code)) continue;
 
-    const uid = resolveFriendAttackerUid(context, atList[i] ?? 0);
+    const uid = resolveFriendAttackerUid(context, atList[i] ?? 0, isNightBattle);
     if (uid > 0) out.add(uid);
   }
 }
@@ -266,6 +276,7 @@ function scanSpecialAttackHougeki(value: Record<string, unknown>, context: Sorti
 function collectTriggeredSpecialAttackUids(
   apiData: Record<string, unknown> | undefined,
   context: SortieContext,
+  isNightBattle: boolean,
 ): number[] {
   const out: Set<number> = new Set();
   if (!apiData) return [];
@@ -277,7 +288,7 @@ function collectTriggeredSpecialAttackUids(
     }
     if (!isRecord(value)) return;
 
-    scanSpecialAttackHougeki(value, context, out);
+    scanSpecialAttackHougeki(value, context, out, isNightBattle);
     for (const key of Object.keys(value)) {
       visit(value[key]);
     }
@@ -371,7 +382,7 @@ class BattleHandler implements Handler {
         }
 
         if (!isPractice) {
-          markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context));
+          markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context, false));
         }
 
         // 更新战斗状态快照 (供前端显示)
@@ -450,7 +461,7 @@ class BattleHandler implements Handler {
         }
 
         if (!isPractice) {
-          markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context));
+          markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context, true));
         }
 
         // 更新战斗状态快照 (供前端显示)

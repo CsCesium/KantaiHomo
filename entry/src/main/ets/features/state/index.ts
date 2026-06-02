@@ -38,6 +38,10 @@ export {
   // 更新方法
   updateAdmiral,
   updateMaterials,
+  updateUseItems,
+  getUseItemCount,
+  updateUseItemMasterNames,
+  getUseItemCountByName,
   patchMaterials,
   addSortieResourceGains,
   clearSortieResourceGains,
@@ -125,6 +129,7 @@ export {
   clearSpecialAttackTriggeredShips,
   isSpecialAttackTriggeredShip,
   getSpecialAttackTriggeredShipUids,
+  getSpecialAttackTriggeredShipCounts,
 
   // 工具
   clearGameState,
