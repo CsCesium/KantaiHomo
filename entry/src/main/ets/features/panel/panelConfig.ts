@@ -44,6 +44,8 @@ export const PanelColors = {
   hpSinkRisk:    '#8b0000',   // 大破 + 进击击沉风险 — 深红
   hpDamage:      '#6b6f7e',   // hp lost in batle
   escapeLabel:   '#42a5f5',   // 退避 (goback_port) label — blue
+  escapeHp:      '#8a8f98',   // 已退避舰 HP — grey
+  escapeOverlay: '#66808080', // 已退避舰遮罩 — semi-transparent grey
   // Row separators
   rowBorder:     '#20243a',
 

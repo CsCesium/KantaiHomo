@@ -1,5 +1,6 @@
 import { ShipItem } from '../../../../../../features/panel/type';
 import { PanelColors, PanelDimens, ShipDiems } from '../../../../../../features/panel/panelConfig';
+import { isShipEscaped } from '../../../../../../features/state';
 import ShipBannerBlock from './ShipBannerBlock';
 import ShipStatusBlock from './ShipStatusBlock';
 import ShipEquipBlock from './ShipEquipBlock';
@@ -35,46 +36,58 @@ export default struct ShipRow {
   @Event onCloseDetail: (uid: number) => void = () => {};
 
   build() {
-    Row({ space: 8 }) {
-      // 左列：身份 Banner
-      Row() {
-        ShipBannerBlock({
-          ship: this.ship,
-          isFlag: this.isFlag,
-          specialAttack: this.specialAttack,
-          showAvatar: this.showAvatar,
-        })
-      }
-      .layoutWeight(5)
-      .constraintSize({ minWidth: 0 })
+    Stack() {
+      Row({ space: 8 }) {
+        // 左列：身份 Banner
+        Row() {
+          ShipBannerBlock({
+            ship: this.ship,
+            isFlag: this.isFlag,
+            specialAttack: this.specialAttack,
+            showAvatar: this.showAvatar,
+          })
+        }
+        .layoutWeight(5)
+        .constraintSize({ minWidth: 0 })
 
-      // 中列：HP / 状态 / 进度条
-      Row() {
-        ShipStatusBlock({ ship: this.ship })
-      }
-      .layoutWeight(3)
-      .constraintSize({ minWidth: 0 })
+        // 中列：HP / 状态 / 进度条
+        Row() {
+          ShipStatusBlock({ ship: this.ship })
+        }
+        .layoutWeight(3)
+        .constraintSize({ minWidth: 0 })
 
-      Row() {
-        ShipEquipBlock({
-          ship: this.ship,
-          showKaisyuu: this.showKaisyuu,
-          showProficiency: this.showProficiency,
-          detailUid: this.detailUid,
-          onOpenDetail: (u: number) => this.onOpenDetail(u),
-          onCloseDetail: (u: number) => this.onCloseDetail(u),
-        })
+        Row() {
+          ShipEquipBlock({
+            ship: this.ship,
+            showKaisyuu: this.showKaisyuu,
+            showProficiency: this.showProficiency,
+            detailUid: this.detailUid,
+            onOpenDetail: (u: number) => this.onOpenDetail(u),
+            onCloseDetail: (u: number) => this.onCloseDetail(u),
+          })
+        }
+        .layoutWeight(5)
+        .constraintSize({ minWidth: 0 })
+        .height('100%')
+        .alignItems(VerticalAlign.Center)
+        .justifyContent(FlexAlign.Start)
       }
-      .layoutWeight(5)
-      .constraintSize({ minWidth: 0 })
+      .width('100%')
       .height('100%')
+      .padding({ left: 8, right: 8, top: 4, bottom: 4 })
       .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.Start)
+
+      if (isShipEscaped(this.ship.id)) {
+        Row()
+          .width('100%')
+          .height('100%')
+          .backgroundColor(PanelColors.escapeOverlay)
+          .enabled(false)
+      }
     }
     .width('100%')
     .height(ShipDiems.SHIP_ROW_HEIGHT)
-    .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-    .alignItems(VerticalAlign.Center)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.overlayRow)
   }

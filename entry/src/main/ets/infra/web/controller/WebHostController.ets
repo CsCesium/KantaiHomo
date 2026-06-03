@@ -250,8 +250,12 @@ export class WebHostController {
     this.advanceWarningHandler = handler;
   }
 
-  private handleAdvanceMessage(_msg: SortieAdvanceUiEvent): void {
-    hilog.info(HILOG_DOM, 'Bridge', '[ADVANCE] sortie advance UI detected');
+  private handleAdvanceMessage(msg: SortieAdvanceUiEvent): void {
+    hilog.info(HILOG_DOM, 'Bridge', '[ADVANCE] sortie decision UI detected mode=%{public}s', msg.mode);
+    if (msg.mode === 'escape') {
+      return;
+    }
+
     const warning = this.buildAdvanceRiskMessage();
     const hasTaihaRisk = warning !== null;
 

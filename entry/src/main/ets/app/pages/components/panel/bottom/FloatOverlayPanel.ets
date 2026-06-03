@@ -9,6 +9,7 @@ import {
   QuestSnapshot,
   getSortieResourceGains,
   SortieResourceGains,
+  isShipEscaped,
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
@@ -45,6 +46,7 @@ function shipRowKey(ship: ShipItem): string {
     ship.expToNext,
     ship.hp,
     ship.hpMax,
+    isShipEscaped(ship.id) ? 1 : 0,
     ship.s1,
     ship.s2,
     ship.s3,

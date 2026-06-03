@@ -135,10 +135,10 @@ class GameStateManager {
 
   /** 当前出击中已使用退避机制的舰娘 UID 集合。
    * 由 /api_req_(combined_battle|sortie)/goback_port 的 api_escape_idx 标记，
-   * 列表里出现的所有位置（联合舰队 1-12 / 单舰队 1-6）都会被加入；
+   * 列表里出现的所有位置（联合舰队 1-12 / 单舰队或游击队主队序号）都会被加入；
    * 故"联合舰队退避 + 拖船"和"单舰退避（无拖船）"两种场景都覆盖。
    * 回港时（PortHandler）清除。
-   * 这些舰娘不计入大破警告，UI 会以蓝色"退避"标签显示。 */
+   * 这些舰娘不计入大破警告，UI 会以退避灰色遮罩显示。 */
   private escapedShipUids: Set<number> = new Set();
 
   /** 当前出击中已经发动过旗舰特殊攻击的舰娘 UID 及发动次数。 */

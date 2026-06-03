@@ -1,7 +1,7 @@
 import { ShipSpecialEquip, ShipState } from '../../../../features/state/type';
 import { isShipEscaped } from '../../../../features/state';
 import { getShipAvatarPath } from '../../../../features/game/shipAvatar';
-import { equipLabel, hpColor as panelHpColor } from '../../../../features/panel/panelConfig';
+import { equipLabel, hpColor as panelHpColor, PanelColors } from '../../../../features/panel/panelConfig';
 import { SlotItemIconId } from '../../../../domain/models/struct/slotitem';
 
 /**
@@ -9,7 +9,6 @@ import { SlotItemIconId } from '../../../../domain/models/struct/slotitem';
  * 颜色阈值与面板 HP 进度条保持一致。
  */
 const HP_COLOR_BG = '#2a2a2a';
-const ESCAPE_LABEL_COLOR = '#42a5f5';
 const RING_STROKE_WIDTH = 3.5;
 const TICK_COLOR = '#ffffff';
 const TICK_OUTER_PAD = 2;
@@ -134,7 +133,7 @@ export default struct ShipStatusBadge {
 
   /** HP 颜色 */
   private hpColor(): string {
-    return panelHpColor(this.ship.hpNow, this.ship.hpMax);
+    return isShipEscaped(this.ship.uid) ? PanelColors.escapeHp : panelHpColor(this.ship.hpNow, this.ship.hpMax);
   }
 
   @Builder
@@ -291,11 +290,20 @@ export default struct ShipStatusBadge {
             .position({ x: this.badgePositionX, y: this.badgePositionY })
         }
 
+        if (isShipEscaped(this.ship.uid)) {
+          Row()
+            .width(this.ringDiam)
+            .height(this.ringDiam)
+            .borderRadius(this.ringDiam / 2)
+            .backgroundColor(PanelColors.escapeOverlay)
+            .enabled(false)
+        }
+
         // 退避（goback_port）标签 — 蓝色，盖在头像下沿
         if (isShipEscaped(this.ship.uid)) {
           Text('退避')
             .fontSize(this.nameFontSize + 1)
-            .fontColor(ESCAPE_LABEL_COLOR)
+            .fontColor(PanelColors.escapeLabel)
             .fontWeight(FontWeight.Bold)
             .backgroundColor('#CC000000')
             .padding({ left: 2, right: 2 })

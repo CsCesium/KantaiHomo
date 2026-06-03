@@ -41,10 +41,13 @@ export interface PingEvent {
   ts: number;
 }
 
+export type SortieAdvanceUiMode = 'advance' | 'escape';
+
 /** 进击/撤退选择界面出现事件 */
 export interface SortieAdvanceUiEvent {
   type: 'SORTIE_ADVANCE_UI';
   ts: number;
+  mode: SortieAdvanceUiMode;
   advId: string;
   retId: string;
 }
@@ -99,9 +102,11 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
 
     // SORTIE_ADVANCE_UI
     if (type === 'SORTIE_ADVANCE_UI') {
+      const mode: SortieAdvanceUiMode = obj.mode === 'escape' ? 'escape' : 'advance';
       return {
         type: 'SORTIE_ADVANCE_UI',
         ts: typeof obj.ts === 'number' ? obj.ts : Date.now(),
+        mode,
         advId: typeof obj.advId === 'string' ? obj.advId : '',
         retId: typeof obj.retId === 'string' ? obj.retId : '',
       } as SortieAdvanceUiEvent;

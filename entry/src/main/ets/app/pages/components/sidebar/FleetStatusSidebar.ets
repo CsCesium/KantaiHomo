@@ -1,5 +1,6 @@
 import {
   getDeckShips,
+  isShipEscaped,
   getShipSpecialEquip,
   subscribeGameState,
 } from '../../../../features/state';
@@ -28,6 +29,7 @@ function shipEntryKey(entry: ShipEntry): string {
     ship.fuel,
     ship.ammo,
     ship.needsResupply ? 1 : 0,
+    isShipEscaped(ship.uid) ? 1 : 0,
     equip.hasDamageControl ? 1 : 0,
     equip.hasGoddess ? 1 : 0,
   ].join('_');
