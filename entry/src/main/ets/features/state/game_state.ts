@@ -1430,6 +1430,55 @@ class GameStateManager {
     return { hasDamageControl, hasGoddess };
   }
 
+  private rebuildFleetBattleStatusForEscapedShips(fleet: FleetBattleStatus): FleetBattleStatus {
+    const ships: ShipBattleStatus[] = fleet.ships.map((ship: ShipBattleStatus): ShipBattleStatus => {
+      if (!this.escapedShipUids.has(ship.uid) || !ship.hasSinkRisk) {
+        return ship;
+      }
+      return { ...ship, hasSinkRisk: false };
+    });
+    return {
+      ...fleet,
+      ships,
+      taihaCount: ships.filter((ship: ShipBattleStatus): boolean => ship.isTaiha && !this.escapedShipUids.has(ship.uid)).length,
+      sunkCount: ships.filter((ship: ShipBattleStatus): boolean => ship.isSunk && !this.escapedShipUids.has(ship.uid)).length,
+    };
+  }
+
+  private hasNonEscapedSunkRisk(fleet: FleetBattleStatus | undefined, skipFlagship: boolean): boolean {
+    if (!fleet) return false;
+    return fleet.ships.some((ship: ShipBattleStatus, index: number): boolean => {
+      if (skipFlagship && index === 0) return false;
+      return ship.isSunk && !this.escapedShipUids.has(ship.uid);
+    });
+  }
+
+  private rebuildBattleStatusForEscapedShips(status: BattleStatusSnapshot): BattleStatusSnapshot {
+    const friendMain = this.rebuildFleetBattleStatusForEscapedShips(status.friendMain);
+    const friendEscort = status.friendEscort
+      ? this.rebuildFleetBattleStatusForEscapedShips(status.friendEscort)
+      : undefined;
+    const taihaShips = status.taihaShips.filter(ship => !this.escapedShipUids.has(ship.uid));
+    return {
+      ...status,
+      friendMain,
+      friendEscort,
+      hasTaihaRisk: taihaShips.length > 0,
+      taihaShips,
+      hasSunkRisk: this.hasNonEscapedSunkRisk(friendMain, true) || this.hasNonEscapedSunkRisk(friendEscort, false),
+    };
+  }
+
+  private rebuildBattleResultForEscapedShips(result: BattleResultSnapshot): BattleResultSnapshot {
+    return {
+      ...result,
+      friendMain: this.rebuildFleetBattleStatusForEscapedShips(result.friendMain),
+      friendEscort: result.friendEscort
+        ? this.rebuildFleetBattleStatusForEscapedShips(result.friendEscort)
+        : undefined,
+    };
+  }
+
   // ==================== 战斗状态管理 ====================
 
   /**
@@ -1484,8 +1533,33 @@ class GameStateManager {
       }
     }
     if (added) {
-      this.state.lastUpdatedAt = Date.now();
+      const now = Date.now();
+      let battleChanged = false;
+      let currentBattle = this.state.currentBattle;
+      if (currentBattle.status) {
+        currentBattle = {
+          ...currentBattle,
+          status: this.rebuildBattleStatusForEscapedShips(currentBattle.status),
+          lastUpdatedAt: now,
+        };
+        battleChanged = true;
+      }
+      if (currentBattle.result) {
+        currentBattle = {
+          ...currentBattle,
+          result: this.rebuildBattleResultForEscapedShips(currentBattle.result),
+          lastUpdatedAt: now,
+        };
+        battleChanged = true;
+      }
+      if (battleChanged) {
+        this.state.currentBattle = currentBattle;
+      }
+      this.state.lastUpdatedAt = now;
       this.notifyListeners('ships');
+      if (battleChanged) {
+        this.notifyListeners('battle');
+      }
     }
   }
 

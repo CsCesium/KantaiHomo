@@ -32,6 +32,7 @@ import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId,
   addSortieResourceGains,
   clearSortieResourceGains,
   patchShipsHp,
+  clearEscapedShips,
   clearSpecialAttackTriggeredShips } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -103,6 +104,7 @@ class SortieHandler implements Handler {
     resetLastBattleState();
     // 新出击：清空本次出击资源累计
     clearSortieResourceGains();
+    clearEscapedShips();
     clearSpecialAttackTriggeredShips();
     // 起点也可能有资源点（罕见，但兜底）
     if (cell.resourceGains && cell.resourceGains.length > 0) {

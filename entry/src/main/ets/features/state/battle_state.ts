@@ -14,8 +14,12 @@ import {
   BattleStatusSnapshot,
   BattleResultSnapshot
 } from "./type";
-import { getShipSpecialEquip } from "./game_state";
+import { getShipSpecialEquip, isShipEscaped } from "./game_state";
 
+
+function isEscapedPrediction(pred: ShipPrediction): boolean {
+  return pred.uid > 0 && isShipEscaped(pred.uid);
+}
 
 /**
  * 从 ShipPrediction 构建 ShipBattleStatus
@@ -27,7 +31,7 @@ function buildShipBattleStatus(pred: ShipPrediction, index: number, isAirRaid: b
   const hpPercent = pred.hpMax > 0 ? Math.round((pred.hpAfter / pred.hpMax) * 100) : 0;
 
   let hasSinkRisk = false;
-  if (!isAirRaid && index > 0 && pred.isTaiha && !pred.isSunk && pred.uid > 0) {
+  if (!isAirRaid && index > 0 && pred.isTaiha && !pred.isSunk && pred.uid > 0 && !isEscapedPrediction(pred)) {
     const equip = getShipSpecialEquip(pred.uid);
     hasSinkRisk = !equip.hasDamageControl && !equip.hasGoddess;
   }
@@ -62,8 +66,8 @@ function buildFleetBattleStatus(
     deckId: fleetSnapshot.deckId,
     name: fleetSnapshot.name,
     ships,
-    taihaCount: ships.filter(s => s.isTaiha).length,
-    sunkCount: ships.filter(s => s.isSunk).length,
+    taihaCount: ships.filter(s => s.isTaiha && !isShipEscaped(s.uid)).length,
+    sunkCount: ships.filter(s => s.isSunk && !isShipEscaped(s.uid)).length,
   };
 }
 
@@ -103,7 +107,7 @@ function buildEnemyBattleStatus(
  */
 function getTaihaShips(predictions: ShipPrediction[]): { uid: number; name: string; hpPercent: number }[] {
   return predictions
-    .filter(p => p.isTaiha && !p.isSunk)
+    .filter(p => p.isTaiha && !p.isSunk && !isEscapedPrediction(p))
     .map(p => ({
       uid: p.uid,
       name: p.name,
@@ -116,9 +120,9 @@ function getTaihaShips(predictions: ShipPrediction[]): { uid: number; name: stri
  */
 function hasSunkRiskNonFlagship(friendMain: ShipPrediction[], friendEscort?: ShipPrediction[]): boolean {
   // 主力舰队跳过旗舰(index 0)
-  const mainRisk = friendMain.slice(1).some(p => p.isSunk);
+  const mainRisk = friendMain.slice(1).some(p => p.isSunk && !isEscapedPrediction(p));
   // 护卫舰队全部检查
-  const escortRisk = friendEscort?.some(p => p.isSunk) ?? false;
+  const escortRisk = friendEscort?.some(p => p.isSunk && !isEscapedPrediction(p)) ?? false;
   return mainRisk || escortRisk;
 }
 
@@ -181,7 +185,7 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
 
     // 预测结果
     predictedRank: prediction.predictedRank,
-    hasTaihaRisk: prediction.hasTaihaFriend,
+    hasTaihaRisk: taihaShips.length > 0,
     taihaShips,
     hasSunkRisk: hasSunkRiskNonFlagship(prediction.friendMain, prediction.friendEscort),
 

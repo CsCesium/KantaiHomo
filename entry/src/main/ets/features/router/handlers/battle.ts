@@ -16,7 +16,7 @@ import {
 } from '../../../domain/models';
 import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
-import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId,
+import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId, isShipEscaped,
   markSpecialAttackTriggeredShips } from '../../state/game_state';
 import type { ShipState } from '../../state/type';
 import { registerHandler } from '../persist/registry';
@@ -586,7 +586,7 @@ class BattleHandler implements Handler {
         const mainPred = prediction?.friendMain ?? [];
         for (let i = 1; i < mainPred.length; i++) {
           const ship = mainPred[i];
-          if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
+          if (!ship || ship.hpMax <= 0 || ship.isSunk || isShipEscaped(ship.uid)) continue;
           if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
             const equip = getShipSpecialEquip(ship.uid);
             if (!equip.hasDamageControl && !equip.hasGoddess) {
@@ -605,7 +605,7 @@ class BattleHandler implements Handler {
           const escortPred = prediction?.friendEscort ?? [];
           for (let i = 1; i < escortPred.length; i++) {
             const ship = escortPred[i];
-            if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
+            if (!ship || ship.hpMax <= 0 || ship.isSunk || isShipEscaped(ship.uid)) continue;
             if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
               const equip = getShipSpecialEquip(ship.uid);
               if (!equip.hasDamageControl && !equip.hasGoddess) {

@@ -20,7 +20,7 @@ import { Orientation } from '../layout/orientation';
 import hilog from '@ohos.hilog';
 import { YasenPromptAlert, SortieAdvanceAlert, publishAlert } from '../../../features/alerts';
 import { getLastBattleTaihaShips } from '../../../features/alerts/lastBattleState';
-import { getBattleResult, getBattleStatus, getShipSpecialEquip, ShipBattleStatus } from '../../../features/state';
+import { getBattleResult, getBattleStatus, getShipSpecialEquip, isShipEscaped, ShipBattleStatus } from '../../../features/state';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -305,6 +305,7 @@ export class WebHostController {
         const isFlagship = (fleetIdx === 0 && shipIdx === 0);
         if (isFlagship) return;
         if (!ship.isTaiha || ship.isSunk) return;
+        if (isShipEscaped(ship.uid)) return;
 
         const equip = getShipSpecialEquip(ship.uid);
         if (equip.hasDamageControl || equip.hasGoddess) return;
