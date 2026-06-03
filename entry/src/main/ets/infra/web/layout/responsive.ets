@@ -28,7 +28,6 @@ export interface LayoutDecision {
 
 const NARROW_SHORT_SIDE_VP = 420;
 const MIN_BOTTOM_PANEL_VP = 96;
-const TALL_PORTRAIT_SPLIT_RATIO = 1.45;
 const GAME_HEIGHT_WIDTH_RATIO = 720 / 1200;
 /** 游戏画面宽高比（宽/高） */
 export const GAME_ASPECT_RATIO = 1200 / 720;
@@ -83,14 +82,11 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
   }
 
   // Portrait-like split: scale game to full width and dock panel below when
-  // width-fit leaves enough vertical room. A left/right split on a high-DPI
-  // device may be visually wide in px but still narrow in vp, so allow tall
-  // portrait split windows through without enabling short top/bottom splits.
+  // width-fit leaves enough vertical room.
   if (scene === WindowScene.SPLIT) {
     const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
     const bottomPanelH: number = heightVp - contentH;
-    const tallPortraitSplit: boolean = portrait && heightVp >= widthVp * TALL_PORTRAIT_SPLIT_RATIO;
-    const portraitSplitWithPanel: boolean = portrait && (!narrow || tallPortraitSplit);
+    const portraitSplitWithPanel: boolean = portrait;
     const landscapeSplitWithPanel: boolean = widthVp >= 700 && bottomPanelH >= MIN_BOTTOM_PANEL_VP;
     const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_BOTTOM_PANEL_VP &&
       (portraitSplitWithPanel || landscapeSplitWithPanel);
@@ -121,7 +117,26 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
     };
   }
 
-  // Keep current fullscreen behavior for normal usage while centralizing all layout outputs.
+  // Portrait tool surfaces use a bottom row + panel whenever width-fit leaves
+  // enough room below the game canvas.
+  if (portrait) {
+    const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
+    const bottomPanelH: number = heightVp - contentH;
+    if (bottomPanelH >= MIN_BOTTOM_PANEL_VP) {
+      return {
+        mode: HostMode.EXPANDED,
+        policy: 'width',
+        lockFit: false,
+        showSideButtons: false,
+        showBottomTools: true,
+        gameWidthVp: widthVp,
+        gameHeightVp: Math.floor(contentH),
+        gameLeftMarginVp: 0,
+        sidebarWidthVp: 0,
+      };
+    }
+  }
+
   if (narrow) {
     return {
       mode: HostMode.COMPACT,
@@ -179,16 +194,15 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
     };
   }
 
-  const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
   return {
-    mode: HostMode.EXPANDED,
-    policy: 'width',
-    lockFit: false,
-    showSideButtons: false,
-    showBottomTools: true,
+    mode: HostMode.COMPACT,
+    policy: 'height',
+    lockFit: true,
+    showSideButtons: true,
+    showBottomTools: false,
     gameWidthVp: widthVp,
-    gameHeightVp: Math.floor(contentH),
+    gameHeightVp: heightVp,
     gameLeftMarginVp: 0,
-    sidebarWidthVp: 0,
+    sidebarWidthVp: calcSidebarWidth(widthVp, heightVp),
   };
 }

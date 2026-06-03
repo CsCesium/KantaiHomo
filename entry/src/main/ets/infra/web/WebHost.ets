@@ -234,8 +234,9 @@ export default struct WebHost {
 
   private isPureGameFloatingWindow(widthVp: number = this.viewportWidthVp, heightVp: number = this.viewportHeightVp): boolean {
     return this.scene === WindowScene.FLOATING &&
+      widthVp > heightVp &&
       widthVp < FLOATING_TOOL_SURFACE_MIN_WIDTH_VP &&
-      Math.min(widthVp, heightVp) <= NARROW_SHORT_SIDE_VP;
+      heightVp <= NARROW_SHORT_SIDE_VP;
   }
 
   private getLayoutScene(widthVp: number, heightVp: number): WindowScene {
