@@ -3,9 +3,10 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
+import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
 import {
   APP_STORAGE_RESOURCE_CACHE_AUDIO,
   APP_STORAGE_RESOURCE_CACHE_ENABLED,
@@ -32,6 +33,8 @@ struct Setting {
   /** Two-way binding to AppStorage; writing this immediately updates sidebar badges. */
   @StorageLink(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private sidebarShowAvatar: boolean = true;
   @StorageLink(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW) private autoBattlePreviewFloatOverlay: boolean = true;
+  @StorageLink(APP_STORAGE_GAME_SIZE_COMPACT) private compactGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
+  @StorageLink(APP_STORAGE_GAME_SIZE_EXPANDED) private expandedGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
   @StorageLink(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
   @StorageLink(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
@@ -168,6 +171,42 @@ struct Setting {
   private onAutoBattlePreviewFloatOverlayToggle(v: boolean): void {
     this.autoBattlePreviewFloatOverlay = v;
     void kvSet(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, v);
+  }
+
+  private setCompactGameSizePercent(value: number): void {
+    const next: number = normalizeGameSizePercent(value);
+    this.compactGameSizePercent = next;
+    void kvSet(APP_STORAGE_GAME_SIZE_COMPACT, next);
+  }
+
+  private setExpandedGameSizePercent(value: number): void {
+    const next: number = normalizeGameSizePercent(value);
+    this.expandedGameSizePercent = next;
+    void kvSet(APP_STORAGE_GAME_SIZE_EXPANDED, next);
+  }
+
+  private decreaseCompactGameSizePercent(): void {
+    this.setCompactGameSizePercent(this.compactGameSizePercent - GAME_SIZE_STEP_PERCENT);
+  }
+
+  private increaseCompactGameSizePercent(): void {
+    this.setCompactGameSizePercent(this.compactGameSizePercent + GAME_SIZE_STEP_PERCENT);
+  }
+
+  private decreaseExpandedGameSizePercent(): void {
+    this.setExpandedGameSizePercent(this.expandedGameSizePercent - GAME_SIZE_STEP_PERCENT);
+  }
+
+  private increaseExpandedGameSizePercent(): void {
+    this.setExpandedGameSizePercent(this.expandedGameSizePercent + GAME_SIZE_STEP_PERCENT);
+  }
+
+  private getGameSizeDecreaseLabel(): string {
+    return `-${GAME_SIZE_STEP_PERCENT}%`;
+  }
+
+  private getGameSizeIncreaseLabel(): string {
+    return `+${GAME_SIZE_STEP_PERCENT}%`;
   }
 
   private onResourceCacheToggle(v: boolean): void {
@@ -343,6 +382,67 @@ struct Setting {
     .borderRadius(10)
     .border({ width: 1, color: '#15202C' })
     .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private SizeAdjustBtn(label: string, active: boolean, action: () => void) {
+    Button(label, { type: ButtonType.Normal })
+      .fontSize(13)
+      .fontWeight(FontWeight.Medium)
+      .fontColor(active ? '#6A9AB5' : '#3A5060')
+      .backgroundColor('#0E1820')
+      .border({ width: 1, color: active ? '#1C3348' : '#141E2A' })
+      .borderRadius(8)
+      .height(36)
+      .layoutWeight(1)
+      .enabled(active)
+      .onClick(action)
+  }
+
+  @Builder
+  private GameSizeRow(
+    label: string,
+    desc: string,
+    value: number,
+    onDecrease: () => void,
+    onReset: () => void,
+    onIncrease: () => void
+  ) {
+    Column({ space: 10 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text(label)
+            .fontSize(15)
+            .fontColor('#A09080')
+          Text(desc)
+            .fontSize(12)
+            .fontColor('#3A4A55')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(`${value}%`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#90B0C0')
+          .width(58)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 8 }) {
+        this.SizeAdjustBtn(this.getGameSizeDecreaseLabel(), value > GAME_SIZE_MIN_PERCENT, onDecrease)
+        this.SizeAdjustBtn('默认', value !== GAME_SIZE_DEFAULT_PERCENT, onReset)
+        this.SizeAdjustBtn(this.getGameSizeIncreaseLabel(), value < GAME_SIZE_MAX_PERCENT, onIncrease)
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
   }
 
   @Builder
@@ -579,6 +679,24 @@ struct Setting {
               '窄屏横屏出现战斗预测时自动打开浮动面板',
               this.autoBattlePreviewFloatOverlay,
               (v: boolean) => { this.onAutoBattlePreviewFloatOverlayToggle(v); }
+            )
+
+            this.GameSizeRow(
+              '窄屏游戏画面',
+              '用于纯游戏 / 浮动面板布局，画面保持置顶居中',
+              this.compactGameSizePercent,
+              () => { this.decreaseCompactGameSizePercent(); },
+              () => { this.setCompactGameSizePercent(GAME_SIZE_DEFAULT_PERCENT); },
+              () => { this.increaseCompactGameSizePercent(); }
+            )
+
+            this.GameSizeRow(
+              '宽屏游戏画面',
+              '用于游戏 + 底部面板布局，缩小后释放下方面板空间',
+              this.expandedGameSizePercent,
+              () => { this.decreaseExpandedGameSizePercent(); },
+              () => { this.setExpandedGameSizePercent(GAME_SIZE_DEFAULT_PERCENT); },
+              () => { this.increaseExpandedGameSizePercent(); }
             )
 
             this.ToggleRow(

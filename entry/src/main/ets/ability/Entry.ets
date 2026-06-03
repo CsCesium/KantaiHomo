@@ -18,7 +18,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { webview } from '@kit.ArkWeb';
 import BuildProfile from 'BuildProfile';
 import { FairyService } from '../infra/fairy/service/FairyService';
-import { kvGetBool, kvGetString } from '../infra/storage/kv';
+import { kvGetBool, kvGetNumber, kvGetString } from '../infra/storage/kv';
 import { loadSenkaFromKV } from '../features/state/senkaInit';
 import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED, initResourceCache } from '../features/resourceCache';
 import { updateShipGraphFilenames } from '../features/state';
@@ -26,6 +26,7 @@ import { ShipGraphRow } from '../infra/storage/types';
 import { shipGraphFilename } from '../features/state/type';
 import { initBattlePredictionService, gameStateAdapter } from '../features/simulator';
 import { initAppVolumeMuteStorage } from '../infra/audio/appVolume';
+import { GAME_SIZE_DEFAULT_PERCENT, normalizeGameSizePercent } from '../infra/web/layout/gameSize';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -51,6 +52,9 @@ export const APP_STORAGE_INJECT_PIXI_PATCH = 'inject.pixiPatch';
 /** AppStorage keys for equipment label badge overlays in the main panel */
 export const APP_STORAGE_PANEL_SHOW_KAISYUU = 'panel.equip.showKaisyuu';
 export const APP_STORAGE_PANEL_SHOW_PROFICIENCY = 'panel.equip.showProficiency';
+/** AppStorage keys for mode-specific game viewport size percent */
+export const APP_STORAGE_GAME_SIZE_COMPACT = 'ui.gameSize.compact';
+export const APP_STORAGE_GAME_SIZE_EXPANDED = 'ui.gameSize.expanded';
 
 export default class EntryAbility extends UIAbility {
   private mainWindow?: window.Window;
@@ -79,6 +83,16 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, true);
     void kvGetBool(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, v);
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_GAME_SIZE_COMPACT, GAME_SIZE_DEFAULT_PERCENT);
+    void kvGetNumber(APP_STORAGE_GAME_SIZE_COMPACT, GAME_SIZE_DEFAULT_PERCENT).then((v: number) => {
+      AppStorage.set(APP_STORAGE_GAME_SIZE_COMPACT, normalizeGameSizePercent(v));
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_GAME_SIZE_EXPANDED, GAME_SIZE_DEFAULT_PERCENT);
+    void kvGetNumber(APP_STORAGE_GAME_SIZE_EXPANDED, GAME_SIZE_DEFAULT_PERCENT).then((v: number) => {
+      AppStorage.set(APP_STORAGE_GAME_SIZE_EXPANDED, normalizeGameSizePercent(v));
     });
 
     // Optional local cache for game resources.

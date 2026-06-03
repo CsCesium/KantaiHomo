@@ -27,7 +27,7 @@ export interface LayoutDecision {
 }
 
 const NARROW_SHORT_SIDE_VP = 420;
-const MIN_SPLIT_BOTTOM_PANEL_VP = 96;
+const MIN_BOTTOM_PANEL_VP = 96;
 const TALL_PORTRAIT_SPLIT_RATIO = 1.45;
 const GAME_HEIGHT_WIDTH_RATIO = 720 / 1200;
 /** 游戏画面宽高比（宽/高） */
@@ -91,8 +91,8 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
     const bottomPanelH: number = heightVp - contentH;
     const tallPortraitSplit: boolean = portrait && heightVp >= widthVp * TALL_PORTRAIT_SPLIT_RATIO;
     const portraitSplitWithPanel: boolean = portrait && (!narrow || tallPortraitSplit);
-    const landscapeSplitWithPanel: boolean = widthVp >= 700 && bottomPanelH >= MIN_SPLIT_BOTTOM_PANEL_VP;
-    const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_SPLIT_BOTTOM_PANEL_VP &&
+    const landscapeSplitWithPanel: boolean = widthVp >= 700 && bottomPanelH >= MIN_BOTTOM_PANEL_VP;
+    const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_BOTTOM_PANEL_VP &&
       (portraitSplitWithPanel || landscapeSplitWithPanel);
     if (canShowSplitBottomPanel) {
       return {
@@ -138,16 +138,30 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
 
   if (widthVp >= 700) {
     const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
+    const bottomPanelH: number = heightVp - contentH;
+    if (bottomPanelH >= MIN_BOTTOM_PANEL_VP) {
+      return {
+        mode: HostMode.EXPANDED,
+        policy: 'width',
+        lockFit: false,
+        showSideButtons: false,
+        showBottomTools: true,
+        gameWidthVp: widthVp,
+        gameHeightVp: Math.floor(contentH),
+        gameLeftMarginVp: 0,
+        sidebarWidthVp: 0,
+      };
+    }
     return {
-      mode: HostMode.EXPANDED,
-      policy: 'width',
-      lockFit: false,
-      showSideButtons: false,
-      showBottomTools: true,
+      mode: HostMode.COMPACT,
+      policy: 'height',
+      lockFit: true,
+      showSideButtons: true,
+      showBottomTools: false,
       gameWidthVp: widthVp,
-      gameHeightVp: Math.floor(contentH),
+      gameHeightVp: heightVp,
       gameLeftMarginVp: 0,
-      sidebarWidthVp: 0,
+      sidebarWidthVp: calcSidebarWidth(widthVp, heightVp),
     };
   }
 

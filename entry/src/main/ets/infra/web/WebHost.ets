@@ -3,6 +3,7 @@ import { kvDelete, kvGetBool, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
 import { decideLayout, FitPolicy, GAME_ASPECT_RATIO, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
+import { GameViewportBox, GAME_SIZE_DEFAULT_PERCENT, resolveGameViewportBox } from "./layout/gameSize";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
@@ -16,7 +17,8 @@ import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "..
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
-  APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL } from "../../ability/Entry";
+  APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL,
+  APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED } from "../../ability/Entry";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED } from "../../features/resourceCache";
 import { isInBattle, subscribeGameState } from "../../features/state";
@@ -32,6 +34,7 @@ import {
 } from "../audio/appVolume";
 
 const NARROW_SHORT_SIDE_VP: number = 420;
+const FLOATING_TOOL_SURFACE_MIN_WIDTH_VP: number = 700;
 const LEFT_BUTTON_COLUMN_WIDTH_VP: number = 56;
 const LEFT_BUTTON_COLUMN_FULL_HEIGHT_VP: number = 344;
 const FLOATING_BATTLE_STATS_RESERVED_HEIGHT_VP: number = 48;
@@ -87,6 +90,12 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
   @StorageProp(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
   @StorageProp(APP_STORAGE_SESSION_LOGOUT_REV) private logoutRevision: number = 0;
+  @StorageProp(APP_STORAGE_GAME_SIZE_COMPACT)
+  @Watch('onGameSizePercentChanged')
+  private compactGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
+  @StorageProp(APP_STORAGE_GAME_SIZE_EXPANDED)
+  @Watch('onGameSizePercentChanged')
+  private expandedGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
@@ -137,6 +146,24 @@ export default struct WebHost {
     viewportH: this.gameHeightVp
   });
 
+  private onGameSizePercentChanged(): void {
+    if (this.viewportWidthVp <= 0 || this.viewportHeightVp <= 0) {
+      return;
+    }
+    this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+    if (this.host) {
+      this.host.reapplyFit();
+    }
+  }
+
+  private getGameViewportWidth(): Length {
+    return this.gameWidthVp > 0 ? this.gameWidthVp : '100%';
+  }
+
+  private getGameViewportHeight(): Length {
+    return this.gameHeightVp > 0 ? this.gameHeightVp : '100%';
+  }
+
   private async rpcHandler(raw: string): Promise<string> {
     try {
       const p = JSON.parse(raw) as Record<string, string>;
@@ -167,10 +194,10 @@ export default struct WebHost {
     if (status === window.WindowStatusType.FLOATING) {
       return WindowScene.FLOATING;
     }
-    if (status === window.WindowStatusType.FULL_SCREEN) {
-      return WindowScene.FULLSCREEN;
+    if (status === window.WindowStatusType.SPLIT_SCREEN) {
+      return WindowScene.SPLIT;
     }
-    return WindowScene.SPLIT;
+    return WindowScene.FULLSCREEN;
   }
 
   private resolveScene(status: window.WindowStatusType): WindowScene {
@@ -203,6 +230,24 @@ export default struct WebHost {
     const status = win.getWindowStatus();
     this.scene = this.resolveScene(status);
     this.applyGameWindowChrome(win);
+  }
+
+  private isPureGameFloatingWindow(widthVp: number = this.viewportWidthVp, heightVp: number = this.viewportHeightVp): boolean {
+    return this.scene === WindowScene.FLOATING &&
+      widthVp < FLOATING_TOOL_SURFACE_MIN_WIDTH_VP &&
+      Math.min(widthVp, heightVp) <= NARROW_SHORT_SIDE_VP;
+  }
+
+  private getLayoutScene(widthVp: number, heightVp: number): WindowScene {
+    if (this.scene === WindowScene.FLOATING && !this.isPureGameFloatingWindow(widthVp, heightVp)) {
+      return WindowScene.FULLSCREEN;
+    }
+    return this.scene;
+  }
+
+  private isToolSurfaceScene(): boolean {
+    return this.scene === WindowScene.FULLSCREEN ||
+      this.getLayoutScene(this.viewportWidthVp, this.viewportHeightVp) === WindowScene.FULLSCREEN;
   }
 
   private restoreVisibleWindowState(pushWebFit: boolean = false): void {
@@ -246,10 +291,11 @@ export default struct WebHost {
       return;
     }
 
+    const layoutScene: WindowScene = this.getLayoutScene(widthVp, heightVp);
     const decision = decideLayout({
       widthVp,
       heightVp,
-      scene: this.scene,
+      scene: layoutScene,
     });
     let nextMode: HostMode = decision.mode;
     let nextFit: FitPolicy = decision.policy;
@@ -262,13 +308,13 @@ export default struct WebHost {
     let nextSidebarWidthVp: number = decision.sidebarWidthVp;
 
     const isSmallLandscapeWindow: boolean = (widthVp > heightVp) && (heightVp <= 650);
-    const isFloatingScene: boolean = this.scene === WindowScene.FLOATING;
+    const isPureFloatingScene: boolean = this.isPureGameFloatingWindow(widthVp, heightVp);
     const isSplitScene: boolean = this.scene === WindowScene.SPLIT;
     // Split/floating small windows should stay pure game canvas unless the split
     // layout decision already found enough room for a docked bottom panel.
-    if ((isSmallLandscapeWindow && isSplitScene && !nextShowBottomTools) || isFloatingScene) {
+    if ((isSmallLandscapeWindow && isSplitScene && !nextShowBottomTools) || isPureFloatingScene) {
       nextMode = HostMode.COMPACT;
-      nextFit = isFloatingScene ? 'width' : 'height';
+      nextFit = isPureFloatingScene ? 'width' : 'height';
       nextFitLocked = true;
       nextShowSideButtons = false;
       nextShowBottomTools = false;
@@ -278,10 +324,10 @@ export default struct WebHost {
       nextSidebarWidthVp = 0;
     }
 
-    // 用户手动触发的"游戏 + 底部面板"布局：仅在全屏场景下生效（分屏场景下
+    // 用户手动触发的"游戏 + 底部面板"布局：仅在全屏/全景多窗场景下生效（分屏场景下
     // responsive 已根据屏幕形态自动选择，无需覆盖）。游戏按宽度等比缩放置顶，
     // 余下空间分配给底部面板；保留 ButtonColumn 以便用户再次切换。
-    if (this.lrLayoutForced && this.scene === WindowScene.FULLSCREEN) {
+    if (this.lrLayoutForced && layoutScene === WindowScene.FULLSCREEN) {
       const contentH: number = Math.min(heightVp, widthVp / GAME_ASPECT_RATIO);
       nextMode = HostMode.EXPANDED;
       nextFit = 'width';
@@ -293,6 +339,18 @@ export default struct WebHost {
       nextGameLeftMarginVp = 0;
       nextSidebarWidthVp = 0;
     }
+
+    const gameSizePercent: number = nextMode === HostMode.COMPACT
+      ? this.compactGameSizePercent
+      : this.expandedGameSizePercent;
+    const gameViewport: GameViewportBox = resolveGameViewportBox(
+      nextGameWidthVp,
+      nextGameHeightVp,
+      gameSizePercent,
+    );
+    nextGameWidthVp = gameViewport.widthVp;
+    nextGameHeightVp = gameViewport.heightVp;
+    nextGameLeftMarginVp = gameViewport.leftMarginVp;
 
     const modeChanged: boolean = this.lastMode !== nextMode;
 
@@ -722,12 +780,12 @@ export default struct WebHost {
   }
 
   private shouldUsePortraitOnlyRotation(): boolean {
-    return this.lrLayoutForced && this.scene === WindowScene.FULLSCREEN;
+    return this.lrLayoutForced && this.isToolSurfaceScene();
   }
 
   private shouldUseLandscapeOnlyRotation(): boolean {
     return !this.shouldUsePortraitOnlyRotation() &&
-      this.scene === WindowScene.FULLSCREEN &&
+      this.isToolSurfaceScene() &&
       this.mode === HostMode.COMPACT &&
       this.viewportWidthVp > this.viewportHeightVp &&
       this.viewportHeightVp <= NARROW_SHORT_SIDE_VP;
@@ -750,8 +808,7 @@ export default struct WebHost {
   }
 
   private shouldShowFloatingButtons(): boolean {
-    const fullscreen: boolean = this.scene === WindowScene.FULLSCREEN;
-    if (!fullscreen) {
+    if (!this.isToolSurfaceScene()) {
       return false;
     }
     // 底部面板模式下，按钮改为面板上方的横向按钮栏，避免与浮动按钮列重复。
@@ -791,19 +848,20 @@ export default struct WebHost {
               onWebPageEnd: this.onEnd
             })
           }
-          .margin({ left: this.gameLeftMarginVp })
-          .width("100%")
-          .height("100%")
+          .width(this.getGameViewportWidth())
+          .height(this.getGameViewportHeight())
           .clip(true)
         }
         .width('100%')
         .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Top)
         .backgroundColor('#000')
 
-        // Unified floating controls (fullscreen only):
-        // - COMPACT fullscreen: always show
-        // - non-COMPACT fullscreen: mirror the original side-button visibility condition
-        // Split/Floating scenes are intentionally hidden.
+        // Unified floating controls (fullscreen and panorama multi-window):
+        // - COMPACT tool surfaces: always show
+        // - non-COMPACT tool surfaces: mirror the original side-button visibility condition
+        // Split and tiny floating windows are intentionally hidden.
         if (this.shouldShowFloatingButtons()) {
           // 左下角纵向排列：ButtonColumn 在上，战果在下
           Column() {
@@ -834,7 +892,7 @@ export default struct WebHost {
         }
 
         // Fleet status sidebar — right-side persistent status bar.
-        // Conditions mirror shouldShowFloatingButtons: compact mode + fullscreen only.
+        // Conditions mirror shouldShowFloatingButtons: compact mode + tool surface only.
         // Use absolute position to anchor to the right edge of the Stack (align() only
         // sets internal content alignment and does NOT reposition within the parent).
         if (this.showSidebarPref && this.sidebarWidthVp > 0 && this.shouldShowFloatingButtons()) {
