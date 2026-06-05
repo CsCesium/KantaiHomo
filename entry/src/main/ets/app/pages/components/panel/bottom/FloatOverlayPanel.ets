@@ -52,11 +52,13 @@ function shipRowKey(ship: ShipItem): string {
     ship.s3,
     ship.tags.join(','),
     ship.exSlot,
+    ship.exSlotMasterId,
     ship.exSlotType,
     ship.exSlotIconType,
     ship.exSlotLevel,
     ship.exSlotAlv,
     ship.slots.join(','),
+    ship.slotMasterIds.join(','),
     ship.slotTypes.join(','),
     ship.slotIconTypes.join(','),
     ship.slotLevels.join(','),
@@ -81,18 +83,16 @@ function shipStateToItem(
 ): ShipItem {
   const activeSlots = s.slots.slice(0, s.slotCount);
   const activeOnslot = s.onslot.slice(0, s.slotCount);
-  const slotTypes = activeSlots.map(uid => {
-    if (uid <= 0) return 0;
-    const mid = slotItemIndex.get(uid);
-    return mid !== undefined ? (slotItemEquipTypes.get(mid) ?? 0) : 0;
+  const slotMasterIds = activeSlots.map(uid => uid > 0 ? (slotItemIndex.get(uid) ?? 0) : 0);
+  const slotTypes = slotMasterIds.map(mid => {
+    return mid > 0 ? (slotItemEquipTypes.get(mid) ?? 0) : 0;
   });
-  const slotIconTypes = activeSlots.map(uid => {
-    if (uid <= 0) return 0;
-    const mid = slotItemIndex.get(uid);
-    return mid !== undefined ? (slotItemIconTypes.get(mid) ?? 0) : 0;
+  const slotIconTypes = slotMasterIds.map(mid => {
+    return mid > 0 ? (slotItemIconTypes.get(mid) ?? 0) : 0;
   });
   const slotLevels = activeSlots.map(uid => uid > 0 ? (slotItemLevels.get(uid) ?? 0) : 0);
   const slotAlvs = activeSlots.map(uid => uid > 0 ? (slotItemAlvs.get(uid) ?? 0) : 0);
+  let exSlotMasterId = 0;
   let exSlotType = 0;
   let exSlotIconType = 0;
   let exSlotLevel = 0;
@@ -100,6 +100,7 @@ function shipStateToItem(
   if (s.exSlot > 0) {
     const mid = slotItemIndex.get(s.exSlot);
     if (mid !== undefined) {
+      exSlotMasterId = mid;
       exSlotType = slotItemEquipTypes.get(mid) ?? 0;
       exSlotIconType = slotItemIconTypes.get(mid) ?? 0;
     }
@@ -138,12 +139,14 @@ function shipStateToItem(
     fuelMax: s.fuelMax,
     ammoMax: s.ammoMax,
     slots: activeSlots,
+    slotMasterIds,
     slotTypes,
     slotIconTypes,
     slotAirs: activeOnslot,
     slotLevels,
     slotAlvs,
     exSlot: s.exSlot,
+    exSlotMasterId,
     exSlotType,
     exSlotIconType,
     exSlotLevel,

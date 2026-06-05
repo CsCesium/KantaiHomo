@@ -1,3 +1,5 @@
+import { isDepthChargeIconMasterId } from './equipmentClassification';
+
 /**
  * Centralized visual configuration for the game info panel.
  *
@@ -207,8 +209,11 @@ export function isAircraftEquipType(equipType: number): boolean {
   return AIRCRAFT_EQUIP_TYPES.has(equipType);
 }
 
-/** Maps api_type[3] icon id (and selected api_type[2] overrides) to an equipment icon svg path. */
-export function equipLabel(iconType: number, equipType: number = 0): string {
+/** Maps api_type[3] icon id (and selected api_type[2]/masterId overrides) to an equipment icon svg path. */
+export function equipLabel(iconType: number, equipType: number = 0, masterId: number = 0): string {
+  if (isDepthChargeIconMasterId(masterId)) {
+    return `${EQUIP_ICON_DIR}17-2.svg`;
+  }
   if (iconType === 10 && equipType === 11) {
     return `${EQUIP_ICON_DIR}10-11.svg`;
   }

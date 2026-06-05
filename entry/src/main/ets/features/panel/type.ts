@@ -37,6 +37,8 @@ export interface ShipItem {
   ammoMax: number;
   /** Active slot item UIDs; -1 = empty slot. Length = actual slot count. */
   slots: number[];
+  /** Slot item masterId per slot, parallel to slots; 0 = empty/unknown. */
+  slotMasterIds: number[];
   /** SlotItemEquipType (api_type[2]) per slot, parallel to slots; 0 = empty. */
   slotTypes: number[];
   /** Slot icon id (api_type[3]) per slot, parallel to slots; 0 = unknown. */
@@ -49,6 +51,8 @@ export interface ShipItem {
   slotAlvs: number[];
   /** Ex-slot UID: 0 = locked, -1 = empty, >0 = equipped item uid. */
   exSlot: number;
+  /** Ex-slot item masterId; 0 = locked/empty/unknown. */
+  exSlotMasterId: number;
   /** SlotItemEquipType of the ex-slot item; 0 = locked/empty. */
   exSlotType: number;
   /** Ex-slot icon id (api_type[3]). */

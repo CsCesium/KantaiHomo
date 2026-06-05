@@ -31,6 +31,7 @@ import {
   TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT,
   normalizeTouchWheelSensitivityPercent
 } from '../infra/web/input/touchWheelSensitivity';
+import { loadEquipmentClassification } from '../features/panel/equipmentClassification';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -67,6 +68,7 @@ export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     setAppContext(this.context);
     initResourceCache(this.context.filesDir);
+    void loadEquipmentClassification(this.context);
 
     webview.WebCookieManager.putAcceptCookieEnabled(true);
     webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true);

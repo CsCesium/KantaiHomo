@@ -16,6 +16,7 @@ import { EquipDetailPanel } from '../../EquipDetailPanel';
 @ComponentV2
 export default struct EquipSlot {
   @Param uid: number = 0;
+  @Param masterId: number = 0;
   @Param iconType: number = 0;
   @Param equipType: number = 0;
   @Param air: number = 0;
@@ -40,7 +41,7 @@ export default struct EquipSlot {
 
   build() {
     Stack() {
-      Image(equipLabel(this.iconType, this.equipType))
+      Image(equipLabel(this.iconType, this.equipType, this.masterId))
         .width(this.slotSize)
         .height(this.slotSize)
         .padding(1)
