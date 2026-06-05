@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "_comment": "装备分类规则。保持为标准 JSON，注释写在 _comment 字段中，方便 ArkTS 侧使用 JSON.parse 直接读取。",
+  "schema": {
+    "_comment": "匹配建议：先按 equipTypes/api_type[2]、iconIds/api_type[3] 判断，再应用 includeMasterIds/excludeMasterIds 和名称片段修正。",
+    "equipTypes": "装备图鉴类型 api_mst_slotitem.api_type[2]",
+    "iconIds": "装备图标类型 api_mst_slotitem.api_type[3]",
+    "includeMasterIds": "强制纳入的装备 masterId/api_id，用于 api_type 无法精确表达的特殊装备",
+    "excludeMasterIds": "强制排除的装备 masterId/api_id，用于覆盖误分类",
+    "nameIncludesAny": "名称包含任一片段时匹配；游戏原始名称一般为日文",
+    "nameExcludesAny": "名称包含任一片段时排除",
+    "minAsw": "可选，对潜值下限 api_tais",
+    "groupsAny": "可选，组合分组：任一子分组匹配即匹配"
+  },
+  "slotItemEquipTypes": {
+    "_comment": "这里只列当前对潜/面板逻辑常用类型；完整枚举见 domain/models/struct/slotitem.ts",
+    "carrierDiveBomber": 7,
+    "carrierTorpedoBomber": 8,
+    "seaplaneBomber": 11,
+    "sonar": 14,
+    "depthCharge": 15,
+    "autogyro": 25,
+    "antiSubPatrol": 26,
+    "largeSonar": 40,
+    "jetFighterBomber": 57
+  },
+  "slotItemIconIds": {
+    "_comment": "api_type[3] 图标类型；部分 UI 或兜底判断可用",
+    "carrierDiveBomber": 7,
+    "carrierTorpedoBomber": 8,
+    "seaplane": 10,
+    "depthCharge": 17,
+    "sonar": 18,
+    "autogyro": 21,
+    "antiSubPatrol": 22,
+    "landAswPatrol": 47
+  },
+  "equipmentGroups": {
+    "sonar": {
+      "_comment": "声呐：当前 isSonar() 等价规则，包含小型声呐与大型声呐。",
+      "equipTypes": [14, 40],
+      "iconIds": [18],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": [],
+      "nameExcludesAny": []
+    },
+    "zeroSonar": {
+      "_comment": "零式水中听音机类，用于部分先制对潜特殊判定。",
+      "equipTypes": [14, 40],
+      "iconIds": [18],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": ["零式水中", "零式水听", "零式水聴"],
+      "nameExcludesAny": []
+    },
+    "depthChargeAny": {
+      "_comment": "爆雷系总类。注意游戏 api_type[2]=15 会混合爆雷、爆雷投射机、部分新式对潜兵装；精细分类请看 depthCharge 与 depthChargeProjector。",
+      "equipTypes": [15],
+      "iconIds": [17],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": [],
+      "nameExcludesAny": []
+    },
+    "depthCharge": {
+      "_comment": "狭义爆雷。用名称排除投射机、Hedgehog、短鱼雷等更特殊装备；如后续发现新装备，优先补 includeMasterIds/excludeMasterIds。",
+      "equipTypes": [15],
+      "iconIds": [17],
+      "includeMasterIds": [226, 227, 378, 439, 488],
+      "excludeMasterIds": [],
+      "nameIncludesAny": ["爆雷"],
+      "nameExcludesAny": ["投射機", "投射机", "Hedgehog", "短魚雷", "短鱼雷", "Mk.32", "RUR-4A"]
+    },
+    "depthChargeProjector": {
+      "_comment": "爆雷投射机类。api_type 不能稳定区分时使用名称片段或 masterId 白名单补正。",
+      "equipTypes": [15],
+      "iconIds": [17],
+      "includeMasterIds": [44, 45, 287, 288, 377, 472, 569],
+      "excludeMasterIds": [],
+      "nameIncludesAny": ["投射機", "投射机", "Hedgehog"],
+      "nameExcludesAny": []
+    },
+    "aswTorpedo": {
+      "_comment": "对潜短鱼雷/火箭助飞鱼雷等特殊对潜兵装，和爆雷投射机分开，便于后续公式单独处理。",
+      "equipTypes": [15],
+      "iconIds": [17],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": ["短魚雷", "短鱼雷", "Mk.32", "RUR-4A"],
+      "nameExcludesAny": []
+    },
+    "autogyro": {
+      "_comment": "旋翼机/オートジャイロ。",
+      "equipTypes": [25],
+      "iconIds": [21],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": [],
+      "nameExcludesAny": []
+    },
+    "aswPatrolAircraft": {
+      "_comment": "对潜哨戒机。",
+      "equipTypes": [26],
+      "iconIds": [22, 47],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": [],
+      "nameExcludesAny": []
+    },
+    "carrierTorpedoBomber": {
+      "_comment": "舰攻。部分舰攻带对潜值，先制对潜逻辑通常还需要配合 minAsw。",
+      "equipTypes": [8],
+      "iconIds": [8],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": [],
+      "nameExcludesAny": []
+    },
+    "carrierDiveBomber": {
+      "_comment": "舰爆与喷式战斗爆击机。当前 isCarrierDiveBomber() 包含 equipType=7 和 57。",
+      "equipTypes": [7, 57],
+      "iconIds": [7],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": [],
+      "nameExcludesAny": []
+    },
+    "seaplaneBomber": {
+      "_comment": "水上爆击机。",
+      "equipTypes": [11],
+      "iconIds": [10],
+      "includeMasterIds": [],
+      "excludeMasterIds": [],
+      "nameIncludesAny": [],
+      "nameExcludesAny": []
+    },
+    "aswAircraft": {
+      "_comment": "对潜航空装备总类。调用侧如需要“对潜 >= N”，可在匹配后再检查装备 api_tais，或使用下面的 minAsw 子规则。",
+      "groupsAny": ["carrierTorpedoBomber", "carrierDiveBomber", "autogyro", "aswPatrolAircraft"],
+      "includeMasterIds": [],
+      "excludeMasterIds": []
+    },
+    "aswAircraftAtLeast1": {
+      "_comment": "对潜值 >= 1 的对潜航空装备。用于轻母/特种舰先制对潜条件。",
+      "groupsAny": ["carrierTorpedoBomber", "carrierDiveBomber", "autogyro", "aswPatrolAircraft"],
+      "minAsw": 1,
+      "includeMasterIds": [],
+      "excludeMasterIds": []
+    },
+    "aswAircraftAtLeast7": {
+      "_comment": "对潜值 >= 7 的对潜航空装备。用于当前轻母先制对潜判定。",
+      "groupsAny": ["carrierTorpedoBomber", "autogyro", "aswPatrolAircraft"],
+      "minAsw": 7,
+      "includeMasterIds": [],
+      "excludeMasterIds": []
+    }
+  }
+}
