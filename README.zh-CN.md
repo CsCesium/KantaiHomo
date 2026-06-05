@@ -2,8 +2,7 @@
 
 [English](README.md) | 简体中文
 
-KanColleOberserver(KCO) 是面向《舰队 Collection》（HTML5）的 HarmonyOS 原生游戏容器与辅助应用。它使用 ArkWeb
-嵌入 DMM 游戏页面，并在游戏外提供原生信息面板、本地数据持久化、提醒、计算器以及移动端输入和布局适配。
+KanColleKanColleObserver(KCO) 是面向《舰队 Collection》（HTML5）的 HarmonyOS 原生游戏容器与辅助应用。它使用 ArkWeb 嵌入 DMM 游戏页面，并在游戏外提供原生信息面板、本地数据持久化、提醒、计算器以及移动端输入和布局适配。
 
 本项目为非官方项目，与 DMM、C2、KADOKAWA 无关联。
 

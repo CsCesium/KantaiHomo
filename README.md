@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-KanColleOberserver(KCO) is a HarmonyOS native viewer and companion app for Kantai Collection
+KanColleObserver(KCO) is a HarmonyOS native viewer and companion app for Kantai Collection
 (HTML5). It embeds the DMM game in ArkWeb and adds native panels, local
 persistence, reminders, calculators, and mobile input/layout fixes around the
 game.

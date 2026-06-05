@@ -1,7 +1,7 @@
 {
   "app": {
     "bundleName": "io.github.cesium.kchomo",
-    "vendor": "example",
+    "vendor": "Hipper",
     "versionCode": 1000001,
     "versionName": "1.0.0",
     "icon": "$media:layered_image",
