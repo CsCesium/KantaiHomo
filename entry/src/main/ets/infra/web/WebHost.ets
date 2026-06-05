@@ -18,7 +18,8 @@ import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSi
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
   APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL,
-  APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED } from "../../ability/Entry";
+  APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED, APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY } from "../../ability/Entry";
+import { TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT } from "./input/touchWheelSensitivity";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED } from "../../features/resourceCache";
 import { isInBattle, subscribeGameState } from "../../features/state";
@@ -85,6 +86,8 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_TOUCH_HOVER) private injectTouchHover: boolean = true;
   @StorageProp(APP_STORAGE_INJECT_TOUCH_WHEEL) private injectTouchWheel: boolean = true;
+  @StorageProp(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY)
+  private touchWheelSensitivityPercent: number = TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT;
   @StorageProp(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
   @StorageProp(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
@@ -135,6 +138,7 @@ export default struct WebHost {
     enableTouchPatch: this.injectTouchPatch,
     enableTouchHover: this.injectTouchHover,
     enableTouchWheel: this.injectTouchWheel,
+    touchWheelSensitivityPercent: this.touchWheelSensitivityPercent,
     enableTickerRAF: this.injectTickerRaf,
     enablePixiPatch: this.injectPixiPatch,
   });

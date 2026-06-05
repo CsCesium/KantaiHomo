@@ -27,6 +27,10 @@ import { shipGraphFilename } from '../features/state/type';
 import { initBattlePredictionService, gameStateAdapter } from '../features/simulator';
 import { initAppVolumeMuteStorage } from '../infra/audio/appVolume';
 import { GAME_SIZE_DEFAULT_PERCENT, normalizeGameSizePercent } from '../infra/web/layout/gameSize';
+import {
+  TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT,
+  normalizeTouchWheelSensitivityPercent
+} from '../infra/web/input/touchWheelSensitivity';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -47,6 +51,7 @@ export const APP_STORAGE_INJECT_FPS = 'inject.fps';
 export const APP_STORAGE_INJECT_TOUCH_PATCH = 'inject.touchPatch';
 export const APP_STORAGE_INJECT_TOUCH_HOVER = 'inject.touchHover';
 export const APP_STORAGE_INJECT_TOUCH_WHEEL = 'inject.touchWheel';
+export const APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY = 'inject.touchWheel.sensitivityPercent';
 export const APP_STORAGE_INJECT_TICKER_RAF = 'inject.tickerRaf';
 export const APP_STORAGE_INJECT_PIXI_PATCH = 'inject.pixiPatch';
 /** AppStorage keys for equipment label badge overlays in the main panel */
@@ -138,6 +143,12 @@ export default class EntryAbility extends UIAbility {
     void kvGetBool(APP_STORAGE_INJECT_TOUCH_WHEEL, true).then((v: boolean) => {
       AppStorage.set(APP_STORAGE_INJECT_TOUCH_WHEEL, v);
     });
+
+    AppStorage.setOrCreate(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT);
+    void kvGetNumber(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT)
+      .then((v: number) => {
+        AppStorage.set(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, normalizeTouchWheelSensitivityPercent(v));
+      });
 
     AppStorage.setOrCreate(APP_STORAGE_INJECT_TICKER_RAF, false);
     void kvGetBool(APP_STORAGE_INJECT_TICKER_RAF, false).then((v: boolean) => {

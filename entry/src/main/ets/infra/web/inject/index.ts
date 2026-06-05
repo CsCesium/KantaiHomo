@@ -47,7 +47,7 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   if (o.enableFPS)        out.push(asEvalChunk('hm-inject://fps.js',       fpsSnippet(o.channelName, o.postMethod)));
   if (o.enableTouchPatch) out.push(asEvalChunk('hm-inject://touchPatch.js',touchPatchSnippet));
   if (o.enableTouchHover) out.push(asEvalChunk('hm-inject://touchHover.js',touchHoverSnippet));
-  if (o.enableTouchWheel) out.push(asEvalChunk('hm-inject://touchWheel.js',touchWheelSnippet));
+  if (o.enableTouchWheel) out.push(asEvalChunk('hm-inject://touchWheel.js',touchWheelSnippet(o.touchWheelSensitivityPercent)));
   if (o.enableTickerRAF)  out.push(asEvalChunk('hm-inject://tickerRaf.js', tickerRafSnippet));
   if (o.enablePixiPatch)  out.push(asEvalChunk('hm-inject://pixiPatch.js', pixiPatchSnippet));
   if (o.enableYasenDetect) out.push(asEvalChunk('hm-inject://yasenDetect.js', yasenDetectorJS()));

@@ -3,10 +3,17 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
 import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
+import {
+  TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT,
+  TOUCH_WHEEL_SENSITIVITY_MAX_PERCENT,
+  TOUCH_WHEEL_SENSITIVITY_MIN_PERCENT,
+  TOUCH_WHEEL_SENSITIVITY_STEP_PERCENT,
+  normalizeTouchWheelSensitivityPercent
+} from '../../infra/web/input/touchWheelSensitivity';
 import {
   APP_STORAGE_RESOURCE_CACHE_AUDIO,
   APP_STORAGE_RESOURCE_CACHE_ENABLED,
@@ -45,6 +52,8 @@ struct Setting {
   @StorageLink(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
   @StorageLink(APP_STORAGE_INJECT_TOUCH_HOVER) private injectTouchHover: boolean = true;
   @StorageLink(APP_STORAGE_INJECT_TOUCH_WHEEL) private injectTouchWheel: boolean = true;
+  @StorageLink(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY)
+  private touchWheelSensitivityPercent: number = TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT;
   @StorageLink(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageLink(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
   /** Equipment label badge overlays in main panel. */
@@ -143,6 +152,12 @@ struct Setting {
     void kvSet(APP_STORAGE_INJECT_TOUCH_WHEEL, v);
   }
 
+  private onTouchWheelSensitivityChange(value: number): void {
+    const next: number = normalizeTouchWheelSensitivityPercent(value);
+    this.touchWheelSensitivityPercent = next;
+    void kvSet(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, next);
+  }
+
   private onInjectTickerRafToggle(v: boolean): void {
     this.injectTickerRaf = v;
     void kvSet(APP_STORAGE_INJECT_TICKER_RAF, v);
@@ -175,38 +190,20 @@ struct Setting {
 
   private setCompactGameSizePercent(value: number): void {
     const next: number = normalizeGameSizePercent(value);
+    if (next === this.compactGameSizePercent) {
+      return;
+    }
     this.compactGameSizePercent = next;
     void kvSet(APP_STORAGE_GAME_SIZE_COMPACT, next);
   }
 
   private setExpandedGameSizePercent(value: number): void {
     const next: number = normalizeGameSizePercent(value);
+    if (next === this.expandedGameSizePercent) {
+      return;
+    }
     this.expandedGameSizePercent = next;
     void kvSet(APP_STORAGE_GAME_SIZE_EXPANDED, next);
-  }
-
-  private decreaseCompactGameSizePercent(): void {
-    this.setCompactGameSizePercent(this.compactGameSizePercent - GAME_SIZE_STEP_PERCENT);
-  }
-
-  private increaseCompactGameSizePercent(): void {
-    this.setCompactGameSizePercent(this.compactGameSizePercent + GAME_SIZE_STEP_PERCENT);
-  }
-
-  private decreaseExpandedGameSizePercent(): void {
-    this.setExpandedGameSizePercent(this.expandedGameSizePercent - GAME_SIZE_STEP_PERCENT);
-  }
-
-  private increaseExpandedGameSizePercent(): void {
-    this.setExpandedGameSizePercent(this.expandedGameSizePercent + GAME_SIZE_STEP_PERCENT);
-  }
-
-  private getGameSizeDecreaseLabel(): string {
-    return `-${GAME_SIZE_STEP_PERCENT}%`;
-  }
-
-  private getGameSizeIncreaseLabel(): string {
-    return `+${GAME_SIZE_STEP_PERCENT}%`;
   }
 
   private onResourceCacheToggle(v: boolean): void {
@@ -385,29 +382,7 @@ struct Setting {
   }
 
   @Builder
-  private SizeAdjustBtn(label: string, active: boolean, action: () => void) {
-    Button(label, { type: ButtonType.Normal })
-      .fontSize(13)
-      .fontWeight(FontWeight.Medium)
-      .fontColor(active ? '#6A9AB5' : '#3A5060')
-      .backgroundColor('#0E1820')
-      .border({ width: 1, color: active ? '#1C3348' : '#141E2A' })
-      .borderRadius(8)
-      .height(36)
-      .layoutWeight(1)
-      .enabled(active)
-      .onClick(action)
-  }
-
-  @Builder
-  private GameSizeRow(
-    label: string,
-    desc: string,
-    value: number,
-    onDecrease: () => void,
-    onReset: () => void,
-    onIncrease: () => void
-  ) {
+  private PercentSliderRow(label: string, desc: string, value: number, onChange: (v: number) => void) {
     Column({ space: 10 }) {
       Row() {
         Column({ space: 3 }) {
@@ -425,18 +400,122 @@ struct Setting {
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
           .fontColor('#90B0C0')
+          .width(64)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Slider({
+        value: value,
+        min: TOUCH_WHEEL_SENSITIVITY_MIN_PERCENT,
+        max: TOUCH_WHEEL_SENSITIVITY_MAX_PERCENT,
+        step: TOUCH_WHEEL_SENSITIVITY_STEP_PERCENT
+      })
+        .selectedColor('#6A9AB5')
+        .trackColor('#1C2E3A')
+        .blockColor('#FFFFFF')
+        .showTips(true)
+        .onChange((v: number) => { onChange(v); })
+
+      Row() {
+        Text(`${TOUCH_WHEEL_SENSITIVITY_MIN_PERCENT}%`)
+          .fontSize(11)
+          .fontColor('#3A4A55')
+        Blank()
+        Text(`${TOUCH_WHEEL_SENSITIVITY_MAX_PERCENT}%`)
+          .fontSize(11)
+          .fontColor('#3A4A55')
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+  }
+
+  @Builder
+  private CompactGameSizeRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('窄屏游戏画面')
+            .fontSize(15)
+            .fontColor('#A09080')
+          Text('用于纯游戏 / 浮动面板布局，画面保持置顶居中')
+            .fontSize(12)
+            .fontColor('#3A4A55')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(`${this.compactGameSizePercent}%`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#90B0C0')
           .width(58)
           .textAlign(TextAlign.End)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      Row({ space: 8 }) {
-        this.SizeAdjustBtn(this.getGameSizeDecreaseLabel(), value > GAME_SIZE_MIN_PERCENT, onDecrease)
-        this.SizeAdjustBtn('默认', value !== GAME_SIZE_DEFAULT_PERCENT, onReset)
-        this.SizeAdjustBtn(this.getGameSizeIncreaseLabel(), value < GAME_SIZE_MAX_PERCENT, onIncrease)
+      Slider({
+        value: this.compactGameSizePercent,
+        min: GAME_SIZE_MIN_PERCENT,
+        max: GAME_SIZE_MAX_PERCENT,
+        step: GAME_SIZE_STEP_PERCENT,
+      })
+        .width('100%')
+        .selectedColor('#6A9AB5')
+        .trackColor('#1C2E3A')
+        .blockColor('#90B0C0')
+        .onChange((value: number) => { this.setCompactGameSizePercent(value); })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+  }
+
+  @Builder
+  private ExpandedGameSizeRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('宽屏游戏画面')
+            .fontSize(15)
+            .fontColor('#A09080')
+          Text('用于游戏 + 底部面板布局，缩小后释放下方面板空间')
+            .fontSize(12)
+            .fontColor('#3A4A55')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(`${this.expandedGameSizePercent}%`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#90B0C0')
+          .width(58)
+          .textAlign(TextAlign.End)
       }
       .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Slider({
+        value: this.expandedGameSizePercent,
+        min: GAME_SIZE_MIN_PERCENT,
+        max: GAME_SIZE_MAX_PERCENT,
+        step: GAME_SIZE_STEP_PERCENT,
+      })
+        .width('100%')
+        .selectedColor('#6A9AB5')
+        .trackColor('#1C2E3A')
+        .blockColor('#90B0C0')
+        .onChange((value: number) => { this.setExpandedGameSizePercent(value); })
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
@@ -681,23 +760,9 @@ struct Setting {
               (v: boolean) => { this.onAutoBattlePreviewFloatOverlayToggle(v); }
             )
 
-            this.GameSizeRow(
-              '窄屏游戏画面',
-              '用于纯游戏 / 浮动面板布局，画面保持置顶居中',
-              this.compactGameSizePercent,
-              () => { this.decreaseCompactGameSizePercent(); },
-              () => { this.setCompactGameSizePercent(GAME_SIZE_DEFAULT_PERCENT); },
-              () => { this.increaseCompactGameSizePercent(); }
-            )
+            this.CompactGameSizeRow()
 
-            this.GameSizeRow(
-              '宽屏游戏画面',
-              '用于游戏 + 底部面板布局，缩小后释放下方面板空间',
-              this.expandedGameSizePercent,
-              () => { this.decreaseExpandedGameSizePercent(); },
-              () => { this.setExpandedGameSizePercent(GAME_SIZE_DEFAULT_PERCENT); },
-              () => { this.increaseExpandedGameSizePercent(); }
-            )
+            this.ExpandedGameSizeRow()
 
             this.ToggleRow(
               '装备改修度图标',
@@ -846,6 +911,13 @@ struct Setting {
               '双指上下划动时模拟鼠标滚轮，用于游戏内换页',
               this.injectTouchWheel,
               (v: boolean) => { this.onInjectTouchWheelToggle(v); }
+            )
+
+            this.PercentSliderRow(
+              '双指滚轮灵敏度',
+              '调整双指划动转换为鼠标滚轮的幅度',
+              this.touchWheelSensitivityPercent,
+              (v: number) => { this.onTouchWheelSensitivityChange(v); }
             )
 
             this.ToggleRow(

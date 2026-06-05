@@ -1,8 +1,12 @@
-export const touchWheelSnippet = `
+import { resolveTouchWheelScale } from '../../input/touchWheelSensitivity';
+
+export function touchWheelSnippet(sensitivityPercent: number): string {
+  const wheelScale: string = resolveTouchWheelScale(sensitivityPercent).toFixed(4);
+  return `
 (function(){
   window.__safeInject('touch-wheel', function(){
     var MIN_STEP = 10;
-    var WHEEL_SCALE = 1.35;
+    var WHEEL_SCALE = ${wheelScale};
     var active = false;
     var lastY = 0;
     var lastX = 0;
@@ -157,3 +161,4 @@ export const touchWheelSnippet = `
   });
 })();
 `;
+}
