@@ -40,7 +40,7 @@ export default struct EquipSlot {
 
   build() {
     Stack() {
-      Image(equipLabel(this.iconType))
+      Image(equipLabel(this.iconType, this.equipType))
         .width(this.slotSize)
         .height(this.slotSize)
         .padding(1)

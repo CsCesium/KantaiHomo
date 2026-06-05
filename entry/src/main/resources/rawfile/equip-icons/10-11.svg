@@ -5,7 +5,10 @@
 <style type="text/css">
 	.st0{fill:#00FF14;}
 	.st1{fill:#63B353;}
-	.st2{fill:#9383F1;}
+	.st2{fill:#9DCB9A;}
+	.st3{display:none;}
+	.st4{display:inline;fill:#5D50B8;stroke:#000000;stroke-width:5;}
+	.st5{fill:#FF6560;stroke:#000000;stroke-width:5;}
 </style>
 <g id="水侦">
 	<g>
@@ -56,5 +59,11 @@
 		<path class="st2" d="M68.6,89.3L42.9,61.8c-2.8-3.7,2.2-7.3,4.3-4.2L68.6,89.3z"/>
 		<path class="st2" d="M70.5,94.2l-3.6,37.5c-0.9,4.6-7,3.2-6-0.5L70.5,94.2z"/>
 	</g>
+</g>
+<g id="六边形" class="st3">
+	<polygon class="st4" points="206.5,180.5 206.5,310.5 319,375.5 431.6,310.5 431.6,180.5 319,115.6 	"/>
+</g>
+<g id="六边形_00000128479441808627079060000015621265459003930521_">
+	<polygon class="st5" points="301.5,206.5 301.5,284.5 369,323.5 436.6,284.5 436.6,206.5 369,167.5 	"/>
 </g>
 </svg>

@@ -77,7 +77,7 @@ export struct EquipDetailPanel {
       if (this.row) {
         // Header: icon + name
         Row({ space: 8 }) {
-          Image(equipLabel(this.row.mst_typeIconId ?? 0))
+          Image(equipLabel(this.row.mst_typeIconId ?? 0, this.row.mst_typeEquipType ?? 0))
             .width(22)
             .height(22)
             .padding(2)
