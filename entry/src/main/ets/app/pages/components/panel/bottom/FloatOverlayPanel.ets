@@ -5,20 +5,65 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getMapGauges,
+  getQuests,
+  QuestSnapshot,
+  getSortieResourceGains,
+  SortieResourceGains,
+  isShipEscaped,
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
   getFleetTP,
-  detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
-import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
+import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../../ability/Entry';
 import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
+import { detectSpecialAttackBadge } from '../../../../../features/panel/specialAttackBadge';
+import { resourceIconPath } from '../../../../../features/resources/resourceMeta';
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
-import { isPeriodicMapGauge } from './rows/shipHelpers';
+import ResourceAmount from '../common/ResourceAmount';
+import QuestPanel from '../common/QuestPanel';
+import { shouldDisplayMapGauge } from './rows/shipHelpers';
+import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const OVERLAY_MAP_TAB_IDX = 4;
+const OVERLAY_QUEST_TAB_IDX = 5;
+const RESOURCE_NARROW_WIDTH = 460;
+const RESOURCE_BAR_H = 20;
+const RESOURCE_BAR_NARROW_H = 36;
+
+// ArkUI ForEach 在 key 不变时会复用旧子组件且不重新下发 @Param，所以仅
+// 用 uid 作 key 时，HP/cond/补给/装备变化都不会触发 ShipRow 重渲（这
+// 也是回港 / 战斗结算后面板信息偶发不刷新的根因）。把所有会影响显示
+// 的动态字段拼进 key，配合 @Param 引用变化让行级强制重建，与 sidebar
+// 的 shipEntryKey 思路一致。
+function shipRowKey(ship: ShipItem): string {
+  return [
+    ship.id,
+    ship.masterId,
+    ship.level,
+    ship.expToNext,
+    ship.hp,
+    ship.hpMax,
+    isShipEscaped(ship.id) ? 1 : 0,
+    ship.s1,
+    ship.s2,
+    ship.s3,
+    ship.tags.join(','),
+    ship.exSlot,
+    ship.exSlotType,
+    ship.exSlotIconType,
+    ship.exSlotLevel,
+    ship.exSlotAlv,
+    ship.slots.join(','),
+    ship.slotTypes.join(','),
+    ship.slotIconTypes.join(','),
+    ship.slotLevels.join(','),
+    ship.slotAlvs.join(','),
+    ship.slotAirs.join(','),
+  ].join('_');
+}
 
 function shipStateToItem(
   s: ShipState,
@@ -74,6 +119,7 @@ function shipStateToItem(
       ctype: shipMasterCtype.get(s.masterId) ?? 0,
       aswCur: s.aswCur,
       slots: activeSlots,
+      onslot: activeOnslot,
       exSlot: s.exSlot,
       slotItemIndex,
       slotItemEquipTypes,
@@ -115,6 +161,26 @@ function formatFleetSpeed(speed: number): string {
   return '陸上';
 }
 
+function formatAdmiralRank(rank: number | undefined): string {
+  switch (rank) {
+    case 1: return '元帥';
+    case 2: return '大将';
+    case 3: return '中将';
+    case 4: return '少将';
+    case 5: return '大佐';
+    case 6: return '中佐';
+    case 7: return '新米中佐';
+    case 8: return '少佐';
+    case 9: return '中堅少佐';
+    case 10: return '新米少佐';
+    default: return '--';
+  }
+}
+
+function formatLimitCount(current: number, limit: number | undefined): string {
+  return `${current}/${limit && limit > 0 ? limit : '--'}`;
+}
+
 /**
  * Semi-transparent floating panel for COMPACT mode (landscape / small window).
  * Shows fleet air power, unified speed, LoS, and transport TP.
@@ -124,6 +190,7 @@ export default struct FloatOverlayPanel {
   @Local activeFleet: number = 0;
   @Local ships: ShipItem[] = [];
   @Local materials: MaterialsSnapshot | null = null;
+  @Local sortieGains: SortieResourceGains | null = null;
   @Local decks: DeckSnapshot[] = [];
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
@@ -132,12 +199,21 @@ export default struct FloatOverlayPanel {
   @Local fleetSpeed: number = -1;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  @Local quests: QuestSnapshot[] = [];
+  @Local admiralName: string = '--';
+  @Local admiralRank: string = '--';
+  @Local admiralExperience: string = '--';
+  @Local todaySenka: string = '--';
+  @Local shipCapacity: string = '--/--';
+  @Local panelWidth: number = PanelDimens.overlayPanelW;
   /** UID of slot whose detail popup is currently open; 0 = none. EquipSlot 自己加载详情。 */
   @Local detailUid: number = 0;
   /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
   @Local showKaisyuu: boolean = true;
   /** Show aircraft proficiency badge; mirrors AppStorage setting. */
   @Local showProficiency: boolean = true;
+  /** Show ship avatar/remodel banner; mirrors AppStorage setting. */
+  @Local showAvatar: boolean = true;
 
   private unsubscribe: (() => void) | null = null;
 
@@ -147,8 +223,10 @@ export default struct FloatOverlayPanel {
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
+          changeType === 'ndocks' ||
           changeType === 'admiral' || changeType === 'quests' ||
-          changeType === 'mapinfo') {
+          changeType === 'mapinfo' || changeType === 'sortieGains' ||
+        changeType === 'battle') {
         this.loadState();
       }
     });
@@ -157,8 +235,10 @@ export default struct FloatOverlayPanel {
   private refreshSettings(): void {
     const k = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_KAISYUU);
     const p = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_PROFICIENCY);
+    const a = AppStorage.get<boolean>(APP_STORAGE_SIDEBAR_SHOW_AVATAR);
     this.showKaisyuu = k !== undefined ? k : true;
     this.showProficiency = p !== undefined ? p : true;
+    this.showAvatar = a !== undefined ? a : true;
   }
 
   aboutToDisappear(): void {
@@ -169,10 +249,20 @@ export default struct FloatOverlayPanel {
   }
 
   private loadState(): void {
+    const manager = getGameState();
+    const st = manager.getState();
+    const admiral = st.admiral;
+    const senka = manager.getSenkaInfo();
     this.materials = getMaterials();
+    this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
-    // 已通关的海图直接隐藏；活动海图例外，即使 cleared 也保留显示。
-    this.mapGauges = getMapGauges().filter(g => !g.cleared || !isPeriodicMapGauge(g));
+    this.admiralName = admiral?.nickname || '--';
+    this.admiralRank = formatAdmiralRank(admiral?.rank);
+    this.admiralExperience = admiral ? `${admiral.experience}` : '--';
+    this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
+    this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
+    this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.quests = [...getQuests()];
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -195,8 +285,7 @@ export default struct FloatOverlayPanel {
         st.shipMasterStype,
         st.shipMasterCtype
       ));
-      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
-      this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
+      this.specialAttack = detectSpecialAttackBadge(rawShips, this.activeFleet);
       this.fleetSpeed = rawShips.length > 0
         ? rawShips.reduce((min, s) => Math.min(min, s.speed), Number.POSITIVE_INFINITY)
         : -1;
@@ -208,7 +297,7 @@ export default struct FloatOverlayPanel {
   }
 
   private async loadCalcStats(): Promise<void> {
-    if (this.activeFleet >= 4 || this.activeFleet === OVERLAY_MAP_TAB_IDX) {
+    if (this.activeFleet >= 4) {
       this.airPower = 0;
       this.fleetLoS = 0;
       this.fleetTpS = 0;
@@ -261,38 +350,148 @@ export default struct FloatOverlayPanel {
     }
   }
 
-  build() {
+  private useNarrowResourceLayout(): boolean {
+    return this.panelWidth < RESOURCE_NARROW_WIDTH;
+  }
+
+  private resourceBarHeight(): number {
+    return this.useNarrowResourceLayout() ? RESOURCE_BAR_NARROW_H : RESOURCE_BAR_H;
+  }
+
+  @Builder private AdmiralTag(text: string): void {
+    Text(text)
+      .fontSize(PanelDimens.fontSm)
+      .fontColor(PanelColors.overlayTxt)
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+      .backgroundColor('#33000000')
+      .borderRadius(PanelDimens.radius)
+      .borderWidth(PanelDimens.borderW)
+      .borderColor(PanelColors.overlayHdr)
+  }
+
+  @Builder private AdmiralHeader(): void {
+    Scroll() {
+      Row({ space: 4 }) {
+        this.AdmiralTag(`${this.admiralName}`)
+        this.AdmiralTag(`${this.admiralRank}`)
+        this.AdmiralTag(`提督经验: ${this.admiralExperience}`)
+        this.AdmiralTag(`今日: ${this.todaySenka}`)
+        this.AdmiralTag(`舰娘: ${this.shipCapacity}`)
+      }
+      .height(PanelDimens.statusBarH)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Start)
+      .alignSelf(ItemAlign.Start)
+    }
+    .width('100%')
+    .height(PanelDimens.statusBarH)
+    .scrollable(ScrollDirection.Horizontal)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.None)
+    .padding({ left: 8, right: 8 })
+    .align(Alignment.TopStart)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.overlayHdr)
+  }
+
+  @Builder private ResourceWideRow(): void {
+    Row({ space: 7 }) {
+      if (this.materials) {
+        ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.overlayTxt })
+        Blank().layoutWeight(1)
+        ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.overlayTxt })
+        ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.overlayTxt })
+      } else {
+        Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+      }
+    }
+    .width('100%')
+    .height(RESOURCE_BAR_H)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder private ResourceNarrowRows(): void {
     Column() {
-      // Compact resource status line
-      Row() {
-        if (this.materials) {
-          Text(`燃${this.materials.fuel}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-          Text(`弾${this.materials.ammo}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-          Text(`鋼${this.materials.steel}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-          Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-          Text(`ボ${this.materials.bauxite}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
+      if (this.materials) {
+        Row() {
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.overlayTxt })
+          }
+          .alignItems(VerticalAlign.Center)
+
           Blank().layoutWeight(1)
-          Text(`修${this.materials.instantRepair}`)
-            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
-        } else {
+
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.overlayTxt })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+
+        Row() {
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.overlayTxt })
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank().layoutWeight(1)
+
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.overlayTxt })
+            ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.overlayTxt })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+      } else {
+        Row() {
           Text('--').fontSize(PanelDimens.fontSm).fontColor(PanelColors.overlayTxt)
         }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
       }
-      .width('100%')
-      .height(PanelDimens.statusBarH)
-      .padding({ left: 8, right: 8 })
-      .alignItems(VerticalAlign.Center)
-      .borderWidth({ bottom: PanelDimens.borderW })
-      .borderColor(PanelColors.overlayHdr)
+    }
+    .width('100%')
+    .height(RESOURCE_BAR_NARROW_H)
+  }
 
-      // 制空 + 速度 stacked (left) | 輸送 + 索敵 stacked (right). Hidden on map tab.
-      if (this.activeFleet !== OVERLAY_MAP_TAB_IDX) {
+  @Builder private ResourceStatusBar(): void {
+    Column() {
+      if (this.useNarrowResourceLayout()) {
+        this.ResourceNarrowRows()
+      } else {
+        this.ResourceWideRow()
+      }
+    }
+    .width('100%')
+    .height(this.resourceBarHeight())
+    .padding({ left: 8, right: 8 })
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.overlayHdr)
+  }
+
+  build() {
+    Column() {
+      this.AdmiralHeader()
+      this.ResourceStatusBar()
+
+      // 制空 + 速度 stacked (left) | 輸送 + 索敵 stacked (right). Hidden on non-fleet tabs.
+      if (this.activeFleet < 4) {
         Row() {
           Column() {
             Row() {
@@ -348,14 +547,14 @@ export default struct FloatOverlayPanel {
 
       // Compact fleet selector row — fleets 1-4 grouped on the left, 地図 on the right
       Row() {
-        Row({ space: 8 }) {
+        Row({ space: 4 }) {
           ForEach([0, 1, 2, 3], (idx: number) => {
             Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
               .fontSize(PanelDimens.fontSm)
               .fontColor(PanelColors.txtTabOn)
               .backgroundColor(this.activeFleet === idx ? '#0d47a1' : PanelColors.bgTabInactive)
               .opacity(this.activeFleet === idx ? 1.0 : 0.55)
-              .padding({ left: 9, right: 9, top: 3, bottom: 3 })
+              .padding({ left: 7, right: 7, top: 3, bottom: 3 })
               .borderRadius(PanelDimens.radius)
               .onClick(() => { this.selectFleet(idx); })
           }, (idx: number) => `ftab-${idx}`)
@@ -364,16 +563,26 @@ export default struct FloatOverlayPanel {
 
         Blank().layoutWeight(1)
 
-        Text('地図')
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtTabOn)
-          .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
-          .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
-          .padding({ left: 9, right: 9, top: 3, bottom: 3 })
-          .borderRadius(PanelDimens.radius)
-          .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
+        Row({ space: 4 }) {
+          Text('地図')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtTabOn)
+            .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
+            .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
+            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+            .borderRadius(PanelDimens.radius)
+            .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
 
-        Blank().layoutWeight(1)
+          Text('任务')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtTabOn)
+            .backgroundColor(this.activeFleet === OVERLAY_QUEST_TAB_IDX ? '#37474f' : PanelColors.bgTabInactive)
+            .opacity(this.activeFleet === OVERLAY_QUEST_TAB_IDX ? 1.0 : 0.55)
+            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+            .borderRadius(PanelDimens.radius)
+            .onClick(() => { this.selectFleet(OVERLAY_QUEST_TAB_IDX); })
+        }
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
       .height(PanelDimens.tabBarH - 4)
@@ -381,10 +590,12 @@ export default struct FloatOverlayPanel {
       .backgroundColor(PanelColors.bgTabs)
       .alignItems(VerticalAlign.Center)
 
-      // Content area: map gauges or ship list — must stack from top, not center
+      // Content area: map gauges, quests, or ship list — must stack from top, not center
       Scroll() {
         Column() {
-          if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {
+          if (this.activeFleet === OVERLAY_QUEST_TAB_IDX) {
+            QuestPanel({ quests: this.quests, compact: true })
+          } else if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {
             if (this.mapGauges.length > 0) {
               ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
                 MapGaugeRow({ gauge })
@@ -402,13 +613,14 @@ export default struct FloatOverlayPanel {
                 ship,
                 isFlag: idx === 0,
                 specialAttack: this.specialAttack,
+                showAvatar: this.showAvatar,
                 showKaisyuu: this.showKaisyuu,
                 showProficiency: this.showProficiency,
                 detailUid: this.detailUid,
                 onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
-            }, (ship: ShipItem) => `ship-${ship.id}`)
+            }, (ship: ShipItem) => `${shipRowKey(ship)}_${this.specialAttack}`)
           } else {
             Text('NO DATA')
               .fontSize(PanelDimens.fontSm)
@@ -434,5 +646,11 @@ export default struct FloatOverlayPanel {
     .backgroundColor(PanelColors.overlayBg)
     .backdropBlur(PanelDimens.overlayBlur)
     .clip(true)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      const width = lengthToNumber(area.width);
+      if (width > 0) {
+        this.panelWidth = width;
+      }
+    })
   }
 }

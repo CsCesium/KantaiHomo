@@ -16,14 +16,16 @@ import {
 } from '../../../domain/models';
 import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
-import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, patchShipsHp, isShipEscaped, getDeck, getDeckShips, getSlotItemMasterId } from '../../state/game_state';
+import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId, isShipEscaped,
+  markSpecialAttackTriggeredShips } from '../../state/game_state';
 import type { ShipState } from '../../state/type';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 import { publishAlert } from '../../alerts/bus';
 import { setLastBattleHasTaihaRisk, setLastBattleTaihaShips } from '../../alerts/lastBattleState';
 import type { BattleResultAlert } from '../../alerts/type';
-import { getBattlePredictionService } from '../../simulator';
+import { getBattlePredictionService, simSnapshotToDomainPrediction } from '../../simulator';
+import { isSpecialAttackApiCode } from '../../calc';
 
 // ==================== 演习预览支持 ====================
 //
@@ -166,6 +168,136 @@ function ensurePracticeContext(segment: BattleSegment, prediction: BattlePredict
 }
 
 
+/**
+ * 在主线程上 feed simulator 并把它的快照转成领域层 prediction。
+ *
+ * Parser 走 TaskPool worker 时拿不到主线程 simulator 单例；所以 simulator
+ * 的累计状态必须由 handler 自己维护：BATTLE_DAY 时 reset 重开一局，
+ * BATTLE_NIGHT 时不 reset、继续累计。
+ *
+ * 返回 null 表示 simulator 暂时不可用（service 没初始化、init 失败等），
+ * 调用方应回退到 payload 自带的占位 prediction。
+ */
+function predictFromSimulator(
+  apiPath: string,
+  apiData: Record<string, unknown> | undefined,
+  resetFirst: boolean,
+): BattlePrediction | null {
+  if (!apiData) return null;
+  let svc;
+  try {
+    svc = getBattlePredictionService();
+  } catch (_) {
+    return null;
+  }
+
+  const simPath = '/kcsapi/' + apiPath;
+  try {
+    if (resetFirst) svc.reset();
+    svc.onBattlePacket(simPath, { ...apiData, _path: simPath });
+  } catch (e) {
+    console.warn('[battle] simulator feed failed:', String(e));
+    return null;
+  }
+
+  const snap = svc.getCurrentSnapshot();
+  if (!snap) return null;
+
+  const context = getSortieContext();
+  return simSnapshotToDomainPrediction(
+    snap,
+    context?.fleetSnapshot?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+    context?.fleetSnapshotEscort?.ships?.map(s => ({ uid: s.uid, name: s.name })),
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asNumberArray(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((v: unknown): number => typeof v === 'number' ? v : Number(v));
+}
+
+function resolveFriendAttackerUid(context: SortieContext, rawIndex: number, isNightBattle: boolean): number {
+  if (!Number.isFinite(rawIndex)) return 0;
+  const idx = Math.floor(rawIndex);
+  const mainShips = context.fleetSnapshot.ships;
+  const escortShips = context.fleetSnapshotEscort?.ships ?? [];
+
+  // Combined night special attacks are emitted with escort-local indexes.
+  if (isNightBattle && escortShips.length > 0 && idx >= 0 && idx < escortShips.length) {
+    return escortShips[idx]?.uid ?? 0;
+  }
+
+  // Battle hougeki attacker indices in raw packets are 0-based.  The previous
+  // 1-based mapping missed flagship index 0, so a fired special attack was not
+  // recorded and the panel tag stayed visible.
+  if (idx >= 0 && idx < mainShips.length) return mainShips[idx]?.uid ?? 0;
+  const escortIdx = idx - mainShips.length;
+  if (escortIdx >= 0 && escortIdx < escortShips.length) return escortShips[escortIdx]?.uid ?? 0;
+
+  // Keep a fallback for normalized/legacy 1-based inputs.
+  const idx1 = idx - 1;
+  if (idx1 >= 0 && idx1 < mainShips.length) return mainShips[idx1]?.uid ?? 0;
+  const escortIdx1 = idx1 - mainShips.length;
+  if (escortIdx1 >= 0 && escortIdx1 < escortShips.length) return escortShips[escortIdx1]?.uid ?? 0;
+  return 0;
+}
+
+function scanSpecialAttackHougeki(
+  value: Record<string, unknown>,
+  context: SortieContext,
+  out: Set<number>,
+  isNightBattle: boolean,
+): void {
+  const atList = asNumberArray(value.api_at_list);
+  if (atList.length === 0) return;
+
+  const atType = asNumberArray(value.api_at_type);
+  const spList = asNumberArray(value.api_sp_list);
+  const atEflag = asNumberArray(value.api_at_eflag);
+  const count = Math.max(atList.length, atType.length, spList.length);
+
+  for (let i = 0; i < count; i++) {
+    if ((atEflag[i] ?? 0) === 1) continue;
+
+    const spCode = spList[i] ?? 0;
+    const atCode = atType[i] ?? 0;
+    const code = spCode > 0 ? spCode : atCode;
+    if (!Number.isFinite(code) || !isSpecialAttackApiCode(code)) continue;
+
+    const uid = resolveFriendAttackerUid(context, atList[i] ?? 0, isNightBattle);
+    if (uid > 0) out.add(uid);
+  }
+}
+
+function collectTriggeredSpecialAttackUids(
+  apiData: Record<string, unknown> | undefined,
+  context: SortieContext,
+  isNightBattle: boolean,
+): number[] {
+  const out: Set<number> = new Set();
+  if (!apiData) return [];
+
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (!isRecord(value)) return;
+
+    scanSpecialAttackHougeki(value, context, out, isNightBattle);
+    for (const key of Object.keys(value)) {
+      visit(value[key]);
+    }
+  };
+
+  visit(apiData);
+  return Array.from(out);
+}
+
 class BattleHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     const e = ev as AnyBattleEvt;
@@ -192,8 +324,16 @@ class BattleHandler implements Handler {
     payload: BattleDayPayload,
     deps: PersistDeps
   ): Promise<void> {
-    const { apiPath, segment, isPractice, isAirRaid } = payload;
+    const { apiPath, segment, apiData, isPractice, isAirRaid } = payload;
     let { prediction } = payload;
+
+    // 非空袭：在主线程 feed simulator（reset 后喂入），用它的快照作为预测来源。
+    // 基地空袭的 prediction 由 parser 的 buildAirRaidPrediction 提供 —— simulator
+    // 的 mainFleet 是出击舰娘，与空袭基地语义不符，所以走原 payload。
+    if (!isAirRaid) {
+      const simPred = predictFromSimulator(apiPath, apiData, /*resetFirst*/ true);
+      if (simPred) prediction = simPred;
+    }
 
     // 演习首个事件：按当前 deck 合成一个最小 SortieContext 让预览生效。
     if (isPractice) {
@@ -203,8 +343,13 @@ class BattleHandler implements Handler {
     // 1. 获取出击上下文，更新内存状态
     const context = getSortieContext();
     if (context) {
-      // 用舰船信息丰富预测；基地空袭的 friend 一侧是基地，parser 已用 LBAS 名填好，
-      // 此处跳过避免被舰队名覆盖。
+      if (context.pendingBattle?.isAirRaid && !isAirRaid) {
+        context.pendingBattle = null;
+      }
+
+      // simSnapshotToDomainPrediction 已经按 s.pos 贴了 uid/name，但对于在
+      // 模拟器初始化前已经存在的演习上下文，或舰队 snapshot 与 simulator
+      // 初始化时序错位时，下标可能仍需要修正。再 enrich 一次保证一致。
       if (!isAirRaid) {
         prediction = enrichPredictionWithShipInfo(
           prediction,
@@ -228,14 +373,16 @@ class BattleHandler implements Handler {
         context.pendingBattle.merged = segment;
         context.pendingBattle.prediction = prediction;
         context.pendingBattle.isPractice = isPractice;
-        if (isAirRaid) {
-          context.pendingBattle.isAirRaid = true;
-        }
+        context.pendingBattle.isAirRaid = isAirRaid;
 
         // 填充敌方舰队信息（供 UI 显示敌舰 ID）
         if (segment.enemyMain) {
           context.pendingBattle.enemyFleet = segment.enemyMain;
           context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
+        }
+
+        if (!isPractice) {
+          markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context, false));
         }
 
         // 更新战斗状态快照 (供前端显示)
@@ -253,8 +400,13 @@ class BattleHandler implements Handler {
     payload: BattleNightPayload,
     deps: PersistDeps
   ): Promise<void> {
-    const { apiPath, segment, isPractice } = payload;
+    const { apiPath, segment, apiData, isPractice } = payload;
     let { prediction } = payload;
+
+    // 夜战累计到当前 simulator（不 reset），保证 hpAfter 是昼夜累计后的真值。
+    // simulator 如果还没被昼战 init，会在这里从当前 GameState 初始化一份 fleet。
+    const simPred = predictFromSimulator(apiPath, apiData, /*resetFirst*/ false);
+    if (simPred) prediction = simPred;
 
     // 演习直入夜战(api_req_practice/midnight_battle 罕见但可能)：合成上下文。
     if (isPractice) {
@@ -263,8 +415,11 @@ class BattleHandler implements Handler {
 
     // 1. 获取出击上下文
     const context = getSortieContext();
+    if (context && context.pendingBattle?.isAirRaid) {
+      context.pendingBattle = null;
+    }
 
-    // 2. 合并昼夜战
+    // 2. 合并昼夜战（仅用于 BattleRecord.hpEnd 等下游消费者；preview 直接看 prediction）
     let merged: BattleSegment;
     if (context?.pendingBattle?.daySegment) {
       merged = mergeBattleSegments(context.pendingBattle.daySegment, segment);
@@ -274,6 +429,8 @@ class BattleHandler implements Handler {
 
     // 3. 更新内存状态
     if (context) {
+      // 再 enrich 一次：simulator 可能在演习/开幕夜战等场景下还没收到 sortie
+      // 上下文的舰队信息（init 用的是 GameState），这里用当前 fleetSnapshot 兜底。
       prediction = enrichPredictionWithShipInfo(
         prediction,
         context.fleetSnapshot.ships.map(s => ({ uid: s.uid, name: s.name })),
@@ -301,6 +458,10 @@ class BattleHandler implements Handler {
         if (segment.enemyMain) {
           context.pendingBattle.enemyFleet = segment.enemyMain;
           context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
+        }
+
+        if (!isPractice) {
+          markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context, true));
         }
 
         // 更新战斗状态快照 (供前端显示)
@@ -378,7 +539,12 @@ class BattleHandler implements Handler {
       endedAt: now,
     };
 
-    // 3. 更新战斗结果状态快照 (供前端显示)
+    // 3. 战斗结算阶段不再回写 GameState.ships。
+    //    BattlePreview 显示的结果数据来自 prediction（在战斗段时就已计算好），
+    //    main panel 的 GameState 留到下一次 api_req_map/next 或 /api_port/port
+    //    再统一刷新，避免本地预测的索引偏差污染主面板 HP。
+
+    // 3b. 更新战斗结果状态快照 (供 BattlePreview 渲染 result header / drop 等)
     if (context && context.pendingBattle && context.pendingBattle.prediction) {
       const resultSnapshot = buildBattleResultSnapshot({
         battleId,
@@ -396,38 +562,6 @@ class BattleHandler implements Handler {
       updateBattleResult(resultSnapshot);
     }
 
-    // 3b. 把战后 HP 写回 GameState.ships，使主面板与侧边栏在
-    // 下一次 /api_port/port 之前就反映真实战后 HP（与侧边栏 BATTLE_RESULT
-    // 覆盖逻辑保持一致）。BattleResult 响应不含 api_ship_data，
-    // 故依赖战斗段（来自模拟器或包结算）的 hpEnd。
-    // 演习是模拟战斗，舰船 HP 实际不会下降，跳过 HP 回写避免污染主面板。
-    if (context && !isPractice) {
-      const hpPatches: { uid: number; hpNow: number; hpMax: number }[] = [];
-      const mainShips = context.fleetSnapshot?.ships ?? [];
-      const mainNow = record.hpEnd.friend.main.now;
-      const mainMax = record.hpEnd.friend.main.max;
-      for (let i = 0; i < mainShips.length && i < mainNow.length; i++) {
-        const uid = mainShips[i].uid;
-        if (!uid) continue;
-        const hpMax = mainMax[i] > 0 ? mainMax[i] : mainShips[i].hpMax;
-        hpPatches.push({ uid, hpNow: mainNow[i], hpMax });
-      }
-      if (context.combinedType > 0) {
-        const escortShips = context.fleetSnapshotEscort?.ships ?? [];
-        const escortNow = record.hpEnd.friend.escort?.now ?? [];
-        const escortMax = record.hpEnd.friend.escort?.max ?? [];
-        for (let i = 0; i < escortShips.length && i < escortNow.length; i++) {
-          const uid = escortShips[i].uid;
-          if (!uid) continue;
-          const hpMax = escortMax[i] > 0 ? escortMax[i] : escortShips[i].hpMax;
-          hpPatches.push({ uid, hpNow: escortNow[i], hpMax });
-        }
-      }
-      if (hpPatches.length > 0) {
-        patchShipsHp(hpPatches);
-      }
-    }
-
     // 4. 持久化（非演习才存储）
     if (!isPractice && deps.repos?.battle) {
       try {
@@ -439,20 +573,20 @@ class BattleHandler implements Handler {
       }
     }
     // 5a. 战斗结算提醒
-    if (isPractice) {
-      // 演习不进击下一节点，跳过提醒；同时清掉上一节点遗留的大破标记。
-      setLastBattleHasTaihaRisk(false);
-      setLastBattleTaihaShips([]);
-    } else {
-      try {
+    try {
+      let hasTaihaRisk = false;
+      const taihaShipsList: { uid: number; name: string; hpAfter: number; hpMax: number }[] = [];
+      if (isPractice) {
+        // 演习没有进击风险，但仍发送战斗结束提醒；同时清掉上一节点遗留的大破标记。
+        setLastBattleHasTaihaRisk(false);
+        setLastBattleTaihaShips([]);
+      } else {
         // 计算大破无损管击沉风险（旗舰 i=0 不会击沉，从 i=1 开始）
-        let hasTaihaRisk = false;
-        const taihaShipsList: { uid: number; name: string; hpAfter: number; hpMax: number }[] = [];
         const prediction = context?.pendingBattle?.prediction;
         const mainPred = prediction?.friendMain ?? [];
         for (let i = 1; i < mainPred.length; i++) {
           const ship = mainPred[i];
-          if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
+          if (!ship || ship.hpMax <= 0 || ship.isSunk || isShipEscaped(ship.uid)) continue;
           if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
             const equip = getShipSpecialEquip(ship.uid);
             if (!equip.hasDamageControl && !equip.hasGoddess) {
@@ -471,7 +605,7 @@ class BattleHandler implements Handler {
           const escortPred = prediction?.friendEscort ?? [];
           for (let i = 1; i < escortPred.length; i++) {
             const ship = escortPred[i];
-            if (!ship || ship.hpMax <= 0 || ship.isSunk) continue;
+            if (!ship || ship.hpMax <= 0 || ship.isSunk || isShipEscaped(ship.uid)) continue;
             if (ship.hpAfter > 0 && ship.hpAfter / ship.hpMax <= 0.25) {
               const equip = getShipSpecialEquip(ship.uid);
               if (!equip.hasDamageControl && !equip.hasGoddess) {
@@ -490,22 +624,52 @@ class BattleHandler implements Handler {
         // 保存本次大破风险及大破舰娘列表，供下一节点进击提醒使用
         setLastBattleHasTaihaRisk(hasTaihaRisk);
         setLastBattleTaihaShips(taihaShipsList);
+      }
 
-        const battleResultAlert: BattleResultAlert = {
-          type: 'battle_result',
-          timestamp: now,
-          cellId: record.cellId,
-          isBoss: record.isBoss,
-          rank: record.rank,
-          hasTaihaRisk,
-        };
-        publishAlert(battleResultAlert);
+      const battleResultAlert: BattleResultAlert = {
+        type: 'battle_result',
+        timestamp: now,
+        cellId: record.cellId,
+        isBoss: record.isBoss,
+        rank: record.rank,
+        hasTaihaRisk,
+      };
+      publishAlert(battleResultAlert);
+    } catch (e) {
+      console.warn('[battle] publishAlert(BattleResultAlert) failed:', String(e));
+    }
+
+    // 6a. 把 simulator 的最终 HP 攒成「待写回」patches，挂到 SortieContext 上。
+    //     不在这里写 GameState：BattlePreview 仍在显示战斗结果，mainpanel 应保持
+    //     原样直到下一次进击 (SORTIE_NEXT) 再统一刷新。把 patches 现在算好是
+    //     因为 simulator 马上要 reset，错过就拿不到了。
+    if (context && !isPractice) {
+      try {
+        const snap = getBattlePredictionService().getCurrentSnapshot();
+        if (snap) {
+          const patches: { uid: number; hpNow: number; hpMax: number }[] = [];
+          const mainShips = context.fleetSnapshot?.ships ?? [];
+          for (const s of snap.mainFleet) {
+            const uid = mainShips[s.pos]?.uid;
+            if (!uid || uid <= 0) continue;
+            patches.push({ uid, hpNow: Math.max(0, s.nowHP), hpMax: s.maxHP });
+          }
+          if (context.combinedType > 0) {
+            const escortShips = context.fleetSnapshotEscort?.ships ?? [];
+            for (const s of snap.escortFleet) {
+              const uid = escortShips[s.pos - 6]?.uid;
+              if (!uid || uid <= 0) continue;
+              patches.push({ uid, hpNow: Math.max(0, s.nowHP), hpMax: s.maxHP });
+            }
+          }
+          context.pendingHpPatches = patches;
+        }
       } catch (e) {
-        console.warn('[battle] publishAlert(BattleResultAlert) failed:', String(e));
+        console.warn('[battle] capturing HP patches failed:', String(e));
       }
     }
 
-    // 6. 清理战斗上下文
+    // 6b. 清理战斗上下文
     if (context) {
       context.pendingBattle = null;
     }

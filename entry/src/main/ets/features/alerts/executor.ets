@@ -30,6 +30,7 @@ import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
 import { getMissionName } from './module/missionCache';
 import { getLaunchWantAgent } from './module/launchWantAgent';
+import { resourceGainName } from '../resources/resourceMeta';
 
 // ========== 通知 ID 常量 ==========
 const NOTIFICATION_ID_EXPEDITION_BASE = 1000;
@@ -70,7 +71,7 @@ function formatResourceLine(alert: SortieNextAlert): string {
   if (gains.length === 0) return '';
 
   const text = gains
-    .map(gain => `${gain.name}+${gain.count}`)
+    .map(gain => `${resourceGainName(gain.itemId, gain.iconId, gain.name) || gain.name}+${gain.count}`)
     .join('、');
   return `获得：${text}`;
 }
@@ -237,9 +238,11 @@ async function handleSortieNext(alert: SortieNextAlert): Promise<void> {
   const taihaStr = alert.hasTaihaRisk ? ' - ⚠大破警告！' : '';
   const cellLabel = formatCellCode(alert.cellId);
   const line1 = `${fleetLabel} → ${cellLabel}${bossStr}: ${alert.eventDesc}${taihaStr}`;
+  const resourceLine = formatResourceLine(alert);
+  const enemyLine = alert.enemyFlagshipName ? `敌舰队：${alert.enemyFlagshipName}` : '';
   const details = [
-    formatResourceLine(alert),
-    alert.enemyFlagshipName ? `敌舰队：${alert.enemyFlagshipName}` : '',
+    resourceLine,
+    enemyLine,
   ].filter(line => line.length > 0);
   const detailText = details.join('\n');
   const message = detailText ? `${line1}\n${detailText}` : line1;

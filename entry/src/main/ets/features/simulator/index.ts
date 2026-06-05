@@ -64,3 +64,9 @@ export type {
 
 // GameState 适配器
 export { gameStateAdapter } from './state_adapter';
+
+// Snapshot → domain bridge
+export {
+  simSnapshotToDomainPrediction,
+  buildFallbackPrediction,
+} from './snapshot_to_domain';

@@ -22,12 +22,58 @@ import { parseDump, ParseResult } from '../../../parsers/pipeline';
 import { dispatchEvent } from '../executor';
 import { parseSvdata, parseSvdataAndUnwrap } from '../../../utils/common';
 import { ApiStateFields, detectStateFields } from '../../../../domain/models/api/response';
-import { extractAndUpdateState, markShipsEscaped } from '../../../state';
+import {
+  extractAndUpdateState,
+  markShipsEscaped,
+  getNDocks,
+  getShip,
+  getMaterials,
+  patchMaterials,
+  patchShipsHp,
+  patchDeckShip,
+  patchShipSlot,
+  patchShipExSlot,
+  patchShipUnsetSlots,
+  patchShipSlotExchange,
+  patchShipSlotDeprive
+} from '../../../state';
 import { getSortieContext } from '../../../../domain/service';
 import { parseFormBody } from '../../../utils/common';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
 const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB
+
+interface ApiResponseProbeData {
+  api_material?: object[];
+  api_bauxite?: number;
+  api_ship?: object | object[] | null;
+  api_ship_data?: object | object[] | null;
+}
+
+interface ApiResponseProbe {
+  api_result?: number | string;
+  api_data?: ApiResponseProbeData | null;
+}
+
+interface ApiDeckData {
+  api_id?: number;
+  api_name?: string;
+  api_ship?: number[];
+  api_mission?: number[];
+}
+
+interface ApiDeckResponseData extends ApiDeckData {
+  api_deck_data?: ApiDeckData[] | null;
+}
+
+interface ApiDeckResponseProbe {
+  api_result?: number | string;
+  api_data?: ApiDeckResponseData | null;
+}
+
+interface ApiDeckStatePatch {
+  api_deck_data: ApiDeckData[];
+}
 
 function totalSize(d: ApiDump): number {
   const a: number = d.requestBody?.length ?? 0
@@ -78,33 +124,197 @@ function isEmptyResult(result: ParseResult): boolean {
     && (!result.postEvents || result.postEvents.length === 0);
 }
 
+function isSuccessfulApiResponse(responseText: string | null | undefined): boolean {
+  const root = parseSvdata<ApiResponseProbe>(responseText);
+  if (!root) return false;
+  const result = root.api_result;
+  if (result === undefined) return true;
+  return Number(result) === 1;
+}
+
+function responseHasMaterial(responseText: string | null | undefined): boolean {
+  const root = parseSvdata<ApiResponseProbe>(responseText);
+  const data = root?.api_data;
+  return data !== null && data !== undefined && Array.isArray(data.api_material);
+}
+
+function responseHasShipData(responseText: string | null | undefined): boolean {
+  const root = parseSvdata<ApiResponseProbe>(responseText);
+  const data = root?.api_data;
+  if (data === null || data === undefined) return false;
+  return (data.api_ship !== undefined && data.api_ship !== null) ||
+    (data.api_ship_data !== undefined && data.api_ship_data !== null);
+}
+
+function patchBauxiteFromResponse(responseText: string | null | undefined): void {
+  const root = parseSvdata<ApiResponseProbe>(responseText);
+  const data = root?.api_data;
+  if (data === null || data === undefined || typeof data.api_bauxite !== 'number') return;
+
+  patchMaterials({ bauxite: data.api_bauxite });
+}
+
+function deckProbeIsDeck(data: ApiDeckData | null | undefined): boolean {
+  return data !== null && data !== undefined &&
+    typeof data.api_id === 'number' &&
+    Array.isArray(data.api_ship);
+}
+
+function patchDeckFromResponse(responseText: string | null | undefined): void {
+  const root = parseSvdata<ApiDeckResponseProbe>(responseText);
+  const data = root?.api_data;
+  if (data === null || data === undefined) return;
+
+  const decks: ApiDeckData[] = [];
+  if (Array.isArray(data.api_deck_data)) {
+    for (const deck of data.api_deck_data) {
+      if (deckProbeIsDeck(deck)) decks.push(deck);
+    }
+  } else if (deckProbeIsDeck(data)) {
+    decks.push(data);
+  }
+
+  if (decks.length === 0) return;
+  const patch: ApiDeckStatePatch = { api_deck_data: decks };
+  extractAndUpdateState(patch);
+}
+
+function patchPanelStateFromHenseiRequest(dump: ApiDump): void {
+  const url = dump.url ?? '';
+  if (!url.includes('/api_req_hensei/')) return;
+  if (!isSuccessfulApiResponse(dump.responseText)) return;
+
+  if (url.includes('/api_req_hensei/preset_select')) {
+    patchDeckFromResponse(dump.responseText);
+    return;
+  }
+  if (!url.includes('/api_req_hensei/change')) return;
+
+  const params = parseFormBody(dump.requestBody);
+  const deckId = params.getInt('api_id', 0);
+  const shipUid = params.getInt('api_ship_id', 0);
+  const shipIdx = params.getInt('api_ship_idx', 0);
+  patchDeckShip(deckId, shipIdx, shipUid);
+}
+
+function completeRepairForShip(shipUid: number, consumeBucket: boolean): void {
+  if (shipUid <= 0) return;
+  const ship = getShip(shipUid);
+  if (!ship || ship.hpMax <= 0) return;
+
+  patchShipsHp([{ uid: shipUid, hpNow: ship.hpMax, hpMax: ship.hpMax }]);
+  const materials = getMaterials();
+  if (consumeBucket && materials && materials.instantRepair > 0) {
+    patchMaterials({ instantRepair: materials.instantRepair - 1 });
+  }
+}
+
+function patchPanelStateFromNyukyoRequest(dump: ApiDump): void {
+  const url = dump.url ?? '';
+  if (!url.includes('/api_req_nyukyo/')) return;
+  if (!isSuccessfulApiResponse(dump.responseText)) return;
+
+  const params = parseFormBody(dump.requestBody);
+  const consumeBucket = !responseHasMaterial(dump.responseText);
+  if (url.includes('/api_req_nyukyo/start')) {
+    if (params.getInt('api_highspeed', 0) === 1) {
+      completeRepairForShip(params.getInt('api_ship_id', 0), consumeBucket);
+    }
+    return;
+  }
+  if (url.includes('/api_req_nyukyo/speedchange')) {
+    const dockId = params.getInt('api_ndock_id', 0);
+    const dock = getNDocks().find(item => item.dockId === dockId);
+    completeRepairForShip(dock?.shipUid ?? 0, consumeBucket);
+  }
+}
+
+function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
+  const url = dump.url ?? '';
+  if (!url.includes('/api_req_kaisou/')) return;
+  if (!isSuccessfulApiResponse(dump.responseText)) return;
+
+  const params = parseFormBody(dump.requestBody);
+  const hasResponseShipData = responseHasShipData(dump.responseText);
+
+  if (url.includes('/api_req_kaisou/preset_slot_select')) {
+    patchBauxiteFromResponse(dump.responseText);
+    return;
+  }
+
+  if (url.includes('/api_req_kaisou/slot_deprive')) {
+    if (!hasResponseShipData) {
+      patchShipSlotDeprive(
+        params.getInt('api_unset_ship', 0),
+        params.getInt('api_set_ship', 0),
+        params.getInt('api_unset_slot_kind', -1),
+        params.getInt('api_set_slot_kind', -1),
+        params.getInt('api_unset_idx', -1),
+        params.getInt('api_set_idx', -1)
+      );
+    }
+    return;
+  }
+
+  if (url.includes('/api_req_kaisou/slotset_ex')) {
+    patchShipExSlot(params.getInt('api_id', 0), params.getInt('api_item_id', -1));
+    return;
+  }
+  if (url.includes('/api_req_kaisou/slotset')) {
+    patchShipSlot(
+      params.getInt('api_id', 0),
+      params.getInt('api_slot_idx', -1),
+      params.getInt('api_item_id', -1)
+    );
+    return;
+  }
+  if (url.includes('/api_req_kaisou/unsetslot_all')) {
+    patchShipUnsetSlots(params.getInt('api_id', 0));
+    return;
+  }
+  if (url.includes('/api_req_kaisou/slot_exchange_index')) {
+    if (!hasResponseShipData) {
+      patchShipSlotExchange(
+        params.getInt('api_id', 0),
+        params.getInt('api_src_idx', -1),
+        params.getInt('api_dst_idx', -1)
+      );
+    }
+  }
+}
+
 export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void> {
   const size: number = totalSize(dump)
 
   let result: ParseResult = { preEvents: [], mainEvents: [] };
-  // 提取状态（补给 API 的 api_material 为 number[] 格式，由专用 pipeline 处理，跳过通用提取）
+  // 提取状态（补给 API 的 api_material 为 number[] 格式，由专用 pipeline 处理，跳过通用提取；
+  // port 也交给专用 handler，保证先清战斗/出击临时状态再写入港内数据）
   const isCharge = dump.url?.includes('/api_req_hokyu/charge');
-  if (!isCharge) {
+  const isPort = dump.url?.includes('/api_port/port');
+  if (!isCharge && !isPort) {
     try {
       const apiData = parseSvdataAndUnwrap<ApiStateFields>(dump.responseText);
       if(apiData) {
         const fields = detectStateFields(apiData);
-        if(fields.any){
-          const isPort = dump.url?.includes('./api_port/port');
-          extractAndUpdateState(apiData,{batchUpdate: isPort});
+        if (fields.hasAdmiral || fields.hasMaterials || fields.hasDecks || fields.hasShips ||
+            fields.hasNdock || fields.hasKdock) {
+          extractAndUpdateState(apiData);
         }
       }
     } catch (e) {
       console.debug('[ingest] state extract skipped:', String(e));
     }
   }
+  patchPanelStateFromHenseiRequest(dump);
+  patchPanelStateFromNyukyoRequest(dump);
+  patchPanelStateFromKaisouRequest(dump);
 
   // 退避机制：解析请求体的 api_escape_idx，把对应位置的舰娘 UID 标记为已退避。
   // - 联合舰队 (combined_battle/goback_port)：位置 1-12，1-6 主力，7-12 护卫。
-  // - 单舰队 (sortie/goback_port，部分活动机制)：位置 1-6 主力。
+  // - 单舰队/游击队 (sortie/goback_port，部分活动机制)：位置按主队 1-based 序号映射。
   // - api_escape_idx 是逗号分隔列表，长度可为 1（仅一艘舰退避）或 2（退避 + 拖船），
   //   循环按位置逐个处理，两种情况都被覆盖。
-  // 大破警告会跳过这些 UID，主面板/侧边栏会以蓝色"退避"标签显示。
+  // 大破警告会跳过这些 UID，主面板/侧边栏会以退避样式显示。
   const isGobackPort = dump.url?.includes('/api_req_combined_battle/goback_port')
     || dump.url?.includes('/api_req_sortie/goback_port');
   if (isGobackPort) {
@@ -121,13 +331,14 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
         const uids: number[] = [];
         for (const pos of positions) {
           // 优先按规范：1-6 → main，7-12 → escort。
-          // 但若没有护卫舰队（单舰队场景）而位置又 >6，则降级当作 main 队 0-based 偏移
-          // 之外的位置忽略。
+          // 没有护卫舰队时按主队 1-based 序号映射，覆盖游击队第 7 艘单舰退避。
           let uid = 0;
           if (pos <= 6) {
             uid = mainShips?.[pos - 1]?.uid ?? 0;
           } else if (escortShips) {
             uid = escortShips[pos - 7]?.uid ?? 0;
+          } else {
+            uid = mainShips?.[pos - 1]?.uid ?? 0;
           }
           if (uid > 0) uids.push(uid);
         }

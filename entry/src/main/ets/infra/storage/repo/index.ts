@@ -238,6 +238,10 @@ export class MissionRepositoryImpl implements MissionRepository {
   async listIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>> {
     return MissionDao.listIdNames();
   }
+
+  async listAll(): Promise<MissionRow[]> {
+    return MissionDao.listAll();
+  }
 }
 
 // ==================== Expedition ====================

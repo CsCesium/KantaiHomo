@@ -8,7 +8,6 @@ import {
   SlotItemMaster,
   SlotItemMasterStats,
   ShipType,
-  canOpeningASW,
   isCarrierType,
   isSubmarineType,
 } from '../../domain/models';
@@ -38,6 +37,7 @@ export interface ShipCapabilityTagContext {
   ctype: number;
   aswCur: number;
   slots: number[];
+  onslot: number[];
   exSlot: number;
   slotItemIndex: Map<number, number>;
   slotItemEquipTypes: Map<number, number>;
@@ -48,17 +48,9 @@ export interface ShipCapabilityTagContext {
   slotItemNames: Map<number, string>;
 }
 
-function slotUids(slots: number[], exSlot: number): number[] {
-  const result: number[] = [];
-  for (const uid of slots) {
-    if (uid > 0) {
-      result.push(uid);
-    }
-  }
-  if (exSlot > 0) {
-    result.push(exSlot);
-  }
-  return result;
+interface EquippedMaster {
+  master: SlotItemMaster;
+  onslot: number;
 }
 
 function toSlotItemMaster(uid: number, ctx: ShipCapabilityTagContext): SlotItemMaster | null {
@@ -91,15 +83,29 @@ function toSlotItemMaster(uid: number, ctx: ShipCapabilityTagContext): SlotItemM
   };
 }
 
-function collectMasters(ctx: ShipCapabilityTagContext): SlotItemMaster[] {
-  const masters: SlotItemMaster[] = [];
-  for (const uid of slotUids(ctx.slots, ctx.exSlot)) {
+function collectEquips(ctx: ShipCapabilityTagContext): EquippedMaster[] {
+  const equips: EquippedMaster[] = [];
+  for (let i = 0; i < ctx.slots.length; i++) {
+    const uid = ctx.slots[i];
+    if (uid <= 0) {
+      continue;
+    }
     const master = toSlotItemMaster(uid, ctx);
     if (master !== null) {
-      masters.push(master);
+      equips.push({ master, onslot: i < ctx.onslot.length ? ctx.onslot[i] : 0 });
     }
   }
-  return masters;
+  if (ctx.exSlot > 0) {
+    const master = toSlotItemMaster(ctx.exSlot, ctx);
+    if (master !== null) {
+      equips.push({ master, onslot: 0 });
+    }
+  }
+  return equips;
+}
+
+function collectMasters(equips: EquippedMaster[]): SlotItemMaster[] {
+  return equips.map(equip => equip.master);
 }
 
 function countEquipTypes(masters: SlotItemMaster[], types: ReadonlySet<SlotItemEquipType>): number {
@@ -115,6 +121,77 @@ function countEquipTypes(masters: SlotItemMaster[], types: ReadonlySet<SlotItemE
 function hasIcon(masters: SlotItemMaster[], iconId: SlotItemIconId): boolean {
   return masters.some(master => master.type.iconId === iconId);
 }
+
+function nameContains(name: string, fragments: string[]): boolean {
+  return fragments.some(fragment => name.indexOf(fragment) >= 0);
+}
+
+const TAIYOU_CLASS_SPECIAL_IDS: ReadonlySet<number> = new Set([
+  380, // 大鷹改
+  529, // 大鷹改二
+  381, // 神鷹改
+  536, // 神鷹改二
+  382, // 雲鷹改
+  889, // 雲鷹改二
+  646, // 加賀改二護
+]);
+
+const COMMON_CVL_EXCLUDED_IDS: ReadonlySet<number> = new Set([
+  508, // 鈴谷航改二
+  509, // 熊野航改二
+]);
+
+const FLEXIBLE_SONAR_CARRIER_IDS: ReadonlySet<number> = new Set([
+  894, // 鳳翔改二
+  899, // 鳳翔改二戦
+  707, // Gambier Bay Mk.II
+]);
+
+const UNCONDITIONAL_OPENING_ASW_SHIP_IDS: ReadonlySet<number> = new Set([
+  141,  // 五十鈴改二
+  478,  // 龍田改二
+  394,  // Jervis改
+  893,  // Janus改
+  681,  // Samuel B.Roberts改
+  920,  // Samuel B.Roberts Mk.II
+  562,  // Johnston
+  689,  // Johnston改
+  596,  // Fletcher
+  692,  // Fletcher改
+  628,  // Fletcher改 Mod.2
+  629,  // Fletcher Mk.II
+  624,  // 夕張改二丁
+  1035, // 吹雪改三
+  1040, // 吹雪改三護(六式)
+]);
+
+const EXCLUDED_ESCORT_IDS: ReadonlySet<number> = new Set([
+  999, // Eidsvold
+  739, // Eidsvold改
+]);
+
+const SOYA_AND_YAMASHIOMARU_IDS: ReadonlySet<number> = new Set([
+  645, // 宗谷
+  650, // 宗谷
+  699, // 宗谷
+  900, // 山汐丸
+  717, // 山汐丸改
+]);
+
+const FUSO_YAMASHIRO_K2_IDS: ReadonlySet<number> = new Set([
+  411, // 扶桑改二
+  412, // 山城改二
+]);
+
+const KUMANOMARU_IDS: ReadonlySet<number> = new Set([
+  943, // 熊野丸
+  948, // 熊野丸改
+]);
+
+const YAMATO_K2_JU_SHINSHUMARU_KAI_IDS: ReadonlySet<number> = new Set([
+  916, // 大和改二重
+  626, // 神州丸改
+]);
 
 function supportsNightCutIn(stype: number, masters: SlotItemMaster[]): boolean {
   const mainGunTypes: ReadonlySet<SlotItemEquipType> = new Set([
@@ -166,41 +243,170 @@ function supportsNightCutIn(stype: number, masters: SlotItemMaster[]): boolean {
   return shipType === ShipType.DD && torpedoCount >= 2 && (mainGunCount >= 1 || lookoutCount >= 1);
 }
 
-function supportsOpeningAsw(stype: number, aswCur: number, masters: SlotItemMaster[]): boolean {
-  const shipType = stype as ShipType;
-  if (!canOpeningASW(shipType) && shipType !== ShipType.CLT) {
+function hasEquip(equips: EquippedMaster[], predicate: (master: SlotItemMaster) => boolean): boolean {
+  return equips.some(equip => predicate(equip.master));
+}
+
+function hasEmbarkedEquip(equips: EquippedMaster[], predicate: (master: SlotItemMaster) => boolean): boolean {
+  return equips.some(equip => equip.onslot > 0 && predicate(equip.master));
+}
+
+function whiteboardAswTotal(equips: EquippedMaster[]): number {
+  return equips.reduce((sum, equip) => sum + equip.master.stats.asw, 0);
+}
+
+function isSonar(master: SlotItemMaster): boolean {
+  return master.type.equipType === SlotItemEquipType.Sonar || master.type.equipType === SlotItemEquipType.LargeSonar;
+}
+
+function isZeroSonar(master: SlotItemMaster): boolean {
+  return isSonar(master) && nameContains(master.name, ['零式水中', '零式水听', '零式水聴']);
+}
+
+function isDepthCharge(master: SlotItemMaster): boolean {
+  return master.type.equipType === SlotItemEquipType.DepthCharge;
+}
+
+function isAutogyro(master: SlotItemMaster): boolean {
+  return master.type.equipType === SlotItemEquipType.Autogyro;
+}
+
+function isAswPatrol(master: SlotItemMaster): boolean {
+  return master.type.equipType === SlotItemEquipType.AntiSubPatrol;
+}
+
+function isCarrierTorpedo(master: SlotItemMaster): boolean {
+  return master.type.equipType === SlotItemEquipType.CarrierTorpedoBomber;
+}
+
+function isCarrierDiveBomber(master: SlotItemMaster): boolean {
+  return master.type.equipType === SlotItemEquipType.CarrierDiveBomber ||
+    master.type.equipType === SlotItemEquipType.JetFighterBomber;
+}
+
+function isSeaplaneBomber(master: SlotItemMaster): boolean {
+  return master.type.equipType === SlotItemEquipType.SeaplaneBomber;
+}
+
+function isAswAircraftAtLeast(master: SlotItemMaster, asw: number): boolean {
+  return (isCarrierTorpedo(master) || isAswPatrol(master) || isAutogyro(master)) && master.stats.asw >= asw;
+}
+
+function isCarrierAttackOrDiveAswAtLeast(master: SlotItemMaster, asw: number): boolean {
+  return (isCarrierTorpedo(master) || isCarrierDiveBomber(master)) && master.stats.asw >= asw;
+}
+
+function isTaiyouClassSpecial(shipMasterId: number): boolean {
+  return TAIYOU_CLASS_SPECIAL_IDS.has(shipMasterId);
+}
+
+function isCommonCvlExcluded(shipMasterId: number): boolean {
+  return COMMON_CVL_EXCLUDED_IDS.has(shipMasterId);
+}
+
+function isFlexibleSonarCarrier(shipMasterId: number): boolean {
+  return FLEXIBLE_SONAR_CARRIER_IDS.has(shipMasterId);
+}
+
+function isUnconditionalOpeningAswShip(shipMasterId: number): boolean {
+  return UNCONDITIONAL_OPENING_ASW_SHIP_IDS.has(shipMasterId);
+}
+
+function isExcludedEscort(shipMasterId: number): boolean {
+  return EXCLUDED_ESCORT_IDS.has(shipMasterId);
+}
+
+function isStandardAsw100Ship(shipType: ShipType, shipMasterId: number): boolean {
+  return shipType === ShipType.DD ||
+    shipType === ShipType.CL ||
+    shipType === ShipType.CT ||
+    shipType === ShipType.CLT ||
+    shipType === ShipType.AO ||
+    SOYA_AND_YAMASHIOMARU_IDS.has(shipMasterId);
+}
+
+function supportsCommonCvlOpeningAsw(shipMasterId: number, aswCur: number, equips: EquippedMaster[]): boolean {
+  if (isCommonCvlExcluded(shipMasterId) || isTaiyouClassSpecial(shipMasterId)) {
     return false;
   }
 
-  const sonarTypes: ReadonlySet<SlotItemEquipType> = new Set([
-    SlotItemEquipType.Sonar,
-    SlotItemEquipType.LargeSonar,
-  ]);
-  const depthChargeTypes: ReadonlySet<SlotItemEquipType> = new Set([
-    SlotItemEquipType.DepthCharge,
-  ]);
-  const aswAircraftTypes: ReadonlySet<SlotItemEquipType> = new Set([
-    SlotItemEquipType.Autogyro,
-    SlotItemEquipType.AntiSubPatrol,
-  ]);
+  const sonarOk = isFlexibleSonarCarrier(shipMasterId)
+    ? hasEquip(equips, isSonar)
+    : hasEquip(equips, isZeroSonar);
+  const hasAsw7Aircraft = hasEmbarkedEquip(equips, master => isAswAircraftAtLeast(master, 7));
+  const hasAsw1AttackAircraft = hasEmbarkedEquip(equips, master => isCarrierAttackOrDiveAswAtLeast(master, 1));
 
-  const sonarCount = countEquipTypes(masters, sonarTypes);
-  const depthChargeCount = countEquipTypes(masters, depthChargeTypes);
-  const aswAircraftCount = countEquipTypes(masters, aswAircraftTypes);
-  const hasAswAircraft = aswAircraftCount > 0 || masters.some(master => master.type.equipType === SlotItemEquipType.CarrierTorpedoBomber && master.stats.asw > 0);
-
-  if (shipType === ShipType.DE) {
-    return aswCur >= 60 && (sonarCount > 0 || depthChargeCount > 0);
+  if (aswCur >= 50 && sonarOk && hasAsw7Aircraft) {
+    return true;
   }
-  if (shipType === ShipType.CVL || shipType === ShipType.AV) {
-    return aswCur >= 65 && hasAswAircraft;
+  if (aswCur >= 65 && hasAsw7Aircraft) {
+    return true;
+  }
+  return aswCur >= 100 && sonarOk && hasAsw1AttackAircraft;
+}
+
+function supportsOpeningAsw(ctx: ShipCapabilityTagContext, equips: EquippedMaster[]): boolean {
+  const shipType = ctx.stype as ShipType;
+  const shipMasterId = ctx.shipMasterId;
+  const aswCur = ctx.aswCur;
+
+  if (isUnconditionalOpeningAswShip(shipMasterId)) {
+    return true;
   }
 
-  return aswCur >= 100 && sonarCount > 0;
+  if (isStandardAsw100Ship(shipType, shipMasterId)) {
+    return aswCur >= 100 && hasEquip(equips, isSonar);
+  }
+
+  if (shipType === ShipType.DE && !isExcludedEscort(shipMasterId)) {
+    return (aswCur >= 60 && hasEquip(equips, isSonar)) ||
+      (aswCur >= 75 && whiteboardAswTotal(equips) >= 4);
+  }
+
+  if (isTaiyouClassSpecial(shipMasterId)) {
+    return hasEmbarkedEquip(equips, master =>
+      (isCarrierTorpedo(master) || isCarrierDiveBomber(master) || isAswPatrol(master) || isAutogyro(master)) &&
+        master.stats.asw >= 1);
+  }
+
+  if (shipType === ShipType.CVL) {
+    return supportsCommonCvlOpeningAsw(shipMasterId, aswCur, equips);
+  }
+
+  if (FUSO_YAMASHIRO_K2_IDS.has(shipMasterId)) {
+    return aswCur >= 100 &&
+      hasEquip(equips, isZeroSonar) &&
+      (hasEmbarkedEquip(equips, master => isSeaplaneBomber(master) || isAutogyro(master)) ||
+        hasEquip(equips, isDepthCharge));
+  }
+
+  if (KUMANOMARU_IDS.has(shipMasterId)) {
+    return aswCur >= 100 &&
+      hasEquip(equips, isSonar) &&
+      hasEmbarkedEquip(equips, master =>
+        (isCarrierDiveBomber(master) || isAutogyro(master) || isAswPatrol(master)) && master.stats.asw >= 1);
+  }
+
+  if (YAMATO_K2_JU_SHINSHUMARU_KAI_IDS.has(shipMasterId)) {
+    return aswCur >= 100 &&
+      hasEquip(equips, isSonar) &&
+      hasEmbarkedEquip(equips, master => isSeaplaneBomber(master) || isAutogyro(master));
+  }
+
+  if (shipMasterId === 554) {
+    const kaObservationCount = equips.filter(equip =>
+      nameContains(equip.master.name, ['カ号観測機', 'Ｏ号観測機', 'O号観測機', 'O号观测机'])).length;
+    const s51Count = equips.filter(equip =>
+      nameContains(equip.master.name, ['S-51J'])).length;
+    return kaObservationCount >= 2 || s51Count >= 1;
+  }
+
+  return false;
 }
 
 export function buildShipCapabilityTags(ctx: ShipCapabilityTagContext): string[] {
-  const masters = collectMasters(ctx);
+  const equips = collectEquips(ctx);
+  const masters = collectMasters(equips);
   const tags: string[] = [];
 
   if (detectAacis(ctx.shipMasterId, ctx.stype, ctx.ctype, masters).length > 0) {
@@ -209,7 +415,7 @@ export function buildShipCapabilityTags(ctx: ShipCapabilityTagContext): string[]
   if (supportsNightCutIn(ctx.stype, masters)) {
     tags.push(NIGHT_CI_TAG);
   }
-  if (supportsOpeningAsw(ctx.stype, ctx.aswCur, masters)) {
+  if (supportsOpeningAsw(ctx, equips)) {
     tags.push(OPENING_ASW_TAG);
   }
 

@@ -5,6 +5,8 @@
  * WebHostController（进击提醒）读取。
  */
 
+import { isShipEscaped } from '../state/game_state';
+
 export interface LastBattleTaihaShip {
   uid: number;
   name: string;
@@ -22,7 +24,7 @@ export function setLastBattleHasTaihaRisk(risk: boolean): void {
 
 /** 读取上一场战斗结算后的大破击沉风险 */
 export function getLastBattleHasTaihaRisk(): boolean {
-  return _lastBattleHasTaihaRisk;
+  return _lastBattleHasTaihaRisk && getLastBattleTaihaShips().length > 0;
 }
 
 /** 战斗结算后写入大破舰娘列表（用于下一节点的 TaihaWarningAlert） */
@@ -32,7 +34,7 @@ export function setLastBattleTaihaShips(ships: LastBattleTaihaShip[]): void {
 
 /** 读取上一场战斗大破舰娘列表 */
 export function getLastBattleTaihaShips(): LastBattleTaihaShip[] {
-  return _lastBattleTaihaShips;
+  return _lastBattleTaihaShips.filter(ship => !isShipEscaped(ship.uid));
 }
 
 /** 出击开始时重置（新出击前无历史战斗） */

@@ -1,6 +1,6 @@
 import type { RequireInfoUpdateEvent } from '../../../domain/events/require_info';
 import { admiralToRow, kdockToRow } from '../../../domain/models';
-import { updateAdmiral, updateKdocks } from '../../state';
+import { updateAdmiral, updateKdocks, updateUseItems } from '../../state';
 import { registerHandler } from '../persist/registry';
 import type { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -12,6 +12,7 @@ class RequireInfoPersistHandler implements Handler {
 
     updateAdmiral(payload.admiral);
     updateKdocks(payload.kdocks);
+    updateUseItems(payload.useItems);
 
     if (deps.repos?.admiral) {
       await deps.repos.admiral.upsert(admiralToRow(payload.admiral));
@@ -26,7 +27,7 @@ class RequireInfoPersistHandler implements Handler {
       console.warn('[persist][REQUIRE_INFO_UPDATE] build repo missing');
     }
 
-    console.info(`[require_info] admiral + ${payload.kdocks.length} kdock(s); useItems=${payload.useItems.length} (in-memory only)`);
+    console.info(`[require_info] admiral + ${payload.kdocks.length} kdock(s); useItems=${payload.useItems.length}`);
   }
 }
 

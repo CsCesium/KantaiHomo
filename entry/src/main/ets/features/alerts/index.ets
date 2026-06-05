@@ -66,6 +66,12 @@ export {
   getExpeditionLiveNotificationService,
 } from './module/expeditionNotification';
 
+// ========== ExpeditionReminder ==========
+
+export {
+  getExpeditionReminderService,
+} from './module/expeditionReminder';
+
 export {
   cacheMissionNames,
   getMissionName,

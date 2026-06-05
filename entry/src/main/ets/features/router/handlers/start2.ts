@@ -1,10 +1,10 @@
 import { AnyStart2Evt } from '../../../domain/events/start2';
-import { ApiMstMissionRaw, ApiMstShipRaw, ApiMstSlotitemRaw } from '../../../domain/models/api/start2';
+import { ApiMstMissionRaw, ApiMstShipRaw, ApiMstSlotitemRaw, ApiMstUseitemRaw } from '../../../domain/models/api/start2';
 import { ApiMstSlotItemRaw } from '../../../domain/models/api/mst_slotitem';
 import { normalizeMstSlotItem } from '../../../domain/models/normalizer/mst_slotitem';
 import { slotItemMasterToRow } from '../../../domain/models/mapper/slotitem';
 import { MissionRow, ShipGraphRow, ShipMasterRow } from '../../../infra/storage/types';
-import { updateShipGraphFilenames, updateShipMasterMeta, updateSlotItemEquipTypes, setGameServerUrl } from '../../state';
+import { updateShipGraphFilenames, updateShipMasterMeta, updateSlotItemEquipTypes, updateUseItemMasterNames, setGameServerUrl } from '../../state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -65,6 +65,48 @@ function hasChanges(
   return incoming.some(m => dbMap.get(m.id) !== m.name);
 }
 
+function parseOptionalNumber(value: string | number | undefined): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'string') {
+    const parsed = parseInt(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function slotItemRawToNormalizerInput(raw: ApiMstSlotitemRaw): ApiMstSlotItemRaw {
+  return {
+    api_id: raw.api_id,
+    api_sortno: raw.api_sortno ?? 0,
+    api_name: raw.api_name,
+    api_type: raw.api_type,
+    api_taik: raw.api_taik ?? 0,
+    api_souk: raw.api_souk ?? 0,
+    api_houg: raw.api_houg ?? 0,
+    api_raig: raw.api_raig ?? 0,
+    api_soku: raw.api_soku ?? 0,
+    api_baku: raw.api_baku ?? 0,
+    api_tyku: raw.api_tyku ?? 0,
+    api_tais: raw.api_tais ?? 0,
+    api_atap: raw.api_atap,
+    api_houm: raw.api_houm ?? 0,
+    api_raim: raw.api_raim,
+    api_houk: raw.api_houk ?? 0,
+    api_raik: raw.api_raik,
+    api_bakk: raw.api_bakk,
+    api_saku: raw.api_saku ?? 0,
+    api_sakb: raw.api_sakb,
+    api_luck: raw.api_luck ?? 0,
+    api_leng: raw.api_leng ?? 0,
+    api_rare: raw.api_rare ?? 0,
+    api_cost: raw.api_cost,
+    api_distance: raw.api_distance,
+    api_broken: raw.api_broken ?? [],
+    api_usebull: parseOptionalNumber(raw.api_usebull),
+    api_version: raw.api_version,
+  };
+}
+
 class Start2Handler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     const e = ev as AnyStart2Evt;
@@ -79,6 +121,9 @@ class Start2Handler implements Handler {
         break;
       case 'MISSION_MASTER_CATALOG':
         await this.handleMissionMaster(e.payload, ts, deps);
+        break;
+      case 'USEITEM_MASTER_CATALOG':
+        this.handleUseItemMaster(e.payload);
         break;
       case 'SHIP_GRAPH_CATALOG':
         await this.handleShipGraph(e.payload.graphs, e.payload.serverBase, ts, deps);
@@ -179,7 +224,7 @@ class Start2Handler implements Handler {
         return;
       }
       const rows = payload.map(r => {
-        const master = normalizeMstSlotItem(r as unknown as ApiMstSlotItemRaw, ts);
+        const master = normalizeMstSlotItem(slotItemRawToNormalizerInput(r), ts);
         return slotItemMasterToRow(master);
       });
       await deps.repos.slotitem.upsertMasterBatch(rows);
@@ -188,10 +233,18 @@ class Start2Handler implements Handler {
       console.warn('[persist][SLOTITEM_MASTER] failed:', e);
     }
   }
+
+  private handleUseItemMaster(payload: ApiMstUseitemRaw[]): void {
+    updateUseItemMasterNames(payload.map((r: ApiMstUseitemRaw) => ({
+      id: r.api_id,
+      name: r.api_name ?? '',
+    })));
+  }
 }
 
 const handler = new Start2Handler();
 registerHandler('SHIP_MASTER_CATALOG', handler);
 registerHandler('SLOTITEM_MASTER_CATALOG', handler);
 registerHandler('MISSION_MASTER_CATALOG', handler);
+registerHandler('USEITEM_MASTER_CATALOG', handler);
 registerHandler('SHIP_GRAPH_CATALOG', handler);

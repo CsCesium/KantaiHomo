@@ -15,7 +15,8 @@ import {
   shipToRow
 } from '../../../domain/models';
 import { updateFromPort, updateAdmiral, updateMaterials, updateDecks, updateNdocks, updateKdocks,
-  updateShips, clearBattleState, clearEscapedShips } from '../../state';
+  updateShips, clearBattleState, clearEscapedShips, clearSortieResourceGains,
+  clearSpecialAttackTriggeredShips } from '../../state';
 import { clearSortieContext } from '../../../domain/service';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -52,17 +53,19 @@ class PortPersistHandler implements Handler {
   }
   private async handleSnapshot(payload: PortSnapshot, ts: number, deps: PersistDeps): Promise<void> {
     const snapshot = payload;
+    // 先清空战斗 / 出击 / 退避 / 出击资源累计状态，再写入入港数据，
+    // 保证 BattlePreview 在返港时能正确退场。
+    clearBattleState();
+    clearSortieContext();
+    clearEscapedShips();
+    clearSortieResourceGains();
+    clearSpecialAttackTriggeredShips();
     updateFromPort({
       admiral: snapshot.admiral,
       materials: snapshot.materials,
       decks: snapshot.decks,
       ships: snapshot.ships,
     });
-    // 入港即出击结束：清空战斗结果快照和出击上下文，
-    // 防止旧的战斗 HP 覆盖入港后的最新舰船状态。
-    clearBattleState();
-    clearSortieContext();
-    clearEscapedShips();
     console.info('[port] snapshot updated to GameState');
     return;
   }

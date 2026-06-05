@@ -9,8 +9,7 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
-/change.patch
-/docs/apilist.txt
+/docs/*
 build-profile.json5
 
 # OHOS signing

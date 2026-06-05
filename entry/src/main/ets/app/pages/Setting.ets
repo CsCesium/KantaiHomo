@@ -3,9 +3,24 @@ import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
 import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../ability/Entry';
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
+import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
+import {
+  TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT,
+  TOUCH_WHEEL_SENSITIVITY_MAX_PERCENT,
+  TOUCH_WHEEL_SENSITIVITY_MIN_PERCENT,
+  TOUCH_WHEEL_SENSITIVITY_STEP_PERCENT,
+  normalizeTouchWheelSensitivityPercent
+} from '../../infra/web/input/touchWheelSensitivity';
+import {
+  APP_STORAGE_RESOURCE_CACHE_AUDIO,
+  APP_STORAGE_RESOURCE_CACHE_ENABLED,
+  clearResourceCache,
+  getResourceCacheStats,
+} from '../../features/resourceCache';
+import type { ResourceCacheStats } from '../../features/resourceCache';
 
 @Entry
 @Component
@@ -22,12 +37,23 @@ struct Setting {
   // ── UI preferences ─────────────────────────────────────────────
   /** Two-way binding to AppStorage; writing this immediately updates WebHost. */
   @StorageLink(APP_STORAGE_SHOW_SIDEBAR) private showSidebar: boolean = true;
+  /** Two-way binding to AppStorage; writing this immediately updates sidebar badges. */
+  @StorageLink(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private sidebarShowAvatar: boolean = true;
+  @StorageLink(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW) private autoBattlePreviewFloatOverlay: boolean = true;
+  @StorageLink(APP_STORAGE_GAME_SIZE_COMPACT) private compactGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
+  @StorageLink(APP_STORAGE_GAME_SIZE_EXPANDED) private expandedGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
+  @StorageLink(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
+  @StorageLink(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_ADVANCE_GUARD_ENABLED) private advanceGuardEnabled: boolean = true;
   @StorageLink(APP_STORAGE_INJECT_FPS) private injectFpsEnabled: boolean = false;
   @StorageLink(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
+  @StorageLink(APP_STORAGE_INJECT_TOUCH_HOVER) private injectTouchHover: boolean = true;
+  @StorageLink(APP_STORAGE_INJECT_TOUCH_WHEEL) private injectTouchWheel: boolean = true;
+  @StorageLink(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY)
+  private touchWheelSensitivityPercent: number = TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT;
   @StorageLink(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageLink(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
   /** Equipment label badge overlays in main panel. */
@@ -36,14 +62,21 @@ struct Setting {
 
   // ── Alert settings ─────────────────────────────────────────────
   @State private battleResultAlertEnabled: boolean = true;
+  @State private repairAlertEnabled: boolean = true;
   @State private alertMode: AlertMode = 'both';
 
   // ── UI state ───────────────────────────────────────────────────
   @State private configDirty: boolean = false;
   @State private accountDirty: boolean = false;
+  @State private resourceCacheFileCount: number = 0;
+  @State private resourceCacheSizeText: string = '0 B';
+  @State private resourceCacheSessionText: string = '命中 0 / 未命中 0 / 下载 0';
+  @State private resourceCachePendingText: string = '等待 0 / 失败 0';
+  @State private resourceCacheStatsRefreshing: boolean = false;
 
   aboutToAppear(): void {
     void this.loadAll();
+    void this.refreshResourceCacheStats();
   }
 
   private async loadAll(): Promise<void> {
@@ -53,6 +86,7 @@ struct Setting {
       kvGetString('account.username', ''),
       kvGetString('account.password', ''),
       kvGetBool('alerts.battle.enabled', true),
+      kvGetBool(APP_STORAGE_REPAIR_ALERT_ENABLED, true),
       kvGetString('alerts.mode', 'both'),
     ]);
     this.homeUrl = results[0] as string;
@@ -60,7 +94,8 @@ struct Setting {
     this.username = results[2] as string;
     this.password = results[3] as string;
     this.battleResultAlertEnabled = results[4] as boolean;
-    this.alertMode = (results[5] as string) as AlertMode;
+    this.repairAlertEnabled = results[5] as boolean;
+    this.alertMode = (results[6] as string) as AlertMode;
     this.configDirty = false;
     this.accountDirty = false;
   }
@@ -86,6 +121,12 @@ struct Setting {
     setAlertConfig({ enableBattleResultAlert: v });
   }
 
+  private onRepairAlertToggle(v: boolean): void {
+    this.repairAlertEnabled = v;
+    void kvSet(APP_STORAGE_REPAIR_ALERT_ENABLED, v);
+    setAlertConfig({ enableRepairAlert: v });
+  }
+
   private onAdvanceGuardToggle(v: boolean): void {
     this.advanceGuardEnabled = v;   // writes AppStorage → WebHost re-injects on next load
     void kvSet(APP_STORAGE_ADVANCE_GUARD_ENABLED, v);
@@ -99,6 +140,22 @@ struct Setting {
   private onInjectTouchPatchToggle(v: boolean): void {
     this.injectTouchPatch = v;
     void kvSet(APP_STORAGE_INJECT_TOUCH_PATCH, v);
+  }
+
+  private onInjectTouchHoverToggle(v: boolean): void {
+    this.injectTouchHover = v;
+    void kvSet(APP_STORAGE_INJECT_TOUCH_HOVER, v);
+  }
+
+  private onInjectTouchWheelToggle(v: boolean): void {
+    this.injectTouchWheel = v;
+    void kvSet(APP_STORAGE_INJECT_TOUCH_WHEEL, v);
+  }
+
+  private onTouchWheelSensitivityChange(value: number): void {
+    const next: number = normalizeTouchWheelSensitivityPercent(value);
+    this.touchWheelSensitivityPercent = next;
+    void kvSet(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, next);
   }
 
   private onInjectTickerRafToggle(v: boolean): void {
@@ -119,6 +176,46 @@ struct Setting {
   private onPanelShowProficiencyToggle(v: boolean): void {
     this.panelShowProficiency = v;
     void kvSet(APP_STORAGE_PANEL_SHOW_PROFICIENCY, v);
+  }
+
+  private onSidebarShowAvatarToggle(v: boolean): void {
+    this.sidebarShowAvatar = v;
+    void kvSet(APP_STORAGE_SIDEBAR_SHOW_AVATAR, v);
+  }
+
+  private onAutoBattlePreviewFloatOverlayToggle(v: boolean): void {
+    this.autoBattlePreviewFloatOverlay = v;
+    void kvSet(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, v);
+  }
+
+  private setCompactGameSizePercent(value: number): void {
+    const next: number = normalizeGameSizePercent(value);
+    if (next === this.compactGameSizePercent) {
+      return;
+    }
+    this.compactGameSizePercent = next;
+    void kvSet(APP_STORAGE_GAME_SIZE_COMPACT, next);
+  }
+
+  private setExpandedGameSizePercent(value: number): void {
+    const next: number = normalizeGameSizePercent(value);
+    if (next === this.expandedGameSizePercent) {
+      return;
+    }
+    this.expandedGameSizePercent = next;
+    void kvSet(APP_STORAGE_GAME_SIZE_EXPANDED, next);
+  }
+
+  private onResourceCacheToggle(v: boolean): void {
+    this.resourceCacheEnabled = v;
+    void kvSet(APP_STORAGE_RESOURCE_CACHE_ENABLED, v);
+    void this.refreshResourceCacheStats();
+  }
+
+  private onResourceCacheAudioToggle(v: boolean): void {
+    this.resourceCacheAudioEnabled = v;
+    void kvSet(APP_STORAGE_RESOURCE_CACHE_AUDIO, v);
+    void this.refreshResourceCacheStats();
   }
 
   private async saveConfig(): Promise<void> {
@@ -175,6 +272,51 @@ struct Setting {
   private async doClearCache(): Promise<void> {
     await kvSet('clear.cache.pending', true);
     promptAction.showToast({ message: '缓存将在下次进入游戏时清除', duration: 2500 });
+  }
+
+  private async doClearResourceCache(): Promise<void> {
+    try {
+      await clearResourceCache();
+      await this.refreshResourceCacheStats();
+      promptAction.showToast({ message: '资源缓存已清除', duration: 2000 });
+    } catch (e) {
+      promptAction.showToast({ message: '清除失败: ' + String(e), duration: 2500 });
+    }
+  }
+
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(kb >= 100 ? 0 : 1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+    const gb = mb / 1024;
+    return `${gb.toFixed(gb >= 100 ? 0 : 1)} GB`;
+  }
+
+  private applyResourceCacheStats(stats: ResourceCacheStats): void {
+    this.resourceCacheFileCount = stats.fileCount;
+    this.resourceCacheSizeText = this.formatBytes(stats.totalBytes);
+    this.resourceCacheSessionText =
+      `命中 ${stats.hitCount} / 未命中 ${stats.missCount} / 下载 ${stats.downloadSuccessCount}`;
+    this.resourceCachePendingText =
+      `等待 ${stats.pendingDownloadCount} / 失败 ${stats.downloadFailCount}`;
+  }
+
+  private async refreshResourceCacheStats(): Promise<void> {
+    if (this.resourceCacheStatsRefreshing) return;
+    this.resourceCacheStatsRefreshing = true;
+    try {
+      const stats = await getResourceCacheStats();
+      this.applyResourceCacheStats(stats);
+    } catch (_e) {
+      this.resourceCacheFileCount = 0;
+      this.resourceCacheSizeText = '统计失败';
+      this.resourceCacheSessionText = '命中 0 / 未命中 0 / 下载 0';
+      this.resourceCachePendingText = '等待 0 / 失败 0';
+    } finally {
+      this.resourceCacheStatsRefreshing = false;
+    }
   }
 
   // ── Builders ───────────────────────────────────────────────────
@@ -240,6 +382,149 @@ struct Setting {
   }
 
   @Builder
+  private PercentSliderRow(label: string, desc: string, value: number, onChange: (v: number) => void) {
+    Column({ space: 10 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text(label)
+            .fontSize(15)
+            .fontColor('#A09080')
+          Text(desc)
+            .fontSize(12)
+            .fontColor('#3A4A55')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(`${value}%`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#90B0C0')
+          .width(64)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Slider({
+        value: value,
+        min: TOUCH_WHEEL_SENSITIVITY_MIN_PERCENT,
+        max: TOUCH_WHEEL_SENSITIVITY_MAX_PERCENT,
+        step: TOUCH_WHEEL_SENSITIVITY_STEP_PERCENT
+      })
+        .selectedColor('#6A9AB5')
+        .trackColor('#1C2E3A')
+        .blockColor('#FFFFFF')
+        .showTips(true)
+        .onChange((v: number) => { onChange(v); })
+
+      Row() {
+        Text(`${TOUCH_WHEEL_SENSITIVITY_MIN_PERCENT}%`)
+          .fontSize(11)
+          .fontColor('#3A4A55')
+        Blank()
+        Text(`${TOUCH_WHEEL_SENSITIVITY_MAX_PERCENT}%`)
+          .fontSize(11)
+          .fontColor('#3A4A55')
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+  }
+
+  @Builder
+  private CompactGameSizeRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('窄屏游戏画面')
+            .fontSize(15)
+            .fontColor('#A09080')
+          Text('用于纯游戏 / 浮动面板布局，画面保持置顶居中')
+            .fontSize(12)
+            .fontColor('#3A4A55')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(`${this.compactGameSizePercent}%`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#90B0C0')
+          .width(58)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Slider({
+        value: this.compactGameSizePercent,
+        min: GAME_SIZE_MIN_PERCENT,
+        max: GAME_SIZE_MAX_PERCENT,
+        step: GAME_SIZE_STEP_PERCENT,
+      })
+        .width('100%')
+        .selectedColor('#6A9AB5')
+        .trackColor('#1C2E3A')
+        .blockColor('#90B0C0')
+        .onChange((value: number) => { this.setCompactGameSizePercent(value); })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+  }
+
+  @Builder
+  private ExpandedGameSizeRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('宽屏游戏画面')
+            .fontSize(15)
+            .fontColor('#A09080')
+          Text('用于游戏 + 底部面板布局，缩小后释放下方面板空间')
+            .fontSize(12)
+            .fontColor('#3A4A55')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(`${this.expandedGameSizePercent}%`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#90B0C0')
+          .width(58)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Slider({
+        value: this.expandedGameSizePercent,
+        min: GAME_SIZE_MIN_PERCENT,
+        max: GAME_SIZE_MAX_PERCENT,
+        step: GAME_SIZE_STEP_PERCENT,
+      })
+        .width('100%')
+        .selectedColor('#6A9AB5')
+        .trackColor('#1C2E3A')
+        .blockColor('#90B0C0')
+        .onChange((value: number) => { this.setExpandedGameSizePercent(value); })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+  }
+
+  @Builder
   private ModeBtn(label: string, mode: AlertMode) {
     Button(label, { type: ButtonType.Normal })
       .fontSize(13)
@@ -251,6 +536,22 @@ struct Setting {
       .height(36)
       .layoutWeight(1)
       .onClick(() => { this.applyAlertMode(mode); })
+  }
+
+  @Builder
+  private StatLine(label: string, value: string) {
+    Row() {
+      Text(label)
+        .fontSize(13)
+        .fontColor('#5A7A8A')
+      Blank()
+      Text(value)
+        .fontSize(13)
+        .fontColor('#90B0C0')
+    }
+    .width('100%')
+    .height(24)
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -446,6 +747,24 @@ struct Setting {
             )
 
             this.ToggleRow(
+              '是否显示舰娘头像',
+              '开启时显示舰娘头像，关闭时回退显示舰娘名称',
+              this.sidebarShowAvatar,
+              (v: boolean) => { this.onSidebarShowAvatarToggle(v); }
+            )
+
+            this.ToggleRow(
+              '战斗预测自动浮窗',
+              '窄屏横屏出现战斗预测时自动打开浮动面板',
+              this.autoBattlePreviewFloatOverlay,
+              (v: boolean) => { this.onAutoBattlePreviewFloatOverlayToggle(v); }
+            )
+
+            this.CompactGameSizeRow()
+
+            this.ExpandedGameSizeRow()
+
+            this.ToggleRow(
               '装备改修度图标',
               '在主面板装备图标右上角显示改修度（★1–★10）',
               this.panelShowKaisyuu,
@@ -488,6 +807,19 @@ struct Setting {
           }
           .width('100%')
 
+          // ── SECTION: 日常提醒 ─────────────────────────────────
+          this.SectionHeader('日常提醒')
+
+          Column({ space: 8 }) {
+            this.ToggleRow(
+              '入渠完成提醒',
+              '维修渠修理完成时震动 / 铃声提醒',
+              this.repairAlertEnabled,
+              (v: boolean) => { this.onRepairAlertToggle(v); }
+            )
+          }
+          .width('100%')
+
           // ── SECTION: 提醒方式 ─────────────────────────────────
           this.SectionHeader('提醒方式')
 
@@ -501,6 +833,53 @@ struct Setting {
           .backgroundColor('#0C1420')
           .borderRadius(10)
           .border({ width: 1, color: '#15202C' })
+
+          // ── SECTION: 资源缓存 ─────────────────────────────────
+          this.SectionHeader('资源缓存')
+
+          Column({ space: 8 }) {
+            this.ToggleRow(
+              '资源本地缓存',
+              '缓存游戏图片资源；命中时从本地返回，失败时自动回源',
+              this.resourceCacheEnabled,
+              (v: boolean) => { this.onResourceCacheToggle(v); }
+            )
+
+            this.ToggleRow(
+              '音频资源缓存',
+              '实验功能：缓存 BGM / 音效；命中 Range 请求时返回本地分段数据',
+              this.resourceCacheAudioEnabled,
+              (v: boolean) => { this.onResourceCacheAudioToggle(v); }
+            )
+
+            Column({ space: 6 }) {
+              this.StatLine('缓存文件', `${this.resourceCacheFileCount}`)
+              this.StatLine('占用空间', this.resourceCacheSizeText)
+              this.StatLine('本次会话', this.resourceCacheSessionText)
+              this.StatLine('后台下载', this.resourceCachePendingText)
+              Row() {
+                Blank()
+                this.ActionBtn(
+                  this.resourceCacheStatsRefreshing ? '统计中' : '刷新统计',
+                  this.resourceCacheStatsRefreshing ? '#3A5060' : '#6A9AB5',
+                  () => { void this.refreshResourceCacheStats(); }
+                )
+              }
+              .width('100%')
+              .height(42)
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+            .backgroundColor('#0C1420')
+            .borderRadius(10)
+            .border({ width: 1, color: '#15202C' })
+          }
+          .width('100%')
+
+          Text('图片资源默认支持；音频缓存需同时开启资源本地缓存和音频资源缓存')
+            .fontSize(11)
+            .fontColor('#2A3A45')
+            .padding({ left: 4, top: 4 })
 
           // ── SECTION: WebView 注入 ─────────────────────────────
           this.SectionHeader('WebView 注入')
@@ -518,6 +897,27 @@ struct Setting {
               '修正部分设备上触摸坐标偏移问题',
               this.injectTouchPatch,
               (v: boolean) => { this.onInjectTouchPatchToggle(v); }
+            )
+
+            this.ToggleRow(
+              '触摸悬停支持',
+              '触摸并滑动时模拟鼠标悬停，用于展开装备分类和改修入口',
+              this.injectTouchHover,
+              (v: boolean) => { this.onInjectTouchHoverToggle(v); }
+            )
+
+            this.ToggleRow(
+              '双指滚轮支持',
+              '双指上下划动时模拟鼠标滚轮，用于游戏内换页',
+              this.injectTouchWheel,
+              (v: boolean) => { this.onInjectTouchWheelToggle(v); }
+            )
+
+            this.PercentSliderRow(
+              '双指滚轮灵敏度',
+              '调整双指划动转换为鼠标滚轮的幅度',
+              this.touchWheelSensitivityPercent,
+              (v: number) => { this.onTouchWheelSensitivityChange(v); }
             )
 
             this.ToggleRow(
@@ -557,6 +957,13 @@ struct Setting {
               '清理页面缓存文件，下次进入游戏时执行',
               '标记清除',
               () => { void this.doClearCache(); }
+            )
+
+            this.DangerActionRow(
+              '清除资源缓存',
+              '清理本地缓存的游戏图片 / 音频资源，不影响 Cookies',
+              '立即清除',
+              () => { void this.doClearResourceCache(); }
             )
           }
           .width('100%')

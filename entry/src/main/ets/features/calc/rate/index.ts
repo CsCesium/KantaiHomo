@@ -104,6 +104,9 @@ export {
   // Types
   SpecialAttackType,
   SpecialAttackPositions,
+  SpecialAttackFleetShip,
+  SpecialAttackFleetRole,
+  DetectFleetSpecialAttackOptions,
   SpecialAttackInput,
   SpecialAttackResult,
 
@@ -114,6 +117,8 @@ export {
   // Functions
   getAttackPositions,
   allowsSpecialAttack,
+  specialAttackTypeFromApiCode,
+  isSpecialAttackApiCode,
   detectFleetSpecialAttack,
   getSpecialAttackShortLabel,
   calcNelsonTouchRate,

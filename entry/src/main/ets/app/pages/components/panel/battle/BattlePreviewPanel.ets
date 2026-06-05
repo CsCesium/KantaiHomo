@@ -11,12 +11,16 @@ import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../
 const BATTLE_SHIP_ROW_H = 32;
 
 function rankColor(rank: string): string {
-  if (rank === 'SS' || rank === 'S') return '#FFD700';
+  if (displayRank(rank) === 'S') return '#FFD700';
   if (rank === 'A') return '#ffdd1212';
   if (rank === 'B') return '#ffcb6d22';
   if (rank === 'C') return '#ff917c25';
   if (rank === 'D') return '#ff198311';
   return PanelColors.hpCrit;
+}
+
+function displayRank(rank: string): string {
+  return rank === 'SS' ? 'S' : rank;
 }
 
 function formationName(f: number | undefined): string {
@@ -37,8 +41,8 @@ function engagementColor(e: number | undefined): string {
 }
 
 function phaseName(phase: 'day' | 'night' | 'day_to_night'): string {
-  if (phase === 'night') return '夜戦';
-  if (phase === 'day_to_night') return '昼夜';
+  if (phase === 'night') return '开幕夜戦';
+  if (phase === 'day_to_night') return '夜戦';
   return '昼戦';
 }
 
@@ -70,8 +74,9 @@ function shipBadgeText(ship: ShipBattleStatus, landBased: boolean = false): stri
 
 function shipBadgeColor(ship: ShipBattleStatus): string {
   if (ship.isSunk) return PanelColors.txtMuted;
-  if (ship.isTaiha) return PanelColors.hpCrit;
+  if (ship.isTaiha) return ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.hpCrit;
   if (ship.isChuuha) return PanelColors.hpMid;
+  if (ship.isShouha) return PanelColors.hpShouha;
   return PanelColors.hpOk;
 }
 
@@ -89,22 +94,91 @@ function enemyBadgeColor(hpNow: number, hpMax: number): string {
   return hpColor(hpNow, hpMax);
 }
 
+function cloneShipBattleStatus(ship: ShipBattleStatus): ShipBattleStatus {
+  const cloned: ShipBattleStatus = {
+    uid: ship.uid,
+    name: ship.name,
+    hpBefore: ship.hpBefore,
+    hpAfter: ship.hpAfter,
+    hpMax: ship.hpMax,
+    damageReceived: ship.damageReceived,
+    hpPercent: ship.hpPercent,
+    isSunk: ship.isSunk,
+    isTaiha: ship.isTaiha,
+    isChuuha: ship.isChuuha,
+    isShouha: ship.isShouha,
+    hasSinkRisk: ship.hasSinkRisk,
+  };
+  return cloned;
+}
+
+function cloneFleetBattleStatus(fleet: FleetBattleStatus): FleetBattleStatus {
+  const ships: ShipBattleStatus[] = fleet.ships.map((ship: ShipBattleStatus): ShipBattleStatus => {
+    return cloneShipBattleStatus(ship);
+  });
+  const cloned: FleetBattleStatus = {
+    deckId: fleet.deckId,
+    name: fleet.name,
+    ships: ships,
+    taihaCount: fleet.taihaCount,
+    sunkCount: fleet.sunkCount,
+  };
+  return cloned;
+}
+
+function cloneEnemyBattleStatus(enemy: EnemyBattleStatus): EnemyBattleStatus {
+  const cloned: EnemyBattleStatus = {
+    shipIds: enemy.shipIds.slice(),
+    hpBefore: enemy.hpBefore.slice(),
+    hpNow: enemy.hpNow.slice(),
+    hpMax: enemy.hpMax.slice(),
+    sunkCount: enemy.sunkCount,
+  };
+  return cloned;
+}
+
+function cloneOptionalFleetBattleStatus(fleet: FleetBattleStatus | undefined): FleetBattleStatus | null {
+  if (!fleet) {
+    return null;
+  }
+  return cloneFleetBattleStatus(fleet);
+}
+
+function cloneOptionalEnemyBattleStatus(enemy: EnemyBattleStatus | undefined): EnemyBattleStatus | null {
+  if (!enemy) {
+    return null;
+  }
+  return cloneEnemyBattleStatus(enemy);
+}
+
+function hasFriendFleet(fleet: FleetBattleStatus | null | undefined): boolean {
+  return !!fleet && fleet.ships.some(ship => ship.hpMax > 0);
+}
+
+function hasEnemyFleet(fleet: EnemyBattleStatus | null | undefined): boolean {
+  return !!fleet && fleet.hpMax.some(hpMax => hpMax > 0);
+}
+
 // ── BattlePreviewPanel ────────────────────────────────────────────────────
 
 @ComponentV2
 export default struct BattlePreviewPanel {
   @Local statusSnap: BattleStatusSnapshot | null = null;
   @Local resultSnap: BattleResultSnapshot | null = null;
+  @Local battleRenderKey: string = 'empty';
+  @Local viewFriendMain: FleetBattleStatus | null = null;
+  @Local viewFriendEscort: FleetBattleStatus | null = null;
+  @Local viewEnemyMain: EnemyBattleStatus | null = null;
+  @Local viewEnemyEscort: EnemyBattleStatus | null = null;
+  @Local viewIsAirRaid: boolean = false;
 
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
-    this.statusSnap = getBattleStatus();
-    this.resultSnap = getBattleResult();
+    this.refreshBattleSnapshots();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'battle' || changeType === 'all') {
-        this.statusSnap = getBattleStatus();
-        this.resultSnap = getBattleResult();
+        this.refreshBattleSnapshots();
       }
     });
   }
@@ -114,6 +188,40 @@ export default struct BattlePreviewPanel {
       this.unsubscribe();
       this.unsubscribe = null;
     }
+  }
+
+  private refreshBattleSnapshots(): void {
+    const status = getBattleStatus();
+    const result = getBattleResult();
+    this.statusSnap = status;
+    this.resultSnap = result;
+
+    if (result) {
+      this.battleRenderKey = `result-${result.battleId}-${result.endedAt}`;
+      this.viewFriendMain = cloneFleetBattleStatus(result.friendMain);
+      this.viewFriendEscort = cloneOptionalFleetBattleStatus(result.friendEscort);
+      this.viewEnemyMain = cloneEnemyBattleStatus(result.enemyMain);
+      this.viewEnemyEscort = cloneOptionalEnemyBattleStatus(result.enemyEscort);
+      this.viewIsAirRaid = result.isAirRaid;
+      return;
+    }
+
+    if (status) {
+      this.battleRenderKey = `status-${status.battleId}-${status.battlePhase}-${status.calculatedAt}`;
+      this.viewFriendMain = cloneFleetBattleStatus(status.friendMain);
+      this.viewFriendEscort = cloneOptionalFleetBattleStatus(status.friendEscort);
+      this.viewEnemyMain = cloneEnemyBattleStatus(status.enemyMain);
+      this.viewEnemyEscort = cloneOptionalEnemyBattleStatus(status.enemyEscort);
+      this.viewIsAirRaid = status.isAirRaid;
+      return;
+    }
+
+    this.battleRenderKey = 'empty';
+    this.viewFriendMain = null;
+    this.viewFriendEscort = null;
+    this.viewEnemyMain = null;
+    this.viewEnemyEscort = null;
+    this.viewIsAirRaid = false;
   }
 
   // ── HP bar with damage indicator and threshold ticks ──────────────────────
@@ -191,7 +299,10 @@ export default struct BattlePreviewPanel {
       Row({ space: 3 }) {
         Text(ship.name)
           .fontSize(PanelDimens.fontMd)
-          .fontColor(ship.isSunk ? PanelColors.txtMuted : PanelColors.txtPrimary)
+          .fontColor(ship.isSunk
+            ? PanelColors.txtMuted
+            : (ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.txtPrimary))
+          .fontWeight(ship.hasSinkRisk ? FontWeight.Bold : FontWeight.Normal)
           .layoutWeight(1)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -310,7 +421,7 @@ export default struct BattlePreviewPanel {
           // Text('预测')
           //   .fontSize(PanelDimens.fontSm)
           //   .fontColor(PanelColors.txtMuted)
-          Text(snap.predictedRank)
+          Text(displayRank(snap.predictedRank))
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
             .fontColor(rankColor(snap.predictedRank))
@@ -427,7 +538,7 @@ export default struct BattlePreviewPanel {
   }
 
   /** A fleet's ship list (shared between prediction and result views). */
-  @Builder FleetShipList(fleet: FleetBattleStatus, label: string, landBased: boolean = false) {
+  @Builder FleetShipList(fleet: FleetBattleStatus, label: string, landBased: boolean = false, renderKey: string = '') {
     if (label) {
       Row() {
         Text(label)
@@ -444,12 +555,14 @@ export default struct BattlePreviewPanel {
     }
 
       ForEach(fleet.ships, (ship: ShipBattleStatus) => {
-      this.BattleShipRow(ship, landBased)
-    }, (ship: ShipBattleStatus) => `bship-${ship.uid}`)
+        if (ship.hpMax > 0) {
+          this.BattleShipRow(ship, landBased)
+        }
+    }, (ship: ShipBattleStatus) => `${renderKey}-bship-${ship.uid}-${ship.hpBefore}-${ship.hpAfter}-${ship.damageReceived}`)
   }
 
   /** Enemy fleet ship list with HP bars. */
-  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string, landBased: boolean = false) {
+  @Builder EnemyFleetList(enemy: EnemyBattleStatus, label: string, landBased: boolean = false, renderKey: string = '') {
     Row() {
       Text(label || '敵方')
         .fontSize(PanelDimens.fontSm)
@@ -480,7 +593,7 @@ export default struct BattlePreviewPanel {
           landBased
         )
       }
-    }, (_: number, idx: number) => `erow-${idx}`)
+    }, (_: number, idx: number) => `${renderKey}-erow-${idx}-${enemy.hpBefore[idx] ?? 0}-${enemy.hpNow[idx] ?? 0}`)
   }
 
   // ── result view builders ───────────────────────────────────────────────────
@@ -517,7 +630,7 @@ export default struct BattlePreviewPanel {
           Text('戦果')
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.txtMuted)
-          Text(snap.rank)
+          Text(displayRank(snap.rank))
             .fontSize(32)
             .fontWeight(FontWeight.Bold)
             .fontColor(rankColor(snap.rank))
@@ -570,17 +683,17 @@ export default struct BattlePreviewPanel {
 
   /** Air raid: friend = land bases, enemy = aerial squadrons (both 陆基 terminology). */
   @Builder
-  AirRaidLayout(friendMain: FleetBattleStatus, enemyMain: EnemyBattleStatus) {
+  AirRaidLayout(friendMain: FleetBattleStatus, enemyMain: EnemyBattleStatus, renderKey: string) {
     Row() {
       Column() {
-        this.FleetShipList(friendMain, '基地', true)
+        this.FleetShipList(friendMain, '基地', true, renderKey)
       }
       .layoutWeight(1)
       .borderWidth({ right: PanelDimens.borderW })
       .borderColor(PanelColors.rowBorder)
 
       Column() {
-        this.EnemyFleetList(enemyMain, '敵編隊', true)
+        this.EnemyFleetList(enemyMain, '敵編隊', true, renderKey)
       }
       .layoutWeight(1)
     }
@@ -595,18 +708,19 @@ export default struct BattlePreviewPanel {
     friendEscort: FleetBattleStatus,
     enemyMain: EnemyBattleStatus,
     enemyEscort: EnemyBattleStatus,
+    renderKey: string,
   ) {
     Column() {
       Row() {
         Column() {
-          this.FleetShipList(friendMain, '主力')
+          this.FleetShipList(friendMain, '主力', false, renderKey)
         }
         .layoutWeight(1)
         .borderWidth({ right: PanelDimens.borderW })
         .borderColor(PanelColors.rowBorder)
 
         Column() {
-          this.FleetShipList(friendEscort, '護衛')
+          this.FleetShipList(friendEscort, '護衛', false, renderKey)
         }
         .layoutWeight(1)
       }
@@ -615,14 +729,14 @@ export default struct BattlePreviewPanel {
 
       Row() {
         Column() {
-          this.EnemyFleetList(enemyEscort, '敵護衛')
+          this.EnemyFleetList(enemyEscort, '敵護衛', false, renderKey)
         }
         .layoutWeight(1)
         .borderWidth({ right: PanelDimens.borderW })
         .borderColor(PanelColors.rowBorder)
 
         Column() {
-          this.EnemyFleetList(enemyMain, '敵主力')
+          this.EnemyFleetList(enemyMain, '敵主力', false, renderKey)
         }
         .layoutWeight(1)
       }
@@ -640,24 +754,25 @@ export default struct BattlePreviewPanel {
     friendMain: FleetBattleStatus,
     friendEscort: FleetBattleStatus,
     enemyMain: EnemyBattleStatus,
+    renderKey: string,
   ) {
     Row() {
       Column() {
-        this.FleetShipList(friendMain, '主力')
+        this.FleetShipList(friendMain, '主力', false, renderKey)
       }
       .layoutWeight(1)
       .borderWidth({ right: PanelDimens.borderW })
       .borderColor(PanelColors.rowBorder)
 
       Column() {
-        this.FleetShipList(friendEscort, '護衛')
+        this.FleetShipList(friendEscort, '護衛', false, renderKey)
       }
       .layoutWeight(1)
       .borderWidth({ right: PanelDimens.borderW })
       .borderColor(PanelColors.rowBorder)
 
       Column() {
-        this.EnemyFleetList(enemyMain, '敵方')
+        this.EnemyFleetList(enemyMain, '敵方', false, renderKey)
       }
       .layoutWeight(1)
     }
@@ -671,24 +786,25 @@ export default struct BattlePreviewPanel {
     friendMain: FleetBattleStatus,
     enemyMain: EnemyBattleStatus,
     enemyEscort: EnemyBattleStatus,
+    renderKey: string,
   ) {
     Row() {
       Column() {
-        this.FleetShipList(friendMain, '我方')
+        this.FleetShipList(friendMain, '我方', false, renderKey)
       }
       .layoutWeight(1)
       .borderWidth({ right: PanelDimens.borderW })
       .borderColor(PanelColors.rowBorder)
 
       Column() {
-        this.EnemyFleetList(enemyEscort, '敵護衛')
+        this.EnemyFleetList(enemyEscort, '敵護衛', false, renderKey)
       }
       .layoutWeight(1)
       .borderWidth({ right: PanelDimens.borderW })
       .borderColor(PanelColors.rowBorder)
 
       Column() {
-        this.EnemyFleetList(enemyMain, '敵主力')
+        this.EnemyFleetList(enemyMain, '敵主力', false, renderKey)
       }
       .layoutWeight(1)
     }
@@ -698,17 +814,17 @@ export default struct BattlePreviewPanel {
 
   /** Single vs single: 2 columns (friend | enemy). */
   @Builder
-  SingleVsSingleLayout(friendMain: FleetBattleStatus, enemyMain: EnemyBattleStatus) {
+  SingleVsSingleLayout(friendMain: FleetBattleStatus, enemyMain: EnemyBattleStatus, renderKey: string) {
     Row() {
       Column() {
-        this.FleetShipList(friendMain, '我方')
+        this.FleetShipList(friendMain, '我方', false, renderKey)
       }
       .layoutWeight(1)
       .borderWidth({ right: PanelDimens.borderW })
       .borderColor(PanelColors.rowBorder)
 
       Column() {
-        this.EnemyFleetList(enemyMain, '敵方')
+        this.EnemyFleetList(enemyMain, '敵方', false, renderKey)
       }
       .layoutWeight(1)
     }
@@ -720,21 +836,80 @@ export default struct BattlePreviewPanel {
   @Builder
   MatchupBody(
     friendMain: FleetBattleStatus,
-    friendEscort: FleetBattleStatus | undefined,
+    friendEscort: FleetBattleStatus | null,
     enemyMain: EnemyBattleStatus,
-    enemyEscort: EnemyBattleStatus | undefined,
+    enemyEscort: EnemyBattleStatus | null,
     isAirRaid: boolean,
+    renderKey: string,
   ) {
     if (isAirRaid) {
-      this.AirRaidLayout(friendMain, enemyMain)
-    } else if (friendEscort && enemyEscort) {
-      this.CombinedVsCombinedLayout(friendMain, friendEscort, enemyMain, enemyEscort)
-    } else if (friendEscort) {
-      this.FriendCombinedLayout(friendMain, friendEscort, enemyMain)
-    } else if (enemyEscort) {
-      this.EnemyCombinedLayout(friendMain, enemyMain, enemyEscort)
+      this.AirRaidLayout(friendMain, enemyMain, renderKey)
+    } else if (friendEscort && hasFriendFleet(friendEscort) && enemyEscort && hasEnemyFleet(enemyEscort)) {
+      this.CombinedVsCombinedLayout(friendMain, friendEscort, enemyMain, enemyEscort, renderKey)
+    } else if (friendEscort && hasFriendFleet(friendEscort)) {
+      this.FriendCombinedLayout(friendMain, friendEscort, enemyMain, renderKey)
+    } else if (enemyEscort && hasEnemyFleet(enemyEscort)) {
+      this.EnemyCombinedLayout(friendMain, enemyMain, enemyEscort, renderKey)
     } else {
-      this.SingleVsSingleLayout(friendMain, enemyMain)
+      this.SingleVsSingleLayout(friendMain, enemyMain, renderKey)
+    }
+  }
+
+  @Builder
+  ResultContent() {
+    if (this.resultSnap) {
+      this.ResultHeader(this.resultSnap)
+
+      Scroll() {
+        Column() {
+          if (this.viewFriendMain && this.viewEnemyMain) {
+            this.MatchupBody(
+              this.viewFriendMain,
+              this.viewFriendEscort,
+              this.viewEnemyMain,
+              this.viewEnemyEscort,
+              this.viewIsAirRaid,
+              this.battleRenderKey,
+            )
+          }
+        }
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .align(Alignment.TopStart)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.None)
+    }
+  }
+
+  @Builder
+  StatusContent() {
+    if (this.statusSnap) {
+      this.PredictHeader(this.statusSnap)
+      if (!this.statusSnap.isAirRaid) {
+        this.TaihaWarning(this.statusSnap)
+        this.SunkWarning(this.statusSnap.hasSunkRisk)
+      }
+
+      Scroll() {
+        Column() {
+          if (this.viewFriendMain && this.viewEnemyMain) {
+            this.MatchupBody(
+              this.viewFriendMain,
+              this.viewFriendEscort,
+              this.viewEnemyMain,
+              this.viewEnemyEscort,
+              this.viewIsAirRaid,
+              this.battleRenderKey,
+            )
+          }
+        }
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .align(Alignment.TopStart)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.None)
     }
   }
 
@@ -744,49 +919,15 @@ export default struct BattlePreviewPanel {
     Column() {
       if (this.resultSnap) {
         // ── Result view ─────────────────────────────────────────────────
-        this.ResultHeader(this.resultSnap)
-
-        Scroll() {
-          Column() {
-            this.MatchupBody(
-              this.resultSnap.friendMain,
-              this.resultSnap.friendEscort,
-              this.resultSnap.enemyMain,
-              this.resultSnap.enemyEscort,
-              this.resultSnap.isAirRaid,
-            )
-          }
-          .width('100%')
-        }
-        .layoutWeight(1)
-        .align(Alignment.TopStart)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.None)
+        ForEach([this.battleRenderKey], (_key: string) => {
+          this.ResultContent()
+        }, (key: string): string => key)
 
       } else if (this.statusSnap) {
         // ── Prediction view ──────────────────────────────────────────────
-        this.PredictHeader(this.statusSnap)
-        if (!this.statusSnap.isAirRaid) {
-          this.TaihaWarning(this.statusSnap)
-          this.SunkWarning(this.statusSnap.hasSunkRisk)
-        }
-
-        Scroll() {
-          Column() {
-            this.MatchupBody(
-              this.statusSnap.friendMain,
-              this.statusSnap.friendEscort,
-              this.statusSnap.enemyMain,
-              this.statusSnap.enemyEscort,
-              this.statusSnap.isAirRaid,
-            )
-          }
-          .width('100%')
-        }
-        .layoutWeight(1)
-        .align(Alignment.TopStart)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.None)
+        ForEach([this.battleRenderKey], (_key: string) => {
+          this.StatusContent()
+        }, (key: string): string => key)
 
       } else {
         // ── Empty / loading ──────────────────────────────────────────────

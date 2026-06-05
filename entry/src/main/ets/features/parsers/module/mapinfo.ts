@@ -46,8 +46,9 @@ function parseMapInfoData(ctx: ParserCtx): MapInfoUpdateEvent[] | null {
       }
     }
 
-    // Only include maps that have a gauge or non-zero defeat count (EO maps)
-    if (gaugeType !== null || defeatCount > 0) {
+    // Include event gauges and EO gauges. EO maps may have zero defeated bosses
+    // while still needing kills, so requiredDefeats is the reliable display gate.
+    if (gaugeType !== null || (requiredDefeats !== null && requiredDefeats > 0) || defeatCount > 0) {
       gauges.push({ mapId, cleared, defeatCount, gaugeType, gaugeNum, hpNow, hpMax, requiredDefeats });
     }
   }

@@ -1,29 +1,65 @@
 import { ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, PanelColors, PanelDimens, questCategoryStyle, questResetTypeLabel, questProgressLabel } from '../../../../../features/panel/panelConfig';
+import { FLEET_TAB_COLORS, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
   MapGaugeSnapshot,
   getQuests,
-  QuestSnapshot
+  QuestSnapshot,
+  getSortieResourceGains,
+  SortieResourceGains,
+  isShipEscaped,
 } from '../../../../../features/state';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
   getFleetTP,
-  detectFleetSpecialAttack, getSpecialAttackShortLabel, SpecialAttackType,
 } from '../../../../../features/calc';
-import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY } from '../../../../../ability/Entry';
+import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../../ability/Entry';
 import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
+import { detectSpecialAttackBadge } from '../../../../../features/panel/specialAttackBadge';
+import { resourceIconPath } from '../../../../../features/resources/resourceMeta';
 import ShipRow from '../bottom/rows/ShipRow';
 import MapGaugeRow from '../bottom/rows/MapGaugeRow';
+import ResourceAmount from '../common/ResourceAmount';
+import QuestPanel from '../common/QuestPanel';
+import { shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
+import { lengthToNumber } from '../../../../../infra/utils/trans';
 
-const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任務'];
+const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任务'];
 const MAP_TAB_IDX = 6;
 const QUEST_TAB_IDX = 7;
-/** QuestState.ACTIVE — duplicated to keep this UI file decoupled from domain enum import. */
-const QUEST_STATE_ACTIVE = 2;
+const RESOURCE_NARROW_WIDTH = 460;
+const RESOURCE_BAR_H = 20;
+const RESOURCE_BAR_NARROW_H = 36;
+
+function shipRowKey(ship: ShipItem): string {
+  return [
+    ship.id,
+    ship.masterId,
+    ship.level,
+    ship.expToNext,
+    ship.hp,
+    ship.hpMax,
+    isShipEscaped(ship.id) ? 1 : 0,
+    ship.s1,
+    ship.s2,
+    ship.s3,
+    ship.tags.join(','),
+    ship.exSlot,
+    ship.exSlotType,
+    ship.exSlotIconType,
+    ship.exSlotLevel,
+    ship.exSlotAlv,
+    ship.slots.join(','),
+    ship.slotTypes.join(','),
+    ship.slotIconTypes.join(','),
+    ship.slotLevels.join(','),
+    ship.slotAlvs.join(','),
+    ship.slotAirs.join(','),
+  ].join('_');
+}
 
 function shipStateToItem(
   s: ShipState,
@@ -79,6 +115,7 @@ function shipStateToItem(
       ctype: shipMasterCtype.get(s.masterId) ?? 0,
       aswCur: s.aswCur,
       slots: activeSlots,
+      onslot: activeOnslot,
       exSlot: s.exSlot,
       slotItemIndex,
       slotItemEquipTypes,
@@ -120,6 +157,26 @@ function formatFleetSpeed(speed: number): string {
   return '陸上';
 }
 
+function formatAdmiralRank(rank: number | undefined): string {
+  switch (rank) {
+    case 1: return '元帥';
+    case 2: return '大将';
+    case 3: return '中将';
+    case 4: return '少将';
+    case 5: return '大佐';
+    case 6: return '中佐';
+    case 7: return '新米中佐';
+    case 8: return '少佐';
+    case 9: return '中堅少佐';
+    case 10: return '新米少佐';
+    default: return '--';
+  }
+}
+
+function formatLimitCount(current: number, limit: number | undefined): string {
+  return `${current}/${limit && limit > 0 ? limit : '--'}`;
+}
+
 /**
  * Bottom-docked info panel for EXPANDED mode (portrait / wide-split).
  * Shows fleet air power, LoS(×3), and special attack eligibility
@@ -131,6 +188,7 @@ export default struct BottomPanel {
   @Local activeFleet: number = 0;
   @Local ships: ShipItem[] = [];
   @Local materials: MaterialsSnapshot | null = null;
+  @Local sortieGains: SortieResourceGains | null = null;
   @Local decks: DeckSnapshot[] = [];
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
@@ -139,13 +197,21 @@ export default struct BottomPanel {
   @Local fleetSpeed: number = -1;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
-  @Local activeQuests: QuestSnapshot[] = [];
+  @Local quests: QuestSnapshot[] = [];
+  @Local admiralName: string = '--';
+  @Local admiralRank: string = '--';
+  @Local admiralExperience: string = '--';
+  @Local todaySenka: string = '--';
+  @Local shipCapacity: string = '--/--';
+  @Local panelWidth: number = 9999;
   /** UID of slot whose detail popup is currently open; 0 = none. EquipDetailPanel 自加载行。 */
   @Local detailUid: number = 0;
   /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
   @Local showKaisyuu: boolean = true;
   /** Show aircraft proficiency badge; mirrors AppStorage setting. */
   @Local showProficiency: boolean = true;
+  /** Show ship avatar/remodel banner; mirrors AppStorage setting. */
+  @Local showAvatar: boolean = true;
 
   private unsubscribe: (() => void) | null = null;
 
@@ -155,8 +221,10 @@ export default struct BottomPanel {
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
+          changeType === 'ndocks' ||
           changeType === 'admiral' || changeType === 'quests' ||
-          changeType === 'mapinfo') {
+          changeType === 'mapinfo' || changeType === 'sortieGains' ||
+          changeType === 'battle') {
         this.loadState();
       }
     });
@@ -165,8 +233,10 @@ export default struct BottomPanel {
   private refreshSettings(): void {
     const k = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_KAISYUU);
     const p = AppStorage.get<boolean>(APP_STORAGE_PANEL_SHOW_PROFICIENCY);
+    const a = AppStorage.get<boolean>(APP_STORAGE_SIDEBAR_SHOW_AVATAR);
     this.showKaisyuu = k !== undefined ? k : true;
     this.showProficiency = p !== undefined ? p : true;
+    this.showAvatar = a !== undefined ? a : true;
   }
 
   aboutToDisappear(): void {
@@ -177,10 +247,20 @@ export default struct BottomPanel {
   }
 
   private loadState(): void {
+    const manager = getGameState();
+    const st = manager.getState();
+    const admiral = st.admiral;
+    const senka = manager.getSenkaInfo();
     this.materials = getMaterials();
+    this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
-    this.mapGauges = [...getMapGauges()];
-    this.activeQuests = getQuests().filter(q => q.state === QUEST_STATE_ACTIVE);
+    this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.quests = [...getQuests()];
+    this.admiralName = admiral?.nickname || '--';
+    this.admiralRank = formatAdmiralRank(admiral?.rank);
+    this.admiralExperience = admiral ? `${admiral.experience}` : '--';
+    this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
+    this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
     this.refreshShips();
     this.loadCalcStats();
   }
@@ -203,8 +283,7 @@ export default struct BottomPanel {
         st.shipMasterStype,
         st.shipMasterCtype
       ));
-      const attackType: SpecialAttackType | null = detectFleetSpecialAttack(rawShips);
-      this.specialAttack = attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
+      this.specialAttack = detectSpecialAttackBadge(rawShips, this.activeFleet);
       this.fleetSpeed = rawShips.length > 0
         ? rawShips.reduce((min, s) => Math.min(min, s.speed), Number.POSITIVE_INFINITY)
         : -1;
@@ -276,8 +355,6 @@ export default struct BottomPanel {
           .borderRadius(PanelDimens.radius)
           .onClick(() => { this.selectFleet(idx); })
       }, (_tab: string, idx: number) => `fleet-${idx}`)
-
-      Blank().layoutWeight(1)
     }
     .width('100%')
     .height(PanelDimens.tabBarH)
@@ -286,36 +363,141 @@ export default struct BottomPanel {
     .alignItems(VerticalAlign.Center)
   }
 
-  @Builder StatusBar() {
-    Row() {
+  @Builder AdmiralTag(text: string) {
+    Text(text)
+      .fontSize(PanelDimens.fontSm)
+      .fontColor(PanelColors.txtMuted)
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+      .backgroundColor(PanelColors.bgSection)
+      .borderRadius(PanelDimens.radius)
+      .borderWidth(PanelDimens.borderW)
+      .borderColor(PanelColors.rowBorder)
+  }
+
+  @Builder AdmiralHeader() {
+    Scroll() {
+      Row({ space: 4 }) {
+        this.AdmiralTag(`${this.admiralName}`)
+        this.AdmiralTag(`${this.admiralRank}`)
+        this.AdmiralTag(`提督经验 ${this.admiralExperience}`)
+        this.AdmiralTag(`今日: ${this.todaySenka}`)
+        this.AdmiralTag(`舰娘: ${this.shipCapacity}`)
+      }
+      .height(PanelDimens.statusBarH)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Start)
+      .alignSelf(ItemAlign.Start)
+    }
+    .width('100%')
+    .height(PanelDimens.statusBarH)
+    .scrollable(ScrollDirection.Horizontal)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.None)
+    .padding({ left: 8, right: 8 })
+    .backgroundColor(PanelColors.bg)
+    .align(Alignment.TopStart)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
+  }
+
+  private useNarrowResourceLayout(): boolean {
+    return this.panelWidth < RESOURCE_NARROW_WIDTH;
+  }
+
+  private resourceBarHeight(): number {
+    return this.useNarrowResourceLayout() ? RESOURCE_BAR_NARROW_H : RESOURCE_BAR_H;
+  }
+
+  @Builder ResourceWideRow() {
+    Row({ space: 7 }) {
       if (this.materials) {
-        Text(`燃${this.materials.fuel}`)
-          .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
-        Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-        Text(`弾${this.materials.ammo}`)
-          .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
-        Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-        Text(`鋼${this.materials.steel}`)
-          .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
-        Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-        Text(`ボ${this.materials.bauxite}`)
-          .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.txtMuted })
         Blank().layoutWeight(1)
-        Text(`速修${this.materials.instantRepair}`)
-          .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
-        Text(' ').fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtSep)
-        Text(`速建${this.materials.instantBuild}`)
-          .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.txtMuted })
+        ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.txtMuted })
       } else {
         Text('Loading Data...')
           .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
       }
     }
     .width('100%')
-    .height(PanelDimens.statusBarH)
+    .height(RESOURCE_BAR_H)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder ResourceNarrowRows() {
+    Column() {
+      if (this.materials) {
+        Row() {
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('fuel'), value: this.materials.fuel, gain: this.sortieGains?.fuel ?? 0, textColor: PanelColors.txtMuted })
+            ResourceAmount({ icon: resourceIconPath('steel'), value: this.materials.steel, gain: this.sortieGains?.steel ?? 0, textColor: PanelColors.txtMuted })
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank().layoutWeight(1)
+
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('instantRepair'), value: this.materials.instantRepair, gain: this.sortieGains?.instantRepair ?? 0, textColor: PanelColors.txtMuted })
+            ResourceAmount({ icon: resourceIconPath('devMaterial'), value: this.materials.devMaterial, gain: this.sortieGains?.devMaterial ?? 0, textColor: PanelColors.txtMuted })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+
+        Row() {
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('ammo'), value: this.materials.ammo, gain: this.sortieGains?.ammo ?? 0, textColor: PanelColors.txtMuted })
+            ResourceAmount({ icon: resourceIconPath('bauxite'), value: this.materials.bauxite, gain: this.sortieGains?.bauxite ?? 0, textColor: PanelColors.txtMuted })
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank().layoutWeight(1)
+
+          Row({ space: 7 }) {
+            ResourceAmount({ icon: resourceIconPath('instantBuild'), value: this.materials.instantBuild, gain: this.sortieGains?.instantBuild ?? 0, textColor: PanelColors.txtMuted })
+            ResourceAmount({ icon: resourceIconPath('screw'), value: this.materials.screw, gain: this.sortieGains?.screw ?? 0, textColor: PanelColors.txtMuted })
+          }
+          .alignItems(VerticalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+      } else {
+        Row() {
+          Text('Loading Data...')
+            .fontSize(PanelDimens.fontSm).fontColor(PanelColors.txtMuted)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+      }
+    }
+    .width('100%')
+    .height(RESOURCE_BAR_NARROW_H)
+  }
+
+  @Builder StatusBar() {
+    Column() {
+      if (this.useNarrowResourceLayout()) {
+        this.ResourceNarrowRows()
+      } else {
+        this.ResourceWideRow()
+      }
+    }
+    .width('100%')
+    .height(this.resourceBarHeight())
     .padding({ left: 8, right: 8 })
     .backgroundColor(PanelColors.bg)
-    .alignItems(VerticalAlign.Center)
     .borderWidth({ bottom: PanelDimens.borderW })
     .borderColor(PanelColors.rowBorder)
   }
@@ -389,58 +571,6 @@ export default struct BottomPanel {
     }
   }
 
-  /**
-   * Single quest row:
-   *   [category icon] | [period chip] | [title] | [progress]
-   */
-  @Builder QuestRow(quest: QuestSnapshot) {
-    Row() {
-      // Column 1: category icon (colored text placeholder)
-      Column() {
-        Text(questCategoryStyle(quest.category).label)
-          .fontSize(PanelDimens.fontMd)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#ffffff')
-      }
-      .width(PanelDimens.avatarW)
-      .height('100%')
-      .backgroundColor(questCategoryStyle(quest.category).color)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-
-      // Column 2: period chip
-      Text(questResetTypeLabel(quest.type))
-        .fontSize(PanelDimens.fontSm)
-        .fontColor(PanelColors.txtSub)
-        .width(72)
-        .textAlign(TextAlign.Center)
-
-      // Column 3: title (description)
-      Text(quest.title)
-        .fontSize(PanelDimens.fontMd)
-        .fontColor(PanelColors.txtPrimary)
-        .layoutWeight(1)
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .padding({ left: 8, right: 8 })
-
-      // Column 4: progress
-      Text(questProgressLabel(quest.progress, quest.state))
-        .fontSize(PanelDimens.fontMd)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(PanelColors.stat)
-        .width(56)
-        .textAlign(TextAlign.End)
-        .padding({ right: 8 })
-    }
-    .width('100%')
-    .height(PanelDimens.rowH)
-    .backgroundColor(PanelColors.bgSection)
-    .borderWidth({ bottom: PanelDimens.borderW })
-    .borderColor(PanelColors.rowBorder)
-    .alignItems(VerticalAlign.Center)
-  }
-
   @Builder EmptyState() {
     Column() {
       Text(this.activeFleet >= 4 && this.activeFleet < MAP_TAB_IDX ? '未実装' : 'NO Fleet info')
@@ -457,30 +587,14 @@ export default struct BottomPanel {
   build() {
     Column() {
       this.TabBar()
+      this.AdmiralHeader()
       this.StatusBar()
       this.FleetStatsBar()
 
       Scroll() {
         Column() {
           if (this.activeFleet === QUEST_TAB_IDX) {
-            if (this.activeQuests.length > 0) {
-              ForEach(this.activeQuests, (quest: QuestSnapshot) => {
-                this.QuestRow(quest)
-              }, (quest: QuestSnapshot) => `quest-${quest.questId}`)
-            } else {
-              Column() {
-                Text('未接受的任务')
-                  .fontSize(PanelDimens.fontMd)
-                  .fontColor(PanelColors.txtMuted)
-                  .margin({ top: 24 })
-                Text('打开任务列表以获得数据')
-                  .fontSize(PanelDimens.fontSm)
-                  .fontColor(PanelColors.txtFainter)
-                  .margin({ top: 6 })
-              }
-              .width('100%')
-              .alignItems(HorizontalAlign.Center)
-            }
+            QuestPanel({ quests: this.quests, compact: false })
           } else if (this.activeFleet === MAP_TAB_IDX) {
             if (this.mapGauges.length > 0) {
               ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
@@ -506,13 +620,14 @@ export default struct BottomPanel {
                 ship,
                 isFlag: idx === 0,
                 specialAttack: this.specialAttack,
+                showAvatar: this.showAvatar,
                 showKaisyuu: this.showKaisyuu,
                 showProficiency: this.showProficiency,
                 detailUid: this.detailUid,
                 onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
-            }, (ship: ShipItem) => `ship-${ship.id}`)
+            }, (ship: ShipItem) => `${shipRowKey(ship)}_${this.specialAttack}`)
           } else {
             this.EmptyState()
           }
@@ -528,5 +643,11 @@ export default struct BottomPanel {
     .height('100%')
     .backgroundColor(PanelColors.bg)
     .clip(true)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      const width = lengthToNumber(area.width);
+      if (width > 0) {
+        this.panelWidth = width;
+      }
+    })
   }
 }

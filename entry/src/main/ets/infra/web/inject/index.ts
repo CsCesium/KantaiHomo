@@ -5,6 +5,8 @@ import { hookXhrSnippet } from './modules/hookXHR';
 import { hookFetchSnippet } from './modules/hookFetch';
 import { fpsSnippet } from './modules/fps';
 import { touchPatchSnippet } from './modules/touchPatch';
+import { touchHoverSnippet } from './modules/touchHover';
+import { touchWheelSnippet } from './modules/touchWheel';
 import { tickerRafSnippet } from './modules/tickerRaf';
 import { pixiPatchSnippet } from './modules/pixiPatch';
 import { iframeFitSnippet } from './modules/ifrFit';
@@ -14,6 +16,7 @@ import { promoteGameFrameSnippet } from './modules/promoteGameFrame';
 import { postMessageGuardSnippet } from './modules/postMessageGuard';
 import { yasenDetectorJS } from './modules/YasenDetect';
 import { advanceDetectorJS } from './modules/AdvanceDetect';
+import { audioMuteSnippet } from './modules/audioMute';
 
 
 function asEvalChunk(name: string, code: string): string {
@@ -31,6 +34,7 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   out.push(asEvalChunk('hm-inject://postMessageGuard.js', postMessageGuardSnippet));
   out.push(asEvalChunk('hm-inject://bridge.js', bridgeSnippet(o.channelName, o.postMethod)));
   out.push(asEvalChunk('hm-inject://promote.js', promoteGameFrameSnippet));
+  out.push(asEvalChunk('hm-inject://audioMute.js', audioMuteSnippet));
   //debug
   if (o.enableDebug) out.push(asEvalChunk('hm-inject://debug.js',kcDebugSnippet))
 
@@ -42,6 +46,8 @@ export function buildInjectionBundle(opts?: InjectOptions): string {
   if (o.enableFetchHook)  out.push(asEvalChunk('hm-inject://hookFetch.js', hookFetchSnippet(o.channelName, o.postMethod, o.apiFilter)));
   if (o.enableFPS)        out.push(asEvalChunk('hm-inject://fps.js',       fpsSnippet(o.channelName, o.postMethod)));
   if (o.enableTouchPatch) out.push(asEvalChunk('hm-inject://touchPatch.js',touchPatchSnippet));
+  if (o.enableTouchHover) out.push(asEvalChunk('hm-inject://touchHover.js',touchHoverSnippet));
+  if (o.enableTouchWheel) out.push(asEvalChunk('hm-inject://touchWheel.js',touchWheelSnippet(o.touchWheelSensitivityPercent)));
   if (o.enableTickerRAF)  out.push(asEvalChunk('hm-inject://tickerRaf.js', tickerRafSnippet));
   if (o.enablePixiPatch)  out.push(asEvalChunk('hm-inject://pixiPatch.js', pixiPatchSnippet));
   if (o.enableYasenDetect) out.push(asEvalChunk('hm-inject://yasenDetect.js', yasenDetectorJS()));

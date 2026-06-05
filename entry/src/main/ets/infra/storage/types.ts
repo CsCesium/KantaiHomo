@@ -391,6 +391,7 @@ export interface MissionRow {
 export interface MissionRepository {
   upsertBatch(rows: readonly MissionRow[]): Promise<void>;
   listIdNames(): Promise<ReadonlyArray<{ id: number; name: string }>>;
+  listAll(): Promise<MissionRow[]>;
 }
 
 // ==================== Expedition ====================

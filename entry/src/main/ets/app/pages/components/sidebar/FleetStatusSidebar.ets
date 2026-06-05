@@ -1,16 +1,12 @@
 import {
   getDeckShips,
+  isShipEscaped,
   getShipSpecialEquip,
   subscribeGameState,
-  getCurrentBattle,
-  getShipGraphFilename,
-  getGameServerUrl,
 } from '../../../../features/state';
 import {
   ShipSpecialEquip,
   ShipState,
-  FleetBattleStatus,
-  ShipBattleStatus,
 } from '../../../../features/state/type';
 import { getSortieContext } from '../../../../domain/service/sortie';
 import ShipStatusBadge from './ShipStatusBadge';
@@ -21,60 +17,9 @@ interface ShipEntry {
   equip: ShipSpecialEquip;
 }
 
-/**
- * 用战斗快照中的 hpAfter 覆盖 ShipState 的 HP 字段，返回新对象。
- * 只有当快照中有对应 uid 的数据时才覆盖，否则原样返回。
- */
-function applyBattleHp(
-  base: ShipState,
-  overrides: Map<number, ShipBattleStatus>
-): ShipState {
-  const bss = overrides.get(base.uid);
-  if (!bss) return base;
-  return {
-    uid:          base.uid,
-    masterId:     base.masterId,
-    name:         base.name,
-    level:        base.level,
-    expToNext:    base.expToNext,
-    hpNow:        bss.hpAfter,
-    hpMax:        bss.hpMax,
-    cond:         base.cond,
-    fuel:         base.fuel,
-    ammo:         base.ammo,
-    fuelMax:      base.fuelMax,
-    ammoMax:      base.ammoMax,
-    scoutCur:     base.scoutCur,
-    aswCur:       base.aswCur,
-    speed:        base.speed,
-    needsResupply: base.needsResupply,
-    slotCount:    base.slotCount,
-    slots:        base.slots,
-    onslot:       base.onslot,
-    exSlot:       base.exSlot,
-    hpPercent:    bss.hpPercent,
-    isTaiha:      bss.isTaiha,
-    isChuuha:     bss.isChuuha,
-  };
-}
-
-/**
- * 将 FleetBattleStatus 中的 ships 数组转成 uid→ShipBattleStatus 的 Map。
- */
-function buildHpOverrideMap(fleet: FleetBattleStatus | undefined): Map<number, ShipBattleStatus> {
-  const m = new Map<number, ShipBattleStatus>();
-  if (!fleet) return m;
-  for (const s of fleet.ships) {
-    m.set(s.uid, s);
-  }
-  return m;
-}
-
 function shipEntryKey(entry: ShipEntry): string {
   const ship = entry.ship;
   const equip = entry.equip;
-  const avatarFilename = getShipGraphFilename(ship.masterId) ?? '';
-  const gameServerUrl = getGameServerUrl() ?? '';
   return [
     ship.uid,
     ship.masterId,
@@ -84,20 +29,18 @@ function shipEntryKey(entry: ShipEntry): string {
     ship.fuel,
     ship.ammo,
     ship.needsResupply ? 1 : 0,
+    isShipEscaped(ship.uid) ? 1 : 0,
     equip.hasDamageControl ? 1 : 0,
     equip.hasGoddess ? 1 : 0,
-    avatarFilename,
-    gameServerUrl,
   ].join('_');
 }
 
 /**
  * 舰队状态侧边栏 — 在 compact 全屏模式下展示在游戏画面右侧黑边区域。
  *
- * HP 数据来源优先级：
- *   1. 战斗结算快照（BATTLE_RESULT）中的 hpAfter — 结算后立即生效
- *   2. GameState 中的 ShipState.hpNow — 入港时写入的真实值
- * 昼/夜战预测值不在侧边栏显示，避免与实际结果产生混淆。
+ * HP 数据来源：GameState 中的 ShipState.hpNow。BATTLE_RESULT 不再回写
+ * GameState，战斗期间的预测/结算 HP 由 BattlePreview 面板展示，侧边栏只反映
+ * sortie_next / port 阶段刷新的真实值。
  *
  * 舰队选择：优先出击舰队（getSortieContext().deckId），无出击时回退第一舰队。
  * 联合舰队出击时，双击侧边栏可在第一（主力）与第二（护卫）舰队间切换。
@@ -105,6 +48,7 @@ function shipEntryKey(entry: ShipEntry): string {
 @ComponentV2
 export default struct FleetStatusSidebar {
   @Param sidebarWidth: number = 72;
+  @Param showAvatar: boolean = true;
 
   @Local private entries: ShipEntry[] = [];
   /** 联合舰队出击时是否正在显示护卫舰队（第二舰队） */
@@ -130,7 +74,7 @@ export default struct FleetStatusSidebar {
     }
   }
 
-  /** 刷新舰队条目，并用战斗快照覆盖 HP */
+  /** 刷新舰队条目（仅显示 GameState 中的真实 HP） */
   private refreshEntries(): void {
     const ctx = getSortieContext();
     const combined = ctx !== null && ctx.combinedType > 0;
@@ -145,18 +89,10 @@ export default struct FleetStatusSidebar {
     const deckId = combined && this.showingEscort ? 2 : (ctx ? ctx.deckId : 1);
     const ships = getDeckShips(deckId);
 
-    // 从战斗状态取最新的 HP 覆盖数据
-    const battle = getCurrentBattle();
-    // 仅使用已结算的战斗结果（BATTLE_RESULT）
-    const sourceFleet: FleetBattleStatus | undefined =
-      battle.result?.friendMain?.deckId === deckId ? battle.result!.friendMain :
-      battle.result?.friendEscort?.deckId === deckId ? battle.result!.friendEscort :
-      undefined;
-
-    const overrides = buildHpOverrideMap(sourceFleet);
-
+    // 仅显示 GameState 中的真实 HP。战斗结算的预测 HP 留在 BattlePreview 面板里展示，
+    // 避免预测索引偏差污染侧边栏。GameState 会在 sortie_next / port 阶段被刷新。
     this.entries = ships.map((s: ShipState): ShipEntry => ({
-      ship: applyBattleHp(s, overrides),
+      ship: s,
       equip: getShipSpecialEquip(s.uid),
     }));
   }
@@ -182,6 +118,7 @@ export default struct FleetStatusSidebar {
               equip: entry.equip,
               totalWidth: this.sidebarWidth,
               totalHeight: this.sidebarWidth,
+              showAvatar: this.showAvatar,
             })
               .layoutWeight(1)
           },

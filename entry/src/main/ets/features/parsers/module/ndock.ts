@@ -7,7 +7,11 @@ import { parseSvdata } from '../../utils/common';
 
 const RULES: EndpointRule[] = [
   { endpoint: '/api_get_member/ndock', match: (url) => url.includes('/api_get_member/ndock') },
+  { endpoint: '/api_req_nyukyo/start', match: (url) => url.includes('/api_req_nyukyo/start') },
+  { endpoint: '/api_req_nyukyo/speedchange', match: (url) => url.includes('/api_req_nyukyo/speedchange') },
 ];
+
+type NdockResponseData = ApiNdockRaw[] | { api_ndock?: ApiNdockRaw[] };
 
 export function parseNdock(dump: ApiDump): PortNdockEvent[] | null {
   const endpoint = detectEndpoint(dump.url, RULES);
@@ -21,8 +25,9 @@ export function parseNdock(dump: ApiDump): PortNdockEvent[] | null {
     responseText: dump.responseText,
   };
 
-  const js = parseSvdata<{ api_data?: ApiNdockRaw[] }>(ctx.responseText);
-  const data = js?.api_data;
+  const js = parseSvdata<{ api_data?: NdockResponseData }>(ctx.responseText);
+  const apiData = js?.api_data;
+  const data = Array.isArray(apiData) ? apiData : apiData?.api_ndock;
   if (!Array.isArray(data)) return null;
 
   const ndocks = normalizeNdocks(data, ctx.ts);

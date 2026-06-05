@@ -1,20 +1,14 @@
 import { ShipSpecialEquip, ShipState } from '../../../../features/state/type';
-import { getShipGraphFilename, getGameServerUrl, isShipEscaped } from '../../../../features/state';
-import { getShipBannerUrl } from '../../../../features/game/shipGraph';
-import { equipLabel } from '../../../../features/panel/panelConfig';
+import { isShipEscaped } from '../../../../features/state';
+import { getShipAvatarPath } from '../../../../features/game/shipAvatar';
+import { equipLabel, hpColor as panelHpColor, PanelColors } from '../../../../features/panel/panelConfig';
 import { SlotItemIconId } from '../../../../domain/models/struct/slotitem';
 
 /**
- * HP 颜色常量（按损伤等级）
- * 绿色: HP > 50%（小破以上）
- * 黄色: 25% < HP ≤ 50%（中破）
- * 红色: HP ≤ 25%（大破）
+ * HP 颜色（按损伤等级）
+ * 颜色阈值与面板 HP 进度条保持一致。
  */
-const HP_COLOR_GREEN = '#4caf50';
-const HP_COLOR_YELLOW = '#ffeb3b';
-const HP_COLOR_RED = '#f44336';
 const HP_COLOR_BG = '#2a2a2a';
-const ESCAPE_LABEL_COLOR = '#42a5f5';
 const RING_STROKE_WIDTH = 3.5;
 const TICK_COLOR = '#ffffff';
 const TICK_OUTER_PAD = 2;
@@ -23,7 +17,6 @@ const STATUS_PANEL_WIDTH = 24;
 const DAMAGE_CONTROL_ICON_ID = SlotItemIconId.DamageControl;
 const DAMAGE_BADGE_BG = '#00000088';
 const DAMAGE_BADGE_BORDER = '#FFFFFFCC';
-const SHIP_BANNER_ASPECT_RATIO = 4;
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
@@ -59,6 +52,7 @@ export default struct ShipStatusBadge {
   @Param equip: ShipSpecialEquip = { hasDamageControl: false, hasGoddess: false };
   @Param totalHeight: number = 48;
   @Param totalWidth: number = 60;
+  @Param showAvatar: boolean = true;
   @Local private failedAvatarUrl: string = '';
 
   // Canvas 渲染上下文，在整个组件生命周期内复用
@@ -85,11 +79,6 @@ export default struct ShipStatusBadge {
   @Computed
   get avatarDiam(): number {
     return this.ringDiam - RING_STROKE_WIDTH * 2 - 4;
-  }
-
-  @Computed
-  get avatarBannerWidth(): number {
-    return Math.ceil(this.avatarDiam * SHIP_BANNER_ASPECT_RATIO);
   }
 
   @Computed
@@ -124,15 +113,12 @@ export default struct ShipStatusBadge {
 
   @Computed
   get avatarUrl(): string {
-    const filename = getShipGraphFilename(this.ship.masterId);
-    const serverBase = getGameServerUrl();
-    if (!filename || !serverBase) return '';
-    return getShipBannerUrl(this.ship.masterId, filename, serverBase);
+    return getShipAvatarPath(this.ship.masterId);
   }
 
   @Computed
   get shouldShowAvatarImage(): boolean {
-    return this.avatarUrl.length > 0 && this.failedAvatarUrl !== this.avatarUrl;
+    return this.showAvatar && this.avatarUrl.length > 0 && this.failedAvatarUrl !== this.avatarUrl;
   }
 
   @Computed
@@ -147,10 +133,7 @@ export default struct ShipStatusBadge {
 
   /** HP 颜色 */
   private hpColor(): string {
-    const pct = this.ship.hpMax > 0 ? this.ship.hpNow / this.ship.hpMax : 1;
-    if (pct > 0.5) return HP_COLOR_GREEN;
-    if (pct > 0.25) return HP_COLOR_YELLOW;
-    return HP_COLOR_RED;
+    return isShipEscaped(this.ship.uid) ? PanelColors.escapeHp : panelHpColor(this.ship.hpNow, this.ship.hpMax);
   }
 
   @Builder
@@ -279,11 +262,11 @@ export default struct ShipStatusBadge {
 
         // 头像圆 — 图片不可用时回退到舰名文字。
         if (this.shouldShowAvatarImage) {
-          Stack({ alignContent: Alignment.TopStart }) {
+          Stack({ alignContent: Alignment.Center }) {
             Image(this.avatarUrl)
-              .width(this.avatarBannerWidth)
+              .width(this.avatarDiam)
               .height(this.avatarDiam)
-              .objectFit(ImageFit.Fill)
+              .objectFit(ImageFit.Cover)
               .onError(() => {
                 this.failedAvatarUrl = this.avatarUrl;
               })
@@ -307,11 +290,20 @@ export default struct ShipStatusBadge {
             .position({ x: this.badgePositionX, y: this.badgePositionY })
         }
 
+        if (isShipEscaped(this.ship.uid)) {
+          Row()
+            .width(this.ringDiam)
+            .height(this.ringDiam)
+            .borderRadius(this.ringDiam / 2)
+            .backgroundColor(PanelColors.escapeOverlay)
+            .enabled(false)
+        }
+
         // 退避（goback_port）标签 — 蓝色，盖在头像下沿
         if (isShipEscaped(this.ship.uid)) {
           Text('退避')
             .fontSize(this.nameFontSize + 1)
-            .fontColor(ESCAPE_LABEL_COLOR)
+            .fontColor(PanelColors.escapeLabel)
             .fontWeight(FontWeight.Bold)
             .backgroundColor('#CC000000')
             .padding({ left: 2, right: 2 })

@@ -2,6 +2,7 @@
 // ==================== 状态管理类 ====================
 import { Admiral, Materials, Deck, Ship, Ndock, Kdock, Quest } from "../../domain/models";
 import type { LbasBase } from '../../domain/models/struct/lbas';
+import type { MapResourceGain } from '../../domain/models/struct/map';
 import { kvSet } from "../../infra/storage/kv";
 import {
   GameState,
@@ -9,6 +10,7 @@ import {
   ExpChange,
   AdmiralSnapshot,
   MaterialsSnapshot,
+  SortieResourceGains,
   DeckSnapshot,
   ShipState,
   ShipSpecialEquip,
@@ -66,10 +68,34 @@ const SENKA_EXP_PER_POINT = 1428;
 const DAMAGE_CONTROL_MASTER_ID = 42;
 const GODDESS_MASTER_ID = 43;
 
+function sortieResourceGainId(gain: MapResourceGain): number | undefined {
+  const itemId = gain.itemId;
+  if (itemId !== undefined && itemId >= 1 && itemId <= 8) return itemId;
+
+  const iconId = gain.iconId;
+  if (iconId !== undefined && iconId >= 1 && iconId <= 8) return iconId;
+
+  return undefined;
+}
+
+function deckToSnapshot(deck: Deck, capturedAt: number): DeckSnapshot {
+  const snapshot: DeckSnapshot = {
+    deckId: deck.deckId,
+    name: deck.name,
+    shipUids: deck.shipUids.slice(),
+    expeditionReturnTime: deck.expedition?.returnTime ?? null,
+    expeditionMissionId: deck.expedition?.missionId ?? 0,
+    capturedAt,
+  };
+  return snapshot;
+}
+
 class GameStateManager {
   private state: GameState = {
     admiral: null,
     materials: null,
+    useItemCounts: new Map(),
+    sortieResourceGains: null,
     decks: [],
     Ndocks:[],
     Kdocks:[],
@@ -94,6 +120,7 @@ class GameStateManager {
     slotItemAa: new Map(),
     slotItemAsw: new Map(),
     slotItemNames: new Map(),
+    useItemMasterNames: new Map(),
     slotItemIndex: new Map(),
     slotItemLevels: new Map(),
     slotItemAlvs: new Map(),
@@ -108,11 +135,14 @@ class GameStateManager {
 
   /** 当前出击中已使用退避机制的舰娘 UID 集合。
    * 由 /api_req_(combined_battle|sortie)/goback_port 的 api_escape_idx 标记，
-   * 列表里出现的所有位置（联合舰队 1-12 / 单舰队 1-6）都会被加入；
+   * 列表里出现的所有位置（联合舰队 1-12 / 单舰队或游击队主队序号）都会被加入；
    * 故"联合舰队退避 + 拖船"和"单舰退避（无拖船）"两种场景都覆盖。
    * 回港时（PortHandler）清除。
-   * 这些舰娘不计入大破警告，UI 会以蓝色"退避"标签显示。 */
+   * 这些舰娘不计入大破警告，UI 会以退避灰色遮罩显示。 */
   private escapedShipUids: Set<number> = new Set();
+
+  /** 当前出击中已经发动过旗舰特殊攻击的舰娘 UID 及发动次数。 */
+  private specialAttackTriggeredShipCounts: Map<number, number> = new Map();
 
   /** 每日战果追踪（含 CST 周期 ID，用于跨周期重置） */
   private dailySenkaStart: { exp: number; time: number; date: string } | null = null;
@@ -134,6 +164,8 @@ class GameStateManager {
       nickname: admiral.nickname,
       level: admiral.level,
       experience: admiral.experience,
+      maxShips: admiral.maxShips,
+      maxSlotItems: admiral.maxSlotItems,
       rank: admiral.rank,
       capturedAt: Date.now(),
     };
@@ -169,6 +201,109 @@ class GameStateManager {
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('materials');
   }
+
+  /**
+   * 更新道具数量（来自 require_info / useitem 同类全量数据）。
+   */
+  updateUseItems(items: ReadonlyArray<{ itemId: number; count: number }>): void {
+    const next = new Map<number, number>();
+    for (const item of items) {
+      if (item.itemId > 0) {
+        next.set(item.itemId, item.count);
+      }
+    }
+    this.state.useItemCounts = next;
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('materials');
+  }
+
+  /** 按道具 ID 查询数量（无数据时返回 0）。 */
+  getUseItemCount(itemId: number): number {
+    return this.state.useItemCounts.get(itemId) ?? 0;
+  }
+
+  patchMaterials(update: {
+    fuel?: number;
+    ammo?: number;
+    steel?: number;
+    bauxite?: number;
+    instantBuild?: number;
+    instantRepair?: number;
+    devMaterial?: number;
+    screw?: number;
+  }): void {
+    const current = this.state.materials;
+    if (!current) return;
+
+    this.state.materials = {
+      fuel: update.fuel ?? current.fuel,
+      ammo: update.ammo ?? current.ammo,
+      steel: update.steel ?? current.steel,
+      bauxite: update.bauxite ?? current.bauxite,
+      instantBuild: update.instantBuild ?? current.instantBuild,
+      instantRepair: update.instantRepair ?? current.instantRepair,
+      devMaterial: update.devMaterial ?? current.devMaterial,
+      screw: update.screw ?? current.screw,
+      capturedAt: Date.now(),
+    };
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('materials');
+  }
+
+  /**
+   * 累加本次出击获得的资源（来自资源点 api_itemget）。
+   * api_id/api_icon_id: 1=燃料, 2=弹药, 3=钢材, 4=铝土,
+   *                    5=高速建造材, 6=高速修复材, 7=开发资材, 8=改修资材
+   */
+  addSortieResourceGains(gains: ReadonlyArray<MapResourceGain>): void {
+    if (!gains || gains.length === 0) return;
+
+    const prev = this.state.sortieResourceGains;
+    const next: SortieResourceGains = {
+      fuel: prev?.fuel ?? 0,
+      ammo: prev?.ammo ?? 0,
+      steel: prev?.steel ?? 0,
+      bauxite: prev?.bauxite ?? 0,
+      instantBuild: prev?.instantBuild ?? 0,
+      instantRepair: prev?.instantRepair ?? 0,
+      devMaterial: prev?.devMaterial ?? 0,
+      screw: prev?.screw ?? 0,
+      updatedAt: prev?.updatedAt ?? 0,
+    };
+
+    let changed = false;
+    for (const g of gains) {
+      const id = sortieResourceGainId(g);
+      const count = g.count ?? 0;
+      if (!id || count <= 0) continue;
+      switch (id) {
+        case 1: next.fuel += count; changed = true; break;
+        case 2: next.ammo += count; changed = true; break;
+        case 3: next.steel += count; changed = true; break;
+        case 4: next.bauxite += count; changed = true; break;
+        case 5: next.instantBuild += count; changed = true; break;
+        case 6: next.instantRepair += count; changed = true; break;
+        case 7: next.devMaterial += count; changed = true; break;
+        case 8: next.screw += count; changed = true; break;
+        default: break;
+      }
+    }
+
+    if (!changed) return;
+    next.updatedAt = Date.now();
+    this.state.sortieResourceGains = next;
+    this.state.lastUpdatedAt = next.updatedAt;
+    this.notifyListeners('sortieGains');
+  }
+
+  /** 清除本次出击累计资源（出击开始 / 回港时调用） */
+  clearSortieResourceGains(): void {
+    if (this.state.sortieResourceGains === null) return;
+    this.state.sortieResourceGains = null;
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('sortieGains');
+  }
+
   /**
    * 更新修理渠
    */
@@ -201,17 +336,136 @@ class GameStateManager {
    * 更新舰队
    */
   updateDecks(decks: Deck[]): void {
-    this.state.decks = decks.map(deck => ({
-      deckId: deck.deckId,
-      name: deck.name,
-      shipUids: [...deck.shipUids],
-      expeditionReturnTime: deck.expedition?.returnTime ?? null,
-      expeditionMissionId: deck.expedition?.missionId ?? 0,
-      capturedAt: Date.now(),
-    }));
+    if (decks.length === 0) return;
+
+    const capturedAt = Date.now();
+    const incoming = new Map<number, DeckSnapshot>();
+    for (const deck of decks) {
+      incoming.set(deck.deckId, deckToSnapshot(deck, capturedAt));
+    }
+
+    const seen = new Set<number>();
+    const merged: DeckSnapshot[] = [];
+    for (const deck of this.state.decks) {
+      const nextDeck = incoming.get(deck.deckId);
+      merged.push(nextDeck ?? deck);
+      seen.add(deck.deckId);
+    }
+    for (const deck of decks) {
+      if (seen.has(deck.deckId)) continue;
+      const nextDeck = incoming.get(deck.deckId);
+      if (nextDeck) {
+        merged.push(nextDeck);
+        seen.add(deck.deckId);
+      }
+    }
+
+    // Non-port APIs can return only the touched sortie fleet. Merge those
+    // partial updates so absent fleets are not cleared from the panel.
+    this.state.decks = merged.sort((a, b) => a.deckId - b.deckId);
 
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('decks');
+  }
+
+  /**
+   * 局部更新某个舰队的远征状态。用于 `/api_req_mission/start` 等远征类
+   * API 在下一次 `/api_port/port` 到来之前同步 UI；deckId 在内存里不存在
+   * 时静默忽略（port 刷新会兜底）。
+   */
+  patchDeckExpedition(deckId: number, missionId: number, returnTime: number | null): void {
+    let mutated = false;
+    this.state.decks = this.state.decks.map(d => {
+      if (d.deckId !== deckId) return d;
+      if (d.expeditionMissionId === missionId && d.expeditionReturnTime === returnTime) {
+        return d;
+      }
+      mutated = true;
+      return {
+        deckId: d.deckId,
+        name: d.name,
+        shipUids: d.shipUids,
+        expeditionReturnTime: returnTime,
+        expeditionMissionId: missionId,
+        capturedAt: Date.now(),
+      };
+    });
+    if (mutated) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('decks');
+    }
+  }
+
+  patchDeckShip(deckId: number, shipIdx: number, shipUid: number): void {
+    if (deckId <= 0) return;
+    const targetDeck = this.state.decks.find(d => d.deckId === deckId);
+    if (!targetDeck) return;
+    const targetIdx = Math.max(0, shipIdx);
+    const sourceDeck = shipUid > 0
+      ? this.state.decks.find(d => d.shipUids.indexOf(shipUid) >= 0)
+      : undefined;
+    const sourceDeckId = sourceDeck?.deckId ?? 0;
+    const sourceDeckIdx = sourceDeck?.shipUids.indexOf(shipUid) ?? -1;
+    const displacedShipUid = shipUid > 0 && targetIdx < targetDeck.shipUids.length
+      ? targetDeck.shipUids[targetIdx]
+      : -1;
+    const capturedAt = Date.now();
+    let mutated = false;
+
+    this.state.decks = this.state.decks.map(d => {
+      const isTargetDeck = d.deckId === deckId;
+      let nextShipUids = d.shipUids.slice();
+
+      if (!isTargetDeck) {
+        if (shipUid > 0 && d.deckId === sourceDeckId && sourceDeckIdx >= 0) {
+          if (displacedShipUid > 0) {
+            nextShipUids[sourceDeckIdx] = displacedShipUid;
+          } else {
+            nextShipUids.splice(sourceDeckIdx, 1);
+          }
+          mutated = true;
+          return { ...d, shipUids: nextShipUids.filter(uid => uid > 0), capturedAt };
+        }
+        return d;
+      }
+
+      if (shipUid === -2) {
+        nextShipUids = nextShipUids.length > 0 ? [nextShipUids[0]] : [];
+      } else if (shipUid === -1) {
+        if (targetIdx < nextShipUids.length) {
+          nextShipUids.splice(targetIdx, 1);
+        }
+      } else if (shipUid > 0) {
+        const sourceIdx = nextShipUids.indexOf(shipUid);
+        if (sourceIdx >= 0) {
+          if (sourceIdx === targetIdx) {
+            return d;
+          }
+          if (targetIdx >= nextShipUids.length) {
+            nextShipUids.splice(sourceIdx, 1);
+            nextShipUids.push(shipUid);
+          } else {
+            const targetShipUid = nextShipUids[targetIdx];
+            nextShipUids[targetIdx] = shipUid;
+            nextShipUids[sourceIdx] = targetShipUid;
+          }
+        } else if (targetIdx >= nextShipUids.length) {
+          nextShipUids.push(shipUid);
+        } else {
+          nextShipUids[targetIdx] = shipUid;
+        }
+      } else {
+        return d;
+      }
+
+      mutated = true;
+      return { ...d, shipUids: nextShipUids.filter(uid => uid > 0), capturedAt };
+    });
+
+    if (mutated) {
+      this.state.lastUpdatedAt = capturedAt;
+      this.notifyListeners('decks');
+    }
   }
 
   /**
@@ -221,6 +475,7 @@ class GameStateManager {
     this.state.quests = quests.map(quest => ({
       questId: quest.questId,
       title: quest.title,
+      detail: quest.detail,
       state: quest.state,
       category: quest.category,
       type: quest.type,
@@ -319,6 +574,170 @@ class GameStateManager {
     this.notifyListeners('ships');
   }
 
+  private removeSlotItemFromOtherShips(itemUid: number, keepShipUid: number, keepSlotIdx: number, keepExSlot: boolean): boolean {
+    if (itemUid <= 0) return false;
+    let changed = false;
+
+    this.state.ships.forEach((ship, uid) => {
+      let shipChanged = false;
+      const slots = ship.slots.map((slotUid, idx) => {
+        if (slotUid !== itemUid || (uid === keepShipUid && idx === keepSlotIdx && !keepExSlot)) {
+          return slotUid;
+        }
+        shipChanged = true;
+        return -1;
+      });
+      let exSlot = ship.exSlot;
+      if (exSlot === itemUid && !(uid === keepShipUid && keepExSlot)) {
+        exSlot = -1;
+        shipChanged = true;
+      }
+      if (shipChanged) {
+        this.state.ships.set(uid, { ...ship, slots, exSlot });
+        changed = true;
+      }
+    });
+
+    return changed;
+  }
+
+  patchShipSlot(shipUid: number, slotIdx: number, itemUid: number): void {
+    if (shipUid <= 0 || slotIdx < 0) return;
+    const existing = this.state.ships.get(shipUid);
+    if (!existing) return;
+
+    if (slotIdx >= Math.max(existing.slotCount, existing.slots.length)) return;
+    const nextItemUid = itemUid > 0 ? itemUid : -1;
+    const removedElsewhere = this.removeSlotItemFromOtherShips(nextItemUid, shipUid, slotIdx, false);
+    const base = this.state.ships.get(shipUid) ?? existing;
+    const slots = base.slots.slice();
+    while (slots.length <= slotIdx) {
+      slots.push(-1);
+    }
+    if (slots[slotIdx] === nextItemUid && !removedElsewhere) return;
+
+    slots[slotIdx] = nextItemUid;
+    this.state.ships.set(shipUid, { ...base, slots });
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  patchShipExSlot(shipUid: number, itemUid: number): void {
+    if (shipUid <= 0) return;
+    const existing = this.state.ships.get(shipUid);
+    if (!existing) return;
+
+    const nextItemUid = itemUid > 0 ? itemUid : -1;
+    const removedElsewhere = this.removeSlotItemFromOtherShips(nextItemUid, shipUid, -1, true);
+    const base = this.state.ships.get(shipUid) ?? existing;
+    if (base.exSlot === nextItemUid && !removedElsewhere) return;
+
+    this.state.ships.set(shipUid, { ...base, exSlot: nextItemUid });
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  patchShipUnsetSlots(shipUid: number): void {
+    if (shipUid <= 0) return;
+    const existing = this.state.ships.get(shipUid);
+    if (!existing) return;
+
+    const slots = existing.slots.map((_slotUid, idx) => idx < existing.slotCount ? -1 : existing.slots[idx]);
+    this.state.ships.set(shipUid, { ...existing, slots });
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  patchShipSlotExchange(shipUid: number, srcIdx: number, dstIdx: number): void {
+    if (shipUid <= 0 || srcIdx < 0 || dstIdx < 0 || srcIdx === dstIdx) return;
+    const existing = this.state.ships.get(shipUid);
+    if (!existing) return;
+
+    const slots = existing.slots.slice();
+    const limit = Math.max(existing.slotCount, slots.length);
+    if (srcIdx >= limit || dstIdx >= limit) return;
+    while (slots.length < limit) {
+      slots.push(-1);
+    }
+    const tmp = slots[srcIdx];
+    slots[srcIdx] = slots[dstIdx];
+    slots[dstIdx] = tmp;
+
+    this.state.ships.set(shipUid, { ...existing, slots });
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
+  patchShipSlotDeprive(
+    unsetShipUid: number,
+    setShipUid: number,
+    unsetSlotKind: number,
+    setSlotKind: number,
+    unsetIdx: number,
+    setIdx: number
+  ): void {
+    if (unsetShipUid <= 0 || setShipUid <= 0) return;
+    if (unsetSlotKind !== 0 && unsetSlotKind !== 1) return;
+    if (setSlotKind !== 0 && setSlotKind !== 1) return;
+
+    const unsetShip = this.state.ships.get(unsetShipUid);
+    const setShip = this.state.ships.get(setShipUid);
+    if (!unsetShip || !setShip) return;
+    if (unsetSlotKind === 0 && unsetIdx < 0) return;
+    if (setSlotKind === 0 && setIdx < 0) return;
+    if (unsetShipUid === setShipUid && unsetSlotKind === setSlotKind && unsetIdx === setIdx) return;
+
+    const unsetSlots = unsetShip.slots.slice();
+    const setSlots = unsetShipUid === setShipUid ? unsetSlots : setShip.slots.slice();
+    const unsetLimit = Math.max(unsetShip.slotCount, unsetSlots.length);
+    const setLimit = Math.max(setShip.slotCount, setSlots.length);
+    if (unsetSlotKind === 0 && unsetIdx >= unsetLimit) return;
+    if (setSlotKind === 0 && setIdx >= setLimit) return;
+    while (unsetSlotKind === 0 && unsetSlots.length < unsetLimit) {
+      unsetSlots.push(-1);
+    }
+    while (setSlotKind === 0 && setSlots.length < setLimit) {
+      setSlots.push(-1);
+    }
+
+    const unsetItemUid = unsetSlotKind === 1 ? unsetShip.exSlot : unsetSlots[unsetIdx];
+    if (unsetItemUid <= 0) return;
+
+    let nextUnsetExSlot = unsetShip.exSlot;
+    let nextSetExSlot = setShip.exSlot;
+    if (unsetSlotKind === 1) {
+      nextUnsetExSlot = -1;
+    } else {
+      unsetSlots[unsetIdx] = -1;
+    }
+    if (setSlotKind === 1) {
+      nextSetExSlot = unsetItemUid;
+    } else {
+      setSlots[setIdx] = unsetItemUid;
+    }
+
+    if (unsetShipUid === setShipUid) {
+      this.state.ships.set(unsetShipUid, {
+        ...unsetShip,
+        slots: unsetSlots,
+        exSlot: setSlotKind === 1 ? nextSetExSlot : nextUnsetExSlot,
+      });
+    } else {
+      this.state.ships.set(unsetShipUid, {
+        ...unsetShip,
+        slots: unsetSlots,
+        exSlot: nextUnsetExSlot,
+      });
+      this.state.ships.set(setShipUid, {
+        ...setShip,
+        slots: setSlots,
+        exSlot: nextSetExSlot,
+      });
+    }
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('ships');
+  }
+
   /**
    * 批量更新舰船 HP（战斗结算专用，仅覆盖 hpNow/hpMax 与派生伤害状态字段，
    * 其他字段保持不变）。BATTLE_RESULT 之后调用，以便主面板与侧边栏在
@@ -376,6 +795,8 @@ class GameStateManager {
         nickname: data.admiral.nickname,
         level: data.admiral.level,
         experience: data.admiral.experience,
+        maxShips: data.admiral.maxShips,
+        maxSlotItems: data.admiral.maxSlotItems,
         rank: data.admiral.rank,
         capturedAt: Date.now(),
       };
@@ -400,14 +821,8 @@ class GameStateManager {
     }
 
     if (data.decks) {
-      this.state.decks = data.decks.map(deck => ({
-        deckId: deck.deckId,
-        name: deck.name,
-        shipUids: [...deck.shipUids],
-        expeditionReturnTime: deck.expedition?.returnTime ?? null,
-        expeditionMissionId: deck.expedition?.missionId ?? 0,
-        capturedAt: Date.now(),
-      }));
+      const capturedAt = Date.now();
+      this.state.decks = data.decks.map(deck => deckToSnapshot(deck, capturedAt));
     }
 
     if (data.ships) {
@@ -443,6 +858,24 @@ class GameStateManager {
    */
   getMaterials(): MaterialsSnapshot | null {
     return this.state.materials;
+  }
+
+  /** 按道具名称查询数量（无数据时返回 0）。 */
+  getUseItemCountByName(name: string): number {
+    let foundCount = 0;
+    this.state.useItemMasterNames.forEach((itemName: string, itemId: number): void => {
+      if (foundCount === 0 && itemName === name) {
+        foundCount = this.getUseItemCount(itemId);
+      }
+    });
+    return foundCount;
+  }
+
+  /**
+   * 获取本次出击累计资源（null 表示无累计）
+   */
+  getSortieResourceGains(): SortieResourceGains | null {
+    return this.state.sortieResourceGains;
   }
 
   /**
@@ -763,6 +1196,8 @@ class GameStateManager {
     this.state = {
       admiral: null,
       materials: null,
+      useItemCounts: new Map(),
+      sortieResourceGains: null,
       decks: [],
       Ndocks:[],
       Kdocks:[],
@@ -787,6 +1222,7 @@ class GameStateManager {
       slotItemAa: new Map(),
       slotItemAsw: new Map(),
       slotItemNames: new Map(),
+      useItemMasterNames: new Map(),
       slotItemIndex: new Map(),
       slotItemLevels: new Map(),
       slotItemAlvs: new Map(),
@@ -794,6 +1230,7 @@ class GameStateManager {
       gameServerUrl:null,
     };
     this.expHistory = [];
+    this.specialAttackTriggeredShipCounts.clear();
     this.dailySenkaStart = null;
     this.notifyListeners('all');
   }
@@ -882,17 +1319,44 @@ class GameStateManager {
   }
 
   /**
+   * 更新道具图鉴名称缓存（来自 api_start2 useitem 数据）。
+   */
+  updateUseItemMasterNames(items: ReadonlyArray<{ id: number; name: string }>): void {
+    for (const item of items) {
+      if (item.id > 0) {
+        this.state.useItemMasterNames.set(item.id, item.name);
+      }
+    }
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('all');
+  }
+
+  /**
    * 更新装备实例索引（来自 api_get_member/slot_item，uid → masterId/level/alv）
    */
   updateSlotItemIndex(items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>): void {
+    let changed = false;
     for (const item of items) {
-      this.state.slotItemIndex.set(item.uid, item.masterId);
+      if (this.state.slotItemIndex.get(item.uid) !== item.masterId) {
+        this.state.slotItemIndex.set(item.uid, item.masterId);
+        changed = true;
+      }
       if (item.level !== undefined) {
-        this.state.slotItemLevels.set(item.uid, item.level);
+        if (this.state.slotItemLevels.get(item.uid) !== item.level) {
+          this.state.slotItemLevels.set(item.uid, item.level);
+          changed = true;
+        }
       }
       if (item.alv !== undefined) {
-        this.state.slotItemAlvs.set(item.uid, item.alv);
+        if (this.state.slotItemAlvs.get(item.uid) !== item.alv) {
+          this.state.slotItemAlvs.set(item.uid, item.alv);
+          changed = true;
+        }
       }
+    }
+    if (changed) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('ships');
     }
   }
 
@@ -966,6 +1430,55 @@ class GameStateManager {
     return { hasDamageControl, hasGoddess };
   }
 
+  private rebuildFleetBattleStatusForEscapedShips(fleet: FleetBattleStatus): FleetBattleStatus {
+    const ships: ShipBattleStatus[] = fleet.ships.map((ship: ShipBattleStatus): ShipBattleStatus => {
+      if (!this.escapedShipUids.has(ship.uid) || !ship.hasSinkRisk) {
+        return ship;
+      }
+      return { ...ship, hasSinkRisk: false };
+    });
+    return {
+      ...fleet,
+      ships,
+      taihaCount: ships.filter((ship: ShipBattleStatus): boolean => ship.isTaiha && !this.escapedShipUids.has(ship.uid)).length,
+      sunkCount: ships.filter((ship: ShipBattleStatus): boolean => ship.isSunk && !this.escapedShipUids.has(ship.uid)).length,
+    };
+  }
+
+  private hasNonEscapedSunkRisk(fleet: FleetBattleStatus | undefined, skipFlagship: boolean): boolean {
+    if (!fleet) return false;
+    return fleet.ships.some((ship: ShipBattleStatus, index: number): boolean => {
+      if (skipFlagship && index === 0) return false;
+      return ship.isSunk && !this.escapedShipUids.has(ship.uid);
+    });
+  }
+
+  private rebuildBattleStatusForEscapedShips(status: BattleStatusSnapshot): BattleStatusSnapshot {
+    const friendMain = this.rebuildFleetBattleStatusForEscapedShips(status.friendMain);
+    const friendEscort = status.friendEscort
+      ? this.rebuildFleetBattleStatusForEscapedShips(status.friendEscort)
+      : undefined;
+    const taihaShips = status.taihaShips.filter(ship => !this.escapedShipUids.has(ship.uid));
+    return {
+      ...status,
+      friendMain,
+      friendEscort,
+      hasTaihaRisk: taihaShips.length > 0,
+      taihaShips,
+      hasSunkRisk: this.hasNonEscapedSunkRisk(friendMain, true) || this.hasNonEscapedSunkRisk(friendEscort, false),
+    };
+  }
+
+  private rebuildBattleResultForEscapedShips(result: BattleResultSnapshot): BattleResultSnapshot {
+    return {
+      ...result,
+      friendMain: this.rebuildFleetBattleStatusForEscapedShips(result.friendMain),
+      friendEscort: result.friendEscort
+        ? this.rebuildFleetBattleStatusForEscapedShips(result.friendEscort)
+        : undefined,
+    };
+  }
+
   // ==================== 战斗状态管理 ====================
 
   /**
@@ -1020,8 +1533,33 @@ class GameStateManager {
       }
     }
     if (added) {
-      this.state.lastUpdatedAt = Date.now();
+      const now = Date.now();
+      let battleChanged = false;
+      let currentBattle = this.state.currentBattle;
+      if (currentBattle.status) {
+        currentBattle = {
+          ...currentBattle,
+          status: this.rebuildBattleStatusForEscapedShips(currentBattle.status),
+          lastUpdatedAt: now,
+        };
+        battleChanged = true;
+      }
+      if (currentBattle.result) {
+        currentBattle = {
+          ...currentBattle,
+          result: this.rebuildBattleResultForEscapedShips(currentBattle.result),
+          lastUpdatedAt: now,
+        };
+        battleChanged = true;
+      }
+      if (battleChanged) {
+        this.state.currentBattle = currentBattle;
+      }
+      this.state.lastUpdatedAt = now;
       this.notifyListeners('ships');
+      if (battleChanged) {
+        this.notifyListeners('battle');
+      }
     }
   }
 
@@ -1041,6 +1579,45 @@ class GameStateManager {
   /** 获取所有已退避的舰娘 UID（只读副本）。 */
   getEscapedShipUids(): ReadonlyArray<number> {
     return Array.from(this.escapedShipUids);
+  }
+
+  /** 标记本次出击中已经发动过旗舰特殊攻击的舰娘。 */
+  markSpecialAttackTriggeredShips(uids: ReadonlyArray<number>): void {
+    let added = false;
+    for (const uid of uids) {
+      if (uid > 0) {
+        const current = this.specialAttackTriggeredShipCounts.get(uid) ?? 0;
+        this.specialAttackTriggeredShipCounts.set(uid, current + 1);
+        added = true;
+      }
+    }
+    if (added) {
+      this.state.lastUpdatedAt = Date.now();
+      this.notifyListeners('battle');
+    }
+  }
+
+  /** 清空当前出击的特殊攻击发动记录。 */
+  clearSpecialAttackTriggeredShips(): void {
+    if (this.specialAttackTriggeredShipCounts.size === 0) return;
+    this.specialAttackTriggeredShipCounts.clear();
+    this.state.lastUpdatedAt = Date.now();
+    this.notifyListeners('battle');
+  }
+
+  /** 判断指定舰娘是否已在当前出击中发动过旗舰特殊攻击。 */
+  isSpecialAttackTriggeredShip(uid: number): boolean {
+    return (this.specialAttackTriggeredShipCounts.get(uid) ?? 0) > 0;
+  }
+
+  /** 获取当前出击中已发动过旗舰特殊攻击的舰娘 UID（只读副本）。 */
+  getSpecialAttackTriggeredShipUids(): ReadonlyArray<number> {
+    return Array.from(this.specialAttackTriggeredShipCounts.keys());
+  }
+
+  /** 获取当前出击中特殊攻击发动次数（只读副本）。 */
+  getSpecialAttackTriggeredShipCounts(): Map<number, number> {
+    return new Map(this.specialAttackTriggeredShipCounts);
   }
 
   /**
@@ -1065,11 +1642,12 @@ class GameStateManager {
   }
 
   /**
-   * 检查是否在战斗中
+   * 检查是否在战斗中（含战斗结算阶段）。
+   * BATTLE_RESULT 不再立即切回 main panel；BattlePreview 持续显示到 sortie_next
+   * 调用 clearBattleState() 为止，避免战斗结算瞬间出现错位的 HP 显示。
    */
   isInBattle(): boolean {
-    return this.state.currentBattle.status !== null &&
-      this.state.currentBattle.result === null;
+    return this.state.currentBattle.status !== null;
   }
 
   /**
@@ -1134,13 +1712,45 @@ export const isShipMasterLandBased = (masterId: number) => gameStateManager.isSh
 
 export const updateAdmiral = (admiral: Admiral) => gameStateManager.updateAdmiral(admiral);
 export const updateMaterials = (materials: Materials) => gameStateManager.updateMaterials(materials);
+export const updateUseItems = (items: ReadonlyArray<{ itemId: number; count: number }>) =>
+  gameStateManager.updateUseItems(items);
+export const getUseItemCount = (itemId: number): number => gameStateManager.getUseItemCount(itemId);
+export const updateUseItemMasterNames = (items: ReadonlyArray<{ id: number; name: string }>) =>
+  gameStateManager.updateUseItemMasterNames(items);
+export const getUseItemCountByName = (name: string): number => gameStateManager.getUseItemCountByName(name);
+export const patchMaterials = (update: Parameters<GameStateManager['patchMaterials']>[0]) =>
+  gameStateManager.patchMaterials(update);
+export const addSortieResourceGains = (gains: ReadonlyArray<MapResourceGain>) =>
+  gameStateManager.addSortieResourceGains(gains);
+export const clearSortieResourceGains = () => gameStateManager.clearSortieResourceGains();
+export const getSortieResourceGains = () => gameStateManager.getSortieResourceGains();
 export const updateNdocks = (ndocks:Ndock[]) => gameStateManager.updateNDocks(ndocks);
 export const updateKdocks = (kdocks:Kdock[]) => gameStateManager.updateKDocks(kdocks);
 export const updateDecks = (decks: Deck[]) => gameStateManager.updateDecks(decks);
+export const patchDeckExpedition = (deckId: number, missionId: number, returnTime: number | null) =>
+  gameStateManager.patchDeckExpedition(deckId, missionId, returnTime);
+export const patchDeckShip = (deckId: number, shipIdx: number, shipUid: number) =>
+  gameStateManager.patchDeckShip(deckId, shipIdx, shipUid);
 export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(quests);
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>
   gameStateManager.patchShipsSupply(updates);
+export const patchShipSlot = (shipUid: number, slotIdx: number, itemUid: number) =>
+  gameStateManager.patchShipSlot(shipUid, slotIdx, itemUid);
+export const patchShipExSlot = (shipUid: number, itemUid: number) =>
+  gameStateManager.patchShipExSlot(shipUid, itemUid);
+export const patchShipUnsetSlots = (shipUid: number) =>
+  gameStateManager.patchShipUnsetSlots(shipUid);
+export const patchShipSlotExchange = (shipUid: number, srcIdx: number, dstIdx: number) =>
+  gameStateManager.patchShipSlotExchange(shipUid, srcIdx, dstIdx);
+export const patchShipSlotDeprive = (
+  unsetShipUid: number,
+  setShipUid: number,
+  unsetSlotKind: number,
+  setSlotKind: number,
+  unsetIdx: number,
+  setIdx: number
+) => gameStateManager.patchShipSlotDeprive(unsetShipUid, setShipUid, unsetSlotKind, setSlotKind, unsetIdx, setIdx);
 export const patchShipsHp = (updates: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>) =>
   gameStateManager.patchShipsHp(updates);
 export const updateFromPort = (data: Parameters<GameStateManager['updateFromPort']>[0]) =>
@@ -1190,3 +1800,9 @@ export const markShipsEscaped = (uids: ReadonlyArray<number>) => gameStateManage
 export const clearEscapedShips = () => gameStateManager.clearEscapedShips();
 export const isShipEscaped = (uid: number) => gameStateManager.isShipEscaped(uid);
 export const getEscapedShipUids = () => gameStateManager.getEscapedShipUids();
+export const markSpecialAttackTriggeredShips = (uids: ReadonlyArray<number>) =>
+  gameStateManager.markSpecialAttackTriggeredShips(uids);
+export const clearSpecialAttackTriggeredShips = () => gameStateManager.clearSpecialAttackTriggeredShips();
+export const isSpecialAttackTriggeredShip = (uid: number) => gameStateManager.isSpecialAttackTriggeredShip(uid);
+export const getSpecialAttackTriggeredShipUids = () => gameStateManager.getSpecialAttackTriggeredShipUids();
+export const getSpecialAttackTriggeredShipCounts = () => gameStateManager.getSpecialAttackTriggeredShipCounts();

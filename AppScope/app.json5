@@ -1,6 +1,6 @@
 {
   "app": {
-    "bundleName": "com.cesium.kchomo",
+    "bundleName": "io.github.cesium.kchomo",
     "vendor": "example",
     "versionCode": 1000001,
     "versionName": "1.0.1",

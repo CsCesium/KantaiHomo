@@ -1,5 +1,6 @@
 import { ShipItem } from '../../../../../../features/panel/type';
 import { hpColor, PanelColors, ShipDiems } from '../../../../../../features/panel/panelConfig';
+import { isShipEscaped } from '../../../../../../features/state';
 import { getShipStatusText, getShipStatusColor } from './shipHelpers';
 
 /** 中列：HP 数值 / 状态文字 / HP 进度条。 */
@@ -15,6 +16,10 @@ export default struct ShipStatusBlock {
     exSlot: 0, exSlotType: 0, exSlotIconType: 0, exSlotLevel: 0, exSlotAlv: 0,
   };
 
+  private hpDisplayColor(): string {
+    return isShipEscaped(this.ship.id) ? PanelColors.escapeHp : hpColor(this.ship.hp, this.ship.hpMax);
+  }
+
   build() {
     Column({ space: 4 }) {
       Row() {
@@ -22,7 +27,7 @@ export default struct ShipStatusBlock {
         Text(`${this.ship.hp} / ${this.ship.hpMax}`)
           .fontSize(ShipDiems.SHIP_HP_FONT)
           .fontWeight(FontWeight.Medium)
-          .fontColor(hpColor(this.ship.hp, this.ship.hpMax))
+          .fontColor(this.hpDisplayColor())
           .maxLines(1)
 
         Blank()
@@ -47,7 +52,7 @@ export default struct ShipStatusBlock {
       })
         .width('100%')
         .height(ShipDiems.SHIP_HP_BAR_HEIGHT)
-        .color(hpColor(this.ship.hp, this.ship.hpMax))
+        .color(this.hpDisplayColor())
         .backgroundColor(PanelColors.overlayRow)
     }
     .width('100%')

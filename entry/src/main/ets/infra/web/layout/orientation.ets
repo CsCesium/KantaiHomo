@@ -4,11 +4,19 @@ import window from '@ohos.window';
 import display from '@ohos.display';
 import { getMainWindowCached } from '../../appContext';
 
+let lastGamePreferredOrientation: window.Orientation = window.Orientation.AUTO_ROTATION;
+
+export function getLastGamePreferredOrientation(): window.Orientation {
+  return lastGamePreferredOrientation;
+}
+
 export class Orientation {
   private ctx: common.UIAbilityContext;
 
   private current: window.Orientation = window.Orientation.AUTO_ROTATION;
   private currentIsCompact: boolean = false;
+  private currentIsPortraitOnly: boolean = false;
+  private currentIsLandscapeOnly: boolean = false;
   private rotationUnlocked: boolean = true;
   private lockedOrientation: window.Orientation | null = null;
 
@@ -18,13 +26,13 @@ export class Orientation {
   private readonly onFoldStatusChange = (status: display.FoldStatus): void => {
     this.foldStatus = status;
     console.debug('[Orientation] foldStatus changed:', status);
-    void this.applyByMode(this.currentIsCompact);
+    void this.applyByMode(this.currentIsCompact, this.currentIsPortraitOnly, this.currentIsLandscapeOnly);
   };
 
   private readonly onWindowStatusChange = (status: window.WindowStatusType): void => {
     this.windowStatus = status;
     console.debug('[Orientation] windowStatus changed:', status);
-    void this.applyByMode(this.currentIsCompact);
+    void this.applyByMode(this.currentIsCompact, this.currentIsPortraitOnly, this.currentIsLandscapeOnly);
   };
 
   constructor(ctx: common.UIAbilityContext) {
@@ -133,7 +141,7 @@ export class Orientation {
 
     if (unlocked) {
       this.lockedOrientation = null;
-      await this.applyByMode(this.currentIsCompact);
+      await this.applyByMode(this.currentIsCompact, this.currentIsPortraitOnly, this.currentIsLandscapeOnly);
       return;
     }
 
@@ -149,24 +157,40 @@ export class Orientation {
       return;
     }
 
+    if (this.shouldForcePortrait()) {
+      this.lockedOrientation = window.Orientation.PORTRAIT;
+      await this.forceSetOrientation(window.Orientation.PORTRAIT);
+      return;
+    }
+
     const currentOri = await this.getCurrentLockedOrientation();
     this.lockedOrientation = currentOri;
     await this.forceSetOrientation(currentOri);
   }
 
-  async applyByMode(isCompact: boolean): Promise<void> {
+  async applyByMode(
+    isCompact: boolean,
+    portraitOnly: boolean = false,
+    landscapeOnly: boolean = false
+  ): Promise<void> {
     this.currentIsCompact = isCompact;
+    this.currentIsPortraitOnly = portraitOnly;
+    this.currentIsLandscapeOnly = landscapeOnly;
+    this.rotationUnlocked = this.readSystemRotationStatus();
+    this.foldStatus = this.readFoldStatus();
     await this.refreshWindowStatus();
 
     console.debug(
       '[Orientation] applyByMode:',
       'isCompact=', isCompact,
+      'portraitOnly=', portraitOnly,
+      'landscapeOnly=', landscapeOnly,
       'rotationUnlocked=', this.rotationUnlocked,
       'foldStatus=', this.foldStatus,
       'windowStatus=', this.windowStatus
     );
 
-    // 1) 只有 “compact + 折叠态 + 全屏” 才强制横屏
+    // 1) Compact folded fullscreen, or a narrow landscape game viewport restored from Launcher.
     if (this.shouldForceLandscape()) {
       if (this.rotationUnlocked) {
         this.lockedOrientation = null;
@@ -174,6 +198,18 @@ export class Orientation {
       } else {
         this.lockedOrientation = window.Orientation.LANDSCAPE;
         await this.forceSetOrientation(window.Orientation.LANDSCAPE);
+      }
+      return;
+    }
+
+    // 2) 手动 portrait-fit 时限制为竖屏自动旋转：允许上下翻转，不允许转入横屏。
+    if (this.shouldForcePortrait()) {
+      if (this.rotationUnlocked) {
+        this.lockedOrientation = null;
+        await this.setPreferred(window.Orientation.AUTO_ROTATION_PORTRAIT);
+      } else {
+        this.lockedOrientation = window.Orientation.PORTRAIT;
+        await this.forceSetOrientation(window.Orientation.PORTRAIT);
       }
       return;
     }
@@ -199,7 +235,13 @@ export class Orientation {
   }
 
   private shouldForceLandscape(): boolean {
-    return this.currentIsCompact && this.isFolded() && this.isFullscreenWindow();
+    return !this.currentIsPortraitOnly &&
+      (this.currentIsLandscapeOnly || (this.currentIsCompact && this.isFolded())) &&
+      this.isFullscreenWindow();
+  }
+
+  private shouldForcePortrait(): boolean {
+    return this.currentIsPortraitOnly && this.isFullscreenWindow();
   }
 
   private isFolded(): boolean {
@@ -246,6 +288,7 @@ export class Orientation {
 
   private async forceSetOrientation(ori: window.Orientation): Promise<void> {
     try {
+      lastGamePreferredOrientation = ori;
       if (this.current === ori) {
         return;
       }
@@ -260,6 +303,7 @@ export class Orientation {
 
   async setPreferred(ori: window.Orientation): Promise<void> {
     try {
+      lastGamePreferredOrientation = ori;
       if (this.current === ori && ori !== window.Orientation.AUTO_ROTATION) {
         return;
       }

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "_schema": {
+    "fleetDesc":        "string  | 编队需求一行说明（人类可读）",
+    "flagshipReq":      "string  | 旗舰要求（舰名 / 舰种 / 等级等）",
+    "flagshipLevelMin": "number  | 旗舰最低 Lv",
+    "fleetLevelMin":    "number  | 全队等级合计下限",
+    "composition":      "Array<{type:string,min?:number,max?:number}> | 舰种构成约束",
+    "losMin":           "number  | 索敵最低值",
+    "firepowerMin":     "number  | 火力最低值",
+    "aaMin":            "number  | 对空最低值",
+    "aswMin":           "number  | 对潜最低值",
+    "speedReq":         "string  | 速力要求（如 '全高速'）",
+    "equipReq":         "string  | 装备要求（一行说明）",
+    "notes":            "string  | 备注"
+  },
+  "conditions": {
+  }
+}

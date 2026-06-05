@@ -5,7 +5,7 @@ import { numAt } from './shipHelpers';
 
 const EQUIP_SLOT_GAP = 2;
 
-/** 右列：单行装备槽列表（不换行），左对齐。 */
+/** 右列：单行装备槽列表（不换行），右对齐。 */
 @ComponentV2
 export default struct ShipEquipBlock {
   @Param ship: ShipItem = {
@@ -87,7 +87,8 @@ export default struct ShipEquipBlock {
           })
         }
       }
-      .width(this.equipContentWidth())
+      .width('100%')
+      .constraintSize({ minWidth: this.equipContentWidth() })
       .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
       .justifyContent(FlexAlign.Start)
       .alignItems(VerticalAlign.Center)

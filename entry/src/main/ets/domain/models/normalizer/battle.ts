@@ -221,6 +221,21 @@ function normalizeHpArray(arr?: Array<number | null> | null): number[] {
   return nums;
 }
 
+/**
+ * 友方伤害数组（api_fdam / api_fydam）按舰队下标 0-indexed 排列：
+ * 第一艘舰娘的伤害在 index 0，长度通常为 6，也可能为 7（末尾补 0）。
+ * 不能像 normalizeHpArray 那样在 length===7 && nums[0]===0 时去头，否则
+ * 一号位「这一阶段没吃伤」(d1=0) 时会把 d1 当成 dummy 截掉，导致
+ * 「n+1 号位伤害贴到 n 号位、一号位伤害消失」的错位。
+ *
+ * 敌方伤害数组（api_edam 等）跟 api_ship_ke 一样在 index 0 有 dummy，
+ * 仍然走 normalizeHpArray。
+ */
+function toFriendDamageArray(arr?: Array<number | null> | null): number[] {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((v) => (typeof v === 'number' ? v : 0));
+}
+
 function toNumArray(arr?: Array<number | null> | null): number[] | null {
   if (!Array.isArray(arr)) return null;
   const xs = arr.map((v) => (typeof v === 'number' ? v : 0));
@@ -537,7 +552,8 @@ function pushDamageArrayToFleet(
   rawArr: Array<number | null> | null | undefined,
   snap: BattleHpSnapshot
 ) {
-  const arr = normalizeHpArray(rawArr);
+  // 友方伤害数组是 0-indexed，敌方按 api_ship_ke 的 dummy-head 约定走。
+  const arr = side === 'friend' ? toFriendDamageArray(rawArr) : normalizeHpArray(rawArr);
   const target = side === 'friend'
     ? (fleet === 'main' ? snap.friend.main : snap.friend.escort)
     : (fleet === 'main' ? snap.enemy.main : snap.enemy.escort);

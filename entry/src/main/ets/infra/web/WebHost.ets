@@ -3,6 +3,7 @@ import { kvDelete, kvGetBool, kvGetString, kvSet } from "../storage/kv";
 import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
 import { decideLayout, FitPolicy, GAME_ASPECT_RATIO, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
+import { GameViewportBox, GAME_SIZE_DEFAULT_PERCENT, resolveGameViewportBox } from "./layout/gameSize";
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
@@ -15,9 +16,30 @@ import PanelHost from "../../app/pages/components/panel/PanelHost";
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
-import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH } from "../../ability/Entry";
+import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
+  APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL,
+  APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED, APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY } from "../../ability/Entry";
+import { TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT } from "./input/touchWheelSensitivity";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
+import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED } from "../../features/resourceCache";
 import { isInBattle, subscribeGameState } from "../../features/state";
+import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
+import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
+import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
+import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
+import { registerWebHostPageVisibleHandler } from "./pageVisibility";
+import {
+  APP_STORAGE_APP_VOLUME_MUTED,
+  subscribeAppVolumeMuted,
+  syncAppVolumeMuted
+} from "../audio/appVolume";
+
+const NARROW_SHORT_SIDE_VP: number = 420;
+const FLOATING_TOOL_SURFACE_MIN_WIDTH_VP: number = 700;
+const LEFT_BUTTON_COLUMN_WIDTH_VP: number = 56;
+const LEFT_BUTTON_COLUMN_FULL_HEIGHT_VP: number = 344;
+const FLOATING_BATTLE_STATS_RESERVED_HEIGHT_VP: number = 48;
+const CUTOUT_BUTTON_GUTTER_VP: number = 4;
 
 interface RpcPayload {
   op: string;
@@ -50,28 +72,56 @@ export default struct WebHost {
   @State private scene: WindowScene = WindowScene.FULLSCREEN;
   @State private panelConfig: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
   @State private sidebarWidthVp: number = 0;
+  @State private leftCutoutInsetVp: number = 0;
   /** Mirrors ui.showSidebar AppStorage preference; updates immediately when user toggles in Settings. */
   @StorageProp(APP_STORAGE_SHOW_SIDEBAR) private showSidebarPref: boolean = true;
+  /** Mirrors ui.sidebar.showAvatar AppStorage preference; forwarded into the V2 sidebar component. */
+  @StorageProp(APP_STORAGE_SIDEBAR_SHOW_AVATAR) private showSidebarAvatarPref: boolean = true;
+  @StorageProp(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW) private autoBattlePreviewFloatOverlay: boolean = true;
   /** Mirrors alerts.yasen.enabled; controls YasenDetect JS injection on each page load. */
   @StorageProp(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenDetectEnabled: boolean = true;
   /** Mirrors alerts.advanceGuard.enabled; controls AdvanceDetect JS injection. */
   @StorageProp(APP_STORAGE_ADVANCE_GUARD_ENABLED) private advanceGuardEnabled: boolean = true;
   @StorageProp(APP_STORAGE_INJECT_FPS) private injectFpsEnabled: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_TOUCH_PATCH) private injectTouchPatch: boolean = false;
+  @StorageProp(APP_STORAGE_INJECT_TOUCH_HOVER) private injectTouchHover: boolean = true;
+  @StorageProp(APP_STORAGE_INJECT_TOUCH_WHEEL) private injectTouchWheel: boolean = true;
+  @StorageProp(APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY)
+  private touchWheelSensitivityPercent: number = TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT;
   @StorageProp(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
+  @StorageProp(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
+  @StorageProp(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
+  @StorageProp(APP_STORAGE_SESSION_LOGOUT_REV) private logoutRevision: number = 0;
+  @StorageProp(APP_STORAGE_GAME_SIZE_COMPACT)
+  @Watch('onGameSizePercentChanged')
+  private compactGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
+  @StorageProp(APP_STORAGE_GAME_SIZE_EXPANDED)
+  @Watch('onGameSizePercentChanged')
+  private expandedGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
+  @State private battlePreviewAutoOverlayActive: boolean = false;
+  @State private battlePreviewAutoOverlaySuppressed: boolean = false;
   // 折叠态全屏下手动切换为"游戏在上 + 底部面板"布局（与左右分屏的展开模式一致）。
   // 由 ButtonColumn 的 横/竖 按钮触发。
   @State private lrLayoutForced: boolean = false;
   @State private battlePreviewAvailable: boolean = false;
   @State private battlePreviewVisible: boolean = true;
+  // Info overlay (ship list etc.) — rendered above the game without unmounting WebHost,
+  // so the WebviewController instance and game state survive open/close.
+  @State private shipInfoVisible: boolean = false;
+  @State private equipInfoVisible: boolean = false;
+  @State private expeditionInfoVisible: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
   private unsubGameState?: () => void;
+  private unsubAppVolumeMuted?: () => void;
+  private unregisterPageVisible?: () => void;
+  private chromeRefreshTimer: number = -1;
+  private handledLogoutRevision: number = 0;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
     channelName: defaultInjectOptions.channelName,
@@ -86,6 +136,9 @@ export default struct WebHost {
     enableAdvanceDetect: this.advanceGuardEnabled,
     enableFPS: this.injectFpsEnabled,
     enableTouchPatch: this.injectTouchPatch,
+    enableTouchHover: this.injectTouchHover,
+    enableTouchWheel: this.injectTouchWheel,
+    touchWheelSensitivityPercent: this.touchWheelSensitivityPercent,
     enableTickerRAF: this.injectTickerRaf,
     enablePixiPatch: this.injectPixiPatch,
   });
@@ -96,6 +149,24 @@ export default struct WebHost {
     viewportW: this.gameWidthVp,
     viewportH: this.gameHeightVp
   });
+
+  private onGameSizePercentChanged(): void {
+    if (this.viewportWidthVp <= 0 || this.viewportHeightVp <= 0) {
+      return;
+    }
+    this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+    if (this.host) {
+      this.host.reapplyFit();
+    }
+  }
+
+  private getGameViewportWidth(): Length {
+    return this.gameWidthVp > 0 ? this.gameWidthVp : '100%';
+  }
+
+  private getGameViewportHeight(): Length {
+    return this.gameHeightVp > 0 ? this.gameHeightVp : '100%';
+  }
 
   private async rpcHandler(raw: string): Promise<string> {
     try {
@@ -127,10 +198,10 @@ export default struct WebHost {
     if (status === window.WindowStatusType.FLOATING) {
       return WindowScene.FLOATING;
     }
-    if (status === window.WindowStatusType.FULL_SCREEN) {
-      return WindowScene.FULLSCREEN;
+    if (status === window.WindowStatusType.SPLIT_SCREEN) {
+      return WindowScene.SPLIT;
     }
-    return WindowScene.SPLIT;
+    return WindowScene.FULLSCREEN;
   }
 
   private resolveScene(status: window.WindowStatusType): WindowScene {
@@ -140,11 +211,83 @@ export default struct WebHost {
     return byStatus;
   }
 
-  private applyImmersiveLayoutForScene(win: window.Window): void {
+  private applyGameWindowChrome(win: window.Window): void {
+    void win.setWindowSystemBarEnable([]);
+    void win.setSpecificSystemBarEnabled('navigationIndicator', false, false);
     // Split windows share system bars with other apps; keep non-immersive.
     // Fullscreen and floating are edge-to-edge: immersive layout required so
     // the hidden system bars don't leave a reserved-but-empty inset at the edges.
     void win.setWindowLayoutFullScreen(this.scene !== WindowScene.SPLIT);
+  }
+
+  private scheduleGameWindowChromeRefresh(win: window.Window): void {
+    if (this.chromeRefreshTimer >= 0) {
+      clearTimeout(this.chromeRefreshTimer);
+    }
+    this.chromeRefreshTimer = setTimeout((): void => {
+      this.chromeRefreshTimer = -1;
+      this.applyGameWindowChrome(win);
+    }, 1500);
+  }
+
+  private refreshSceneAndChrome(win: window.Window): void {
+    const status = win.getWindowStatus();
+    this.scene = this.resolveScene(status);
+    this.applyGameWindowChrome(win);
+  }
+
+  private isPureGameFloatingWindow(widthVp: number = this.viewportWidthVp, heightVp: number = this.viewportHeightVp): boolean {
+    return this.scene === WindowScene.FLOATING &&
+      widthVp > heightVp &&
+      widthVp < FLOATING_TOOL_SURFACE_MIN_WIDTH_VP &&
+      heightVp <= NARROW_SHORT_SIDE_VP;
+  }
+
+  private getLayoutScene(widthVp: number, heightVp: number): WindowScene {
+    if (this.scene === WindowScene.FLOATING && !this.isPureGameFloatingWindow(widthVp, heightVp)) {
+      return WindowScene.FULLSCREEN;
+    }
+    return this.scene;
+  }
+
+  private isToolSurfaceScene(): boolean {
+    return this.scene === WindowScene.FULLSCREEN ||
+      this.getLayoutScene(this.viewportWidthVp, this.viewportHeightVp) === WindowScene.FULLSCREEN;
+  }
+
+  private restoreVisibleWindowState(pushWebFit: boolean = false): void {
+    const mainWin = getMainWindowCached();
+    if (mainWin) {
+      this.refreshSceneAndChrome(mainWin);
+      this.scheduleGameWindowChromeRefresh(mainWin);
+    }
+    this.refreshLeftCutoutInset();
+    this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+    this.updateBattlePreviewAutoOverlay();
+    if (pushWebFit && this.viewportWidthVp > 0 && this.viewportHeightVp > 0) {
+      this.host.reapplyFit();
+    }
+  }
+
+  private refreshLeftCutoutInset(): void {
+    if (!this.shouldAvoidLeftCutoutForButtons()) {
+      this.leftCutoutInsetVp = 0;
+      return;
+    }
+
+    const mainWin = getMainWindowCached();
+    if (!mainWin) {
+      this.leftCutoutInsetVp = 0;
+      return;
+    }
+
+    try {
+      const cutoutArea = mainWin.getWindowAvoidArea(window.AvoidAreaType.TYPE_CUTOUT);
+      const leftInsetPx: number = cutoutArea.leftRect.width;
+      this.leftCutoutInsetVp = leftInsetPx > 0 ? Math.ceil(px2vp(leftInsetPx)) + CUTOUT_BUTTON_GUTTER_VP : 0;
+    } catch (_e) {
+      this.leftCutoutInsetVp = 0;
+    }
   }
 
   // Centralized layout update for area/window changes.
@@ -153,10 +296,11 @@ export default struct WebHost {
       return;
     }
 
+    const layoutScene: WindowScene = this.getLayoutScene(widthVp, heightVp);
     const decision = decideLayout({
       widthVp,
       heightVp,
-      scene: this.scene,
+      scene: layoutScene,
     });
     let nextMode: HostMode = decision.mode;
     let nextFit: FitPolicy = decision.policy;
@@ -169,13 +313,13 @@ export default struct WebHost {
     let nextSidebarWidthVp: number = decision.sidebarWidthVp;
 
     const isSmallLandscapeWindow: boolean = (widthVp > heightVp) && (heightVp <= 650);
-    const isFloatingScene: boolean = this.scene === WindowScene.FLOATING;
+    const isPureFloatingScene: boolean = this.isPureGameFloatingWindow(widthVp, heightVp);
     const isSplitScene: boolean = this.scene === WindowScene.SPLIT;
     // Split/floating small windows should stay pure game canvas unless the split
     // layout decision already found enough room for a docked bottom panel.
-    if ((isSmallLandscapeWindow && isSplitScene && !nextShowBottomTools) || isFloatingScene) {
+    if ((isSmallLandscapeWindow && isSplitScene && !nextShowBottomTools) || isPureFloatingScene) {
       nextMode = HostMode.COMPACT;
-      nextFit = isFloatingScene ? 'width' : 'height';
+      nextFit = isPureFloatingScene ? 'width' : 'height';
       nextFitLocked = true;
       nextShowSideButtons = false;
       nextShowBottomTools = false;
@@ -185,10 +329,10 @@ export default struct WebHost {
       nextSidebarWidthVp = 0;
     }
 
-    // 用户手动触发的"游戏 + 底部面板"布局：仅在全屏场景下生效（分屏场景下
+    // 用户手动触发的"游戏 + 底部面板"布局：仅在全屏/全景多窗场景下生效（分屏场景下
     // responsive 已根据屏幕形态自动选择，无需覆盖）。游戏按宽度等比缩放置顶，
     // 余下空间分配给底部面板；保留 ButtonColumn 以便用户再次切换。
-    if (this.lrLayoutForced && this.scene === WindowScene.FULLSCREEN) {
+    if (this.lrLayoutForced && layoutScene === WindowScene.FULLSCREEN) {
       const contentH: number = Math.min(heightVp, widthVp / GAME_ASPECT_RATIO);
       nextMode = HostMode.EXPANDED;
       nextFit = 'width';
@@ -200,6 +344,18 @@ export default struct WebHost {
       nextGameLeftMarginVp = 0;
       nextSidebarWidthVp = 0;
     }
+
+    const gameSizePercent: number = nextMode === HostMode.COMPACT
+      ? this.compactGameSizePercent
+      : this.expandedGameSizePercent;
+    const gameViewport: GameViewportBox = resolveGameViewportBox(
+      nextGameWidthVp,
+      nextGameHeightVp,
+      gameSizePercent,
+    );
+    nextGameWidthVp = gameViewport.widthVp;
+    nextGameHeightVp = gameViewport.heightVp;
+    nextGameLeftMarginVp = gameViewport.leftMarginVp;
 
     const modeChanged: boolean = this.lastMode !== nextMode;
 
@@ -227,7 +383,11 @@ export default struct WebHost {
     };
     this.panelConfig = decidePanelLayout(finalDecision, heightVp);
 
-    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
+    void this.host.applyOrientationByMode(
+      this.mode === HostMode.COMPACT,
+      this.shouldUsePortraitOnlyRotation(),
+      this.shouldUseLandscapeOnlyRotation()
+    );
     if (modeChanged) {
       this.host.onPageEnd();
     }
@@ -321,17 +481,34 @@ export default struct WebHost {
     }).catch((_e: Error) => {});
   }
 
+  private applyPendingLogout(): void {
+    if (this.logoutRevision <= this.handledLogoutRevision) {
+      return;
+    }
+    this.handledLogoutRevision = this.logoutRevision;
+    this.firstPageLoad = false;
+    this.controller.loadUrl(this.HOME);
+  }
+
+  private applyWebAudioMuteState(muted?: boolean): void {
+    const nextMuted = muted ?? (AppStorage.get<boolean>(APP_STORAGE_APP_VOLUME_MUTED) ?? false);
+    this.host.setWebAudioMuted(nextMuted);
+  }
+
   private refreshBattlePreviewState(): void {
     const available: boolean = isInBattle();
     if (!available) {
       this.battlePreviewAvailable = false;
       this.battlePreviewVisible = true;
+      this.updateBattlePreviewAutoOverlay();
       return;
     }
     if (!this.battlePreviewAvailable) {
       this.battlePreviewVisible = true;
+      this.battlePreviewAutoOverlaySuppressed = false;
     }
     this.battlePreviewAvailable = true;
+    this.updateBattlePreviewAutoOverlay();
   }
 
   private toggleBattlePreview(): void {
@@ -341,10 +518,82 @@ export default struct WebHost {
     this.battlePreviewVisible = !this.battlePreviewVisible;
   }
 
+  private toggleFloatOverlayPanel(): void {
+    if (this.isFloatOverlayVisible()) {
+      this.closeFloatOverlayPanel();
+      return;
+    }
+    this.overlayForced = true;
+    this.battlePreviewAutoOverlayActive = false;
+  }
+
+  private closeFloatOverlayPanel(): void {
+    if (this.battlePreviewAutoOverlayActive ||
+      (this.battlePreviewAvailable && this.shouldAvoidLeftCutoutForButtons())) {
+      this.battlePreviewAutoOverlaySuppressed = true;
+      this.battlePreviewAutoOverlayActive = false;
+    }
+    this.overlayForced = false;
+  }
+
+  private updateBattlePreviewAutoOverlay(): void {
+    if (!this.autoBattlePreviewFloatOverlay) {
+      if (this.battlePreviewAutoOverlayActive) {
+        this.overlayForced = false;
+      }
+      this.battlePreviewAutoOverlayActive = false;
+      this.battlePreviewAutoOverlaySuppressed = false;
+      return;
+    }
+
+    if (!this.battlePreviewAvailable) {
+      if (this.battlePreviewAutoOverlayActive) {
+        this.overlayForced = false;
+      }
+      this.battlePreviewAutoOverlayActive = false;
+      this.battlePreviewAutoOverlaySuppressed = false;
+      return;
+    }
+
+    const shouldAutoOpen: boolean = this.shouldAvoidLeftCutoutForButtons() &&
+      this.panelConfig.mode !== PanelMode.BottomPanel;
+    if (!shouldAutoOpen) {
+      if (this.battlePreviewAutoOverlayActive) {
+        this.overlayForced = false;
+      }
+      this.battlePreviewAutoOverlayActive = false;
+      return;
+    }
+
+    if (!this.overlayForced && !this.battlePreviewAutoOverlaySuppressed) {
+      this.overlayForced = true;
+      this.battlePreviewAutoOverlayActive = true;
+    }
+  }
+
+  private isFloatOverlayVisible(): boolean {
+    if (!this.overlayForced || this.panelConfig.mode === PanelMode.BottomPanel) {
+      return false;
+    }
+    return !this.battlePreviewAutoOverlayActive || this.autoBattlePreviewFloatOverlay;
+  }
+
   aboutToAppear() {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
     this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
+    this.unregisterPageVisible = registerWebHostPageVisibleHandler(() => {
+      this.restoreVisibleWindowState(true);
+      this.applyWebAudioMuteState();
+    });
+    this.unsubAppVolumeMuted = subscribeAppVolumeMuted((muted: boolean) => {
+      this.applyWebAudioMuteState(muted);
+    });
+    void syncAppVolumeMuted().then((muted: boolean) => {
+      this.applyWebAudioMuteState(muted);
+    }).catch(() => {
+      this.applyWebAudioMuteState(false);
+    });
     this.unsubSortieStartTaiha = subscribeAlert<SortieStartTaihaAlert>('sortie_start_taiha', (a) => {
       this.showSortieStartTaihaDialog(a);
     });
@@ -355,23 +604,21 @@ export default struct WebHost {
       }
     });
     this.host.bindDisplay();
-    void this.host.applyOrientationByMode(true);
+    void this.host.applyOrientationByMode(true, this.shouldUsePortraitOnlyRotation(), false);
     void this.loadRuntimeConfig();
+    this.applyPendingLogout();
 
     const mainWin = getMainWindowCached();
+    this.restoreVisibleWindowState(false);
     if (mainWin) {
-      void mainWin.setWindowSystemBarEnable([]);
-
-      const status = mainWin.getWindowStatus();
-      this.scene = this.resolveScene(status);
-      this.applyImmersiveLayoutForScene(mainWin);
-      this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
-
       // Keep scene in sync when entering split-screen or floating window.
       this.windowStatusCb = (nextStatus: window.WindowStatusType) => {
         this.scene = this.resolveScene(nextStatus);
-        this.applyImmersiveLayoutForScene(mainWin);
+        this.applyGameWindowChrome(mainWin);
+        this.scheduleGameWindowChromeRefresh(mainWin);
+        this.refreshLeftCutoutInset();
         this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+        this.updateBattlePreviewAutoOverlay();
       };
       mainWin.on('windowStatusChange', this.windowStatusCb);
     }
@@ -392,44 +639,49 @@ export default struct WebHost {
       this.unsubGameState = undefined;
     }
 
+    if (this.unsubAppVolumeMuted) {
+      this.unsubAppVolumeMuted();
+      this.unsubAppVolumeMuted = undefined;
+    }
+
+    if (this.unregisterPageVisible) {
+      this.unregisterPageVisible();
+      this.unregisterPageVisible = undefined;
+    }
+
     if (this.windowStatusCb) {
       const mainWin = getMainWindowCached();
       if (mainWin) {
         mainWin.off('windowStatusChange', this.windowStatusCb);
       }
     }
+    if (this.chromeRefreshTimer >= 0) {
+      clearTimeout(this.chromeRefreshTimer);
+      this.chromeRefreshTimer = -1;
+    }
   }
 
-  private doLogout(): void {
-    webview.WebCookieManager.clearAllCookiesSync();
-    void kvDelete('dmm.cookie.backup.v1');
-    this.controller.loadUrl(this.HOME);
-  }
-
-  private promptLogout(): void {
-    promptAction.showDialog({
-      title: '确认登出',
-      message: '将清除登录 Cookie 及页面缓存，并跳转到登录页。',
-      buttons: [
-        { text: '取消',   color: '#888888' },
-        { text: '确认登出', color: '#e53935' },
-      ],
-    }).then((result) => {
-      if (result.index === 1) { this.doLogout(); }
-    }).catch((_e: Error) => {});
+  private buildFullReloadUrl(): string {
+    const baseUrl: string = this.fullReloadUrl || this.HOME;
+    const marker: string = `hmFullReload=${Date.now().toString()}`;
+    const hashIndex: number = baseUrl.indexOf('#');
+    if (hashIndex >= 0) {
+      const withoutHash: string = baseUrl.slice(0, hashIndex);
+      const hash: string = baseUrl.slice(hashIndex + 1);
+      if (hash.length > 0) {
+        return `${withoutHash}#${hash}&${marker}`;
+      }
+      return `${withoutHash}#${marker}`;
+    }
+    return `${baseUrl}#${marker}`;
   }
 
   private reloadFullPage(): void {
     this.firstPageLoad = false;
     try {
-      const currentUrl = this.controller.getUrl();
-      if (currentUrl) {
-        this.controller.loadUrl(currentUrl);
-        return;
-      }
+      this.controller.runJavaScript?.("try{sessionStorage.removeItem('__hm_promote_last_v2');}catch(e){}");
     } catch (_e) {}
-
-    this.controller.loadUrl(this.fullReloadUrl || this.HOME);
+    this.controller.loadUrl(this.buildFullReloadUrl());
   }
 
   private promptRefresh(): void {
@@ -450,13 +702,25 @@ export default struct WebHost {
     }).catch((_e: Error) => {});
   }
 
-  private onWebAttached = () => { this.host.attach(); }
-  private onBegin = () => { this.progress = 5; this.host.onPageBegin(); }
+  private onWebAttached = () => {
+    this.host.attach();
+    this.applyWebAudioMuteState();
+  }
+  private onBegin = () => {
+    this.progress = 5;
+    this.host.onPageBegin();
+    this.applyWebAudioMuteState();
+  }
   private onProg = (p: number) => { this.progress = p; }
   private onEnd = () => {
     this.progress = 100;
     this.host.onPageEnd();
-    void this.host.applyOrientationByMode(this.mode === HostMode.COMPACT);
+    this.applyWebAudioMuteState();
+    void this.host.applyOrientationByMode(
+      this.mode === HostMode.COMPACT,
+      this.shouldUsePortraitOnlyRotation(),
+      this.shouldUseLandscapeOnlyRotation()
+    );
 
     // One-shot redirect to configured home URL on first load.
     if (this.firstPageLoad && this.homeOverride) {
@@ -481,8 +745,55 @@ export default struct WebHost {
       // Split mode: respect side system UI shared with other windows.
       return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM];
     }
+    if (this.shouldAvoidTopSafeArea()) {
+      return [SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
+    }
     // Fullscreen and floating: expand all edges for true edge-to-edge layout.
     return [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END];
+  }
+
+  private shouldAvoidTopSafeArea(): boolean {
+    return this.scene === WindowScene.FULLSCREEN &&
+      this.viewportHeightVp > this.viewportWidthVp &&
+      this.viewportWidthVp <= NARROW_SHORT_SIDE_VP;
+  }
+
+  private shouldAvoidLeftCutoutForButtons(): boolean {
+    return this.scene === WindowScene.FULLSCREEN &&
+      this.viewportWidthVp > this.viewportHeightVp &&
+      this.viewportHeightVp <= NARROW_SHORT_SIDE_VP;
+  }
+
+  private getLeftButtonCutoutInsetVp(): number {
+    return this.shouldAvoidLeftCutoutForButtons() ? this.leftCutoutInsetVp : 0;
+  }
+
+  private getLeftButtonRailWidthVp(): number {
+    return LEFT_BUTTON_COLUMN_WIDTH_VP + this.getLeftButtonCutoutInsetVp();
+  }
+
+  private getFloatingButtonColumnHeightVp(): number {
+    if (this.viewportHeightVp <= 0) {
+      return LEFT_BUTTON_COLUMN_FULL_HEIGHT_VP;
+    }
+    const availableHeight = Math.max(LEFT_BUTTON_COLUMN_WIDTH_VP, this.viewportHeightVp - FLOATING_BATTLE_STATS_RESERVED_HEIGHT_VP);
+    return Math.min(LEFT_BUTTON_COLUMN_FULL_HEIGHT_VP, availableHeight);
+  }
+
+  private getFloatOverlayLeftDismissWidthVp(): number {
+    return Math.max(PanelDimens.overlaySideGap, this.getLeftButtonRailWidthVp());
+  }
+
+  private shouldUsePortraitOnlyRotation(): boolean {
+    return this.lrLayoutForced && this.isToolSurfaceScene();
+  }
+
+  private shouldUseLandscapeOnlyRotation(): boolean {
+    return !this.shouldUsePortraitOnlyRotation() &&
+      this.isToolSurfaceScene() &&
+      this.mode === HostMode.COMPACT &&
+      this.viewportWidthVp > this.viewportHeightVp &&
+      this.viewportHeightVp <= NARROW_SHORT_SIDE_VP;
   }
 
   /**
@@ -502,8 +813,7 @@ export default struct WebHost {
   }
 
   private shouldShowFloatingButtons(): boolean {
-    const fullscreen: boolean = this.scene === WindowScene.FULLSCREEN;
-    if (!fullscreen) {
+    if (!this.isToolSurfaceScene()) {
       return false;
     }
     // 底部面板模式下，按钮改为面板上方的横向按钮栏，避免与浮动按钮列重复。
@@ -516,6 +826,10 @@ export default struct WebHost {
   }
 
   build() {
+    // Outer Stack: wraps the entire host so the Ship info overlay can cover every
+    // child of WebHost (game area, button bar, bottom panel) — not just the game
+    // sub-Stack. WebHost itself remains mounted so the WebView/controller survive.
+    Stack({ alignContent: Alignment.TopStart }) {
     Column() {
       if (this.progress > 0 && this.progress < 100) {
         Progress({ value: this.progress }).width('100%').height(2).backgroundColor('#222')
@@ -531,54 +845,66 @@ export default struct WebHost {
             GameWeb({
               src: this.HOME,
               controller: this.controller,
+              resourceCacheEnabled: this.resourceCacheEnabled,
+              resourceCacheAudioEnabled: this.resourceCacheAudioEnabled,
               onWebAttached: this.onWebAttached,
               onWebPageBegin: this.onBegin,
               onWebProgress: this.onProg,
               onWebPageEnd: this.onEnd
             })
           }
-          .margin({ left: this.gameLeftMarginVp })
-          .width("100%")
-          .height("100%")
+          .width(this.getGameViewportWidth())
+          .height(this.getGameViewportHeight())
           .clip(true)
         }
         .width('100%')
         .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Top)
         .backgroundColor('#000')
 
-        // Unified floating controls (fullscreen only):
-        // - COMPACT fullscreen: always show
-        // - non-COMPACT fullscreen: mirror the original side-button visibility condition
-        // Split/Floating scenes are intentionally hidden.
+        // Unified floating controls (fullscreen and panorama multi-window):
+        // - COMPACT tool surfaces: always show
+        // - non-COMPACT tool surfaces: mirror the original side-button visibility condition
+        // Split and tiny floating windows are intentionally hidden.
         if (this.shouldShowFloatingButtons()) {
           // 左下角纵向排列：ButtonColumn 在上，战果在下
           Column() {
             ButtonColumn({
               onRefresh: () => this.promptRefresh(),
               onToggleLrMode: () => this.toggleLrLayout(),
-              onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+              onTogglePanel: () => this.toggleFloatOverlayPanel(),
               onToggleBattlePreview: () => this.toggleBattlePreview(),
-              onLogout: () => this.promptLogout(),
+              onOpenShipInfo: () => { this.shipInfoVisible = true; },
+              onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+              onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
-              panelActive: this.overlayForced,
+              panelActive: this.isFloatOverlayVisible(),
               battlePreviewAvailable: this.battlePreviewAvailable,
               battlePreviewVisible: this.battlePreviewVisible,
             })
-              .width(56)
-              .padding({ left: 4, right: 4, top: 8, bottom: 8 })
+              .width(LEFT_BUTTON_COLUMN_WIDTH_VP)
+              .height(this.getFloatingButtonColumnHeightVp())
             BattleStatsWidget()
               .margin({ left: 4, bottom: 6 })
           }
+          .width(this.getLeftButtonRailWidthVp())
+          .padding({ left: this.getLeftButtonCutoutInsetVp() })
           .align(Alignment.BottomStart)
           .alignItems(HorizontalAlign.Start)
+          .onClick(() => {})
+          .zIndex(2)
         }
 
         // Fleet status sidebar — right-side persistent status bar.
-        // Conditions mirror shouldShowFloatingButtons: compact mode + fullscreen only.
+        // Conditions mirror shouldShowFloatingButtons: compact mode + tool surface only.
         // Use absolute position to anchor to the right edge of the Stack (align() only
         // sets internal content alignment and does NOT reposition within the parent).
         if (this.showSidebarPref && this.sidebarWidthVp > 0 && this.shouldShowFloatingButtons()) {
-          FleetStatusSidebar({ sidebarWidth: this.sidebarWidthVp })
+          FleetStatusSidebar({
+            sidebarWidth: this.sidebarWidthVp,
+            showAvatar: this.showSidebarAvatarPref,
+          })
             .width(this.sidebarWidthVp)
             .height('100%')
             .align(Alignment.TopEnd)
@@ -588,13 +914,13 @@ export default struct WebHost {
         // FloatOverlay panel — overlaid on the game viewport.
         // Only shown when explicitly triggered (overlayForced / fairy ball event).
         // Side margins act as dismiss areas; tapping outside panel hides it.
-        if (this.overlayForced && this.panelConfig.mode !== PanelMode.BottomPanel) {
+        if (this.isFloatOverlayVisible()) {
           Row() {
             Column()
-              .width(PanelDimens.overlaySideGap)
+              .width(this.getFloatOverlayLeftDismissWidthVp())
               .height('100%')
               .backgroundColor(Color.Transparent)
-              .onClick(() => { this.overlayForced = false; })
+              .onClick(() => this.closeFloatOverlayPanel())
             PanelHost({
               config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 },
               showBattlePreview: this.battlePreviewVisible
@@ -605,10 +931,11 @@ export default struct WebHost {
               .width(PanelDimens.overlaySideGap)
               .height('100%')
               .backgroundColor(Color.Transparent)
-              .onClick(() => { this.overlayForced = false; })
+              .onClick(() => this.closeFloatOverlayPanel())
           }
           .width('100%')
           .height('100%')
+          .zIndex(1)
         }
       }
       .height(this.showBottomTools ? this.gameHeightVp : '100%')
@@ -629,18 +956,22 @@ export default struct WebHost {
               ButtonColumn({
                 onRefresh: () => this.promptRefresh(),
                 onToggleLrMode: () => this.toggleLrLayout(),
-                onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+                onTogglePanel: () => this.toggleFloatOverlayPanel(),
                 onToggleBattlePreview: () => this.toggleBattlePreview(),
-                onLogout: () => this.promptLogout(),
+                onOpenShipInfo: () => { this.shipInfoVisible = true; },
+                onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+                onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
-                panelActive: this.overlayForced,
+                panelActive: this.isFloatOverlayVisible(),
                 showPanelToggle: false,
                 battlePreviewAvailable: this.battlePreviewAvailable,
                 battlePreviewVisible: this.battlePreviewVisible,
               })
+              .height('100%')
             }
-            .width(56)
+            .width(this.getLeftButtonRailWidthVp())
             .height('100%')
+            .padding({ left: this.getLeftButtonCutoutInsetVp() })
             .backgroundColor('#0f1118')
             .alignItems(HorizontalAlign.Start)
             .justifyContent(FlexAlign.Start)
@@ -657,11 +988,13 @@ export default struct WebHost {
             ButtonRow({
               onRefresh: () => this.promptRefresh(),
               onToggleLrMode: () => this.toggleLrLayout(),
-              onTogglePanel: () => { this.overlayForced = !this.overlayForced; },
+              onTogglePanel: () => this.toggleFloatOverlayPanel(),
               onToggleBattlePreview: () => this.toggleBattlePreview(),
-              onLogout: () => this.promptLogout(),
+              onOpenShipInfo: () => { this.shipInfoVisible = true; },
+              onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+              onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
-              panelActive: this.overlayForced,
+              panelActive: this.isFloatOverlayVisible(),
               showPanelToggle: false,
               battlePreviewAvailable: this.battlePreviewAvailable,
               battlePreviewVisible: this.battlePreviewVisible,
@@ -678,7 +1011,6 @@ export default struct WebHost {
     .height('100%')
     .width('100%')
     .backgroundColor('#000')
-    .expandSafeArea([SafeAreaType.SYSTEM], this.getSafeAreaEdges())
     .onAreaChange((_oldArea: Area, area: Area) => {
       const w: number = lengthToNumber(area.width);
       const h: number = lengthToNumber(area.height);
@@ -686,11 +1018,42 @@ export default struct WebHost {
       this.viewportHeightVp = h;
       const mainWin = getMainWindowCached();
       if (mainWin) {
-        const status = mainWin.getWindowStatus();
-        this.scene = this.resolveScene(status);
-        this.applyImmersiveLayoutForScene(mainWin);
+        this.refreshSceneAndChrome(mainWin);
+        this.scheduleGameWindowChromeRefresh(mainWin);
       }
+      this.refreshLeftCutoutInset();
       this.recalcLayout(w, h);
+      this.updateBattlePreviewAutoOverlay();
     })
+
+      // Info overlays — cover the entire WebHost area (game + button bar +
+      // bottom panel) regardless of layout mode. Rendered as siblings of the
+      // root Column inside the outer Stack so the WebviewController and game
+      // session stay mounted underneath; closing returns to the live game.
+      if (this.shipInfoVisible) {
+        ShipInfoPage({
+          onClose: () => { this.shipInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+      if (this.equipInfoVisible) {
+        EquipInfoPage({
+          onClose: () => { this.equipInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+      if (this.expeditionInfoVisible) {
+        ExpeditionInfoPage({
+          onClose: () => { this.expeditionInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], this.getSafeAreaEdges())
   }
 }

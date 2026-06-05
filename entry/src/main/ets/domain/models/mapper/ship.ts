@@ -65,7 +65,7 @@ export function shipToRow(ship: Ship): ShipRow {
 
     locked: ship.locked?1:0,
     lockedEquip: ship.lockedEquip?1:0,
-    sallyArea: ship.sallyArea,
+    sallyArea: ship.sallyArea ?? null,
 
     updatedAt: ship.updatedAt,
   };

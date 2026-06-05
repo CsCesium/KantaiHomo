@@ -29,10 +29,10 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
-/** 大破判断所需的半数击沉表，key = 敌舰数量 */
-const HalfSunkNumber: Record<number, number> = {
-  2:1, 3:2, 4:2, 5:3, 6:3, 7:4,
-};
+function requiredEnemySunkForRankA(enemyCount: number): number {
+  if (enemyCount <= 1) return enemyCount + 1;
+  return Math.floor(enemyCount * 2 / 3);
+}
 
 // ── helper ──────────────────────────────────────────────────────────────────
 function compactStages(stages: Array<SimStage | null> | null | undefined): SimStage[] {
@@ -540,17 +540,19 @@ function simulateBattleRank(
 
   const ours  = calStatus([...(mainFleet??[]), ...(escortFleet??[])]);
   const enemy = calStatus([...(enemyFleet??[]), ...(enemyEscort??[])]);
+  const enemyAllSunk = enemy.num > 0 && enemy.sunk === enemy.num;
 
-  if (ours.sunk === 0) {
-    if (enemy.sunk === enemy.num)
-      return ours.lostHP <= 0 ? Rank.SS : Rank.S;
-    if (enemy.num > 1 && enemy.sunk >= (HalfSunkNumber[enemy.num] ?? Infinity))
-      return Rank.A;
+  if (enemyAllSunk) {
+    if (ours.sunk === 0) return ours.lostHP <= 0 ? Rank.SS : Rank.S;
+    return Rank.B;
   }
+
+  if (ours.sunk === 0 && enemy.sunk >= requiredEnemySunkForRankA(enemy.num)) return Rank.A;
   if (enemy.flagshipSunk && ours.sunk < enemy.sunk) return Rank.B;
   if (ours.num === 1 && ours.flagshipCritical)        return Rank.D;
   if (2 * enemy.rate > 5 * ours.rate)                return Rank.B;
   if (10 * enemy.rate > 9 * ours.rate)               return Rank.C;
+  if (enemy.flagshipSunk && ours.sunk > 0)            return Rank.C;
   if (ours.sunk > 0 && (ours.num - ours.sunk) === 1) return Rank.E;
   return Rank.D;
 }

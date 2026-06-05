@@ -1,6 +1,7 @@
 import { webview } from "@kit.ArkWeb";
 import { HOME_URL } from "../config";
-import { createEmptyResp, shouldBlock, shipAssetInterceptor } from "../interceptors/Interceptor";
+import { gameAssetInterceptor } from "../../../features/resourceCache";
+import { createEmptyResp, shouldBlock } from "../interceptors/Interceptor";
 
 interface messages {
   message?: string;
@@ -14,6 +15,8 @@ export default struct GameWeb {
   @Event onWebPageBegin?: () => void;
   @Event onWebProgress?: (p: number) => void;
   @Event onWebPageEnd?: () => void;
+  @Param resourceCacheEnabled: boolean = false;
+  @Param resourceCacheAudioEnabled: boolean = false;
 
   build() {
     Web({ src: this.src, controller: this.controller })
@@ -21,6 +24,7 @@ export default struct GameWeb {
       .domStorageAccess(true)
       .fileAccess(true)
       .zoomAccess(false)
+      .enableWebAVSession(false)
       .onControllerAttached(() => { this.onWebAttached?.(); })
       .onLoadIntercept(() => false)
       .onInterceptRequest((ev) => {
@@ -28,8 +32,10 @@ export default struct GameWeb {
         const reqUrl: string = ev.request.getRequestUrl() || '';
         if (!reqUrl) return undefined;
         if (shouldBlock(reqUrl)) return createEmptyResp();
-        const cached = shipAssetInterceptor(ev);
-        if (cached) return cached;
+        if (this.resourceCacheEnabled) {
+          const cached = gameAssetInterceptor(ev, { enableAudio: this.resourceCacheAudioEnabled });
+          if (cached) return cached;
+        }
         return undefined;
       })
       .onPageBegin(() => { this.onWebPageBegin?.(); })

@@ -20,10 +20,10 @@ export function advanceDetectorJS(): string {
     const EVADE_TEX    = new Set(['map_decision_11', 'map_decision_12']);
     const NO_EVADE_TEX = new Set(['map_decision_9',  'map_decision_10']);
 
-    // 按场景分组：[正向按钮集合, 反向按钮集合]
+    // 按场景分组：advance = 進撃/撤退，escape = 退避/退避せず。
     const SCENES = [
-      [ADVANCE_TEX,  RETREAT_TEX],   // 進撃 vs 撤退
-      [EVADE_TEX,    NO_EVADE_TEX],  // 退避 vs 退避せず
+      { mode: 'advance', posSet: ADVANCE_TEX, negSet: RETREAT_TEX },
+      { mode: 'escape',  posSet: EVADE_TEX,   negSet: NO_EVADE_TEX },
     ];
 
     const isSprite = n => window.PIXI && n instanceof PIXI.Sprite;
@@ -55,33 +55,36 @@ export function advanceDetectorJS(): string {
         const n = stack.pop(); if (!n) continue;
         if (isSprite(n)) {
           const id = texId(n);
-          for (const [posSet, negSet] of SCENES) {
-            if ((posSet.has(id) || negSet.has(id)) && visibleChain(n)) {
+          for (const scene of SCENES) {
+            if ((scene.posSet.has(id) || scene.negSet.has(id)) && visibleChain(n)) {
               if (!byTex.has(id)) byTex.set(id, { node: n, id });
             }
           }
         }
         if (n.children?.length) for (const c of n.children) stack.push(c);
       }
-      for (const [posSet, negSet] of SCENES) {
-        const pos = [...byTex.values()].find(h => posSet.has(h.id));
-        const neg = [...byTex.values()].find(h => negSet.has(h.id));
+      for (const scene of SCENES) {
+        const pos = [...byTex.values()].find(h => scene.posSet.has(h.id));
+        const neg = [...byTex.values()].find(h => scene.negSet.has(h.id));
         if (pos && neg) {
-          return { adv: pos, ret: neg, parent: commonAncestor(pos.node, neg.node) || root };
+          return { mode: scene.mode, adv: pos, ret: neg, parent: commonAncestor(pos.node, neg.node) || root };
         }
       }
       return null;
     }
 
-    let lastFire = 0;
+    const lastFireByMode = new Map();
     function postAdvance(ctx) {
       const now = Date.now();
+      const mode = ctx.mode || 'advance';
+      const lastFire = lastFireByMode.get(mode) || 0;
       if (now - lastFire < 2000) return;
-      lastFire = now;
+      lastFireByMode.set(mode, now);
       try {
         const payload = {
           type: 'SORTIE_ADVANCE_UI',
           ts: now,
+          mode,
           advId: texId(ctx.adv.node),
           retId: texId(ctx.ret.node),
         };

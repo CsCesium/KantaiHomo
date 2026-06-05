@@ -21,14 +21,19 @@ import {
 } from '../../../domain/models';
 import type { AirBaseSnapshot, AirBaseSquadronSnapshot } from '../../../domain/models/struct/battle_record';
 import type { FleetSnapshot, ShipSnapshot, SlotItemSnapshot } from '../../../domain/models/struct/battle_record';
-import { startSortie, moveToNextCell } from '../../../domain/service';
+import { startSortie, moveToNextCell, getSortieContext } from '../../../domain/service';
 import { publishAlert } from '../../alerts/bus';
 import { SortieNextAlert, SortieStartTaihaAlert, TaihaWarningAlert } from '../../alerts/type';
 import { getLastBattleHasTaihaRisk, getLastBattleTaihaShips, resetLastBattleState } from '../../alerts/lastBattleState';
 import { getShipMasterName, clearBattleState, getLbas, getSlotItemMasterId,
   getDeck,
   getDeckShips,
-  getShipSpecialEquip } from '../../state/game_state';
+  getShipSpecialEquip,
+  addSortieResourceGains,
+  clearSortieResourceGains,
+  patchShipsHp,
+  clearEscapedShips,
+  clearSpecialAttackTriggeredShips } from '../../state/game_state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -97,6 +102,14 @@ class SortieHandler implements Handler {
     const { mapAreaId, mapInfoNo, cellId, cell, deckId, combinedType, fleetSnapshot, fleetSnapshotEscort } = payload;
     // 新出击：重置上次战斗的大破风险状态
     resetLastBattleState();
+    // 新出击：清空本次出击资源累计
+    clearSortieResourceGains();
+    clearEscapedShips();
+    clearSpecialAttackTriggeredShips();
+    // 起点也可能有资源点（罕见，但兜底）
+    if (cell.resourceGains && cell.resourceGains.length > 0) {
+      addSortieResourceGains(cell.resourceGains);
+    }
 
     // 1. 尝试从 Repository 获取更完整的舰队快照
     const actualFleetSnapshot = (await this.captureFleetSnapshot(deckId, PersistDeps)) ?? fleetSnapshot;
@@ -214,7 +227,25 @@ class SortieHandler implements Handler {
   ): Promise<void> {
     const { cell } = payload;
 
+    // 进击之后才把上一次战斗的 HP 写回 GameState：BATTLE_RESULT 时 simulator
+    // 已经把战后 HP 攒成 patches 挂在 SortieContext 上，这里一次性 flush，
+    // 保证 mainpanel 和下一格战斗 simulator 都拿到正确的初始 HP。
+    const ctxBeforeMove = getSortieContext();
+    if (ctxBeforeMove?.pendingHpPatches && ctxBeforeMove.pendingHpPatches.length > 0) {
+      try {
+        patchShipsHp(ctxBeforeMove.pendingHpPatches);
+      } catch (e) {
+        console.warn('[sortie] flush pendingHpPatches failed:', String(e));
+      }
+      ctxBeforeMove.pendingHpPatches = undefined;
+    }
+
     // Clear any battle state from the previous cell so the normal panel is restored.
+    // Base air raids do not have BATTLE_RESULT, so their pending context must be
+    // discarded on the next node before another battle prediction is built.
+    if (ctxBeforeMove && ctxBeforeMove.pendingBattle) {
+      ctxBeforeMove.pendingBattle = null;
+    }
     clearBattleState();
 
     // 1. 调用 Service 更新节点
@@ -235,6 +266,11 @@ class SortieHandler implements Handler {
     }
 
     const currentCell = context.currentCell ?? cell;
+
+    // 资源点：累加本次出击资源总量（面板用绿色显示）
+    if (cell.resourceGains && cell.resourceGains.length > 0) {
+      addSortieResourceGains(cell.resourceGains);
+    }
 
     console.info('[sortie] moved to cell:', currentCell.cellId, 'event:', currentCell.eventId, 'boss:', currentCell.isBoss);
 

@@ -25,9 +25,10 @@ export function getMapGaugeInfo(gauge: MapGaugeSnapshot): MapGaugeInfo {
   const hpNow = gauge.hpNow ?? 0;
   const hpMax = gauge.hpMax ?? 1;
   const ratio = hpMax > 0 ? hpNow / hpMax : 0;
+  const isDefeatGauge = gauge.hpMax === null && gauge.requiredDefeats !== null;
   return {
     label: `${areaNo}-${mapNo}`,
-    gaugeLabel: gauge.gaugeType === 2 ? 'TP' : 'HP',
+    gaugeLabel: isDefeatGauge ? '回' : (gauge.gaugeType === 2 ? 'TP' : 'HP'),
     hpNow,
     hpMax,
     ratio,
@@ -38,12 +39,16 @@ export function getMapGaugeInfo(gauge: MapGaugeSnapshot): MapGaugeInfo {
 /**
  * 周期性刷新的地图 = 常规海域 EO（每月重置）；非周期性 = 活动海图（一次性）。
  *
- * 区分方式：活动海图通过 api_eventmap 提供 hpMax/hpNow，常规海图（含月度 EO）
- * 没有 hpMax，只有 defeatCount。这样即使常规海图当前已通关，也保留显示，
- * 因为下个月仍会重置；活动海图斩杀后则可以隐藏。
+ * 区分方式：常规 EO 位于常规海域且没有 hpMax，只有 defeatCount/requiredDefeats。
+ * 即使常规 EO 当前已通关，也保留显示，因为下个月仍会重置；活动海图斩杀后隐藏。
  */
 export function isPeriodicMapGauge(gauge: MapGaugeSnapshot): boolean {
-  return gauge.hpMax === null;
+  const areaNo = Math.floor(gauge.mapId / 10);
+  return gauge.hpMax === null && areaNo >= 1 && areaNo <= 7;
+}
+
+export function shouldDisplayMapGauge(gauge: MapGaugeSnapshot): boolean {
+  return !gauge.cleared || isPeriodicMapGauge(gauge);
 }
 
 /** 是否为该 gauge 显示血条 / 进度条。活动图按 HP，EO 按击破次数。 */
@@ -51,6 +56,13 @@ export function shouldShowMapGaugeBar(gauge: MapGaugeSnapshot): boolean {
   if (gauge.hpMax !== null && gauge.hpMax > 0) return true;
   if (gauge.requiredDefeats !== null && gauge.requiredDefeats > 0) return true;
   return false;
+}
+
+export function getRemainingDefeatCount(gauge: MapGaugeSnapshot): number {
+  const required = gauge.requiredDefeats ?? 0;
+  if (required <= 0) return 0;
+  const defeated = Math.min(Math.max(gauge.defeatCount, 0), required);
+  return required - defeated;
 }
 
 /**
@@ -75,8 +87,7 @@ export function getMapGaugeBarValues(gauge: MapGaugeSnapshot): MapGaugeBarValues
     return { value: info.hpNow, total: info.hpMax };
   }
   const required = gauge.requiredDefeats ?? 0;
-  const defeated = Math.min(gauge.defeatCount, required);
-  return { value: defeated, total: required };
+  return { value: getRemainingDefeatCount(gauge), total: required };
 }
 
 /** 生成 [0, 1, ..., n-1] 用于 ForEach 渲染格子。 */

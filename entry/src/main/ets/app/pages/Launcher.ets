@@ -1,32 +1,79 @@
 import router from '@ohos.router';
-import { window } from '@kit.ArkUI';
-import { getMainWindowCached } from '../../infra/appContext';
+import settings from '@ohos.settings';
+import window from '@ohos.window';
+import { getAppContext, getMainWindowCached } from '../../infra/appContext';
+import { getLastGamePreferredOrientation } from '../../infra/web/layout/orientation';
+import { promptLogout } from '../../infra/web/session/logout';
 
 @Entry
 @Component
 struct Launcher {
+  @State private resumeGameMode: boolean = false;
+
   private navigate(url: string): void {
     router.pushUrl({ url }).catch(() => {});
   }
 
-  private getCurrentOrientation(win: window.Window): window.Orientation {
+  private isResumeGameRoute(): boolean {
+    const params = router.getParams() as Record<string, string | boolean> | undefined;
+    return params?.resumeGame === true || params?.resumeGame === 'true';
+  }
+
+  aboutToAppear(): void {
+    this.resumeGameMode = this.isResumeGameRoute();
+    const win = getMainWindowCached();
+    if (!win) return;
+    void win.setWindowSystemBarEnable(['status', 'navigation']);
+    void win.setSpecificSystemBarEnabled('navigationIndicator', true, false);
+    void win.setWindowLayoutFullScreen(false);
+    this.applyLauncherOrientation(win);
+  }
+
+  private isSystemRotationUnlocked(): boolean {
+    try {
+      const value = settings.getValueSync(
+        getAppContext(),
+        settings.general.ACCELEROMETER_ROTATION_STATUS,
+        '1'
+      );
+      return value === '1';
+    } catch (_e) {
+      return true;
+    }
+  }
+
+  private getCurrentOrientation(
+    win: window.Window,
+    fallback: window.Orientation = window.Orientation.AUTO_ROTATION
+  ): window.Orientation {
     try {
       const rect = win.getWindowProperties().windowRect;
       return rect.width >= rect.height
         ? window.Orientation.LANDSCAPE
         : window.Orientation.PORTRAIT;
     } catch (_e) {
-      return window.Orientation.AUTO_ROTATION;
+      return fallback;
     }
+  }
+
+  private applyLauncherOrientation(win: window.Window): void {
+    const orientation = this.isSystemRotationUnlocked()
+      ? window.Orientation.AUTO_ROTATION
+      : this.getCurrentOrientation(win, window.Orientation.PORTRAIT);
+    void win.setPreferredOrientation(orientation);
   }
 
   private enterGame(): void {
     const win = getMainWindowCached();
     const orientationPromise = win
-      ? win.setPreferredOrientation(this.getCurrentOrientation(win))
+      ? win.setPreferredOrientation(this.resumeGameMode ? getLastGamePreferredOrientation() : this.getCurrentOrientation(win))
       : Promise.resolve();
     orientationPromise.catch(() => {}).finally(() => {
-      router.replaceUrl({ url: 'app/pages/WebRoot' }).catch(() => {});
+      if (this.resumeGameMode) {
+        router.back();
+        return;
+      }
+      router.pushUrl({ url: 'app/pages/WebRoot' }).catch(() => {});
     });
   }
 
@@ -117,6 +164,10 @@ struct Launcher {
         this.MenuCard(
           '📋', '更新日志', '版本变更记录', false,
           () => this.navigate('app/pages/Changelog')
+        )
+        this.MenuCard(
+          '↩', '登出', '清除登录 Cookie 与会话缓存', false,
+          () => promptLogout()
         )
       }
       .padding({ left: 20, right: 20 })

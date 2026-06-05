@@ -36,12 +36,16 @@ export const PanelColors = {
   stat:          '#56d8e0',   // all stat value columns (bright teal)
 
   // HP states
-  hpOk:          '#43a047',   // hp ratio > 50%  — green
+  hpOk:          '#43a047',   // hp ratio > 75%  — green
+  hpShouha:      '#DCEDFD5A', // hp ratio 50-75% — 小破
   hpMid:         '#fb8c00',   // hp ratio 25-50% — orange (中破)
   hpWarn:        '#fdd835',   // warning yellow (engagement, condition — NOT hp bars)
   hpCrit:        '#e53935',   // hp ratio ≤ 25%  — red
+  hpSinkRisk:    '#8b0000',   // 大破 + 进击击沉风险 — 深红
   hpDamage:      '#6b6f7e',   // hp lost in batle
   escapeLabel:   '#42a5f5',   // 退避 (goback_port) label — blue
+  escapeHp:      '#8a8f98',   // 已退避舰 HP — grey
+  escapeOverlay: '#66808080', // 已退避舰遮罩 — semi-transparent grey
   // Row separators
   rowBorder:     '#20243a',
 
@@ -100,17 +104,17 @@ export function questCategoryStyle(category: number): QuestCategoryStyle {
 }
 
 const QUEST_RESET_TYPE_LABELS: Record<number, string> = {
-  1: '単発',   // ONCE
-  2: 'デイリー',   // DAILY
-  3: 'ウィークリー', // WEEKLY
-  4: 'マンスリー',  // MONTHLY_3
-  5: 'マンスリー',  // MONTHLY_2
-  6: 'マンスリー',  // MONTHLY
-  7: 'クォータリー', // QUARTERLY
-  8: 'イヤーリー',   // YEARLY_FEB
-  9: 'イヤーリー',   // YEARLY_AUG
-  10: 'イヤーリー',  // YEARLY_MAR
-  11: 'イヤーリー',  // YEARLY_SEP
+  1: '单次',   // ONCE
+  2: '每日',   // DAILY
+  3: '每周',   // WEEKLY
+  4: '每月',   // MONTHLY_3
+  5: '每月',   // MONTHLY_2
+  6: '每月',   // MONTHLY
+  7: '季度',   // QUARTERLY
+  8: '年度',   // YEARLY_FEB
+  9: '年度',   // YEARLY_AUG
+  10: '年度',  // YEARLY_MAR
+  11: '年度',  // YEARLY_SEP
 };
 
 export function questResetTypeLabel(type: number): string {
@@ -119,11 +123,11 @@ export function questResetTypeLabel(type: number): string {
 
 /** Maps QuestProgress flag (0/1/2) to a display label. */
 export function questProgressLabel(progress: number | undefined, state: number): string {
-  if (state === 3) return '100%';
+  if (state === 3) return '完成';
   switch (progress) {
     case 1: return '50%+';
     case 2: return '80%+';
-    default: return '–';
+    default: return '进行中';
   }
 }
 
@@ -179,14 +183,16 @@ export const ShipDiems = {
 
 // ── HP color helper ────────────────────────────────────────────────────────
 
-const HP_OK_RATIO   = 0.5;
-const HP_WARN_RATIO = 0.25;
+const HP_OK_RATIO     = 0.75;
+const HP_SHOUHA_RATIO = 0.5;
+const HP_WARN_RATIO   = 0.25;
 
 /** Returns the HP bar / text color for the given HP ratio. */
 export function hpColor(hp: number, hpMax: number): string {
   const ratio = hpMax > 0 ? hp / hpMax : 0;
-  if (ratio > HP_OK_RATIO)   { return PanelColors.hpOk; }
-  if (ratio > HP_WARN_RATIO) { return PanelColors.hpMid; }
+  if (ratio > HP_OK_RATIO)     { return PanelColors.hpOk; }
+  if (ratio > HP_SHOUHA_RATIO) { return PanelColors.hpShouha; }
+  if (ratio > HP_WARN_RATIO)   { return PanelColors.hpMid; }
   return PanelColors.hpCrit;
 }
 

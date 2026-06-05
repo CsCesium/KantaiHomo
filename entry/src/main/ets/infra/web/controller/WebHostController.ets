@@ -4,6 +4,7 @@ import common from '@ohos.app.ability.common';
 import { WebBridge } from '../bridge/WebBridge';
 import { FitAndDisplay } from '../layout/fit';
 import { buildInjectionBundle } from '../../web/inject';
+import { buildAudioMuteCommand } from '../inject/modules/audioMute';
 import {  InjectOptions, AppChannelMessage, ApiDump,
   isApiDump,
   isYasenUiEvent,
@@ -19,7 +20,7 @@ import { Orientation } from '../layout/orientation';
 import hilog from '@ohos.hilog';
 import { YasenPromptAlert, SortieAdvanceAlert, publishAlert } from '../../../features/alerts';
 import { getLastBattleTaihaShips } from '../../../features/alerts/lastBattleState';
-import { getBattleResult, getBattleStatus, getShipSpecialEquip, ShipBattleStatus } from '../../../features/state';
+import { getBattleResult, getBattleStatus, getShipSpecialEquip, isShipEscaped, ShipBattleStatus } from '../../../features/state';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -149,6 +150,12 @@ export class WebHostController {
     );
   }
 
+  reapplyFit(): void {
+    const f: FitGetter = this.getFit();
+    this.layout.resetFitCache();
+    this.pushFitStrong(f.policy, f.locked, f.viewportW, f.viewportH);
+  }
+
   bindDisplay(): void {
     const cb = (_id: number): void => {
       const f: FitGetter = this.getFit();
@@ -166,8 +173,12 @@ export class WebHostController {
     }
   }
 
-  async applyOrientationByMode(isCompact: boolean): Promise<void> {
-    await this.ori.applyByMode(isCompact);
+  async applyOrientationByMode(
+    isCompact: boolean,
+    portraitOnly: boolean = false,
+    landscapeOnly: boolean = false
+  ): Promise<void> {
+    await this.ori.applyByMode(isCompact, portraitOnly, landscapeOnly);
   }
 
   onPostMessage(raw: string): void {
@@ -179,6 +190,12 @@ export class WebHostController {
     if (typeof this.ctl.runJavaScript === 'function') {
       this.ctl.runJavaScript(script);
     }
+  }
+
+  setWebAudioMuted(muted: boolean): void {
+    try {
+      this.ctl.runJavaScript?.(buildAudioMuteCommand(muted));
+    } catch (_e) {}
   }
 
   private onHookPayload(raw: string): void {
@@ -233,8 +250,12 @@ export class WebHostController {
     this.advanceWarningHandler = handler;
   }
 
-  private handleAdvanceMessage(_msg: SortieAdvanceUiEvent): void {
-    hilog.info(HILOG_DOM, 'Bridge', '[ADVANCE] sortie advance UI detected');
+  private handleAdvanceMessage(msg: SortieAdvanceUiEvent): void {
+    hilog.info(HILOG_DOM, 'Bridge', '[ADVANCE] sortie decision UI detected mode=%{public}s', msg.mode);
+    if (msg.mode === 'escape') {
+      return;
+    }
+
     const warning = this.buildAdvanceRiskMessage();
     const hasTaihaRisk = warning !== null;
 
@@ -288,6 +309,7 @@ export class WebHostController {
         const isFlagship = (fleetIdx === 0 && shipIdx === 0);
         if (isFlagship) return;
         if (!ship.isTaiha || ship.isSunk) return;
+        if (isShipEscaped(ship.uid)) return;
 
         const equip = getShipSpecialEquip(ship.uid);
         if (equip.hasDamageControl || equip.hasGoddess) return;

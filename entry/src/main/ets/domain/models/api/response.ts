@@ -34,16 +34,18 @@ export interface ApiStateFields {
 
   // 资源
   api_material?: ApiMaterialItemRaw[];
+  api_bauxite?: number;
 
-  api_deck_port?: ApiDeckPortRaw[];
-  api_deck_data?: ApiDeckPortRaw[];
+  api_deck?: unknown;
+  api_deck_port?: unknown;
+  api_deck_data?: unknown;
 
-  api_ship?: ApiShipRaw[];
-  api_ship_data?: ApiShipRaw[];
+  api_ship?: unknown;
+  api_ship_data?: unknown;
 
   // 入渠/建造
-  api_ndock?: ApiNdockRaw[];
-  api_kdock?: ApiKdockRaw[];
+  api_ndock?: unknown;
+  api_kdock?: unknown;
 
 }
 
@@ -59,6 +61,48 @@ export interface StateFieldsDetection {
   hasKdock: boolean;
   /** 是否有任何状态字段 */
   any: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isShipRaw(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.api_id === 'number' && typeof value.api_ship_id === 'number';
+}
+
+function isDeckRaw(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.api_id === 'number' && Array.isArray(value.api_ship);
+}
+
+function isNdockRaw(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.api_id === 'number' && typeof value.api_state === 'number' && typeof value.api_ship_id === 'number';
+}
+
+function isKdockRaw(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.api_id === 'number' && typeof value.api_state === 'number' && 'api_created_ship_id' in value;
+}
+
+function hasRawField(value: unknown, isSingle: (value: unknown) => boolean): boolean {
+  if (Array.isArray(value)) return value.length > 0;
+  if (!isRecord(value)) return false;
+  if (isSingle(value)) return true;
+  return Object.values(value).some(item => isSingle(item));
+}
+
+function rawFieldToArray<T>(value: unknown, isSingle: (value: unknown) => boolean): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (!isRecord(value)) return [];
+  if (isSingle(value)) return [value as T];
+  const out: T[] = [];
+  for (const item of Object.values(value)) {
+    if (isSingle(item)) out.push(item as T);
+  }
+  return out;
 }
 
 export function detectStateFields(data: unknown): StateFieldsDetection {
@@ -77,11 +121,15 @@ export function detectStateFields(data: unknown): StateFieldsDetection {
   const obj = data as ApiStateFields;
 
   result.hasAdmiral = !!obj.api_basic;
-  result.hasMaterials = Array.isArray(obj.api_material) && obj.api_material.length > 0;
-  result.hasDecks = Array.isArray(obj.api_deck_port) || Array.isArray(obj.api_deck_data);
-  result.hasShips = Array.isArray(obj.api_ship) || Array.isArray(obj.api_ship_data);
-  result.hasNdock = Array.isArray(obj.api_ndock) && obj.api_ndock.length > 0;
-  result.hasKdock = Array.isArray(obj.api_kdock) && obj.api_kdock.length > 0;
+  result.hasMaterials = (Array.isArray(obj.api_material) && obj.api_material.length > 0) ||
+    typeof obj.api_bauxite === 'number';
+  result.hasDecks = hasRawField(obj.api_deck_port, isDeckRaw) ||
+    hasRawField(obj.api_deck_data, isDeckRaw) ||
+    hasRawField(obj.api_deck, isDeckRaw);
+  result.hasShips = hasRawField(obj.api_ship, isShipRaw) ||
+    hasRawField(obj.api_ship_data, isShipRaw);
+  result.hasNdock = hasRawField(obj.api_ndock, isNdockRaw);
+  result.hasKdock = hasRawField(obj.api_kdock, isKdockRaw);
 
   result.any = result.hasAdmiral || result.hasMaterials || result.hasDecks ||
   result.hasShips || result.hasNdock || result.hasKdock;
@@ -241,7 +289,7 @@ export interface ApiRemodelResponse extends ApiStateFields {
 export function isPortResponse(data: unknown): data is ApiPortResponse {
   if (!data || typeof data !== 'object') return false;
   const obj = data as ApiStateFields;
-  return !!obj.api_basic && Array.isArray(obj.api_deck_port) && Array.isArray(obj.api_ship);
+  return !!obj.api_basic && hasRawField(obj.api_deck_port, isDeckRaw) && hasRawField(obj.api_ship, isShipRaw);
 }
 
 /**
@@ -250,7 +298,7 @@ export function isPortResponse(data: unknown): data is ApiPortResponse {
 export function isShipDataResponse(data: unknown): data is ApiShip2Response {
   if (!data || typeof data !== 'object') return false;
   const obj = data as ApiStateFields;
-  return Array.isArray(obj.api_ship_data);
+  return hasRawField(obj.api_ship_data, isShipRaw);
 }
 
 /**
@@ -259,7 +307,7 @@ export function isShipDataResponse(data: unknown): data is ApiShip2Response {
 export function isDeckResponse(data: unknown): data is ApiDeckResponse {
   if (!data || typeof data !== 'object') return false;
   const obj = data as ApiStateFields;
-  return Array.isArray(obj.api_deck_data) && !Array.isArray(obj.api_ship_data);
+  return hasRawField(obj.api_deck_data, isDeckRaw) && !hasRawField(obj.api_ship_data, isShipRaw);
 }
 
 // ==================== 工具类型 ====================
@@ -273,12 +321,21 @@ export type ExtractApiField<T extends keyof ApiStateFields> = NonNullable<ApiSta
  * 获取舰队数据（兼容两种字段名）
  */
 export function getDecksFromResponse(data: ApiStateFields): ApiDeckPortRaw[] | undefined {
-  return data.api_deck_port ?? data.api_deck_data;
+  const decks = [
+    ...rawFieldToArray<ApiDeckPortRaw>(data.api_deck_port, isDeckRaw),
+    ...rawFieldToArray<ApiDeckPortRaw>(data.api_deck_data, isDeckRaw),
+    ...rawFieldToArray<ApiDeckPortRaw>(data.api_deck, isDeckRaw),
+  ];
+  return decks.length > 0 ? decks : undefined;
 }
 
 /**
  * 获取舰船数据（兼容两种字段名）
  */
 export function getShipsFromResponse(data: ApiStateFields): ApiShipRaw[] | undefined {
-  return data.api_ship ?? data.api_ship_data;
+  const ships = [
+    ...rawFieldToArray<ApiShipRaw>(data.api_ship, isShipRaw),
+    ...rawFieldToArray<ApiShipRaw>(data.api_ship_data, isShipRaw),
+  ];
+  return ships.length > 0 ? ships : undefined;
 }
