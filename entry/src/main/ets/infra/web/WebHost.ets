@@ -122,6 +122,7 @@ export default struct WebHost {
   private unregisterPageVisible?: () => void;
   private chromeRefreshTimer: number = -1;
   private handledLogoutRevision: number = 0;
+  private landscapeOrientationPending: boolean = false;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
     channelName: defaultInjectOptions.channelName,
@@ -383,11 +384,15 @@ export default struct WebHost {
     };
     this.panelConfig = decidePanelLayout(finalDecision, heightVp);
 
+    const landscapeOnly: boolean = this.shouldUseLandscapeOnlyRotation();
     void this.host.applyOrientationByMode(
       this.mode === HostMode.COMPACT,
       this.shouldUsePortraitOnlyRotation(),
-      this.shouldUseLandscapeOnlyRotation()
+      landscapeOnly
     );
+    if (this.landscapeOrientationPending && (widthVp > heightVp || !this.isToolSurfaceScene())) {
+      this.landscapeOrientationPending = false;
+    }
     if (modeChanged) {
       this.host.onPageEnd();
     }
@@ -789,26 +794,25 @@ export default struct WebHost {
   }
 
   private shouldUseLandscapeOnlyRotation(): boolean {
-    return !this.shouldUsePortraitOnlyRotation() &&
-      this.isToolSurfaceScene() &&
-      this.mode === HostMode.COMPACT &&
+    if (this.shouldUsePortraitOnlyRotation() || !this.isToolSurfaceScene()) {
+      return false;
+    }
+    if (this.landscapeOrientationPending) {
+      return true;
+    }
+    return this.mode === HostMode.COMPACT &&
       this.viewportWidthVp > this.viewportHeightVp &&
       this.viewportHeightVp <= NARROW_SHORT_SIDE_VP;
   }
 
   /**
    * 切换"游戏 + 底部面板"布局：
-   *  - 打开时强制竖屏，保证窄屏（如折叠机外屏横屏 940x420）也有可用面板高度
+   *  - 打开时由 Orientation 先推一次竖屏再应用竖屏策略，避免旋转锁定时等待传感器触发
    *  - 关闭后由 recalcLayout → applyOrientationByMode 恢复正常方向策略
    */
   private toggleLrLayout(): void {
     this.lrLayoutForced = !this.lrLayoutForced;
-    if (this.lrLayoutForced) {
-      const mainWin = getMainWindowCached();
-      if (mainWin) {
-        void mainWin.setPreferredOrientation(window.Orientation.PORTRAIT);
-      }
-    }
+    this.landscapeOrientationPending = !this.lrLayoutForced && this.isToolSurfaceScene();
     this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
   }
 

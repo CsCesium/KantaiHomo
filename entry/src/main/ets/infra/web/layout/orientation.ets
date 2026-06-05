@@ -194,6 +194,7 @@ export class Orientation {
     if (this.shouldForceLandscape()) {
       if (this.rotationUnlocked) {
         this.lockedOrientation = null;
+        await this.pushExactBeforeAuto(window.Orientation.LANDSCAPE);
         await this.setPreferred(window.Orientation.AUTO_ROTATION_LANDSCAPE);
       } else {
         this.lockedOrientation = window.Orientation.LANDSCAPE;
@@ -206,6 +207,7 @@ export class Orientation {
     if (this.shouldForcePortrait()) {
       if (this.rotationUnlocked) {
         this.lockedOrientation = null;
+        await this.pushExactBeforeAuto(window.Orientation.PORTRAIT);
         await this.setPreferred(window.Orientation.AUTO_ROTATION_PORTRAIT);
       } else {
         this.lockedOrientation = window.Orientation.PORTRAIT;
@@ -289,7 +291,8 @@ export class Orientation {
   private async forceSetOrientation(ori: window.Orientation): Promise<void> {
     try {
       lastGamePreferredOrientation = ori;
-      if (this.current === ori) {
+      const currentWindowOri = await this.getCurrentLockedOrientation();
+      if (this.current === ori && currentWindowOri === ori) {
         return;
       }
       const win = await this.resolveMainWindow();
@@ -299,6 +302,14 @@ export class Orientation {
     } catch (e) {
       console.error('[Orientation] forceSetOrientation failed:', e);
     }
+  }
+
+  private async pushExactBeforeAuto(ori: window.Orientation): Promise<void> {
+    const currentWindowOri = await this.getCurrentLockedOrientation();
+    if (currentWindowOri === ori) {
+      return;
+    }
+    await this.forceSetOrientation(ori);
   }
 
   async setPreferred(ori: window.Orientation): Promise<void> {
