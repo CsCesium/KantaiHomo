@@ -57,6 +57,9 @@ export interface NDockSnapShot{
   state:number;
   shipUid:number;
   completeTime:number;
+  completeTimeStr?: string;
+  fuelCost: number;
+  steelCost: number;
   capturedAt: number;
 }
 
@@ -102,6 +105,12 @@ export interface ShipState {
   ammoMax: number;
   /** 是否需要补给 */
   needsResupply: boolean;
+  /** 当前损伤对应的入渠修理耗时（毫秒） */
+  ndockTimeMs?: number;
+  /** 当前损伤对应的入渠燃油消耗 */
+  ndockFuel?: number;
+  /** 当前损伤对应的入渠钢材消耗 */
+  ndockSteel?: number;
   /** 装备槽 (装备实例 UID 列表，长度5，-1=未装备) */
   slots: number[];
   /** 各槽当前搭载数（与 slots 并行） */

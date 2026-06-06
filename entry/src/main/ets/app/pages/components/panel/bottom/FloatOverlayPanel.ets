@@ -5,6 +5,8 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getMapGauges,
+  getNDocks,
+  NDockSnapShot,
   getQuests,
   QuestSnapshot,
   getSortieResourceGains,
@@ -24,11 +26,13 @@ import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import QuestPanel from '../common/QuestPanel';
+import NdockPanel from '../common/NdockPanel';
 import { shouldDisplayMapGauge } from './rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
-const OVERLAY_MAP_TAB_IDX = 4;
-const OVERLAY_QUEST_TAB_IDX = 5;
+const OVERLAY_NDOCK_TAB_IDX = 4;
+const OVERLAY_MAP_TAB_IDX = 5;
+const OVERLAY_QUEST_TAB_IDX = 6;
 const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
 const RESOURCE_BAR_NARROW_H = 36;
@@ -202,6 +206,7 @@ export default struct FloatOverlayPanel {
   @Local fleetSpeed: number = -1;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  @Local ndocks: NDockSnapShot[] = [];
   @Local quests: QuestSnapshot[] = [];
   @Local admiralName: string = '--';
   @Local admiralRank: string = '--';
@@ -265,6 +270,7 @@ export default struct FloatOverlayPanel {
     this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
     this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
     this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.ndocks = [...getNDocks()];
     this.quests = [...getQuests()];
     this.refreshShips();
     this.loadCalcStats();
@@ -567,6 +573,15 @@ export default struct FloatOverlayPanel {
         Blank().layoutWeight(1)
 
         Row({ space: 4 }) {
+          Text('入渠')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtTabOn)
+            .backgroundColor(this.activeFleet === OVERLAY_NDOCK_TAB_IDX ? '#006064' : PanelColors.bgTabInactive)
+            .opacity(this.activeFleet === OVERLAY_NDOCK_TAB_IDX ? 1.0 : 0.55)
+            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+            .borderRadius(PanelDimens.radius)
+            .onClick(() => { this.selectFleet(OVERLAY_NDOCK_TAB_IDX); })
+
           Text('地図')
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.txtTabOn)
@@ -598,6 +613,8 @@ export default struct FloatOverlayPanel {
         Column() {
           if (this.activeFleet === OVERLAY_QUEST_TAB_IDX) {
             QuestPanel({ quests: this.quests, compact: true })
+          } else if (this.activeFleet === OVERLAY_NDOCK_TAB_IDX) {
+            NdockPanel({ ndocks: this.ndocks, compact: true })
           } else if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {
             if (this.mapGauges.length > 0) {
               ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {

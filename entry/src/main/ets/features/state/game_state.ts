@@ -308,12 +308,16 @@ class GameStateManager {
    * 更新修理渠
    */
   updateNDocks(ndocks:Ndock[]):void{
+    const capturedAt = Date.now();
     this.state.Ndocks = ndocks.map(dock=>({
       dockId:dock.dockId,
       state:dock.state,
       shipUid:dock.shipUid,
       completeTime:dock.completeTime,
-      capturedAt:Date.now()
+      completeTimeStr:dock.completeTimeStr,
+      fuelCost:dock.cost?.fuel ?? 0,
+      steelCost:dock.cost?.steel ?? 0,
+      capturedAt
     }));
     this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('ndocks');
@@ -534,6 +538,9 @@ class GameStateManager {
       fuelMax,
       ammoMax,
       needsResupply,
+      ndockTimeMs: ship.ndock?.timeMs ?? 0,
+      ndockFuel: ship.ndock?.cost?.fuel ?? 0,
+      ndockSteel: ship.ndock?.cost?.steel ?? 0,
       slots,
       onslot,
       slotCount,

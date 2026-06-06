@@ -5,6 +5,8 @@ import {
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
   MapGaugeSnapshot,
+  getNDocks,
+  NDockSnapShot,
   getQuests,
   QuestSnapshot,
   getSortieResourceGains,
@@ -24,12 +26,14 @@ import ShipRow from '../bottom/rows/ShipRow';
 import MapGaugeRow from '../bottom/rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import QuestPanel from '../common/QuestPanel';
+import NdockPanel from '../common/NdockPanel';
 import { shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
-const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '地図', '任务'];
-const MAP_TAB_IDX = 6;
-const QUEST_TAB_IDX = 7;
+const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '入渠', '地図', '任务'];
+const NDOCK_TAB_IDX = 6;
+const MAP_TAB_IDX = 7;
+const QUEST_TAB_IDX = 8;
 const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
 const RESOURCE_BAR_NARROW_H = 36;
@@ -200,6 +204,7 @@ export default struct BottomPanel {
   @Local fleetSpeed: number = -1;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  @Local ndocks: NDockSnapShot[] = [];
   @Local quests: QuestSnapshot[] = [];
   @Local admiralName: string = '--';
   @Local admiralRank: string = '--';
@@ -258,6 +263,7 @@ export default struct BottomPanel {
     this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
     this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.ndocks = [...getNDocks()];
     this.quests = [...getQuests()];
     this.admiralName = admiral?.nickname || '--';
     this.admiralRank = formatAdmiralRank(admiral?.rank);
@@ -598,6 +604,8 @@ export default struct BottomPanel {
         Column() {
           if (this.activeFleet === QUEST_TAB_IDX) {
             QuestPanel({ quests: this.quests, compact: false })
+          } else if (this.activeFleet === NDOCK_TAB_IDX) {
+            NdockPanel({ ndocks: this.ndocks, compact: false })
           } else if (this.activeFleet === MAP_TAB_IDX) {
             if (this.mapGauges.length > 0) {
               ForEach(this.mapGauges, (gauge: MapGaugeSnapshot) => {
