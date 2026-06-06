@@ -190,7 +190,6 @@ export default struct NdockPanel {
       ship?.hpNow ?? 0,
       ship?.hpMax ?? 0,
       ship?.ndockTimeMs ?? 0,
-      Math.floor(this.now / 1000),
     ].join('_');
   }
 
