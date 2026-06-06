@@ -95,6 +95,7 @@ export interface BattleResultAlert extends BaseAlert {
   type: 'battle_result';
   cellId: number;
   isBoss: boolean;
+  isPractice: boolean;
   rank: string;
   /** 是否存在大破且无损管的击沉风险 */
   hasTaihaRisk: boolean;

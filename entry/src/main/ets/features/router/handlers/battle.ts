@@ -631,6 +631,7 @@ class BattleHandler implements Handler {
         timestamp: now,
         cellId: record.cellId,
         isBoss: record.isBoss,
+        isPractice,
         rank: record.rank,
         hasTaihaRisk,
       };

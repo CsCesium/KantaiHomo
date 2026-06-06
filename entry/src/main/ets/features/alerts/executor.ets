@@ -307,6 +307,28 @@ async function handleBattleResult(alert: BattleResultAlert): Promise<void> {
   const config = getAlertBus().getConfig();
   if (!config.enableBattleResultAlert) return;
 
+  if (alert.isPractice) {
+    const message = '演习结束';
+    console.info(`[AlertExecutor] practice result: ${message} rank=${alert.rank}`);
+
+    if (config.enableToast) {
+      await executeToast(message, 2000);
+    }
+
+    if (config.enableVibrate) {
+      await executeVibrate(config.vibrateDurationMs);
+    }
+
+    if (config.enableNotification) {
+      await executeNotification(
+        NOTIFICATION_ID_BATTLE_RESULT,
+        `演习结算：${alert.rank}`,
+        message
+      );
+    }
+    return;
+  }
+
   const bossStr = alert.isBoss ? '[BOSS]' : '';
   const cellLabel = formatCellCode(alert.cellId);
 
