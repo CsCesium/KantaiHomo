@@ -3,7 +3,7 @@
  */
 
 import { Quest, QuestListPage } from '../models/struct/quest';
-import { QuestCategory, QuestResetType, isRecurringQuest, QuestState } from '../models/enums/quest';
+import { QuestCategory, QuestResetType, QuestState, isMonthlyQuest, isYearlyQuest } from '../models/enums/quest';
 import { questsToRows, rowsToQuests } from '../models/mapper/quest';
 import { getRepositoryHub } from '../../infra/storage/repo';
 
@@ -95,11 +95,7 @@ export async function getWeeklyQuests(): Promise<Quest[]> {
  */
 export async function getMonthlyQuests(): Promise<Quest[]> {
   const all = await getAllQuests();
-  return all.filter(q =>
-  q.type === QuestResetType.MONTHLY ||
-    q.type === QuestResetType.MONTHLY_2 ||
-    q.type === QuestResetType.MONTHLY_3
-  );
+  return all.filter(q => isMonthlyQuest(q.type));
 }
 
 /**
@@ -136,18 +132,9 @@ export async function getQuestStats(): Promise<QuestStats> {
     completed: all.filter(q => q.state === QuestState.COMPLETE).length,
     daily: all.filter(q => q.type === QuestResetType.DAILY).length,
     weekly: all.filter(q => q.type === QuestResetType.WEEKLY).length,
-    monthly: all.filter(q =>
-    q.type === QuestResetType.MONTHLY ||
-      q.type === QuestResetType.MONTHLY_2 ||
-      q.type === QuestResetType.MONTHLY_3
-    ).length,
+    monthly: all.filter(q => isMonthlyQuest(q.type)).length,
     quarterly: all.filter(q => q.type === QuestResetType.QUARTERLY).length,
-    yearly: all.filter(q =>
-    q.type === QuestResetType.YEARLY_FEB ||
-      q.type === QuestResetType.YEARLY_AUG ||
-      q.type === QuestResetType.YEARLY_MAR ||
-      q.type === QuestResetType.YEARLY_SEP
-    ).length,
+    yearly: all.filter(q => isYearlyQuest(q.type)).length,
     oneTime: all.filter(q => q.type === QuestResetType.ONCE).length,
   };
 }

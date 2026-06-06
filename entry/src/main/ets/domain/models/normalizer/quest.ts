@@ -1,5 +1,5 @@
 import { ApiQuestListItemRaw, ApiQuestListRespRaw } from "../api/quest";
-import { QuestState } from "../enums/quest";
+import { questLabelTypeFromAppearanceType, QuestState } from "../enums/quest";
 import { Quest, QuestListPage } from "../struct/quest";
 
 export function normalizeQuest(raw: ApiQuestListItemRaw, now: number = Date.now()): Quest {
@@ -10,7 +10,7 @@ export function normalizeQuest(raw: ApiQuestListItemRaw, now: number = Date.now(
   return {
     questId: raw.api_no,
     category: raw.api_category,
-    type: raw.api_type,
+    type: raw.api_label_type ?? questLabelTypeFromAppearanceType(raw.api_type),
     state,
     title: raw.api_title ?? '',
     detail: raw.api_detail ?? '',

@@ -49,7 +49,10 @@ export const QuestCategoryColor: Record<QuestCategory, string> = {
 };
 
 /**
- * 任务重置周期枚举 (api_type)
+ * 任务重置周期枚举 (api_label_type)
+ *
+ * questlist 的 api_type 是任务出现类型：1=日常, 2=周常, 3=月常, 4=单次, 5=其他。
+ * 面板应使用 api_label_type 表示周期图标；缺失时用 questLabelTypeFromAppearanceType 转换。
  */
 export enum QuestResetType {
   /** 单次任务 */
@@ -58,51 +61,35 @@ export enum QuestResetType {
   DAILY = 2,
   /** 每周任务 */
   WEEKLY = 3,
-  /** 每月任务 (出现在 -3 日) */
-  MONTHLY_3 = 4,
-  /** 每月任务 (出现在 -2 日) */
-  MONTHLY_2 = 5,
   /** 每月任务 */
   MONTHLY = 6,
   /** 季度任务 */
   QUARTERLY = 7,
   /** 年度任务 (2月) */
-  YEARLY_FEB = 8,
-  /** 年度任务 (8月) */
-  YEARLY_AUG = 9,
+  YEARLY_FEB = 102,
   /** 年度任务 (3月) */
-  YEARLY_MAR = 10,
-  /** 年度任务 (9月) */
-  YEARLY_SEP = 11,
+  YEARLY_MAR = 103,
 }
 
 /** 任务周期名称 */
-export const QuestResetTypeNameJP: Record<QuestResetType, string> = {
+export const QuestResetTypeNameJP: Record<number, string> = {
   [QuestResetType.ONCE]: '単発',
   [QuestResetType.DAILY]: 'デイリー',
   [QuestResetType.WEEKLY]: 'ウィークリー',
-  [QuestResetType.MONTHLY_3]: 'マンスリー',
-  [QuestResetType.MONTHLY_2]: 'マンスリー',
   [QuestResetType.MONTHLY]: 'マンスリー',
   [QuestResetType.QUARTERLY]: 'クォータリー',
   [QuestResetType.YEARLY_FEB]: 'イヤーリー',
-  [QuestResetType.YEARLY_AUG]: 'イヤーリー',
   [QuestResetType.YEARLY_MAR]: 'イヤーリー',
-  [QuestResetType.YEARLY_SEP]: 'イヤーリー',
 };
 
-export const QuestResetTypeShort: Record<QuestResetType, string> = {
+export const QuestResetTypeShort: Record<number, string> = {
   [QuestResetType.ONCE]: '単',
   [QuestResetType.DAILY]: '日',
   [QuestResetType.WEEKLY]: '週',
-  [QuestResetType.MONTHLY_3]: '月',
-  [QuestResetType.MONTHLY_2]: '月',
   [QuestResetType.MONTHLY]: '月',
   [QuestResetType.QUARTERLY]: '季',
   [QuestResetType.YEARLY_FEB]: '年',
-  [QuestResetType.YEARLY_AUG]: '年',
   [QuestResetType.YEARLY_MAR]: '年',
-  [QuestResetType.YEARLY_SEP]: '年',
 };
 
 /**
@@ -129,37 +116,43 @@ export enum QuestProgress {
   ALMOST = 2,
 }
 
+export function questLabelTypeFromAppearanceType(type: number): number {
+  switch (type) {
+    case 1: return QuestResetType.DAILY;
+    case 2: return QuestResetType.WEEKLY;
+    case 3: return QuestResetType.MONTHLY;
+    case 4: return QuestResetType.ONCE;
+    case 5: return QuestResetType.QUARTERLY;
+    default: return type;
+  }
+}
+
 /** 是否为周期性任务（每日/每周/每月等） */
-export function isRecurringQuest(type: QuestResetType): boolean {
+export function isRecurringQuest(type: number): boolean {
   return type !== QuestResetType.ONCE;
 }
 
 /** 是否为每日任务 */
-export function isDailyQuest(type: QuestResetType): boolean {
+export function isDailyQuest(type: number): boolean {
   return type === QuestResetType.DAILY;
 }
 
 /** 是否为每周任务 */
-export function isWeeklyQuest(type: QuestResetType): boolean {
+export function isWeeklyQuest(type: number): boolean {
   return type === QuestResetType.WEEKLY;
 }
 
 /** 是否为每月任务 */
-export function isMonthlyQuest(type: QuestResetType): boolean {
-  return type === QuestResetType.MONTHLY_3
-    || type === QuestResetType.MONTHLY_2
-    || type === QuestResetType.MONTHLY;
+export function isMonthlyQuest(type: number): boolean {
+  return type === QuestResetType.MONTHLY;
 }
 
 /** 是否为季度任务 */
-export function isQuarterlyQuest(type: QuestResetType): boolean {
+export function isQuarterlyQuest(type: number): boolean {
   return type === QuestResetType.QUARTERLY;
 }
 
 /** 是否为年度任务 */
-export function isYearlyQuest(type: QuestResetType): boolean {
-  return type === QuestResetType.YEARLY_FEB
-    || type === QuestResetType.YEARLY_AUG
-    || type === QuestResetType.YEARLY_MAR
-    || type === QuestResetType.YEARLY_SEP;
+export function isYearlyQuest(type: number): boolean {
+  return type >= 101 && type <= 112;
 }

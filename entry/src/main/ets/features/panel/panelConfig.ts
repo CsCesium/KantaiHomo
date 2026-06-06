@@ -110,14 +110,20 @@ const QUEST_RESET_TYPE_LABELS: Record<number, string> = {
   1: '单次',   // ONCE
   2: '每日',   // DAILY
   3: '每周',   // WEEKLY
-  4: '每月',   // MONTHLY_3
-  5: '每月',   // MONTHLY_2
   6: '每月',   // MONTHLY
   7: '季度',   // QUARTERLY
-  8: '年度',   // YEARLY_FEB
-  9: '年度',   // YEARLY_AUG
-  10: '年度',  // YEARLY_MAR
-  11: '年度',  // YEARLY_SEP
+  101: '年度',
+  102: '年度',
+  103: '年度',
+  104: '年度',
+  105: '年度',
+  106: '年度',
+  107: '年度',
+  108: '年度',
+  109: '年度',
+  110: '年度',
+  111: '年度',
+  112: '年度',
 };
 
 export function questResetTypeLabel(type: number): string {

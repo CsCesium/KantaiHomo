@@ -2,6 +2,7 @@ export interface ApiQuestListItemRaw {
   api_no: number;
   api_category: number;
   api_type: number;
+  api_label_type?: number;
   api_state: 1|2|3;
   api_title: string;
   api_detail: string;
