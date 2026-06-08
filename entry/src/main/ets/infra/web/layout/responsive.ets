@@ -87,6 +87,23 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
   // Portrait-like split: scale game to full width and dock panel below when
   // width-fit leaves enough vertical room.
   if (scene === WindowScene.SPLIT) {
+    const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
+    const bottomPanelH: number = heightVp - contentH;
+    const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_BOTTOM_PANEL_VP;
+    if (canShowSplitBottomPanel) {
+      return {
+        mode: HostMode.EXPANDED,
+        policy: 'width',
+        lockFit: false,
+        showSideButtons: false,
+        showBottomTools: true,
+        gameWidthVp: widthVp,
+        gameHeightVp: Math.floor(contentH),
+        gameLeftMarginVp: 0,
+        sidebarWidthVp: 0,
+      };
+    }
+
     if (!portrait) {
       const wideLandscapeSplit: boolean = widthVp >= WIDE_SCREEN_MIN_WIDTH_VP;
       return {
@@ -103,24 +120,6 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       };
     }
 
-    const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
-    const bottomPanelH: number = heightVp - contentH;
-    const portraitSplitWithPanel: boolean = portrait;
-    const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_BOTTOM_PANEL_VP &&
-      portraitSplitWithPanel;
-    if (canShowSplitBottomPanel) {
-      return {
-        mode: HostMode.EXPANDED,
-        policy: 'width',
-        lockFit: false,
-        showSideButtons: false,
-        showBottomTools: true,
-        gameWidthVp: widthVp,
-        gameHeightVp: Math.floor(contentH),
-        gameLeftMarginVp: 0,
-        sidebarWidthVp: 0,
-      };
-    }
     // Very wide landscape split or narrow split: maximize game canvas, no panel.
     return {
       mode: HostMode.COMPACT,
