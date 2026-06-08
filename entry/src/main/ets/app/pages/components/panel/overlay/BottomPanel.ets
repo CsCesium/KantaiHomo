@@ -605,7 +605,13 @@ export default struct BottomPanel {
           if (this.activeFleet === QUEST_TAB_IDX) {
             QuestPanel({ quests: this.quests, compact: false })
           } else if (this.activeFleet === LBAS_TAB_IDX) {
-            LbasPanel({ bases: this.lbases, currentAreaId: this.currentLbasAreaId, compact: false })
+            LbasPanel({
+              bases: this.lbases,
+              currentAreaId: this.currentLbasAreaId,
+              compact: false,
+              showKaisyuu: this.showKaisyuu,
+              showProficiency: this.showProficiency,
+            })
           } else if (this.activeFleet === NDOCK_TAB_IDX) {
             NdockPanel({ ndocks: this.ndocks, compact: false })
           } else if (this.activeFleet === MAP_TAB_IDX) {

@@ -17,7 +17,10 @@ import type {
   LbasSquadronFighterPower,
 } from '../../../../../features/calc';
 import { getGameState } from '../../../../../features/state';
-import { PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { PanelColors, PanelDimens, ShipDiems } from '../../../../../features/panel/panelConfig';
+import EquipSlot from '../bottom/rows/EquipSlot';
+
+const LBAS_EQUIP_SLOT_GAP = 3;
 
 function lbasRowKey(base: LbasBase): string {
   return [
@@ -62,11 +65,28 @@ function toLbasMode(actionKind: number): LbasMode {
   }
 }
 
+function fallbackAreaName(areaId: number): string {
+  switch (areaId) {
+    case 1: return '镇守府海域';
+    case 2: return '南西诸岛海域';
+    case 3: return '北方海域';
+    case 4: return '西方海域';
+    case 5: return '南方海域';
+    case 6: return '中部海域';
+    case 7: return '南西海域';
+    default: return '活动海域';
+  }
+}
+
 @ComponentV2
 export default struct LbasPanel {
   @Param bases: LbasBase[] = [];
   @Param currentAreaId: number = 0;
   @Param compact: boolean = false;
+  @Param showKaisyuu: boolean = true;
+  @Param showProficiency: boolean = true;
+
+  @Local detailUid: number = 0;
 
   private visibleBases(): LbasBase[] {
     const areaId = this.currentAreaId > 0
@@ -164,25 +184,25 @@ export default struct LbasPanel {
     return power > 0 ? `${power}` : '--';
   }
 
-  private squadronText(squadron: LbasSquadron): string {
-    const masterId = this.masterIdOf(squadron);
-    if (squadron.slotId <= 0 || masterId <= 0) return `${squadron.squadronId}: 空`;
-    const st = getGameState().getState();
-    const name = st.slotItemNames.get(masterId) ?? `#${masterId}`;
-    return `${squadron.squadronId}: ${name} ${squadron.count}/${squadron.maxCount}`;
+  private squadronSlotWidth(base: LbasBase): number {
+    const count = base.squadrons.length;
+    if (count <= 0) return 0;
+    return count * ShipDiems.SHIP_EQUIP_ICON_SIZE + (count - 1) * LBAS_EQUIP_SLOT_GAP;
   }
 
-  private squadronsLine(base: LbasBase): string {
-    if (base.squadrons.length === 0) return '无中队数据';
-    return base.squadrons
-      .slice()
-      .sort((a: LbasSquadron, b: LbasSquadron): number => a.squadronId - b.squadronId)
-      .map((squadron: LbasSquadron): string => this.squadronText(squadron))
-      .join('  /  ');
+  private openEquipDetail(uid: number): void {
+    if (uid <= 0) return;
+    this.detailUid = uid;
+  }
+
+  private closeEquipDetail(uid: number): void {
+    if (this.detailUid === uid) {
+      this.detailUid = 0;
+    }
   }
 
   private rowHeight(): number {
-    return this.compact ? PanelDimens.rowCompH + 10 : PanelDimens.rowH + 12;
+    return this.compact ? PanelDimens.rowCompH + 34 : PanelDimens.rowH + 34;
   }
 
   private badgeWidth(): number {
@@ -191,6 +211,11 @@ export default struct LbasPanel {
 
   private titleFontSize(): number {
     return this.compact ? PanelDimens.fontSm : PanelDimens.fontMd;
+  }
+
+  private areaText(base: LbasBase): string {
+    if (base.areaId <= 0) return '--';
+    return `${base.areaId} ${fallbackAreaName(base.areaId)}`;
   }
 
   @Builder private BaseBadge(base: LbasBase): void {
@@ -224,6 +249,52 @@ export default struct LbasPanel {
     .alignItems(VerticalAlign.Center)
   }
 
+  @Builder private SquadronSlot(squadron: LbasSquadron): void {
+    if (squadron.slotId > 0 && this.masterIdOf(squadron) > 0) {
+      EquipSlot({
+        uid: squadron.slotId,
+        masterId: this.masterIdOf(squadron),
+        iconType: getGameState().getState().slotItemIconTypes.get(this.masterIdOf(squadron)) ?? 0,
+        equipType: getGameState().getState().slotItemEquipTypes.get(this.masterIdOf(squadron)) ?? 0,
+        air: squadron.count,
+        level: getGameState().getState().slotItemLevels.get(squadron.slotId) ?? 0,
+        alv: getGameState().getState().slotItemAlvs.get(squadron.slotId) ?? 0,
+        slotSize: ShipDiems.SHIP_EQUIP_ICON_SIZE,
+        tagSize: ShipDiems.SHIP_TAG_SIZE,
+        isExSlot: false,
+        showKaisyuu: this.showKaisyuu,
+        showProficiency: this.showProficiency,
+        detailUid: this.detailUid,
+        onOpen: (uid: number) => { this.openEquipDetail(uid); },
+        onClose: (uid: number) => { this.closeEquipDetail(uid); },
+      })
+    } else {
+      Row()
+        .width(ShipDiems.SHIP_EQUIP_ICON_SIZE)
+        .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
+        .borderRadius(2)
+        .backgroundColor('#55c8cce0')
+    }
+  }
+
+  @Builder private SquadronSlots(base: LbasBase): void {
+    Scroll() {
+      Row({ space: LBAS_EQUIP_SLOT_GAP }) {
+        ForEach(base.squadrons, (squadron: LbasSquadron) => {
+          this.SquadronSlot(squadron)
+        }, (squadron: LbasSquadron) => `lbas-slot-${base.areaId}-${base.baseId}-${squadron.squadronId}-${squadron.slotId}-${squadron.count}-${squadron.maxCount}`)
+      }
+      .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
+      .constraintSize({ minWidth: this.squadronSlotWidth(base) })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
+    .scrollable(ScrollDirection.Horizontal)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.None)
+  }
+
   @Builder private BaseRow(base: LbasBase): void {
     Row() {
       this.BaseBadge(base)
@@ -244,6 +315,16 @@ export default struct LbasPanel {
             .padding({ left: 5, right: 5, top: 1, bottom: 1 })
             .backgroundColor(lbasModeColor(base.actionKind))
             .borderRadius(PanelDimens.radius)
+
+          Text(this.areaText(base))
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtSub)
+            .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+            .backgroundColor(PanelColors.bgTabs)
+            .borderRadius(PanelDimens.radius)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .constraintSize({ maxWidth: this.compact ? 82 : 130 })
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
@@ -263,12 +344,7 @@ export default struct LbasPanel {
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.None)
 
-        Text(this.squadronsLine(base))
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtSub)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
+        this.SquadronSlots(base)
       }
       .layoutWeight(1)
       .padding({ left: this.compact ? 6 : 8, right: this.compact ? 6 : 8 })

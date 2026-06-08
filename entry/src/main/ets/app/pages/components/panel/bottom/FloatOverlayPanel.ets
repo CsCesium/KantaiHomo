@@ -623,7 +623,13 @@ export default struct FloatOverlayPanel {
           if (this.activeFleet === OVERLAY_QUEST_TAB_IDX) {
             QuestPanel({ quests: this.quests, compact: true })
           } else if (this.activeFleet === OVERLAY_LBAS_TAB_IDX) {
-            LbasPanel({ bases: this.lbases, currentAreaId: this.currentLbasAreaId, compact: true })
+            LbasPanel({
+              bases: this.lbases,
+              currentAreaId: this.currentLbasAreaId,
+              compact: true,
+              showKaisyuu: this.showKaisyuu,
+              showProficiency: this.showProficiency,
+            })
           } else if (this.activeFleet === OVERLAY_NDOCK_TAB_IDX) {
             NdockPanel({ ndocks: this.ndocks, compact: true })
           } else if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {
