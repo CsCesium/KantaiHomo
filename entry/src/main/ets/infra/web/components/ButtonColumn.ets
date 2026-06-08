@@ -14,6 +14,7 @@ export default struct LeftButtonColumn {
   @Event onOpenEquipInfo: () => void;
   @Event onOpenExpeditionInfo: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
+  @Param rotateEnabled: boolean = true;
   @Param panelActive: boolean = false;
   @Param showPanelToggle: boolean = true;
   @Param battlePreviewAvailable: boolean = false;
@@ -57,17 +58,22 @@ export default struct LeftButtonColumn {
   }
 
   @Builder private RotateBtn() {
-    Button({ type: ButtonType.Normal, stateEffect: true }) {
+    Button({ type: ButtonType.Normal, stateEffect: this.rotateEnabled }) {
       SymbolGlyph(this.lrMode === 'portraitFit'
         ? $r('sys.symbol.rectangle_portrait_rotate')
         : $r('sys.symbol.rectangle_rotate'))
         .fontSize(22)
-        .fontColor(['#999'])
+        .fontColor([this.rotateEnabled ? '#999' : '#444'])
     }
     .width(48).height(48)
     .backgroundColor(Color.Transparent)
     .border({ width: 0 })
-    .onClick(() => this.onToggleLrMode?.())
+    .enabled(this.rotateEnabled)
+    .onClick(() => {
+      if (this.rotateEnabled) {
+        this.onToggleLrMode?.();
+      }
+    })
   }
 
   // Panel toggle button — highlighted when overlay is active.

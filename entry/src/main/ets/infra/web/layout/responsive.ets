@@ -24,9 +24,12 @@ export interface LayoutDecision {
   gameLeftMarginVp: number;
   /** Compact 模式下右侧可用于侧边栏的宽度（vp），0 表示不显示侧边栏 */
   sidebarWidthVp: number;
+  /** Whether user-configured game size scaling should be applied after this decision. */
+  useCustomGameSize?: boolean;
 }
 
 const NARROW_SHORT_SIDE_VP = 420;
+const WIDE_SCREEN_MIN_WIDTH_VP = 700;
 const MIN_BOTTOM_PANEL_VP = 96;
 const GAME_HEIGHT_WIDTH_RATIO = 720 / 1200;
 /** 游戏画面宽高比（宽/高） */
@@ -85,16 +88,18 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
   // width-fit leaves enough vertical room.
   if (scene === WindowScene.SPLIT) {
     if (!portrait) {
+      const wideLandscapeSplit: boolean = widthVp >= WIDE_SCREEN_MIN_WIDTH_VP;
       return {
         mode: HostMode.COMPACT,
         policy: 'height',
         lockFit: true,
-        showSideButtons: true,
+        showSideButtons: wideLandscapeSplit,
         showBottomTools: false,
         gameWidthVp: widthVp,
         gameHeightVp: heightVp,
         gameLeftMarginVp: 0,
-        sidebarWidthVp: calcSidebarWidth(widthVp, heightVp),
+        sidebarWidthVp: wideLandscapeSplit ? calcSidebarWidth(widthVp, heightVp) : 0,
+        useCustomGameSize: wideLandscapeSplit,
       };
     }
 
@@ -161,10 +166,11 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
       gameHeightVp: heightVp,
       gameLeftMarginVp: 0,
       sidebarWidthVp: calcSidebarWidth(widthVp, heightVp),
+      useCustomGameSize: portrait,
     };
   }
 
-  if (widthVp >= 700) {
+  if (widthVp >= WIDE_SCREEN_MIN_WIDTH_VP) {
     const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
     const bottomPanelH: number = heightVp - contentH;
     if (bottomPanelH >= MIN_BOTTOM_PANEL_VP) {

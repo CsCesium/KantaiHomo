@@ -123,6 +123,7 @@ export default struct WebHost {
   private chromeRefreshTimer: number = -1;
   private handledLogoutRevision: number = 0;
   private landscapeOrientationPending: boolean = false;
+  private restoreLandscapeAfterManualLayout: boolean = false;
 
   private getInjectOptions = (): Required<InjectOptions> => ({
     channelName: defaultInjectOptions.channelName,
@@ -313,6 +314,7 @@ export default struct WebHost {
     let nextGameHeightVp: number = decision.gameHeightVp;
     let nextGameLeftMarginVp: number = decision.gameLeftMarginVp;
     let nextSidebarWidthVp: number = decision.sidebarWidthVp;
+    let nextUseCustomGameSize: boolean = decision.useCustomGameSize !== false;
 
     const isPureFloatingScene: boolean = this.isPureGameFloatingWindow(widthVp, heightVp);
     // Tiny floating windows should stay pure game canvas.
@@ -326,6 +328,7 @@ export default struct WebHost {
       nextGameHeightVp = heightVp;
       nextGameLeftMarginVp = 0;
       nextSidebarWidthVp = 0;
+      nextUseCustomGameSize = false;
     }
 
     // 用户手动触发的"游戏 + 底部面板"布局：仅在全屏/全景多窗场景下生效（分屏场景下
@@ -342,19 +345,22 @@ export default struct WebHost {
       nextGameHeightVp = Math.floor(contentH);
       nextGameLeftMarginVp = 0;
       nextSidebarWidthVp = 0;
+      nextUseCustomGameSize = true;
     }
 
-    const gameSizePercent: number = nextMode === HostMode.COMPACT
-      ? this.compactGameSizePercent
-      : this.expandedGameSizePercent;
-    const gameViewport: GameViewportBox = resolveGameViewportBox(
-      nextGameWidthVp,
-      nextGameHeightVp,
-      gameSizePercent,
-    );
-    nextGameWidthVp = gameViewport.widthVp;
-    nextGameHeightVp = gameViewport.heightVp;
-    nextGameLeftMarginVp = gameViewport.leftMarginVp;
+    if (nextUseCustomGameSize) {
+      const gameSizePercent: number = nextMode === HostMode.COMPACT
+        ? this.compactGameSizePercent
+        : this.expandedGameSizePercent;
+      const gameViewport: GameViewportBox = resolveGameViewportBox(
+        nextGameWidthVp,
+        nextGameHeightVp,
+        gameSizePercent,
+      );
+      nextGameWidthVp = gameViewport.widthVp;
+      nextGameHeightVp = gameViewport.heightVp;
+      nextGameLeftMarginVp = gameViewport.leftMarginVp;
+    }
 
     const modeChanged: boolean = this.lastMode !== nextMode;
 
@@ -791,6 +797,12 @@ export default struct WebHost {
     return this.lrLayoutForced && this.isToolSurfaceScene();
   }
 
+  private isNarrowLandscapeToolSurface(): boolean {
+    return this.isToolSurfaceScene() &&
+      this.viewportWidthVp > this.viewportHeightVp &&
+      this.viewportHeightVp <= NARROW_SHORT_SIDE_VP;
+  }
+
   private shouldUseLandscapeOnlyRotation(): boolean {
     if (this.shouldUsePortraitOnlyRotation() || !this.isToolSurfaceScene()) {
       return false;
@@ -798,9 +810,19 @@ export default struct WebHost {
     if (this.landscapeOrientationPending) {
       return true;
     }
-    return this.mode === HostMode.COMPACT &&
-      this.viewportWidthVp > this.viewportHeightVp &&
-      this.viewportHeightVp <= NARROW_SHORT_SIDE_VP;
+    return this.mode === HostMode.COMPACT && this.isNarrowLandscapeToolSurface();
+  }
+
+  private canToggleLrLayout(): boolean {
+    if (this.scene === WindowScene.SPLIT) {
+      return false;
+    }
+    if (this.scene === WindowScene.FULLSCREEN &&
+      this.mode === HostMode.EXPANDED &&
+      !this.lrLayoutForced) {
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -809,8 +831,18 @@ export default struct WebHost {
    *  - 关闭后由 recalcLayout → applyOrientationByMode 恢复正常方向策略
    */
   private toggleLrLayout(): void {
-    this.lrLayoutForced = !this.lrLayoutForced;
-    this.landscapeOrientationPending = !this.lrLayoutForced && this.isToolSurfaceScene();
+    if (!this.canToggleLrLayout()) {
+      return;
+    }
+    const nextForced: boolean = !this.lrLayoutForced;
+    if (nextForced) {
+      this.restoreLandscapeAfterManualLayout = this.isNarrowLandscapeToolSurface();
+      this.landscapeOrientationPending = false;
+    } else {
+      this.landscapeOrientationPending = this.restoreLandscapeAfterManualLayout && this.isToolSurfaceScene();
+      this.restoreLandscapeAfterManualLayout = false;
+    }
+    this.lrLayoutForced = nextForced;
     this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
   }
 
@@ -818,13 +850,16 @@ export default struct WebHost {
     if (!this.isToolSurfaceScene()) {
       return false;
     }
+    if (!this.showSideButtons) {
+      return false;
+    }
     // 底部面板模式下，按钮改为面板上方的横向按钮栏，避免与浮动按钮列重复。
     if (this.panelConfig.mode === PanelMode.BottomPanel) {
       return false;
     }
-    const nonCompactVisible: boolean = this.showSideButtons &&
-      (this.panelConfig.mode !== PanelMode.FloatOverlay || this.overlayForced);
-    return this.mode === HostMode.COMPACT || nonCompactVisible;
+    return this.mode === HostMode.COMPACT ||
+      this.panelConfig.mode !== PanelMode.FloatOverlay ||
+      this.overlayForced;
   }
 
   build() {
@@ -881,6 +916,7 @@ export default struct WebHost {
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+              rotateEnabled: this.canToggleLrLayout(),
               panelActive: this.isFloatOverlayVisible(),
               battlePreviewAvailable: this.battlePreviewAvailable,
               battlePreviewVisible: this.battlePreviewVisible,
@@ -899,7 +935,7 @@ export default struct WebHost {
         }
 
         // Fleet status sidebar — right-side persistent status bar.
-        // Conditions mirror shouldShowFloatingButtons: compact mode + tool surface only.
+        // Conditions mirror shouldShowFloatingButtons: side buttons + tool surface only.
         // Use absolute position to anchor to the right edge of the Stack (align() only
         // sets internal content alignment and does NOT reposition within the parent).
         if (this.showSidebarPref && this.sidebarWidthVp > 0 && this.shouldShowFloatingButtons()) {
@@ -964,6 +1000,7 @@ export default struct WebHost {
                 onOpenEquipInfo: () => { this.equipInfoVisible = true; },
                 onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+                rotateEnabled: this.canToggleLrLayout(),
                 panelActive: this.isFloatOverlayVisible(),
                 showPanelToggle: false,
                 battlePreviewAvailable: this.battlePreviewAvailable,
@@ -996,6 +1033,7 @@ export default struct WebHost {
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
+              rotateEnabled: this.canToggleLrLayout(),
               panelActive: this.isFloatOverlayVisible(),
               showPanelToggle: false,
               battlePreviewAvailable: this.battlePreviewAvailable,
