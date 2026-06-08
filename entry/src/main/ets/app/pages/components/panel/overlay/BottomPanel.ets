@@ -34,6 +34,7 @@ const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '入
 const NDOCK_TAB_IDX = 6;
 const MAP_TAB_IDX = 7;
 const QUEST_TAB_IDX = 8;
+const TAB_BAR_MIN_CONTENT_WIDTH = FLEET_TABS_LABEL.length * 46 + (FLEET_TABS_LABEL.length - 1) * 3 + 16;
 const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
 const RESOURCE_BAR_NARROW_H = 36;
@@ -352,24 +353,32 @@ export default struct BottomPanel {
   // ── builders ──────────────────────────────────────────────────────────────
 
   @Builder TabBar() {
-    Row({ space: 3 }) {
-      ForEach(FLEET_TABS_LABEL, (_tab: string, idx: number) => {
-        Text(this.tabLabel(idx))
-          .fontSize(PanelDimens.fontLg)
-          .fontWeight(this.activeFleet === idx ? FontWeight.Bold : FontWeight.Normal)
-          .fontColor(PanelColors.txtTabOn)
-          .backgroundColor(FLEET_TAB_COLORS[idx] ?? PanelColors.bgTabInactive)
-          .opacity(this.activeFleet === idx ? 1.0 : 0.38)
-          .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-          .borderRadius(PanelDimens.radius)
-          .onClick(() => { this.selectFleet(idx); })
-      }, (_tab: string, idx: number) => `fleet-${idx}`)
+    Scroll() {
+      Row({ space: 3 }) {
+        ForEach(FLEET_TABS_LABEL, (_tab: string, idx: number) => {
+          Text(this.tabLabel(idx))
+            .fontSize(PanelDimens.fontLg)
+            .fontWeight(this.activeFleet === idx ? FontWeight.Bold : FontWeight.Normal)
+            .fontColor(PanelColors.txtTabOn)
+            .backgroundColor(FLEET_TAB_COLORS[idx] ?? PanelColors.bgTabInactive)
+            .opacity(this.activeFleet === idx ? 1.0 : 0.38)
+            .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+            .borderRadius(PanelDimens.radius)
+            .onClick(() => { this.selectFleet(idx); })
+        }, (_tab: string, idx: number) => `fleet-${idx}`)
+      }
+      .width('100%')
+      .constraintSize({ minWidth: TAB_BAR_MIN_CONTENT_WIDTH })
+      .height(PanelDimens.tabBarH)
+      .padding({ left: 8, right: 8 })
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .height(PanelDimens.tabBarH)
     .backgroundColor(PanelColors.bgTabs)
-    .padding({ left: 8, right: 8 })
-    .alignItems(VerticalAlign.Center)
+    .scrollable(ScrollDirection.Horizontal)
+    .scrollBar(BarState.Auto)
+    .edgeEffect(EdgeEffect.None)
   }
 
   @Builder AdmiralTag(text: string) {

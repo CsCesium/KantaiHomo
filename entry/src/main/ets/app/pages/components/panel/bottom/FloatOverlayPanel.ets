@@ -33,6 +33,7 @@ import { lengthToNumber } from '../../../../../infra/utils/trans';
 const OVERLAY_NDOCK_TAB_IDX = 4;
 const OVERLAY_MAP_TAB_IDX = 5;
 const OVERLAY_QUEST_TAB_IDX = 6;
+const OVERLAY_TAB_MIN_CONTENT_WIDTH = 280;
 const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
 const RESOURCE_BAR_NARROW_H = 36;
@@ -554,59 +555,67 @@ export default struct FloatOverlayPanel {
         .borderColor(PanelColors.overlayHdr)
       }
 
-      // Compact fleet selector row — fleets 1-4 grouped on the left, 地図 on the right
-      Row() {
-        Row({ space: 4 }) {
-          ForEach([0, 1, 2, 3], (idx: number) => {
-            Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
+      // Compact fleet selector row — scrollable on narrow panels.
+      Scroll() {
+        Row() {
+          Row({ space: 4 }) {
+            ForEach([0, 1, 2, 3], (idx: number) => {
+              Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(PanelColors.txtTabOn)
+                .backgroundColor(this.activeFleet === idx ? '#0d47a1' : PanelColors.bgTabInactive)
+                .opacity(this.activeFleet === idx ? 1.0 : 0.55)
+                .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+                .borderRadius(PanelDimens.radius)
+                .onClick(() => { this.selectFleet(idx); })
+            }, (idx: number) => `ftab-${idx}`)
+          }
+          .alignItems(VerticalAlign.Center)
+
+          Blank().layoutWeight(1)
+
+          Row({ space: 4 }) {
+            Text('入渠')
               .fontSize(PanelDimens.fontSm)
               .fontColor(PanelColors.txtTabOn)
-              .backgroundColor(this.activeFleet === idx ? '#0d47a1' : PanelColors.bgTabInactive)
-              .opacity(this.activeFleet === idx ? 1.0 : 0.55)
+              .backgroundColor(this.activeFleet === OVERLAY_NDOCK_TAB_IDX ? '#006064' : PanelColors.bgTabInactive)
+              .opacity(this.activeFleet === OVERLAY_NDOCK_TAB_IDX ? 1.0 : 0.55)
               .padding({ left: 7, right: 7, top: 3, bottom: 3 })
               .borderRadius(PanelDimens.radius)
-              .onClick(() => { this.selectFleet(idx); })
-          }, (idx: number) => `ftab-${idx}`)
+              .onClick(() => { this.selectFleet(OVERLAY_NDOCK_TAB_IDX); })
+
+            Text('地図')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtTabOn)
+              .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
+              .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
+              .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+              .borderRadius(PanelDimens.radius)
+              .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
+
+            Text('任务')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtTabOn)
+              .backgroundColor(this.activeFleet === OVERLAY_QUEST_TAB_IDX ? '#37474f' : PanelColors.bgTabInactive)
+              .opacity(this.activeFleet === OVERLAY_QUEST_TAB_IDX ? 1.0 : 0.55)
+              .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+              .borderRadius(PanelDimens.radius)
+              .onClick(() => { this.selectFleet(OVERLAY_QUEST_TAB_IDX); })
+          }
+          .alignItems(VerticalAlign.Center)
         }
-        .alignItems(VerticalAlign.Center)
-
-        Blank().layoutWeight(1)
-
-        Row({ space: 4 }) {
-          Text('入渠')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.txtTabOn)
-            .backgroundColor(this.activeFleet === OVERLAY_NDOCK_TAB_IDX ? '#006064' : PanelColors.bgTabInactive)
-            .opacity(this.activeFleet === OVERLAY_NDOCK_TAB_IDX ? 1.0 : 0.55)
-            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-            .borderRadius(PanelDimens.radius)
-            .onClick(() => { this.selectFleet(OVERLAY_NDOCK_TAB_IDX); })
-
-          Text('地図')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.txtTabOn)
-            .backgroundColor(this.activeFleet === OVERLAY_MAP_TAB_IDX ? '#1a3a5c' : PanelColors.bgTabInactive)
-            .opacity(this.activeFleet === OVERLAY_MAP_TAB_IDX ? 1.0 : 0.55)
-            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-            .borderRadius(PanelDimens.radius)
-            .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
-
-          Text('任务')
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.txtTabOn)
-            .backgroundColor(this.activeFleet === OVERLAY_QUEST_TAB_IDX ? '#37474f' : PanelColors.bgTabInactive)
-            .opacity(this.activeFleet === OVERLAY_QUEST_TAB_IDX ? 1.0 : 0.55)
-            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-            .borderRadius(PanelDimens.radius)
-            .onClick(() => { this.selectFleet(OVERLAY_QUEST_TAB_IDX); })
-        }
+        .width('100%')
+        .constraintSize({ minWidth: OVERLAY_TAB_MIN_CONTENT_WIDTH })
+        .height(PanelDimens.tabBarH - 4)
+        .padding({ left: 8, right: 8 })
         .alignItems(VerticalAlign.Center)
       }
       .width('100%')
       .height(PanelDimens.tabBarH - 4)
-      .padding({ left: 8, right: 8 })
       .backgroundColor(PanelColors.bgTabs)
-      .alignItems(VerticalAlign.Center)
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.None)
 
       // Content area: map gauges, quests, or ship list — must stack from top, not center
       Scroll() {
