@@ -121,7 +121,7 @@ export function touchWheelSnippet(sensitivityPercent: number): string {
       accum += dy;
 
       if (Math.abs(accum) >= MIN_STEP) {
-        var deltaY = -accum * WHEEL_SCALE;
+        var deltaY = accum * WHEEL_SCALE;
         if (dispatchWheel(p.x, p.y, deltaY)) {
           accum = 0;
         }
