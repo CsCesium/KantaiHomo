@@ -253,6 +253,7 @@ export default struct WebHost {
 
   private isToolSurfaceScene(): boolean {
     return this.scene === WindowScene.FULLSCREEN ||
+      (this.scene === WindowScene.SPLIT && this.viewportWidthVp > this.viewportHeightVp) ||
       this.getLayoutScene(this.viewportWidthVp, this.viewportHeightVp) === WindowScene.FULLSCREEN;
   }
 
@@ -313,12 +314,9 @@ export default struct WebHost {
     let nextGameLeftMarginVp: number = decision.gameLeftMarginVp;
     let nextSidebarWidthVp: number = decision.sidebarWidthVp;
 
-    const isSmallLandscapeWindow: boolean = (widthVp > heightVp) && (heightVp <= 650);
     const isPureFloatingScene: boolean = this.isPureGameFloatingWindow(widthVp, heightVp);
-    const isSplitScene: boolean = this.scene === WindowScene.SPLIT;
-    // Split/floating small windows should stay pure game canvas unless the split
-    // layout decision already found enough room for a docked bottom panel.
-    if ((isSmallLandscapeWindow && isSplitScene && !nextShowBottomTools) || isPureFloatingScene) {
+    // Tiny floating windows should stay pure game canvas.
+    if (isPureFloatingScene) {
       nextMode = HostMode.COMPACT;
       nextFit = isPureFloatingScene ? 'width' : 'height';
       nextFitLocked = true;
@@ -870,7 +868,7 @@ export default struct WebHost {
         // Unified floating controls (fullscreen and panorama multi-window):
         // - COMPACT tool surfaces: always show
         // - non-COMPACT tool surfaces: mirror the original side-button visibility condition
-        // Split and tiny floating windows are intentionally hidden.
+        // Portrait split and tiny floating windows are intentionally hidden.
         if (this.shouldShowFloatingButtons()) {
           // 左下角纵向排列：ButtonColumn 在上，战果在下
           Column() {

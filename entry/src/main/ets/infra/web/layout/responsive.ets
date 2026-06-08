@@ -84,12 +84,25 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
   // Portrait-like split: scale game to full width and dock panel below when
   // width-fit leaves enough vertical room.
   if (scene === WindowScene.SPLIT) {
+    if (!portrait) {
+      return {
+        mode: HostMode.COMPACT,
+        policy: 'height',
+        lockFit: true,
+        showSideButtons: true,
+        showBottomTools: false,
+        gameWidthVp: widthVp,
+        gameHeightVp: heightVp,
+        gameLeftMarginVp: 0,
+        sidebarWidthVp: calcSidebarWidth(widthVp, heightVp),
+      };
+    }
+
     const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
     const bottomPanelH: number = heightVp - contentH;
     const portraitSplitWithPanel: boolean = portrait;
-    const landscapeSplitWithPanel: boolean = widthVp >= 700 && bottomPanelH >= MIN_BOTTOM_PANEL_VP;
     const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_BOTTOM_PANEL_VP &&
-      (portraitSplitWithPanel || landscapeSplitWithPanel);
+      portraitSplitWithPanel;
     if (canShowSplitBottomPanel) {
       return {
         mode: HostMode.EXPANDED,
