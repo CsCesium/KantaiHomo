@@ -167,6 +167,8 @@ export interface GameState {
   mapGauges: MapGaugeSnapshot[];
   /** 基地航空队状态（来自 api_get_member/base_air_corps 等） */
   lbases: import('../../domain/models/struct/lbas').LbasBase[];
+  /** 最近一次基地航空队响应所属海域 ID，用于避免跨海域旧数据混显 */
+  currentLbasAreaId: number;
   /** 上次更新时间 */
   lastUpdatedAt: number;
 
@@ -191,6 +193,12 @@ export interface GameState {
   slotItemAa: Map<number, number>;
   /** 装备图鉴 对潜（slotitem masterId → api_tais） */
   slotItemAsw: Map<number, number>;
+  /** 装备图鉴 命中/对爆（slotitem masterId → api_houm） */
+  slotItemHit: Map<number, number>;
+  /** 装备图鉴 回避/迎击（slotitem masterId → api_houk） */
+  slotItemEvasion: Map<number, number>;
+  /** 装备图鉴 航程（slotitem masterId → api_distance） */
+  slotItemDistance: Map<number, number>;
   /** 装备图鉴名称（slotitem masterId → api_name） */
   slotItemNames: Map<number, string>;
   /** 道具图鉴名称（useitem id → api_name） */

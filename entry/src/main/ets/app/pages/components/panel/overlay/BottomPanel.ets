@@ -13,6 +13,7 @@ import {
   SortieResourceGains,
   isShipEscaped,
 } from '../../../../../features/state';
+import type { LbasBase } from '../../../../../domain/models/struct/lbas';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
@@ -27,10 +28,12 @@ import MapGaugeRow from '../bottom/rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import QuestPanel from '../common/QuestPanel';
 import NdockPanel from '../common/NdockPanel';
+import LbasPanel from '../common/LbasPanel';
 import { shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
-const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '基地', '道具', '入渠', '地図', '任务'];
+const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '陆航', '道具', '入渠', '地図', '任务'];
+const LBAS_TAB_IDX = 4;
 const NDOCK_TAB_IDX = 6;
 const MAP_TAB_IDX = 7;
 const QUEST_TAB_IDX = 8;
@@ -206,6 +209,8 @@ export default struct BottomPanel {
   @Local fleetSpeed: number = -1;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  @Local lbases: LbasBase[] = [];
+  @Local currentLbasAreaId: number = 0;
   @Local ndocks: NDockSnapShot[] = [];
   @Local quests: QuestSnapshot[] = [];
   @Local admiralName: string = '--';
@@ -234,7 +239,7 @@ export default struct BottomPanel {
           changeType === 'ndocks' ||
           changeType === 'admiral' || changeType === 'quests' ||
           changeType === 'mapinfo' || changeType === 'sortieGains' ||
-          changeType === 'battle') {
+          changeType === 'lbas' || changeType === 'battle') {
         this.loadState();
       }
     });
@@ -265,6 +270,8 @@ export default struct BottomPanel {
     this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
     this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.lbases = [...st.lbases];
+    this.currentLbasAreaId = st.currentLbasAreaId;
     this.ndocks = [...getNDocks()];
     this.quests = [...getQuests()];
     this.admiralName = admiral?.nickname || '--';
@@ -597,6 +604,8 @@ export default struct BottomPanel {
         Column() {
           if (this.activeFleet === QUEST_TAB_IDX) {
             QuestPanel({ quests: this.quests, compact: false })
+          } else if (this.activeFleet === LBAS_TAB_IDX) {
+            LbasPanel({ bases: this.lbases, currentAreaId: this.currentLbasAreaId, compact: false })
           } else if (this.activeFleet === NDOCK_TAB_IDX) {
             NdockPanel({ ndocks: this.ndocks, compact: false })
           } else if (this.activeFleet === MAP_TAB_IDX) {

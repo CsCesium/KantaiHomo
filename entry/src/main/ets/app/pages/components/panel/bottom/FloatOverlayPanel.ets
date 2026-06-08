@@ -13,6 +13,7 @@ import {
   SortieResourceGains,
   isShipEscaped,
 } from '../../../../../features/state';
+import type { LbasBase } from '../../../../../domain/models/struct/lbas';
 import {
   getFleetFighterPower,
   calcSingleFleetLoS,
@@ -27,13 +28,15 @@ import MapGaugeRow from './rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import QuestPanel from '../common/QuestPanel';
 import NdockPanel from '../common/NdockPanel';
+import LbasPanel from '../common/LbasPanel';
 import { shouldDisplayMapGauge } from './rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
-const OVERLAY_NDOCK_TAB_IDX = 4;
-const OVERLAY_MAP_TAB_IDX = 5;
-const OVERLAY_QUEST_TAB_IDX = 6;
-const OVERLAY_TAB_MIN_CONTENT_WIDTH = 280;
+const OVERLAY_LBAS_TAB_IDX = 4;
+const OVERLAY_NDOCK_TAB_IDX = 5;
+const OVERLAY_MAP_TAB_IDX = 6;
+const OVERLAY_QUEST_TAB_IDX = 7;
+const OVERLAY_TAB_MIN_CONTENT_WIDTH = 330;
 const OVERLAY_FLEET_STATS_MIN_CONTENT_WIDTH = 360;
 const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
@@ -208,6 +211,8 @@ export default struct FloatOverlayPanel {
   @Local fleetSpeed: number = -1;
   @Local specialAttack: string = '';
   @Local mapGauges: MapGaugeSnapshot[] = [];
+  @Local lbases: LbasBase[] = [];
+  @Local currentLbasAreaId: number = 0;
   @Local ndocks: NDockSnapShot[] = [];
   @Local quests: QuestSnapshot[] = [];
   @Local admiralName: string = '--';
@@ -236,7 +241,7 @@ export default struct FloatOverlayPanel {
           changeType === 'ndocks' ||
           changeType === 'admiral' || changeType === 'quests' ||
           changeType === 'mapinfo' || changeType === 'sortieGains' ||
-        changeType === 'battle') {
+          changeType === 'lbas' || changeType === 'battle') {
         this.loadState();
       }
     });
@@ -272,6 +277,8 @@ export default struct FloatOverlayPanel {
     this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
     this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
     this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.lbases = [...st.lbases];
+    this.currentLbasAreaId = st.currentLbasAreaId;
     this.ndocks = [...getNDocks()];
     this.quests = [...getQuests()];
     this.refreshShips();
@@ -559,6 +566,15 @@ export default struct FloatOverlayPanel {
           Blank().layoutWeight(1)
 
           Row({ space: 4 }) {
+            Text('陆航')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtTabOn)
+              .backgroundColor(this.activeFleet === OVERLAY_LBAS_TAB_IDX ? '#4e342e' : PanelColors.bgTabInactive)
+              .opacity(this.activeFleet === OVERLAY_LBAS_TAB_IDX ? 1.0 : 0.55)
+              .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+              .borderRadius(PanelDimens.radius)
+              .onClick(() => { this.selectFleet(OVERLAY_LBAS_TAB_IDX); })
+
             Text('入渠')
               .fontSize(PanelDimens.fontSm)
               .fontColor(PanelColors.txtTabOn)
@@ -606,6 +622,8 @@ export default struct FloatOverlayPanel {
         Column() {
           if (this.activeFleet === OVERLAY_QUEST_TAB_IDX) {
             QuestPanel({ quests: this.quests, compact: true })
+          } else if (this.activeFleet === OVERLAY_LBAS_TAB_IDX) {
+            LbasPanel({ bases: this.lbases, currentAreaId: this.currentLbasAreaId, compact: true })
           } else if (this.activeFleet === OVERLAY_NDOCK_TAB_IDX) {
             NdockPanel({ ndocks: this.ndocks, compact: true })
           } else if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {
