@@ -213,6 +213,14 @@ export default struct LbasPanel {
     return this.compact ? PanelDimens.fontSm : PanelDimens.fontMd;
   }
 
+  private metricColumnWidth(): number {
+    return this.compact ? 84 : 90;
+  }
+
+  private metricColumnHeight(): number {
+    return this.compact ? 40 : 42;
+  }
+
   private areaText(base: LbasBase): string {
     if (base.areaId <= 0) return '--';
     return `${base.areaId} ${fallbackAreaName(base.areaId)}`;
@@ -240,13 +248,31 @@ export default struct LbasPanel {
       Text(label)
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.txtSub)
+        .maxLines(1)
+      Blank()
+        .layoutWeight(1)
       Text(value)
         .fontSize(PanelDimens.fontSm)
         .fontWeight(FontWeight.Medium)
         .fontColor(PanelColors.stat)
         .margin({ left: 3 })
+        .maxLines(1)
     }
+    .width('100%')
+    .height(this.compact ? 12 : 13)
     .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder private MetricsColumn(base: LbasBase): void {
+    Column({ space: 1 }) {
+      this.Metric('半径', this.distanceText(base))
+      this.Metric('出击制空', this.sortiePowerText(base))
+      this.Metric('守家制空', this.defensePowerText(base))
+    }
+    .width(this.metricColumnWidth())
+    .height(this.metricColumnHeight())
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder private SquadronSlot(squadron: LbasSquadron): void {
@@ -286,6 +312,7 @@ export default struct LbasPanel {
       }
       .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
       .constraintSize({ minWidth: this.squadronSlotWidth(base) })
+      .justifyContent(FlexAlign.Start)
       .alignItems(VerticalAlign.Center)
     }
     .width('100%')
@@ -329,26 +356,25 @@ export default struct LbasPanel {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        Scroll() {
-          Row({ space: this.compact ? 8 : 12 }) {
-            this.Metric('半径', this.distanceText(base))
-            this.Metric('出击制空', this.sortiePowerText(base))
-            this.Metric('守家制空', this.defensePowerText(base))
+        Row({ space: this.compact ? 6 : 8 }) {
+          this.MetricsColumn(base)
+
+          Row() {
+            this.SquadronSlots(base)
           }
-          .height(PanelDimens.statusBarH)
+          .layoutWeight(1)
+          .constraintSize({ minWidth: 0 })
+          .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
           .alignItems(VerticalAlign.Center)
         }
         .width('100%')
-        .height(PanelDimens.statusBarH)
-        .scrollable(ScrollDirection.Horizontal)
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.None)
-
-        this.SquadronSlots(base)
+        .height(this.metricColumnHeight())
+        .alignItems(VerticalAlign.Center)
       }
       .layoutWeight(1)
       .padding({ left: this.compact ? 6 : 8, right: this.compact ? 6 : 8 })
       .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
     .height(this.rowHeight())
