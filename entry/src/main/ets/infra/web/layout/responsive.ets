@@ -89,7 +89,8 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
   if (scene === WindowScene.SPLIT) {
     const contentH: number = Math.min(heightVp, widthVp * GAME_HEIGHT_WIDTH_RATIO);
     const bottomPanelH: number = heightVp - contentH;
-    const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_BOTTOM_PANEL_VP;
+    const wideLandscapeSplit: boolean = !portrait && widthVp >= WIDE_SCREEN_MIN_WIDTH_VP;
+    const canShowSplitBottomPanel: boolean = bottomPanelH >= MIN_BOTTOM_PANEL_VP && !wideLandscapeSplit;
     if (canShowSplitBottomPanel) {
       return {
         mode: HostMode.EXPANDED,
@@ -105,7 +106,6 @@ export function decideLayout(input: LayoutInput): LayoutDecision {
     }
 
     if (!portrait) {
-      const wideLandscapeSplit: boolean = widthVp >= WIDE_SCREEN_MIN_WIDTH_VP;
       return {
         mode: HostMode.COMPACT,
         policy: 'height',
