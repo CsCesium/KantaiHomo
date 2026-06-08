@@ -35,6 +35,7 @@ const NDOCK_TAB_IDX = 6;
 const MAP_TAB_IDX = 7;
 const QUEST_TAB_IDX = 8;
 const TAB_BAR_MIN_CONTENT_WIDTH = FLEET_TABS_LABEL.length * 46 + (FLEET_TABS_LABEL.length - 1) * 3 + 16;
+const FLEET_STATS_MIN_CONTENT_WIDTH = 360;
 const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
 const RESOURCE_BAR_NARROW_H = 36;
@@ -520,59 +521,42 @@ export default struct BottomPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
-  /** Fleet-level calc stats: 制空 + 速度 stacked left, 輸送 + 索敵 stacked right. */
+  @Builder FleetStat(label: string, value: string) {
+    Row() {
+      Text(label)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.txtMuted)
+      Text(value)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.stat)
+        .margin({ left: 3 })
+    }
+    .height(PanelDimens.statusBarH)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  /** Fleet-level calc stats in one horizontal row. */
   @Builder FleetStatsBar() {
     if (this.activeFleet < 4) {
-      Row() {
-        Column() {
-          Row() {
-            Text('制空')
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.txtMuted)
-            Text(this.airPower > 0 ? `${this.airPower}` : '--')
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.stat)
-              .margin({ left: 3 })
-          }
-          Text(formatFleetSpeed(this.fleetSpeed))
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.stat)
-            .margin({ top: 1 })
+      Scroll() {
+        Row({ space: 12 }) {
+          this.FleetStat('制空', this.airPower > 0 ? `${this.airPower}` : '--')
+          this.FleetStat('速度', formatFleetSpeed(this.fleetSpeed))
+          this.FleetStat('🚚 輸送', this.fleetTpS > 0 ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}` : '--')
+          this.FleetStat('👁 索敵', this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
         }
-        .alignItems(HorizontalAlign.Start)
-
-        Blank().layoutWeight(1)
-
-        Column() {
-          Row() {
-            Text('🚚 輸送')
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.txtMuted)
-            Text(this.fleetTpS > 0
-              ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}`
-              : '--')
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.stat)
-              .margin({ left: 3 })
-          }
-          Row() {
-            Text('👁 索敵')
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.txtMuted)
-            Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.stat)
-              .margin({ left: 3 })
-          }
-          .margin({ top: 1 })
-        }
-        .alignItems(HorizontalAlign.End)
+        .width('100%')
+        .constraintSize({ minWidth: FLEET_STATS_MIN_CONTENT_WIDTH })
+        .height(PanelDimens.statusBarH)
+        .padding({ left: 8, right: 8 })
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .height(PanelDimens.statusBarH * 2)
-      .padding({ left: 8, right: 8, top: 2, bottom: 2 })
+      .height(PanelDimens.statusBarH)
       .backgroundColor(PanelColors.bgTabs)
-      .alignItems(VerticalAlign.Center)
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.None)
       .borderWidth({ bottom: PanelDimens.borderW })
       .borderColor(PanelColors.rowBorder)
     }
