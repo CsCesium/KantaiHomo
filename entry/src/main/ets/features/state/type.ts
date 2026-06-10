@@ -125,6 +125,8 @@ export interface ShipState {
   aswCur: number;
   /** 速力（api_soku：0=陸上、5=低速、10=高速、15=高速+、20=最速） */
   speed: number;
+  /** 射程（api_leng：0=无、1=短、2=中、3=长、4=超长、5=超长+） */
+  range: number;
   /** HP 百分比 */
   hpPercent: number;
   /** 是否大破 (HP <= 25%) */

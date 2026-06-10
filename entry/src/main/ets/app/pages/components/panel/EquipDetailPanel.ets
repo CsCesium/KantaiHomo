@@ -1,17 +1,35 @@
 import { SlotItemJoinedRow } from '../../../../infra/storage/types';
 import { getPersistDeps } from '../../../../infra/deps';
 import { kaisyuuIcon, airMasteryIcon, equipLabel, PanelColors } from '../../../../features/panel/panelConfig';
+import { rangeLabel } from './bottom/rows/shipHelpers';
 
 interface StatLine {
   label: string;
-  value: number;
+  text: string;
+  positive: boolean;
 }
 
 function buildStats(row: SlotItemJoinedRow): StatLine[] {
   const lines: StatLine[] = [];
   const push = (label: string, v: number | null | undefined): void => {
     if (v !== null && v !== undefined && v !== 0) {
-      lines.push({ label, value: v });
+      lines.push({
+        label,
+        text: v > 0 ? `+${v}` : `${v}`,
+        positive: v > 0,
+      });
+    }
+  };
+  const pushRange = (v: number | null | undefined): void => {
+    if (v !== null && v !== undefined && v !== 0) {
+      const label = rangeLabel(v);
+      if (label.length > 0) {
+        lines.push({
+          label: '射程',
+          text: label,
+          positive: true,
+        });
+      }
     }
   };
   push('火力', row.mst_stat_firepower);
@@ -23,7 +41,7 @@ function buildStats(row: SlotItemJoinedRow): StatLine[] {
   push('命中', row.mst_stat_hit);
   push('回避', row.mst_stat_evasion);
   push('装甲', row.mst_stat_armor);
-  push('射程', row.mst_range);
+  pushRange(row.mst_range);
   return lines;
 }
 
@@ -135,9 +153,9 @@ export struct EquipDetailPanel {
                 .fontSize(11)
                 .fontColor(PanelColors.txtSub)
                 .width(40)
-              Text(stat.value > 0 ? `+${stat.value}` : `${stat.value}`)
+              Text(stat.text)
                 .fontSize(11)
-                .fontColor(stat.value > 0 ? PanelColors.stat : PanelColors.hpCrit)
+                .fontColor(stat.positive ? PanelColors.stat : PanelColors.hpCrit)
                 .layoutWeight(1)
                 .textAlign(TextAlign.End)
             }

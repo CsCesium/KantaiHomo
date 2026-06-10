@@ -1,7 +1,7 @@
 import { ShipItem } from '../../../../../../features/panel/type';
 import { hpColor, PanelColors, ShipDiems } from '../../../../../../features/panel/panelConfig';
 import { isShipEscaped } from '../../../../../../features/state';
-import { getShipStatusText, getShipStatusColor } from './shipHelpers';
+import { getShipStatusText, getShipStatusColor, rangeLabel } from './shipHelpers';
 
 /** 中列：HP 数值 / 状态文字 / HP 进度条。 */
 @ComponentV2
@@ -11,6 +11,7 @@ export default struct ShipStatusBlock {
     expToNext: 0,
     tags: [],
     hp: 0, hpMax: 1, s1: 0, s2: 0, s3: 0, s4: 0,
+    range: 0,
     fuelMax: 0, ammoMax: 0,
     slots: [], slotMasterIds: [], slotTypes: [], slotIconTypes: [], slotAirs: [], slotLevels: [], slotAlvs: [],
     exSlot: 0, exSlotMasterId: 0, exSlotType: 0, exSlotIconType: 0, exSlotLevel: 0, exSlotAlv: 0,
@@ -18,6 +19,10 @@ export default struct ShipStatusBlock {
 
   private hpDisplayColor(): string {
     return isShipEscaped(this.ship.id) ? PanelColors.escapeHp : hpColor(this.ship.hp, this.ship.hpMax);
+  }
+
+  private rangeText(): string {
+    return rangeLabel(this.ship.range);
   }
 
   build() {
@@ -40,6 +45,18 @@ export default struct ShipStatusBlock {
           .fontColor(getShipStatusColor(this.ship))
           .maxLines(1)
           .textAlign(TextAlign.End)
+
+        if (this.rangeText().length > 0) {
+          Text(this.rangeText())
+            .fontSize(8)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(PanelColors.txtSub)
+            .padding({ left: 2, right: 2, top: 1, bottom: 1 })
+            .margin({ left: 3 })
+            .backgroundColor(PanelColors.bgTabs)
+            .borderRadius(3)
+            .maxLines(1)
+        }
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

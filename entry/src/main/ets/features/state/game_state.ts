@@ -552,6 +552,7 @@ class GameStateManager {
       scoutCur: ship.stats?.scout?.current ?? 0,
       aswCur: ship.stats?.asw?.current ?? 0,
       speed: ship.speed ?? 0,
+      range: ship.range ?? 0,
       hpPercent,
       isTaiha: hpPercent <= 0.25,
       isChuuha: hpPercent <= 0.5,

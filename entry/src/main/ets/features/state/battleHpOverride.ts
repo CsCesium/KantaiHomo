@@ -49,6 +49,7 @@ export function applyBattleHp(
     scoutCur:      base.scoutCur,
     aswCur:        base.aswCur,
     speed:         base.speed,
+    range:         base.range,
     needsResupply: base.needsResupply,
     slotCount:     base.slotCount,
     slots:         base.slots,

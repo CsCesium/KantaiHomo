@@ -33,6 +33,8 @@ export interface ShipItem {
   s2: number;   // fuel current
   s3: number;   // ammo current
   s4: number;
+  /** Current ship range category: 0=none, 1=short, 2=medium, 3=long, 4=very long, 5=very long+. */
+  range: number;
   fuelMax: number;
   ammoMax: number;
   /** Active slot item UIDs; -1 = empty slot. Length = actual slot count. */

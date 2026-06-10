@@ -19,6 +19,17 @@ export function getShipStatusColor(ship: ShipItem): string {
   return condColor(ship.s1);
 }
 
+export function rangeLabel(range: number): string {
+  switch (range) {
+    case 1: return '短';
+    case 2: return '中';
+    case 3: return '长';
+    case 4: return '超长';
+    case 5: return '超长+';
+    default: return '';
+  }
+}
+
 export function getMapGaugeInfo(gauge: MapGaugeSnapshot): MapGaugeInfo {
   const areaNo = Math.floor(gauge.mapId / 10);
   const mapNo = gauge.mapId % 10;
