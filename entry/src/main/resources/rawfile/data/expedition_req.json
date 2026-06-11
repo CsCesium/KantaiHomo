@@ -1,0 +1,3035 @@
+[
+    {
+        "id": 1,
+        "code": "1",
+        "area": 1,
+        "name": {
+            "jp": "練習航海",
+            "ko": "연습해역",
+            "en": "Practice Voyage",
+            "scn": "练习航海",
+            "tcn": "練習航海"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 30,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 1,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 2,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 2,
+        "code": "2",
+        "area": 1,
+        "name": {
+            "jp": "長距離練習航海",
+            "ko": "장거리연습항해",
+            "en": "Long Distance Training Voyage",
+            "scn": "长距离练习航海",
+            "tcn": "長距離練習航海"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 100,
+        "reward_steel": 30,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 2,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 3,
+        "code": "3",
+        "area": 1,
+        "name": {
+            "jp": "警備任務",
+            "ko": "경비임무",
+            "en": "Security Tasks",
+            "scn": "警备任务",
+            "tcn": "警備任務"
+        },
+        "reward_fuel": 30,
+        "reward_bullet": 30,
+        "reward_steel": 40,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 3,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 3,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 4,
+        "code": "4",
+        "area": 1,
+        "name": {
+            "jp": "対潜警戒任務",
+            "ko": "대잠경계임무",
+            "en": "Anti-Submarine Alert",
+            "scn": "对潜警戒任务",
+            "tcn": "對潛警戒任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 70,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 3,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 3,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 5,
+        "code": "5",
+        "area": 1,
+        "name": {
+            "jp": "海上護衛任務",
+            "ko": "해상호위임무",
+            "en": "Maritime Security Missions",
+            "scn": "海上护卫任务",
+            "tcn": "海上護衛任務"
+        },
+        "reward_fuel": 200,
+        "reward_bullet": 200,
+        "reward_steel": 20,
+        "reward_alum": 20,
+        "reward_items": [],
+        "flagship_lv": 3,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 6,
+        "code": "6",
+        "area": 1,
+        "name": {
+            "jp": "防空射撃演習",
+            "ko": "방공사격연습",
+            "en": "Anti-Air Exercises",
+            "scn": "防空射击演习",
+            "tcn": "防空射擊演習"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 80,
+        "reward_items": [
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 4,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 7,
+        "code": "7",
+        "area": 1,
+        "name": {
+            "jp": "観艦式予行",
+            "ko": "관함식연습",
+            "en": "Ceremonial Dress Rehearsal",
+            "scn": "观舰式排演",
+            "tcn": "觀艦式排演"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 50,
+        "reward_alum": 30,
+        "reward_items": [
+            {
+                "itemtype": 2,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 5,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 8,
+        "code": "8",
+        "area": 1,
+        "name": {
+            "jp": "観艦式",
+            "ko": "관함식",
+            "en": "Naval Review",
+            "scn": "观舰式",
+            "tcn": "觀艦式"
+        },
+        "reward_fuel": 50,
+        "reward_bullet": 100,
+        "reward_steel": 50,
+        "reward_alum": 50,
+        "reward_items": [
+            {
+                "itemtype": 2,
+                "max_number": 2
+            },
+            {
+                "itemtype": 3,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 6,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 100,
+        "code": "A1",
+        "area": 1,
+        "name": {
+            "jp": "兵站強化任務",
+            "ko": "병참강화임무",
+            "en": "Logistics Reinforcement Missions",
+            "scn": "后勤强化任务",
+            "tcn": "後勤強化任務"
+        },
+        "reward_fuel": 45,
+        "reward_bullet": 45,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 5,
+        "fleet_lv": 10,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 3
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 101,
+        "code": "A2",
+        "area": 1,
+        "name": {
+            "jp": "海峡警備行動",
+            "ko": "해협경비행동",
+            "en": "Strait Security Action",
+            "scn": "海峡警备行动",
+            "tcn": "海峽警備行動"
+        },
+        "reward_fuel": 70,
+        "reward_bullet": 40,
+        "reward_steel": 0,
+        "reward_alum": 10,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 3,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 20,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 4
+            }
+        ],
+        "required_extra": {
+            "firepower": 50,
+            "aa": 70,
+            "asw": 180
+        },
+        "big_success": null
+    },
+    {
+        "id": 102,
+        "code": "A3",
+        "area": 1,
+        "name": {
+            "jp": "長時間対潜警戒",
+            "ko": "장시간대잠경계",
+            "en": "Long Time Anti-Submarine Alert",
+            "scn": "长时间对潜警戒",
+            "tcn": "長時間對潛警戒"
+        },
+        "reward_fuel": 120,
+        "reward_bullet": 0,
+        "reward_steel": 60,
+        "reward_alum": 60,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 3,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 35,
+        "fleet_lv": 185,
+        "flagship_shiptype": 0,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "asw": 280,
+            "los": 60
+        },
+        "big_success": null
+    },
+    {
+        "id": 103,
+        "code": "A4",
+        "area": 1,
+        "name": {
+            "jp": "南西方面連絡線哨戒",
+            "ko": "남서방면연락선초계",
+            "en": "Southwestern Communication Line Patrol",
+            "scn": "南西方面连络线哨戒",
+            "tcn": "南西方面連絡線哨戒"
+        },
+        "reward_fuel": 80,
+        "reward_bullet": 120,
+        "reward_steel": 0,
+        "reward_alum": 100,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 2
+            },
+            {
+                "itemtype": 2,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 40,
+        "fleet_lv": 200,
+        "flagship_shiptype": 0,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 300,
+            "aa": 200,
+            "asw": 200,
+            "los": 120
+        },
+        "big_success": null
+    },
+    {
+        "id": 104,
+        "code": "A5",
+        "area": 1,
+        "name": {
+            "jp": "小笠原沖哨戒線",
+            "ko": "오가사와라초계선",
+            "en": "Ogasawara Offshore Patrol Line",
+            "scn": "小笠原近海警戒线远征",
+            "tcn": "小笠原近海警戒線遠征"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 300,
+        "reward_steel": 0,
+        "reward_alum": 100,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 3
+            },
+            {
+                "itemtype": 3,
+                "max_number": 4
+            }
+        ],
+        "flagship_lv": 45,
+        "fleet_lv": 230,
+        "flagship_shiptype": 0,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 280,
+            "aa": 220,
+            "asw": 240,
+            "los": 150
+        },
+        "big_success": null
+    },
+    {
+        "id": 105,
+        "code": "A6",
+        "area": 1,
+        "name": {
+            "jp": "小笠原沖戦闘哨戒",
+            "ko": "오가사와라전투초계",
+            "en": "Ogasawara Offshore Battle Patrol",
+            "scn": "小笠原近海战斗警戒",
+            "tcn": "小笠原近海戰鬥警戒"
+        },
+        "reward_fuel": 100,
+        "reward_bullet": 500,
+        "reward_steel": 100,
+        "reward_alum": 200,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 5
+            },
+            {
+                "itemtype": 4,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 55,
+        "fleet_lv": 290,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 330,
+            "aa": 300,
+            "asw": 270,
+            "los": 180
+        },
+        "big_success": null
+    },
+    {
+        "id": 9,
+        "code": "9",
+        "area": 2,
+        "name": {
+            "jp": "タンカー護衛任務",
+            "ko": "유조선호위임무",
+            "en": "Tanker Escort Duties",
+            "scn": "油轮护卫任务",
+            "tcn": "油輪護衛任務"
+        },
+        "reward_fuel": 350,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 2
+            },
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 3,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 10,
+        "code": "10",
+        "area": 2,
+        "name": {
+            "jp": "強行偵察任務",
+            "ko": "강행정찰임무",
+            "en": "Attack Force Recon Missions",
+            "scn": "强行侦察任务",
+            "tcn": "強行偵察任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 50,
+        "reward_steel": 0,
+        "reward_alum": 40,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 2,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 3,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 3,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 11,
+        "code": "11",
+        "area": 2,
+        "name": {
+            "jp": "ボーキサイト輸送任務",
+            "ko": "보크사이트수송임무",
+            "en": "Bauxite Transport Missions",
+            "scn": "铝土运送任务",
+            "tcn": "鋁土運送任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 250,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 6,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 12,
+        "code": "12",
+        "area": 2,
+        "name": {
+            "jp": "資源輸送任務",
+            "ko": "자원수송임무",
+            "en": "Resource Transportation Missions",
+            "scn": "资源运送任务",
+            "tcn": "資源運送任務"
+        },
+        "reward_fuel": 50,
+        "reward_bullet": 250,
+        "reward_steel": 200,
+        "reward_alum": 50,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 1
+            },
+            {
+                "itemtype": 11,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 4,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 13,
+        "code": "13",
+        "area": 2,
+        "name": {
+            "jp": "鼠輸送作戦",
+            "ko": "쥐수송작전",
+            "en": "Rat Transportation Strategy",
+            "scn": "鼠输送作战",
+            "tcn": "鼠輸送作戰"
+        },
+        "reward_fuel": 240,
+        "reward_bullet": 300,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 2
+            },
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 5,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 4
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 14,
+        "code": "14",
+        "area": 2,
+        "name": {
+            "jp": "包囲陸戦隊撤収作戦",
+            "ko": "포위육전대철수작전",
+            "en": "Siege-Corps Withdrawal Strategies",
+            "scn": "围困陆战队撤退运送任务",
+            "tcn": "圍困陸戰隊撤退運送任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 280,
+        "reward_steel": 200,
+        "reward_alum": 30,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 3,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 6,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 15,
+        "code": "15",
+        "area": 2,
+        "name": {
+            "jp": "囮機動部隊支援作戦",
+            "ko": "미끼기동부대지원작전",
+            "en": "Decoy Task Force Assistance Operations",
+            "scn": "诱饵机动部队支援作战",
+            "tcn": "誘餌機動部隊支援作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 300,
+        "reward_alum": 400,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 1
+            },
+            {
+                "itemtype": 12,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 8,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    7,
+                    11,
+                    16,
+                    18
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 16,
+        "code": "16",
+        "area": 2,
+        "name": {
+            "jp": "艦隊決戦援護作戦",
+            "ko": "함대결전지원작전",
+            "en": "Fleet Battle Support Strategy",
+            "scn": "舰队决战护卫作战",
+            "tcn": "艦隊決戰護衛作戰"
+        },
+        "reward_fuel": 500,
+        "reward_bullet": 500,
+        "reward_steel": 200,
+        "reward_alum": 200,
+        "reward_items": [
+            {
+                "itemtype": 2,
+                "max_number": 2
+            },
+            {
+                "itemtype": 3,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 10,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 110,
+        "code": "B1",
+        "area": 2,
+        "name": {
+            "jp": "南西方面航空偵察作戦",
+            "ko": "남서방면항공정찰작전",
+            "en": "Southwest Aerial Reconnaissance Operations",
+            "scn": "南西方面航空侦察作战",
+            "tcn": "南西方面航空偵察作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 20,
+        "reward_alum": 30,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 40,
+        "fleet_lv": 150,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    16
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "aa": 200,
+            "asw": 200,
+            "los": 140
+        },
+        "big_success": null
+    },
+    {
+        "id": 111,
+        "code": "B2",
+        "area": 2,
+        "name": {
+            "jp": "敵泊地強襲反撃作戦",
+            "ko": "적박지강습반격작전",
+            "en": "Enemy Anchorage Assault Counterattack Operations",
+            "scn": "敌方泊地强袭反击作战",
+            "tcn": "敵方泊地強襲反擊作戰"
+        },
+        "reward_fuel": 300,
+        "reward_bullet": 200,
+        "reward_steel": 100,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 2
+            },
+            {
+                "itemtype": 3,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 45,
+        "fleet_lv": 220,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    5
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 360,
+            "aa": 160,
+            "asw": 160,
+            "los": 140
+        },
+        "big_success": null
+    },
+    {
+        "id": 112,
+        "code": "B3",
+        "area": 2,
+        "name": {
+            "jp": "南西諸島離島哨戒作戦",
+            "ko": "남서제도이도초계작전",
+            "en": "Southwestern Islands Remote Island Patrol Operation",
+            "scn": "南西诸岛离岛哨戒作战",
+            "tcn": "南西諸島離島哨戒作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 100,
+        "reward_steel": 100,
+        "reward_alum": 180,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 2
+            },
+            {
+                "itemtype": 12,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 50,
+        "fleet_lv": 250,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 4
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    16
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 400,
+            "aa": 220,
+            "asw": 220,
+            "los": 190
+        },
+        "big_success": null
+    },
+    {
+        "id": 113,
+        "code": "B4",
+        "area": 2,
+        "name": {
+            "jp": "南西諸島離島防衛作戦",
+            "ko": "남서제도이도방위작전",
+            "en": "Southwestern Islands Remote Island Defense Operation",
+            "scn": "南西诸岛离岛防卫作战",
+            "tcn": "南西諸島離島防衛作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 1200,
+        "reward_alum": 650,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 4
+            },
+            {
+                "itemtype": 4,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 55,
+        "fleet_lv": 300,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    5
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 500,
+            "aa": 280,
+            "asw": 280,
+            "los": 170
+        },
+        "big_success": null
+    },
+    {
+        "id": 114,
+        "code": "B5",
+        "area": 2,
+        "name": {
+            "jp": "南西諸島捜索撃滅戦",
+            "ko": "남서제도수색격멸전",
+            "en": "Southwestern Islands Seek and Destroy Battle",
+            "scn": "南西诸岛搜索歼灭战",
+            "tcn": "南西諸島搜索殲滅戰"
+        },
+        "reward_fuel": 500,
+        "reward_bullet": 500,
+        "reward_steel": 1000,
+        "reward_alum": 750,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 4
+            },
+            {
+                "itemtype": 4,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 60,
+        "fleet_lv": 330,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    16
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 510,
+            "aa": 400,
+            "asw": 285,
+            "los": 385
+        },
+        "big_success": null
+    },
+    {
+        "id": 115,
+        "code": "B6",
+        "area": 2,
+        "name": {
+            "jp": "精鋭水雷戦隊夜襲",
+            "ko": "정예수뢰전대야습",
+            "en": "Night Attack by the Elite Torpedo Squadron",
+            "scn": "精锐水雷战队夜袭",
+            "tcn": "精銳水雷戰隊夜襲"
+        },
+        "reward_fuel": 600,
+        "reward_bullet": 1000,
+        "reward_steel": 600,
+        "reward_alum": 600,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 5
+            },
+            {
+                "itemtype": 4,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 75,
+        "fleet_lv": 400,
+        "flagship_shiptype": 3,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 5
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 410,
+            "aa": 390,
+            "asw": 410,
+            "los": 340
+        },
+        "big_success": null
+    },
+    {
+        "id": 17,
+        "code": "17",
+        "area": 3,
+        "name": {
+            "jp": "敵地偵察作戦",
+            "ko": "적지정찰작전",
+            "en": "Enemy Territory Reconnaissance Operations",
+            "scn": "敌基地侦察作战",
+            "tcn": "敵基地偵察作戰"
+        },
+        "reward_fuel": 70,
+        "reward_bullet": 90,
+        "reward_steel": 50,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 20,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 18,
+        "code": "18",
+        "area": 3,
+        "name": {
+            "jp": "航空機輸送作戦",
+            "ko": "항공기수송작전",
+            "en": "Aircraft Transport Strategy",
+            "scn": "舰载机运送作战",
+            "tcn": "艦載機運送作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 300,
+        "reward_alum": 150,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 15,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    7,
+                    11,
+                    16,
+                    18
+                ],
+                "count": 3
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 19,
+        "code": "19",
+        "area": 3,
+        "name": {
+            "jp": "北号作戦",
+            "ko": "북호작전",
+            "en": "Northern Offensive Operations",
+            "scn": "北号作战",
+            "tcn": "北號作戰"
+        },
+        "reward_fuel": 400,
+        "reward_bullet": 50,
+        "reward_steel": 50,
+        "reward_alum": 30,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 1
+            },
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 20,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    10
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 20,
+        "code": "20",
+        "area": 3,
+        "name": {
+            "jp": "潜水艦哨戒任務",
+            "ko": "잠수함초계작전",
+            "en": "Submarine Patrol",
+            "scn": "潜水艇戒备任务",
+            "tcn": "潛水艇戒備任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 150,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 1
+            },
+            {
+                "itemtype": 11,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 1,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 2,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 21,
+        "code": "21",
+        "area": 3,
+        "name": {
+            "jp": "北方鼠輸送作戦",
+            "ko": "북방쥐수송작전",
+            "en": "Northern Rat Transportation Strategy",
+            "scn": "北方鼠输送作战",
+            "tcn": "北方鼠輸送作戰"
+        },
+        "reward_fuel": 320,
+        "reward_bullet": 270,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 15,
+        "fleet_lv": 30,
+        "flagship_shiptype": 0,
+        "ship_count": 5,
+        "drum_ship_count": 3,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 4
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 22,
+        "code": "22",
+        "area": 3,
+        "name": {
+            "jp": "艦隊演習",
+            "ko": "함대연습",
+            "en": "Fleet Exercises",
+            "scn": "舰队演习",
+            "tcn": "艦隊演習"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 10,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 30,
+        "fleet_lv": 45,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    5
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 23,
+        "code": "23",
+        "area": 3,
+        "name": {
+            "jp": "航空戦艦運用演習",
+            "ko": "항공전함운용연습",
+            "en": "Aviation Battleship Exercises",
+            "scn": "航空战舰运用演习",
+            "tcn": "航空戰艦運用演習"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 50,
+        "reward_steel": 0,
+        "reward_alum": 130,
+        "reward_items": [
+            {
+                "itemtype": 11,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 50,
+        "fleet_lv": 200,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    10
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 24,
+        "code": "24",
+        "area": 3,
+        "name": {
+            "jp": "北方航路海上護衛",
+            "ko": "북방항로해상호위",
+            "en": "Guard the North Sea Route",
+            "scn": "北方航路海上护卫",
+            "tcn": "北方航路海上護衛"
+        },
+        "reward_fuel": 500,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 150,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 3,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 50,
+        "fleet_lv": 200,
+        "flagship_shiptype": 3,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 4
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 41,
+        "code": "41",
+        "area": 7,
+        "name": {
+            "jp": "ブルネイ泊地沖哨戒",
+            "ko": "브루네이정박지호위",
+            "en": "Brunei Anchorage Patrol",
+            "scn": "文莱泊地近海巡逻",
+            "tcn": "文萊泊地近海巡邏"
+        },
+        "reward_fuel": 100,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 20,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 3,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 30,
+        "fleet_lv": 100,
+        "flagship_shiptype": 0,
+        "ship_count": 3,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 3
+            }
+        ],
+        "required_extra": {
+            "firepower": 60,
+            "aa": 80,
+            "asw": 210
+        },
+        "big_success": null
+    },
+    {
+        "id": 42,
+        "code": "42",
+        "area": 7,
+        "name": {
+            "jp": "ミ船団護衛(一号船団)",
+            "ko": "미선단호위(1호선단)",
+            "en": "Mi-convoy Escort (1st convoy)",
+            "scn": "MI船団护卫(一号船団)",
+            "tcn": "MI船団護衛(一號船団)"
+        },
+        "reward_fuel": 800,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 200,
+        "reward_items": [
+            {
+                "itemtype": 2,
+                "max_number": 3
+            },
+            {
+                "itemtype": 12,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 45,
+        "fleet_lv": 200,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 43,
+        "code": "43",
+        "area": 7,
+        "name": {
+            "jp": "ミ船団護衛(二号船団)",
+            "ko": "미선단호위(2호선단)",
+            "en": "Mi-convoy Escort (2nd convoy)",
+            "scn": "MI船団护卫(二号船団)",
+            "tcn": "MI船団護衛(二號船団)"
+        },
+        "reward_fuel": 2000,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 400,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 4
+            },
+            {
+                "itemtype": 4,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 55,
+        "fleet_lv": 300,
+        "flagship_shiptype": 7,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 4
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    7
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 500,
+            "aa": 280,
+            "asw": 280,
+            "los": 170
+        },
+        "big_success": null
+    },
+    {
+        "id": 44,
+        "code": "44",
+        "area": 7,
+        "name": {
+            "jp": "航空装備輸送任務",
+            "ko": "항공장비운송임무",
+            "en": "Aviation Equipment Delivery Mission",
+            "scn": "航空装备输送任务",
+            "tcn": "航空裝備輸送任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 200,
+        "reward_steel": 0,
+        "reward_alum": 800,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 4
+            },
+            {
+                "itemtype": 12,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 35,
+        "fleet_lv": 210,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 3,
+        "drum_count": 6,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    7,
+                    11,
+                    16,
+                    18
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    16
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "aa": 200,
+            "asw": 200,
+            "los": 150
+        },
+        "big_success": null
+    },
+    {
+        "id": 45,
+        "code": "45",
+        "area": 7,
+        "name": {
+            "jp": "ボーキサイト船団護衛",
+            "ko": "보크사이트선단호위",
+            "en": "Bauxite Escort",
+            "scn": "铝土船団护卫",
+            "tcn": "鋁土船団護衛"
+        },
+        "reward_fuel": 40,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 220,
+        "reward_items": [
+            {
+                "itemtype": 11,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 50,
+        "fleet_lv": 240,
+        "flagship_shiptype": 27,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    1,
+                    2
+                ],
+                "count": 4
+            },
+            {
+                "shiptype": [
+                    27
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "aa": 240,
+            "asw": 300,
+            "los": 180
+        },
+        "big_success": null
+    },
+    {
+        "id": 46,
+        "code": "46",
+        "area": 7,
+        "name": {
+            "jp": "南西海域戦闘哨戒",
+            "ko": "남서해역전투초계",
+            "en": "Southwest Sea Battle Patrol",
+            "scn": "南西海域海战斗警戒",
+            "tcn": "南西海域海戰鬥警戒"
+        },
+        "reward_fuel": 300,
+        "reward_bullet": 0,
+        "reward_steel": 150,
+        "reward_alum": 380,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 3
+            },
+            {
+                "itemtype": 4,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 60,
+        "fleet_lv": 300,
+        "flagship_shiptype": 0,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    5
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {
+            "firepower": 350,
+            "aa": 250,
+            "asw": 220,
+            "los": 190
+        },
+        "big_success": null
+    },
+    {
+        "id": 25,
+        "code": "25",
+        "area": 4,
+        "name": {
+            "jp": "通商破壊作戦",
+            "ko": "통상파괴작전",
+            "en": "Trade-Route Destruction Strategy",
+            "scn": "通商破坏作战",
+            "tcn": "通商破壞作戰"
+        },
+        "reward_fuel": 900,
+        "reward_bullet": 0,
+        "reward_steel": 500,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 11,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 25,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    5
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 26,
+        "code": "26",
+        "area": 4,
+        "name": {
+            "jp": "敵母港空襲作戦",
+            "ko": "적모항공습작전",
+            "en": "Bombing Campaign on the Enemy Home-Port",
+            "scn": "敌母港空袭作战",
+            "tcn": "敵母港空襲作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 900,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 3
+            },
+            {
+                "itemtype": 12,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 30,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    7,
+                    11,
+                    16,
+                    18
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 27,
+        "code": "27",
+        "area": 4,
+        "name": {
+            "jp": "潜水艦通商破壊作戦",
+            "ko": "잠수함통상파괴작전",
+            "en": "Submarine Commerce Destruction Strategy",
+            "scn": "潜水艇通商破坏作战",
+            "tcn": "潛水艇通商破壞作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 800,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 2
+            },
+            {
+                "itemtype": 10,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 1,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 2,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 28,
+        "code": "28",
+        "area": 4,
+        "name": {
+            "jp": "西方海域封鎖作戦",
+            "ko": "서방해역봉쇄작전",
+            "en": "Western Sea Blockade Operation",
+            "scn": "西方海域封锁作战",
+            "tcn": "西方海域封鎖作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 900,
+        "reward_alum": 350,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 3
+            },
+            {
+                "itemtype": 11,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 30,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 3,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 3
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 29,
+        "code": "29",
+        "area": 4,
+        "name": {
+            "jp": "潜水艦派遣演習",
+            "ko": "잠수함파견연습",
+            "en": "Submarine Dispatch Exercises",
+            "scn": "潜水艇派遣演习",
+            "tcn": "潛水艇派遣演習"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 50,
+        "reward_steel": 0,
+        "reward_alum": 100,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 1
+            },
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 50,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 3,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 3
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 30,
+        "code": "30",
+        "area": 4,
+        "name": {
+            "jp": "潜水艦派遣作戦",
+            "ko": "잠수함파견작전",
+            "en": "Submarine Dispatch Operations",
+            "scn": "潜水艇派遣作战",
+            "tcn": "潛水艇派遣作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 50,
+        "reward_steel": 0,
+        "reward_alum": 100,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 3
+            },
+            {
+                "itemtype": 12,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 55,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 4
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 31,
+        "code": "31",
+        "area": 4,
+        "name": {
+            "jp": "海外艦との接触",
+            "ko": "해외함과의접촉",
+            "en": "Contacting Foreign Vessels",
+            "scn": "和海外舰的接触",
+            "tcn": "和海外艦的接觸"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 30,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 60,
+        "fleet_lv": 200,
+        "flagship_shiptype": 0,
+        "ship_count": 4,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 4
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 32,
+        "code": "32",
+        "area": 4,
+        "name": {
+            "jp": "遠洋練習航海",
+            "ko": "원양연습항해",
+            "en": "Seafaring Training",
+            "scn": "远洋练习航海",
+            "tcn": "遠洋練習航海"
+        },
+        "reward_fuel": 50,
+        "reward_bullet": 50,
+        "reward_steel": 50,
+        "reward_alum": 50,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 3
+            },
+            {
+                "itemtype": 12,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 5,
+        "fleet_lv": 0,
+        "flagship_shiptype": 21,
+        "ship_count": 3,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    21
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 131,
+        "code": "D1",
+        "area": 4,
+        "name": {
+            "jp": "西方海域偵察作戦",
+            "ko": "서방해역정찰작전",
+            "en": "Western Sea Recon Operation",
+            "scn": "西方海域侦察作战",
+            "tcn": "西方海域偵察作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 20,
+        "reward_steel": 20,
+        "reward_alum": 100,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 50,
+        "fleet_lv": 200,
+        "flagship_shiptype": 16,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    16
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "aa": 240,
+            "asw": 240,
+            "los": 300
+        },
+        "big_success": null
+    },
+    {
+        "id": 132,
+        "code": "D2",
+        "area": 4,
+        "name": {
+            "jp": "西方潜水艦作戦",
+            "ko": "서방잠수함작전",
+            "en": "Western Sea Submarine Operation",
+            "scn": "西方潜水艇作战",
+            "tcn": "西方潛水艇作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 400,
+        "reward_alum": 800,
+        "reward_items": [
+            {
+                "itemtype": 12,
+                "max_number": 1
+            },
+            {
+                "itemtype": 59,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 55,
+        "fleet_lv": 270,
+        "flagship_shiptype": 20,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    20
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 60,
+            "aa": 80,
+            "asw": 50
+        },
+        "big_success": null
+    },
+    {
+        "id": 133,
+        "code": "D3",
+        "area": 4,
+        "name": {
+            "jp": "欧州方面友軍との接触",
+            "ko": "유럽방면우군과의접촉",
+            "en": "Contact with European Friend Fleet",
+            "scn": "和欧洲方面友軍的接触",
+            "tcn": "和歐洲方面友軍的接觸"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 800,
+        "reward_steel": 500,
+        "reward_alum": 400,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 3
+            },
+            {
+                "itemtype": 4,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 65,
+        "fleet_lv": 350,
+        "flagship_shiptype": 20,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    20
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 115,
+            "aa": 90,
+            "asw": 70,
+            "los": 95
+        },
+        "big_success": null
+    },
+    {
+        "id": 33,
+        "code": "33",
+        "area": 5,
+        "name": {
+            "jp": "前衛支援任務",
+            "ko": "전방지원함대",
+            "en": "Vanguard Support Missions (1)",
+            "scn": "前线部队支援任务",
+            "tcn": "前線部隊支援任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 0,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 2,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 34,
+        "code": "34",
+        "area": 5,
+        "name": {
+            "jp": "艦隊決戦支援任務",
+            "ko": "함대결전지원임무",
+            "en": "Vanguard Support Missions (2)",
+            "scn": "舰队决战支援任务",
+            "tcn": "艦隊決戰支援任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 0,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 2,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 35,
+        "code": "35",
+        "area": 5,
+        "name": {
+            "jp": "MO作戦",
+            "ko": "MO작전",
+            "en": "MO Operations",
+            "scn": "MO作战",
+            "tcn": "MO作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 240,
+        "reward_alum": 280,
+        "reward_items": [
+            {
+                "itemtype": 3,
+                "max_number": 1
+            },
+            {
+                "itemtype": 10,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 40,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    5
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    7,
+                    11,
+                    16,
+                    18
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 36,
+        "code": "36",
+        "area": 5,
+        "name": {
+            "jp": "水上機基地建設",
+            "ko": "수상기지건설",
+            "en": "Water Base Construction",
+            "scn": "水上飞机基地建设",
+            "tcn": "水上飛機基地建設"
+        },
+        "reward_fuel": 480,
+        "reward_bullet": 0,
+        "reward_steel": 200,
+        "reward_alum": 200,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 11,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 30,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    16
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 37,
+        "code": "37",
+        "area": 5,
+        "name": {
+            "jp": "東京急行",
+            "ko": "도쿄급행1",
+            "en": "Tokyo Express (1)",
+            "scn": "东京急行",
+            "tcn": "東京急行"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 380,
+        "reward_steel": 270,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 50,
+        "fleet_lv": 200,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 3,
+        "drum_count": 4,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 5
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 38,
+        "code": "38",
+        "area": 5,
+        "name": {
+            "jp": "東京急行(弐)",
+            "ko": "도쿄급행2",
+            "en": "Tokyo Express (2)",
+            "scn": "东京急行(二)",
+            "tcn": "東京急行(二)"
+        },
+        "reward_fuel": 420,
+        "reward_bullet": 0,
+        "reward_steel": 200,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 10,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 65,
+        "fleet_lv": 240,
+        "flagship_shiptype": 0,
+        "ship_count": 6,
+        "drum_ship_count": 4,
+        "drum_count": 8,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 5
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 39,
+        "code": "39",
+        "area": 5,
+        "name": {
+            "jp": "遠洋潜水艦作戦",
+            "ko": "원양잠수함작전",
+            "en": "Deep-Sea Submarine Warfare",
+            "scn": "远洋潜水艇作战",
+            "tcn": "遠洋潛水艇作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 300,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 2
+            },
+            {
+                "itemtype": 11,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 3,
+        "fleet_lv": 180,
+        "flagship_shiptype": 0,
+        "ship_count": 5,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    13,
+                    14
+                ],
+                "count": 4
+            },
+            {
+                "shiptype": [
+                    20
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 40,
+        "code": "40",
+        "area": 5,
+        "name": {
+            "jp": "水上機前線輸送",
+            "ko": "수상기전선운송",
+            "en": "Seaplane Delivery on the Front Lines",
+            "scn": "水上机前线运输",
+            "tcn": "水上機前線運輸"
+        },
+        "reward_fuel": 300,
+        "reward_bullet": 300,
+        "reward_steel": 0,
+        "reward_alum": 100,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 1
+            },
+            {
+                "itemtype": 10,
+                "max_number": 3
+            }
+        ],
+        "flagship_lv": 25,
+        "fleet_lv": 150,
+        "flagship_shiptype": 3,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    16
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 141,
+        "code": "E1",
+        "area": 5,
+        "name": {
+            "jp": "ラバウル方面艦隊進出",
+            "ko": "라바울방면함대진출",
+            "en": "Advances to Fleet in Rabaul",
+            "scn": "拉包尔方面舰队进出",
+            "tcn": "拉包爾方面艦隊進出"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 600,
+        "reward_steel": 600,
+        "reward_alum": 1000,
+        "reward_items": [
+            {
+                "itemtype": 4,
+                "max_number": 1
+            },
+            {
+                "itemtype": 12,
+                "max_number": 2
+            }
+        ],
+        "flagship_lv": 55,
+        "fleet_lv": 290,
+        "flagship_shiptype": 5,
+        "ship_count": 6,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 3
+            },
+            {
+                "shiptype": [
+                    3
+                ],
+                "count": 1
+            },
+            {
+                "shiptype": [
+                    5
+                ],
+                "count": 1
+            }
+        ],
+        "required_extra": {
+            "firepower": 450,
+            "aa": 350,
+            "asw": 330,
+            "los": 250
+        },
+        "big_success": null
+    },
+    {
+        "id": 142,
+        "code": "E2",
+        "area": 5,
+        "name": {
+            "jp": "強行鼠輸送作戦",
+            "ko": "강행쥐수송작전",
+            "en": "Imperative Rat Transportation Strategy",
+            "scn": "強行鼠输送作战",
+            "tcn": "強行鼠輸送作戰"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 480,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [
+            {
+                "itemtype": 1,
+                "max_number": 2
+            },
+            {
+                "itemtype": 4,
+                "max_number": 1
+            }
+        ],
+        "flagship_lv": 70,
+        "fleet_lv": 320,
+        "flagship_shiptype": 0,
+        "ship_count": 5,
+        "drum_ship_count": 3,
+        "drum_count": 4,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 5
+            }
+        ],
+        "required_extra": {
+            "firepower": 280,
+            "aa": 240,
+            "asw": 200,
+            "los": 160
+        },
+        "big_success": null
+    },
+    {
+        "id": 203,
+        "code": "S1",
+        "area": 99,
+        "name": {
+            "jp": "[E] 前衛支援任務",
+            "ko": "[E] 전방지원함대",
+            "en": "[E] Vanguard Support Missions (1)",
+            "scn": "[E] 前线部队支援任务",
+            "tcn": "[E] 前線部隊支援任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 0,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 2,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    },
+    {
+        "id": 204,
+        "code": "S2",
+        "area": 99,
+        "name": {
+            "jp": "[E] 艦隊決戦支援任務",
+            "ko": "[E] 함대결전지원임무",
+            "en": "[E] Vanguard Support Missions (2)",
+            "scn": "[E] 舰队决战支援任务",
+            "tcn": "[E] 艦隊決戰支援任務"
+        },
+        "reward_fuel": 0,
+        "reward_bullet": 0,
+        "reward_steel": 0,
+        "reward_alum": 0,
+        "reward_items": [],
+        "flagship_lv": 0,
+        "fleet_lv": 0,
+        "flagship_shiptype": 0,
+        "ship_count": 2,
+        "drum_ship_count": 0,
+        "drum_count": 0,
+        "required_shiptypes": [
+            {
+                "shiptype": [
+                    2
+                ],
+                "count": 2
+            }
+        ],
+        "required_extra": {},
+        "big_success": null
+    }
+]
