@@ -30,6 +30,12 @@ import {
 } from './attack_power';
 import { calcDayAttackRate, calcObservationTerm } from './day_attack_rate';
 import {
+  carrierDayImprovementBonus,
+  dayImprovementBonus,
+  nightImprovementBonus,
+  torpedoImprovementBonus,
+} from './improvement_bonus';
+import {
   NightCutInType,
   calcNightCutInRate,
 } from '../rate/night_cutin_rate';
@@ -264,8 +270,8 @@ function buildDayScenarios(input: ShipScenarioInput, counts: EquipCounts): Scena
 
   const carrier = isCarrierType(shipType);
   const basePower = carrier
-    ? dayCarrierBasePower(input.firepower, input.torpedo, counts.bombTotal)
-    : daySurfaceBasePower(input.firepower);
+    ? dayCarrierBasePower(input.firepower, input.torpedo, counts.bombTotal, carrierDayImprovementBonus(input.equips))
+    : daySurfaceBasePower(input.firepower, dayImprovementBonus(input.equips));
 
   const ciTypes = carrier ? detectCarrierDayAttacks(counts) : detectDaySpottingAttacks(counts);
 
@@ -302,7 +308,7 @@ function buildTorpedoScenarios(input: ShipScenarioInput): ScenarioAttack[] {
 
   return [makeAttack(
     'torpedo_normal', '普通攻击', 1, 1,
-    torpedoBasePower(input.torpedo), TORPEDO_BATTLE_CAP, 1.0,
+    torpedoBasePower(input.torpedo, torpedoImprovementBonus(input.equips)), TORPEDO_BATTLE_CAP, 1.0,
   )];
 }
 
@@ -312,7 +318,7 @@ function buildNightScenarios(input: ShipScenarioInput, counts: EquipCounts): Sce
   if (carrier && counts.nightPlane <= 0) return [];
   if (input.firepower + input.torpedo <= 0) return [];
 
-  const basePower = nightBasePower(input.firepower, input.torpedo);
+  const basePower = nightBasePower(input.firepower, input.torpedo, nightImprovementBonus(input.equips));
   const types = detectNightAttacks(input.stype, counts);
   const damageState = getDamageState(input.hpNow, Math.max(1, input.hpMax));
 

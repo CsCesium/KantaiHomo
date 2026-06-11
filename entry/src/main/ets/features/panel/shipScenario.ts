@@ -60,6 +60,7 @@ function toScenarioEquip(slotUid: number, onslot: number, st: Readonly<GameState
     torpedo: st.slotItemTorp.get(masterId) ?? 0,
     bomb: st.slotItemBomb.get(masterId) ?? 0,
     los: st.slotItemLos.get(masterId) ?? 0,
+    level: st.slotItemLevels.get(slotUid) ?? 0,
     onslot,
   };
 }

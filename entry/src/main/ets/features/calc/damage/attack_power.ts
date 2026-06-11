@@ -4,11 +4,12 @@
  * Computes basic attack power per battle phase, applies the soft damage cap
  * and post-cap attack type modifiers.
  *
- * Formulas (2021+ caps):
- *   昼砲撃(水上艦):   基本攻撃力 = 火力 + 5
- *   昼砲撃(空母):     基本攻撃力 = ⌊(火力 + 雷装 + ⌊1.3×爆装⌋) × 1.5⌋ + 55
- *   雷撃:             基本攻撃力 = 雷装 + 5
- *   夜戦:             基本攻撃力 = 火力 + 雷装
+ * Formulas (2021+ caps; 改修 = equipment improvement bonus, see
+ * improvement_bonus.ts):
+ *   昼砲撃(水上艦):   基本攻撃力 = 火力 + 改修 + 5
+ *   昼砲撃(空母):     基本攻撃力 = ⌊(火力 + 雷装 + ⌊1.3×爆装⌋ + 改修) × 1.5⌋ + 55
+ *   雷撃:             基本攻撃力 = 雷装 + 改修 + 5
+ *   夜戦:             基本攻撃力 = 火力 + 雷装 + 改修
  *
  *   キャップ後攻撃力 = cap + √(基本攻撃力 - cap)   (基本攻撃力 > cap 时)
  *   クリティカル     = ⌊攻撃力 × 1.5⌋
@@ -57,9 +58,10 @@ export function criticalPower(finalPower: number): number {
 /**
  * Day shelling basic power for surface ships.
  * @param firepower displayed firepower (incl. equipment)
+ * @param improvement 改修強化値 (dayImprovementBonus)
  */
-export function daySurfaceBasePower(firepower: number): number {
-  return firepower + 5;
+export function daySurfaceBasePower(firepower: number, improvement: number = 0): number {
+  return firepower + improvement + 5;
 }
 
 /**
@@ -68,24 +70,27 @@ export function daySurfaceBasePower(firepower: number): number {
  * @param torpedo equipment torpedo stat total (displayed 雷装 works: carrier
  *                base 雷装 is 0, so displayed value equals equipment total)
  * @param bomb equipment bomb stat total (爆装)
+ * @param improvement 改修強化値 (carrierDayImprovementBonus, ×1.5 の括弧内に加算)
  */
-export function dayCarrierBasePower(firepower: number, torpedo: number, bomb: number): number {
-  return Math.floor((firepower + torpedo + Math.floor(1.3 * bomb)) * 1.5) + 55;
+export function dayCarrierBasePower(firepower: number, torpedo: number, bomb: number, improvement: number = 0): number {
+  return Math.floor((firepower + torpedo + Math.floor(1.3 * bomb) + improvement) * 1.5) + 55;
 }
 
 /**
  * Torpedo phase basic power.
  * @param torpedo displayed torpedo stat (incl. equipment)
+ * @param improvement 改修強化値 (torpedoImprovementBonus)
  */
-export function torpedoBasePower(torpedo: number): number {
-  return torpedo + 5;
+export function torpedoBasePower(torpedo: number, improvement: number = 0): number {
+  return torpedo + improvement + 5;
 }
 
 /**
  * Night battle basic power for surface ships (and the panel's estimate for
  * night-capable carriers; the exact carrier night formula needs per-plane
  * night stats which are not tracked).
+ * @param improvement 改修強化値 (nightImprovementBonus)
  */
-export function nightBasePower(firepower: number, torpedo: number): number {
-  return firepower + torpedo;
+export function nightBasePower(firepower: number, torpedo: number, improvement: number = 0): number {
+  return firepower + torpedo + improvement;
 }

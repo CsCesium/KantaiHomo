@@ -54,6 +54,8 @@ export interface ScenarioEquip {
   bomb: number;
   /** 索敵 (api_saku) */
   los: number;
+  /** 改修度 (api_level, ★0..10) */
+  level: number;
   /** Carried aircraft count for this slot (0 = not embarked) */
   onslot: number;
 }
