@@ -652,7 +652,7 @@ export default struct FloatOverlayPanel {
       .height(PanelDimens.tabBarH - 4)
       .backgroundColor(PanelColors.bgTabs)
       .scrollable(ScrollDirection.Horizontal)
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.None)
 
       // Content area: map gauges, quests, or ship list — must stack from top, not center

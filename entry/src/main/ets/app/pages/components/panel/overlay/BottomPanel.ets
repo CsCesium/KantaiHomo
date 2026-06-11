@@ -431,7 +431,7 @@ export default struct BottomPanel {
     .height(PanelDimens.tabBarH)
     .backgroundColor(PanelColors.bgTabs)
     .scrollable(ScrollDirection.Horizontal)
-    .scrollBar(BarState.Auto)
+    .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.None)
   }
 
