@@ -24,7 +24,7 @@ export function rangeLabel(range: number): string {
     case 1: return '短';
     case 2: return '中';
     case 3: return '长';
-    case 4: return '超长';
+    case 4: return '超';
     case 5: return '超长+';
     default: return '';
   }
