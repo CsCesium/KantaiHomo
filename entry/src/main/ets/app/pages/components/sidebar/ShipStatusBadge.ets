@@ -53,6 +53,7 @@ export default struct ShipStatusBadge {
   @Param totalHeight: number = 48;
   @Param totalWidth: number = 60;
   @Param showAvatar: boolean = true;
+  @Param showResupplyAlert: boolean = true;
   @Local private failedAvatarUrl: string = '';
 
   // Canvas 渲染上下文，在整个组件生命周期内复用
@@ -226,8 +227,8 @@ export default struct ShipStatusBadge {
   @Builder
   private statusPanel(): void {
     Column({ space: 3 }) {
-      // 补给不足图标（仅在需要补给时显示）
-      if (this.ship.needsResupply) {
+      // 补给不足图标（仅在 sidebar 允许提示且需要补给时显示）
+      if (this.showResupplyAlert && this.ship.needsResupply) {
         Text('⚠')
           .fontSize(10)
           .fontColor('#FF9F43')

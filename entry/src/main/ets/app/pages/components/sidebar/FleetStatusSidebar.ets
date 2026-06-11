@@ -55,6 +55,8 @@ export default struct FleetStatusSidebar {
   @Local private showingEscort: boolean = false;
   /** 当前是否处于联合舰队出击状态 */
   @Local private isCombined: boolean = false;
+  /** 当前是否处于出击上下文内；出击中不显示补给提示 */
+  @Local private inSortie: boolean = false;
 
   private unsubscribe: (() => void) | null = null;
 
@@ -77,6 +79,7 @@ export default struct FleetStatusSidebar {
   /** 刷新舰队条目（仅显示 GameState 中的真实 HP） */
   private refreshEntries(): void {
     const ctx = getSortieContext();
+    this.inSortie = ctx !== null;
     const combined = ctx !== null && ctx.combinedType > 0;
     this.isCombined = combined;
 
@@ -119,6 +122,7 @@ export default struct FleetStatusSidebar {
               totalWidth: this.sidebarWidth,
               totalHeight: this.sidebarWidth,
               showAvatar: this.showAvatar,
+              showResupplyAlert: !this.inSortie,
             })
               .layoutWeight(1)
           },

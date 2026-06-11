@@ -134,6 +134,9 @@ class SortieHandler implements Handler {
       combinedType,
       actualFleetSnapshotEscort
     );
+    // SORTIE_START may not otherwise mutate GameState. Notify sidebar subscribers
+    // after the context is set so sortie-only display state updates immediately.
+    clearBattleState();
 
     // 3. 捕获基地航空队快照（仅出击/防空状态的基地）
     const airBases = captureLbasSnapshot();
