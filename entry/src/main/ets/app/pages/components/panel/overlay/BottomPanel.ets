@@ -409,8 +409,8 @@ export default struct BottomPanel {
 
   private fleetTabState(idx: number): FleetIconState {
     if (this.isFleetUnavailable(idx)) return 'unavaliable';
-    if (this.isFleetOnExpedition(idx)) return 'exped';
     if (this.activeFleet === idx) return 'selected';
+    if (this.isFleetOnExpedition(idx)) return 'exped';
     return 'idle';
   }
 
