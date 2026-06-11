@@ -45,6 +45,11 @@ const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
 const RESOURCE_BAR_NARROW_H = 36;
 
+interface FleetTpCalcValues {
+  s: number;
+  a: number;
+}
+
 // ArkUI ForEach 在 key 不变时会复用旧子组件且不重新下发 @Param，所以仅
 // 用 uid 作 key 时，HP/cond/补给/装备变化都不会触发 ShipRow 重渲（这
 // 也是回港 / 战斗结算后面板信息偶发不刷新的根因）。把所有会影响显示
@@ -236,6 +241,7 @@ export default struct FloatOverlayPanel {
   @Local showAvatar: boolean = true;
 
   private unsubscribe: (() => void) | null = null;
+  private calcStatsSeq: number = 0;
 
   aboutToAppear(): void {
     this.refreshSettings();
@@ -319,35 +325,66 @@ export default struct FloatOverlayPanel {
     }
   }
 
-  private async loadCalcStats(): Promise<void> {
-    if (this.activeFleet >= 4) {
-      this.airPower = 0;
-      this.fleetLoS = 0;
-      this.fleetTpS = 0;
-      this.fleetTpA = 0;
-      return;
-    }
-    const deckId = this.activeFleet + 1;
+  private resetCalcStats(): void {
+    this.airPower = 0;
+    this.fleetLoS = 0;
+    this.fleetTpS = 0;
+    this.fleetTpA = 0;
+  }
+
+  private async calcAirPowerValue(deckId: number): Promise<number> {
     try {
       const fpResult = await getFleetFighterPower(deckId);
-      this.airPower = fpResult?.totalFighterPower ?? 0;
+      return fpResult?.totalFighterPower ?? 0;
     } catch (_e) {
-      this.airPower = 0;
+      return 0;
     }
+  }
+
+  private async calcFleetLoSValue(deckId: number): Promise<number> {
     try {
       const losResult = await calcSingleFleetLoS(deckId, 1);
-      this.fleetLoS = losResult?.losScore ?? 0;
+      return losResult?.losScore ?? 0;
     } catch (_e) {
-      this.fleetLoS = 0;
+      return 0;
     }
+  }
+
+  private async calcFleetTpValues(deckId: number): Promise<FleetTpCalcValues> {
     try {
       const tpResult = await getFleetTP(deckId);
-      this.fleetTpS = tpResult?.baseTP ?? 0;
-      this.fleetTpA = tpResult?.aVictoryTP ?? 0;
+      return {
+        s: tpResult?.baseTP ?? 0,
+        a: tpResult?.aVictoryTP ?? 0,
+      };
     } catch (_e) {
-      this.fleetTpS = 0;
-      this.fleetTpA = 0;
+      return { s: 0, a: 0 };
     }
+  }
+
+  private async loadCalcStats(): Promise<void> {
+    const seq = ++this.calcStatsSeq;
+    if (this.activeFleet >= 4) {
+      this.resetCalcStats();
+      return;
+    }
+
+    const deckId = this.activeFleet + 1;
+    const airPowerPromise = this.calcAirPowerValue(deckId);
+    const fleetLoSPromise = this.calcFleetLoSValue(deckId);
+    const fleetTpPromise = this.calcFleetTpValues(deckId);
+
+    const nextAirPower = await airPowerPromise;
+    const nextFleetLoS = await fleetLoSPromise;
+    const nextFleetTp = await fleetTpPromise;
+
+    if (seq !== this.calcStatsSeq || this.activeFleet >= 4 || this.activeFleet + 1 !== deckId) {
+      return;
+    }
+    this.airPower = nextAirPower;
+    this.fleetLoS = nextFleetLoS;
+    this.fleetTpS = nextFleetTp.s;
+    this.fleetTpA = nextFleetTp.a;
   }
 
   private selectFleet(idx: number): void {
