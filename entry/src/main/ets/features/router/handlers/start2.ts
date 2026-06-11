@@ -215,6 +215,9 @@ class Start2Handler implements Handler {
       hit: r.api_houm ?? 0,
       evasion: r.api_houk ?? 0,
       distance: r.api_distance ?? 0,
+      fire: r.api_houg ?? 0,
+      torp: r.api_raig ?? 0,
+      bomb: r.api_baku ?? 0,
       name: r.api_name ?? '',
     }));
     updateSlotItemEquipTypes(equipTypeItems);

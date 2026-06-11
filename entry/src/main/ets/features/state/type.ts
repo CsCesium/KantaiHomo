@@ -123,6 +123,12 @@ export interface ShipState {
   scoutCur: number;
   /** 当前显示对潜值（含装备加成，来自 api_taisen[0]） */
   aswCur: number;
+  /** 当前显示火力值（含装备加成，来自 api_karyoku[0]） */
+  fireCur: number;
+  /** 当前显示雷装值（含装备加成，来自 api_raisou[0]） */
+  torpCur: number;
+  /** 当前显示运值（来自 api_lucky[0]） */
+  luckCur: number;
   /** 速力（api_soku：0=陸上、5=低速、10=高速、15=高速+、20=最速） */
   speed: number;
   /** 射程（api_leng：0=无、1=短、2=中、3=长、4=超长、5=超长+） */
@@ -203,6 +209,12 @@ export interface GameState {
   slotItemEvasion: Map<number, number>;
   /** 装备图鉴 航程（slotitem masterId → api_distance） */
   slotItemDistance: Map<number, number>;
+  /** 装备图鉴 火力（slotitem masterId → api_houg，攻击力计算用） */
+  slotItemFire: Map<number, number>;
+  /** 装备图鉴 雷装（slotitem masterId → api_raig，攻击力计算用） */
+  slotItemTorp: Map<number, number>;
+  /** 装备图鉴 爆装（slotitem masterId → api_baku，攻击力计算用） */
+  slotItemBomb: Map<number, number>;
   /** 装备图鉴名称（slotitem masterId → api_name） */
   slotItemNames: Map<number, string>;
   /** 道具图鉴名称（useitem id → api_name） */

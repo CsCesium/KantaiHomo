@@ -124,6 +124,9 @@ class GameStateManager {
     slotItemHit: new Map(),
     slotItemEvasion: new Map(),
     slotItemDistance: new Map(),
+    slotItemFire: new Map(),
+    slotItemTorp: new Map(),
+    slotItemBomb: new Map(),
     slotItemNames: new Map(),
     useItemMasterNames: new Map(),
     slotItemIndex: new Map(),
@@ -552,6 +555,9 @@ class GameStateManager {
       exSlot,
       scoutCur: ship.stats?.scout?.current ?? 0,
       aswCur: ship.stats?.asw?.current ?? 0,
+      fireCur: ship.stats?.firepower?.current ?? 0,
+      torpCur: ship.stats?.torpedo?.current ?? 0,
+      luckCur: ship.stats?.luck?.current ?? 0,
       speed: ship.speed ?? 0,
       range: ship.range ?? 0,
       hpPercent,
@@ -1294,6 +1300,9 @@ class GameStateManager {
       slotItemHit: new Map(),
       slotItemEvasion: new Map(),
       slotItemDistance: new Map(),
+      slotItemFire: new Map(),
+      slotItemTorp: new Map(),
+      slotItemBomb: new Map(),
       slotItemNames: new Map(),
       useItemMasterNames: new Map(),
       slotItemIndex: new Map(),
@@ -1359,6 +1368,9 @@ class GameStateManager {
     los?: number;
     aa?: number;
     asw?: number;
+    fire?: number;
+    torp?: number;
+    bomb?: number;
     hit?: number;
     evasion?: number;
     distance?: number;
@@ -1375,6 +1387,15 @@ class GameStateManager {
       }
       if (item.asw !== undefined) {
         this.state.slotItemAsw.set(item.id, item.asw);
+      }
+      if (item.fire !== undefined) {
+        this.state.slotItemFire.set(item.id, item.fire);
+      }
+      if (item.torp !== undefined) {
+        this.state.slotItemTorp.set(item.id, item.torp);
+      }
+      if (item.bomb !== undefined) {
+        this.state.slotItemBomb.set(item.id, item.bomb);
       }
       if (item.hit !== undefined) {
         this.state.slotItemHit.set(item.id, item.hit);
