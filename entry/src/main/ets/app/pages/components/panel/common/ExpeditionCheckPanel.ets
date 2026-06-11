@@ -16,10 +16,28 @@ import {
 import type {
   ExpeditionRequirement,
   ExpeditionCheckResult,
+  ExpeditionCheckItem,
+  ExpeditionSchemeCheck,
 } from '../../../../../features/expedition/expeditionCheck';
 
 const EXPEDITION_REQ_RAWFILE = 'data/expedition_req.json';
 const CHECK_DECK_IDS: number[] = [2, 3, 4];
+
+// 三态配色：红=必定失败/条件不满足，绿=普通成功，金=必定大成功
+const BADGE_BG_FAIL = '#4a2228';
+const BADGE_FG_FAIL = '#ff9f9f';
+const BADGE_BG_PASS = '#173f2a';
+const BADGE_FG_PASS = '#b7f7c8';
+const BADGE_BG_GOLD = '#3c3520';
+const BADGE_FG_GOLD = '#ffd86b';
+
+const CHECK_OK_COLOR = '#5fd08a';
+const CHECK_FAIL_COLOR = '#ff6f78';
+const BANNER_PASS_BG = '#1f6b3a';
+const BANNER_FAIL_BG = '#c4404a';
+const BANNER_GOLD_BG = '#8a6c1c';
+const BANNER_NEUTRAL_BG = '#3a4060';
+const SCHEME_CHIP_BG = '#2a2e44';
 
 interface AreaFilterDef {
   area: number;
@@ -49,6 +67,8 @@ export default struct ExpeditionCheckPanel {
   @Local private activeArea: number = 0;
   @Local private loadError: string = '';
   @Local private stateVersion: number = 0;
+  @Local private detailReq: ExpeditionRequirement | null = null;
+  @Local private detailDeckId: number = 0;
 
   private unsubscribe: (() => void) | null = null;
 
@@ -106,9 +126,15 @@ export default struct ExpeditionCheckPanel {
   private deckBadgeText(req: ExpeditionRequirement, deckId: number): string {
     const result = this.check(req, deckId);
     if (!result.ok) {
-      return `D${deckId} ${this.missingText(result)}`;
+      return this.missingText(result);
     }
-    return `D${deckId} 大成${formatBigSuccessRate(result.bigSuccess.rate)}`;
+    if (result.bigSuccess.ok) {
+      return '必大成';
+    }
+    if (result.bigSuccess.rate > 0) {
+      return `大成${formatBigSuccessRate(result.bigSuccess.rate)}`;
+    }
+    return '可成功';
   }
 
   private deckBadgeNote(req: ExpeditionRequirement, deckId: number): string {
@@ -119,14 +145,14 @@ export default struct ExpeditionCheckPanel {
 
   private deckBadgeBg(req: ExpeditionRequirement, deckId: number): string {
     const result = this.check(req, deckId);
-    if (!result.ok) return '#4a2228';
-    return result.bigSuccess.ok ? '#173f2a' : '#3c3520';
+    if (!result.ok) return BADGE_BG_FAIL;
+    return result.bigSuccess.ok ? BADGE_BG_GOLD : BADGE_BG_PASS;
   }
 
   private deckBadgeFg(req: ExpeditionRequirement, deckId: number): string {
     const result = this.check(req, deckId);
-    if (!result.ok) return '#ff9f9f';
-    return result.bigSuccess.ok ? '#b7f7c8' : '#ffd86b';
+    if (!result.ok) return BADGE_FG_FAIL;
+    return result.bigSuccess.ok ? BADGE_FG_GOLD : BADGE_FG_PASS;
   }
 
   @Builder private AreaChip(filter: AreaFilterDef): void {
@@ -191,6 +217,10 @@ export default struct ExpeditionCheckPanel {
     .alignItems(HorizontalAlign.Center)
     .backgroundColor(this.deckBadgeBg(req, deckId))
     .borderRadius(PanelDimens.radius)
+    .onClick(() => {
+      this.detailReq = req;
+      this.detailDeckId = deckId;
+    })
   }
 
   @Builder private MissionRow(req: ExpeditionRequirement): void {
@@ -239,6 +269,166 @@ export default struct ExpeditionCheckPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
+  @Builder private DetailHeader(req: ExpeditionRequirement): void {
+    Row({ space: 6 }) {
+      Text('‹ 返回')
+        .fontSize(PanelDimens.fontLg)
+        .fontColor(PanelColors.txtTabOn)
+        .padding({ left: 8, right: 6, top: 4, bottom: 4 })
+        .onClick(() => {
+          this.detailReq = null;
+          this.detailDeckId = 0;
+        })
+
+      Text(req.code)
+        .fontSize(PanelDimens.fontSm)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#ffffff')
+        .width(this.compact ? 30 : 38)
+        .height(18)
+        .textAlign(TextAlign.Center)
+        .backgroundColor('#36435f')
+        .borderRadius(PanelDimens.radius)
+
+      Text(displayExpeditionName(req))
+        .fontSize(PanelDimens.fontMd)
+        .fontColor(PanelColors.txtPrimary)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .layoutWeight(1)
+
+      Text(`第${this.detailDeckId}舰队`)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.txtMuted)
+        .margin({ right: 8 })
+    }
+    .width('100%')
+    .height(28)
+    .alignItems(VerticalAlign.Center)
+    .backgroundColor(PanelColors.bgTabs)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
+  }
+
+  @Builder private SectionBanner(title: string, ok: boolean, bg: string): void {
+    Row({ space: 6 }) {
+      Text(ok ? '☑' : '☐')
+        .fontSize(PanelDimens.fontMd)
+        .fontColor('#ffffff')
+      Text(title)
+        .fontSize(PanelDimens.fontMd)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#ffffff')
+    }
+    .width('100%')
+    .padding({ left: 8, right: 8, top: 6, bottom: 6 })
+    .backgroundColor(bg)
+    .borderRadius(PanelDimens.radius)
+  }
+
+  @Builder private SchemeFlow(item: ExpeditionCheckItem): void {
+    Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+      Text(`${item.label}: `)
+        .fontSize(PanelDimens.fontMd)
+        .fontColor(item.ok ? PanelColors.txtPrimary : BADGE_FG_FAIL)
+        .margin({ top: 2, bottom: 2, right: 2 })
+      ForEach(item.schemes, (scheme: ExpeditionSchemeCheck, idx: number) => {
+        if (idx > 0) {
+          Text('or')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.txtMuted)
+            .margin({ left: 4, right: 4, top: 2, bottom: 2 })
+        }
+        Text(scheme.text)
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(scheme.ok ? CHECK_OK_COLOR : CHECK_FAIL_COLOR)
+          .padding({ left: 5, right: 5, top: 2, bottom: 2 })
+          .backgroundColor(SCHEME_CHIP_BG)
+          .borderRadius(PanelDimens.radius)
+          .margin({ top: 2, bottom: 2 })
+      }, (scheme: ExpeditionSchemeCheck, idx: number) => `scheme-${idx}-${scheme.ok}`)
+    }
+    .layoutWeight(1)
+  }
+
+  @Builder private CheckItemRow(item: ExpeditionCheckItem): void {
+    Row({ space: 6 }) {
+      Text(item.ok ? '☑' : '☐')
+        .fontSize(PanelDimens.fontMd)
+        .fontColor(item.ok ? CHECK_OK_COLOR : CHECK_FAIL_COLOR)
+      if (item.schemes.length > 0) {
+        this.SchemeFlow(item)
+      } else {
+        Text(item.label)
+          .fontSize(PanelDimens.fontMd)
+          .fontColor(item.ok ? PanelColors.txtPrimary : BADGE_FG_FAIL)
+          .layoutWeight(1)
+      }
+    }
+    .width('100%')
+    .padding({ left: 8, right: 8, top: 7, bottom: 7 })
+    .alignItems(VerticalAlign.Top)
+    .backgroundColor(PanelColors.bgSection)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
+  }
+
+  @Builder private DetailBody(result: ExpeditionCheckResult): void {
+    Column({ space: 8 }) {
+      this.SectionBanner(
+        result.ok ? '常规检查: 通过' : '常规检查: 未通过',
+        result.ok,
+        result.ok ? BANNER_PASS_BG : BANNER_FAIL_BG,
+      )
+      Column() {
+        ForEach(result.items, (item: ExpeditionCheckItem) => {
+          this.CheckItemRow(item)
+        }, (item: ExpeditionCheckItem, idx: number) => `chk-${idx}-${item.ok}`)
+      }
+      .width('100%')
+      .borderRadius(PanelDimens.radius)
+      .clip(true)
+
+      this.SectionBanner(
+        result.bigSuccess.ok
+          ? '大成功判定: 必定大成功'
+          : `大成功判定: ${formatBigSuccessRate(result.bigSuccess.rate)}`,
+        result.bigSuccess.ok,
+        result.bigSuccess.ok ? BANNER_GOLD_BG : BANNER_NEUTRAL_BG,
+      )
+      Column() {
+        ForEach(result.bigSuccess.items, (item: ExpeditionCheckItem) => {
+          this.CheckItemRow(item)
+        }, (item: ExpeditionCheckItem, idx: number) => `big-${idx}-${item.ok}`)
+      }
+      .width('100%')
+      .borderRadius(PanelDimens.radius)
+      .clip(true)
+    }
+    .width('100%')
+    .padding(8)
+  }
+
+  @Builder private DetailRoot(req: ExpeditionRequirement): void {
+    Column() {
+      this.DetailHeader(req)
+      Scroll() {
+        Column() {
+          ForEach([this.stateVersion], (_v: number) => {
+            this.DetailBody(this.check(req, this.detailDeckId))
+          }, (v: number) => `detail-${req.id}-${this.detailDeckId}-${v}`)
+        }
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.None)
+    }
+    .width('100%')
+    .layoutWeight(1)
+  }
+
   @Builder private EmptyState(): void {
     Column({ space: 6 }) {
       Text(this.loadError.length > 0 ? '远征数据加载失败' : '无远征数据')
@@ -259,24 +449,28 @@ export default struct ExpeditionCheckPanel {
 
   build() {
     Column() {
-      this.AreaBar()
+      if (this.detailReq !== null) {
+        this.DetailRoot(this.detailReq!)
+      } else {
+        this.AreaBar()
 
-      Scroll() {
-        Column() {
-          if (this.visibleRequirements().length > 0) {
-            ForEach(this.visibleRequirements(), (req: ExpeditionRequirement) => {
-              this.MissionRow(req)
-            }, (req: ExpeditionRequirement) => `exp-${req.id}-${this.stateVersion}`)
-          } else {
-            this.EmptyState()
+        Scroll() {
+          Column() {
+            if (this.visibleRequirements().length > 0) {
+              ForEach(this.visibleRequirements(), (req: ExpeditionRequirement) => {
+                this.MissionRow(req)
+              }, (req: ExpeditionRequirement) => `exp-${req.id}-${this.stateVersion}`)
+            } else {
+              this.EmptyState()
+            }
           }
+          .width('100%')
         }
+        .layoutWeight(1)
         .width('100%')
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.None)
       }
-      .layoutWeight(1)
-      .width('100%')
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.None)
     }
     .width('100%')
     .height('100%')

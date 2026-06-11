@@ -65,18 +65,31 @@ export interface ExpeditionFleetSummary {
   higherLevelThanFlagshipCount: number;
 }
 
+export interface ExpeditionSchemeCheck {
+  text: string;
+  ok: boolean;
+}
+
+export interface ExpeditionCheckItem {
+  label: string;
+  ok: boolean;
+  schemes: ExpeditionSchemeCheck[];
+}
+
 export interface ExpeditionBigSuccessResult {
   kind: string;
   rate: number;
   rawRate: number;
   ok: boolean;
   note: string;
+  items: ExpeditionCheckItem[];
 }
 
 export interface ExpeditionCheckResult {
   deckId: number;
   ok: boolean;
   missing: string[];
+  items: ExpeditionCheckItem[];
   summary: ExpeditionFleetSummary;
   bigSuccess: ExpeditionBigSuccessResult;
 }
@@ -358,18 +371,6 @@ function compositionSchemes(req: ExpeditionRequirement): ExpeditionShiptypeRule[
   return [req.required_shiptypes ?? []];
 }
 
-function compositionMatches(
-  req: ExpeditionRequirement,
-  ships: ReadonlyArray<ShipState>,
-  st: Readonly<GameState>,
-): boolean {
-  const schemes = compositionSchemes(req);
-  for (const scheme of schemes) {
-    if (schemeMatches(scheme, ships, st)) return true;
-  }
-  return false;
-}
-
 function summarizeFleet(deckId: number, st: Readonly<GameState>): ExpeditionFleetSummary {
   const deck = st.decks.find(d => d.deckId === deckId);
   const ships: ShipState[] = deck
@@ -428,7 +429,16 @@ function normalizedRate(score: number): number {
   return Math.round(score / 0.0099) / 100;
 }
 
+function checkItem(label: string, ok: boolean): ExpeditionCheckItem {
+  return { label, ok, schemes: [] };
+}
+
 function evalBigSuccess(req: ExpeditionRequirement, summary: ExpeditionFleetSummary): ExpeditionBigSuccessResult {
+  const sparkleItem = checkItem(
+    `全员闪烁（士气≥${SPARKLE_COND}）：${summary.sparkledCount}/${summary.shipCount}`,
+    summary.allSparkled,
+  );
+
   const overdrum = OVERDRUM_BIG_SUCCESS[req.id];
   if (overdrum !== undefined) {
     let score = 0;
@@ -446,6 +456,10 @@ function evalBigSuccess(req: ExpeditionRequirement, summary: ExpeditionFleetSumm
       rawRate,
       ok: rawRate >= 100,
       note: `鼓${summary.drumCount}/${overdrum.max}`,
+      items: [
+        checkItem(`鼓桶携带数达到${overdrum.max}（当前${summary.drumCount}）`, summary.drumCount >= overdrum.max),
+        sparkleItem,
+      ],
     };
   }
 
@@ -453,32 +467,46 @@ function evalBigSuccess(req: ExpeditionRequirement, summary: ExpeditionFleetSumm
     const score = summary.sparkledCount * 15 + 15
       + Math.floor(Math.sqrt(summary.flagshipLv) + summary.flagshipLv / 10);
     const rawRate = normalizedRate(score);
-    const higherOk = rawRate >= 100 || summary.higherLevelThanFlagshipCount === 0;
+    const higherOk = summary.higherLevelThanFlagshipCount === 0;
     return {
       kind: 'flagship',
       rate: capRate(rawRate),
       rawRate,
       ok: rawRate >= 100 && higherOk,
       note: higherOk ? '旗舰型' : '有高Lv僚舰',
+      items: [
+        sparkleItem,
+        checkItem('无等级高于旗舰的僚舰', higherOk),
+      ],
     };
   }
 
-  const rawRate = summary.allSparkled
-    ? normalizedRate(summary.shipCount * 15 + 20)
-    : 0;
+  // 普通远征：大成功只能由全员闪烁触发，未全闪时大成功率直接归零
+  const guaranteed = summary.shipCount > 0 && summary.allSparkled;
   return {
     kind: 'normal',
-    rate: capRate(rawRate),
-    rawRate,
-    ok: rawRate >= 100,
-    note: summary.allSparkled ? '全闪' : '需全闪',
+    rate: guaranteed ? 100 : 0,
+    rawRate: guaranteed ? 100 : 0,
+    ok: guaranteed,
+    note: guaranteed ? '全闪' : '需全闪',
+    items: [sparkleItem],
   };
 }
 
-function pushMinRequirement(missing: string[], label: string, actual: number, required: number): void {
-  if (required > 0 && actual < required) {
-    missing.push(`${label}${actual}/${required}`);
+function checkMinRequirement(
+  missing: string[],
+  items: ExpeditionCheckItem[],
+  shortLabel: string,
+  verboseLabel: string,
+  actual: number,
+  required: number,
+): void {
+  if (required <= 0) return;
+  const ok = actual >= required;
+  if (!ok) {
+    missing.push(`${shortLabel}${actual}/${required}`);
   }
+  items.push(checkItem(`${verboseLabel}至少为${required}（当前${actual}）`, ok));
 }
 
 export function evaluateExpedition(
@@ -495,44 +523,67 @@ export function evaluateExpedition(
     : [];
   const summary = summarizeFleet(deckId, st);
   const missing: string[] = [];
+  const items: ExpeditionCheckItem[] = [];
 
   if (!deck || ships.length === 0) {
     missing.push('无舰队');
+    items.push(checkItem('舰队编入舰娘', false));
   }
 
-  pushMinRequirement(missing, '舰数', summary.shipCount, req.ship_count);
-  pushMinRequirement(missing, '旗Lv', summary.flagshipLv, req.flagship_lv);
-  pushMinRequirement(missing, '总Lv', summary.levelSum, req.fleet_lv);
-  pushMinRequirement(missing, '鼓舰', summary.drumCarrierCount, req.drum_ship_count);
-  pushMinRequirement(missing, '鼓桶', summary.drumCount, req.drum_count);
+  checkMinRequirement(missing, items, '旗Lv', '旗舰等级', summary.flagshipLv, req.flagship_lv);
+  checkMinRequirement(missing, items, '舰数', '舰娘数', summary.shipCount, req.ship_count);
+  checkMinRequirement(missing, items, '总Lv', '舰队总等级', summary.levelSum, req.fleet_lv);
 
-  if (req.flagship_shiptype > 0 && ships.length > 0 && !shipMatchesType(ships[0], req.flagship_shiptype, st)) {
-    missing.push(`旗舰${shiptypeLabel(req.flagship_shiptype)}`);
+  if (req.flagship_shiptype > 0) {
+    const flagshipOk = ships.length > 0 && shipMatchesType(ships[0], req.flagship_shiptype, st);
+    if (!flagshipOk) {
+      missing.push(`旗舰${shiptypeLabel(req.flagship_shiptype)}`);
+    }
+    items.push(checkItem(`旗舰为${shiptypeLabel(req.flagship_shiptype)}`, flagshipOk));
   }
 
-  if ((req.required_shiptypes?.length ?? 0) > 0 && !compositionMatches(req, ships, st)) {
-    missing.push(`编成${formatShiptypeRules(req.required_shiptypes)}`);
+  const schemes = compositionSchemes(req).filter(scheme => scheme.length > 0);
+  if (schemes.length > 0) {
+    const schemeChecks: ExpeditionSchemeCheck[] = schemes.map((scheme): ExpeditionSchemeCheck => ({
+      text: formatShiptypeRules(scheme),
+      ok: schemeMatches(scheme, ships, st),
+    }));
+    const compositionOk = schemeChecks.some(check => check.ok);
+    if (!compositionOk) {
+      const shortRules = (req.required_shiptypes?.length ?? 0) > 0 ? req.required_shiptypes : schemes[0];
+      missing.push(`编成${formatShiptypeRules(shortRules)}`);
+    }
+    items.push({ label: '舰队构成', ok: compositionOk, schemes: schemeChecks });
   }
+
+  checkMinRequirement(missing, items, '鼓舰', '携带鼓桶的舰娘数', summary.drumCarrierCount, req.drum_ship_count);
+  checkMinRequirement(missing, items, '鼓桶', '鼓桶总数', summary.drumCount, req.drum_count);
 
   const extra = req.required_extra ?? {};
-  pushMinRequirement(missing, '火力', summary.firepower, extra.firepower ?? 0);
-  pushMinRequirement(missing, '对空', summary.aa, extra.aa ?? 0);
-  pushMinRequirement(missing, '对潜', summary.asw, extra.asw ?? 0);
-  pushMinRequirement(missing, '索敌', summary.los, extra.los ?? 0);
+  checkMinRequirement(missing, items, '火力', '舰队火力', summary.firepower, extra.firepower ?? 0);
+  checkMinRequirement(missing, items, '对空', '舰队对空', summary.aa, extra.aa ?? 0);
+  checkMinRequirement(missing, items, '对潜', '舰队对潜', summary.asw, extra.asw ?? 0);
+  checkMinRequirement(missing, items, '索敌', '舰队索敌', summary.los, extra.los ?? 0);
 
   const moraleReq = MORALE_REQUIREMENTS[req.id] ?? 0;
   if (moraleReq > 0) {
     const lowMorale = ships.filter(ship => ship.cond < moraleReq).length;
     if (lowMorale > 0) missing.push(`士气${moraleReq}+`);
+    items.push(checkItem(
+      lowMorale > 0 ? `全员士气至少为${moraleReq}（${lowMorale}舰不足）` : `全员士气至少为${moraleReq}`,
+      lowMorale === 0,
+    ));
   }
 
   const needSupply = ships.filter(ship => ship.needsResupply).length;
   if (needSupply > 0) missing.push(`补给${needSupply}`);
+  items.push(checkItem(needSupply > 0 ? `舰队补给（${needSupply}舰未补给）` : '舰队补给', needSupply === 0));
 
   return {
     deckId,
     ok: missing.length === 0,
     missing,
+    items,
     summary,
     bigSuccess: evalBigSuccess(req, summary),
   };
