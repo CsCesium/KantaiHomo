@@ -9,12 +9,33 @@
  *   api_req_air_corps/supply       — 补充机体
  */
 
-import type { ApiBaseAirCorpsRaw } from '../../../domain/models/api/member';
+import type { ApiBasePlaneRaw } from '../../../domain/models/api/member';
 import type { LbasBase, LbasSquadron } from '../../../domain/models/struct/lbas';
 import type { LbasUpdateEvent, AnyLbasEvt } from '../../../domain/events/lbas';
 import type { ApiDump } from '../../../infra/web/types';
-import { parseSvdata } from '../../utils/common';
+import { parseFormBody, parseSvdata } from '../../utils/common';
 import { detectEndpoint, EndpointRule, mkEvt, ParserCtx } from './common';
+
+interface ApiLbasDistanceProbe {
+  api_base?: number;
+  api_bonus?: number;
+}
+
+interface ApiLbasBaseProbe {
+  api_area_id?: number;
+  api_rid?: number;
+  api_base_id?: number;
+  api_name?: string;
+  api_distance?: ApiLbasDistanceProbe;
+  api_action_kind?: number;
+  api_plane_info?: ApiBasePlaneRaw[];
+}
+
+type ApiLbasDataProbe = ApiLbasBaseProbe | ApiLbasBaseProbe[] | null | undefined;
+
+interface ApiLbasRootProbe extends ApiLbasBaseProbe {
+  api_data?: ApiLbasDataProbe;
+}
 
 // ==================== 端点规则 ====================
 
@@ -47,7 +68,7 @@ export function isLbasUrl(url: string): boolean {
 
 // ==================== 规范化 ====================
 
-function normalizeSquadron(p: ApiBaseAirCorpsRaw['api_plane_info'][number]): LbasSquadron {
+function normalizeSquadron(p: ApiBasePlaneRaw): LbasSquadron {
   return {
     squadronId: p.api_squadron_id,
     state:      p.api_state,
@@ -58,14 +79,23 @@ function normalizeSquadron(p: ApiBaseAirCorpsRaw['api_plane_info'][number]): Lba
   };
 }
 
-function normalizeBase(raw: ApiBaseAirCorpsRaw): LbasBase {
+function normalizeBase(
+  raw: ApiLbasBaseProbe,
+  fallbackAreaId: number = 0,
+  fallbackBaseId: number = 0,
+  fallbackActionKind: number = -1,
+): LbasBase | null {
+  const areaId = raw.api_area_id ?? fallbackAreaId;
+  const baseId = raw.api_rid ?? raw.api_base_id ?? fallbackBaseId;
+  if (areaId <= 0 || baseId <= 0) return null;
+
   return {
-    baseId:        raw.api_rid,
-    areaId:        raw.api_area_id,
-    name:          raw.api_name,
-    distanceBase:  raw.api_distance.api_base,
-    distanceBonus: raw.api_distance.api_bonus,
-    actionKind:    raw.api_action_kind,
+    baseId,
+    areaId,
+    name:          raw.api_name ?? '',
+    distanceBase:  raw.api_distance?.api_base ?? -1,
+    distanceBonus: raw.api_distance?.api_bonus ?? -1,
+    actionKind:    raw.api_action_kind ?? fallbackActionKind,
     squadrons:     (raw.api_plane_info ?? []).map(normalizeSquadron),
   };
 }
@@ -77,21 +107,81 @@ function normalizeBase(raw: ApiBaseAirCorpsRaw): LbasBase {
  *   - ApiBaseAirCorpsRaw         (单基地操作响应)
  *   - null / undefined           (仅返回 api_result 的操作)
  */
-function extractBases(apiData: unknown): LbasBase[] {
+function extractBases(
+  apiData: ApiLbasDataProbe,
+  fallbackAreaId: number = 0,
+  fallbackBaseId: number = 0,
+  fallbackActionKind: number = -1,
+): LbasBase[] {
   if (!apiData) return [];
 
   if (Array.isArray(apiData)) {
-    return (apiData as ApiBaseAirCorpsRaw[])
-      .filter(d => d && typeof d.api_rid === 'number')
-      .map(normalizeBase);
+    const bases: LbasBase[] = [];
+    for (const data of apiData) {
+      const base = normalizeBase(data, fallbackAreaId, fallbackBaseId, fallbackActionKind);
+      if (base) bases.push(base);
+    }
+    return bases;
   }
 
-  const d = apiData as ApiBaseAirCorpsRaw;
-  if (typeof d.api_rid === 'number') {
-    return [normalizeBase(d)];
+  const base = normalizeBase(apiData, fallbackAreaId, fallbackBaseId, fallbackActionKind);
+  return base ? [base] : [];
+}
+
+function responseApiData(root: ApiLbasRootProbe | ApiLbasBaseProbe[] | null): ApiLbasDataProbe {
+  if (!root) return null;
+  if (Array.isArray(root)) return root;
+  return root.api_data !== undefined ? root.api_data : root;
+}
+
+function parseNumberList(raw: string): number[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((part: string): number => parseInt(part.trim(), 10))
+    .filter((value: number): boolean => Number.isFinite(value));
+}
+
+function basesFromSetActionRequest(dump: ApiDump): LbasBase[] {
+  const params = parseFormBody(dump.requestBody);
+  const areaId = params.getInt('api_area_id', 0);
+  if (areaId <= 0) return [];
+
+  const baseIds = parseNumberList(params.getString('api_base_id', ''));
+  const actionKinds = parseNumberList(params.getString('api_action_kind', ''));
+  const bases: LbasBase[] = [];
+  for (let i = 0; i < baseIds.length; i++) {
+    const baseId = baseIds[i];
+    if (baseId <= 0) continue;
+    bases.push({
+      areaId,
+      baseId,
+      name: '',
+      distanceBase: -1,
+      distanceBonus: -1,
+      actionKind: actionKinds[i] ?? actionKinds[0] ?? -1,
+      squadrons: [],
+    });
+  }
+  return bases;
+}
+
+function extractBasesForEndpoint(endpoint: string, dump: ApiDump, apiData: ApiLbasDataProbe): LbasBase[] {
+  if (endpoint === '/api_req_air_corps/set_action') {
+    return basesFromSetActionRequest(dump);
   }
 
-  return [];
+  if (endpoint === '/api_req_air_corps/set_plane' || endpoint === '/api_req_air_corps/supply') {
+    const params = parseFormBody(dump.requestBody);
+    return extractBases(
+      apiData,
+      params.getInt('api_area_id', 0),
+      params.getInt('api_base_id', 0),
+      -1,
+    );
+  }
+
+  return extractBases(apiData);
 }
 
 // ==================== 主入口 ====================
@@ -100,11 +190,11 @@ export function parseLbas(dump: ApiDump): AnyLbasEvt[] | null {
   const endpoint = detectEndpoint(dump.url, RULES);
   if (!endpoint) return null;
 
-  const root = parseSvdata<Record<string, unknown>>(dump.responseText);
+  const root = parseSvdata<ApiLbasRootProbe | ApiLbasBaseProbe[]>(dump.responseText);
   if (!root) return null;
 
-  const apiData = root.api_data ?? root;
-  const bases = extractBases(apiData);
+  const apiData = responseApiData(root);
+  const bases = extractBasesForEndpoint(endpoint, dump, apiData);
   if (bases.length === 0) return null;
 
   const ctx: ParserCtx = {

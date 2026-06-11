@@ -1,7 +1,7 @@
 
 // ==================== 状态管理类 ====================
 import { Admiral, Materials, Deck, Ship, Ndock, Kdock, Quest } from "../../domain/models";
-import type { LbasBase } from '../../domain/models/struct/lbas';
+import type { LbasBase, LbasSquadron } from '../../domain/models/struct/lbas';
 import type { MapResourceGain } from '../../domain/models/struct/map';
 import { kvSet } from "../../infra/storage/kv";
 import {
@@ -1131,6 +1131,39 @@ class GameStateManager {
 
   // ==================== 基地航空队 ====================
 
+  private mergeLbasSquadrons(existing: LbasSquadron[], incoming: LbasSquadron[]): LbasSquadron[] {
+    if (incoming.length === 0) {
+      return existing.slice();
+    }
+    if (existing.length === 0 || incoming.length >= existing.length) {
+      return incoming.slice().sort((a, b) => a.squadronId - b.squadronId);
+    }
+
+    const merged = existing.slice();
+    for (const sq of incoming) {
+      const idx = merged.findIndex(item => item.squadronId === sq.squadronId);
+      if (idx >= 0) {
+        merged[idx] = sq;
+      } else {
+        merged.push(sq);
+      }
+    }
+    return merged.sort((a, b) => a.squadronId - b.squadronId);
+  }
+
+  private mergeLbasBase(existing: LbasBase, incoming: LbasBase): LbasBase {
+    const hasIncomingDistance = incoming.distanceBase >= 0 && incoming.distanceBonus >= 0;
+    return {
+      baseId: incoming.baseId > 0 ? incoming.baseId : existing.baseId,
+      areaId: incoming.areaId > 0 ? incoming.areaId : existing.areaId,
+      name: incoming.name || existing.name,
+      distanceBase: hasIncomingDistance ? incoming.distanceBase : existing.distanceBase,
+      distanceBonus: hasIncomingDistance ? incoming.distanceBonus : existing.distanceBonus,
+      actionKind: incoming.actionKind >= 0 ? incoming.actionKind : existing.actionKind,
+      squadrons: this.mergeLbasSquadrons(existing.squadrons, incoming.squadrons),
+    };
+  }
+
   /**
    * 更新基地航空队状态。
    * 若 bases 包含所有已知基地，全量替换；
@@ -1145,18 +1178,23 @@ class GameStateManager {
     }
 
     if (this.state.lbases.length === 0) {
-      this.state.lbases = [...bases];
+      this.state.lbases = [...bases].sort((a, b) => a.areaId - b.areaId || a.baseId - b.baseId);
     } else {
       const updated = [...this.state.lbases];
       for (const b of bases) {
-        const idx = updated.findIndex(e => e.baseId === b.baseId);
+        const idx = updated.findIndex(e => {
+          if (e.areaId > 0 && b.areaId > 0) {
+            return e.areaId === b.areaId && e.baseId === b.baseId;
+          }
+          return e.baseId === b.baseId;
+        });
         if (idx >= 0) {
-          updated[idx] = b;
+          updated[idx] = this.mergeLbasBase(updated[idx], b);
         } else {
           updated.push(b);
         }
       }
-      this.state.lbases = updated;
+      this.state.lbases = updated.sort((a, b) => a.areaId - b.areaId || a.baseId - b.baseId);
     }
 
     this.state.lastUpdatedAt = Date.now();

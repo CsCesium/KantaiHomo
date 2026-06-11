@@ -22,6 +22,28 @@ import EquipSlot from '../bottom/rows/EquipSlot';
 
 const LBAS_EQUIP_SLOT_GAP = 3;
 
+function lbasSquadronKey(squadron: LbasSquadron): string {
+  const st = getGameState().getState();
+  const masterId = squadron.slotId > 0 ? (st.slotItemIndex.get(squadron.slotId) ?? 0) : 0;
+  const iconType = masterId > 0 ? (st.slotItemIconTypes.get(masterId) ?? 0) : 0;
+  const equipType = masterId > 0 ? (st.slotItemEquipTypes.get(masterId) ?? 0) : 0;
+  const level = squadron.slotId > 0 ? (st.slotItemLevels.get(squadron.slotId) ?? 0) : 0;
+  const alv = squadron.slotId > 0 ? (st.slotItemAlvs.get(squadron.slotId) ?? 0) : 0;
+  return [
+    squadron.squadronId,
+    squadron.state,
+    squadron.slotId,
+    masterId,
+    iconType,
+    equipType,
+    squadron.count,
+    squadron.maxCount,
+    squadron.cond,
+    level,
+    alv,
+  ].join('-');
+}
+
 function lbasRowKey(base: LbasBase): string {
   return [
     base.areaId,
@@ -30,7 +52,7 @@ function lbasRowKey(base: LbasBase): string {
     base.distanceBase,
     base.distanceBonus,
     base.squadrons.map((sq: LbasSquadron): string => {
-      return `${sq.squadronId}-${sq.state}-${sq.slotId}-${sq.count}-${sq.maxCount}-${sq.cond}`;
+      return lbasSquadronKey(sq);
     }).join('|'),
   ].join('_');
 }
@@ -89,13 +111,17 @@ export default struct LbasPanel {
   @Local detailUid: number = 0;
 
   private visibleBases(): LbasBase[] {
-    const areaId = this.currentAreaId > 0
+    const activeAreaId = this.currentAreaId > 0 &&
+      this.bases.some((base: LbasBase): boolean => base.areaId === this.currentAreaId)
       ? this.currentAreaId
-      : (this.bases.length > 0 ? this.bases[0].areaId : 0);
-    const filtered = areaId > 0
-      ? this.bases.filter((base: LbasBase): boolean => base.areaId === areaId)
-      : this.bases;
-    return filtered.slice().sort((a: LbasBase, b: LbasBase): number => a.baseId - b.baseId);
+      : 0;
+    return this.bases.slice().sort((a: LbasBase, b: LbasBase): number => {
+      if (activeAreaId > 0 && a.areaId !== b.areaId) {
+        if (a.areaId === activeAreaId) return -1;
+        if (b.areaId === activeAreaId) return 1;
+      }
+      return a.areaId - b.areaId || a.baseId - b.baseId;
+    });
   }
 
   private masterIdOf(squadron: LbasSquadron): number {
@@ -308,7 +334,7 @@ export default struct LbasPanel {
       Row({ space: LBAS_EQUIP_SLOT_GAP }) {
         ForEach(base.squadrons, (squadron: LbasSquadron) => {
           this.SquadronSlot(squadron)
-        }, (squadron: LbasSquadron) => `lbas-slot-${base.areaId}-${base.baseId}-${squadron.squadronId}-${squadron.slotId}-${squadron.count}-${squadron.maxCount}`)
+        }, (squadron: LbasSquadron) => `lbas-slot-${base.areaId}-${base.baseId}-${lbasSquadronKey(squadron)}`)
       }
       .height(ShipDiems.SHIP_EQUIP_ICON_SIZE)
       .constraintSize({ minWidth: this.squadronSlotWidth(base) })
