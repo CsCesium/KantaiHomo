@@ -1,4 +1,4 @@
-import { ShipItem } from '../../../../../features/panel/type';
+import { PanelPopupStateChangeEvent, ShipItem } from '../../../../../features/panel/type';
 import { PanelColors, PanelDimens, fleetIconPath } from '../../../../../features/panel/panelConfig';
 import type { FleetIconState } from '../../../../../features/panel/panelConfig';
 import {
@@ -18,7 +18,7 @@ import {
 import type { LbasBase } from '../../../../../domain/models/struct/lbas';
 import {
   getFleetFighterPower,
-  calcSingleFleetLoS,
+  getLoSDisplayResult,
   getFleetTP,
 } from '../../../../../features/calc';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../../ability/Entry';
@@ -48,6 +48,15 @@ const RESOURCE_BAR_NARROW_H = 36;
 interface FleetTpCalcValues {
   s: number;
   a: number;
+}
+
+interface FleetLoSCalcValues {
+  score: number;
+  total: number;
+  coeff1: number;
+  coeff2: number;
+  coeff3: number;
+  coeff4: number;
 }
 
 // ArkUI ForEach 在 key 不变时会复用旧子组件且不重新下发 @Param，所以仅
@@ -216,6 +225,11 @@ export default struct FloatOverlayPanel {
   @Local decks: DeckSnapshot[] = [];
   @Local airPower: number = 0;
   @Local fleetLoS: number = 0;
+  @Local fleetLoSTotal: number = 0;
+  @Local fleetLoS33x1: number = 0;
+  @Local fleetLoS33x2: number = 0;
+  @Local fleetLoS33x3: number = 0;
+  @Local fleetLoS33x4: number = 0;
   @Local fleetTpS: number = 0;
   @Local fleetTpA: number = 0;
   @Local fleetSpeed: number = -1;
@@ -233,6 +247,7 @@ export default struct FloatOverlayPanel {
   @Local panelWidth: number = PanelDimens.overlayPanelW;
   /** UID of slot whose detail popup is currently open; 0 = none. EquipSlot 自己加载详情。 */
   @Local detailUid: number = 0;
+  @Local showLoSDetail: boolean = false;
   /** Show kaisyuu (improvement) star badge; mirrors AppStorage setting. */
   @Local showKaisyuu: boolean = true;
   /** Show aircraft proficiency badge; mirrors AppStorage setting. */
@@ -328,8 +343,14 @@ export default struct FloatOverlayPanel {
   private resetCalcStats(): void {
     this.airPower = 0;
     this.fleetLoS = 0;
+    this.fleetLoSTotal = 0;
+    this.fleetLoS33x1 = 0;
+    this.fleetLoS33x2 = 0;
+    this.fleetLoS33x3 = 0;
+    this.fleetLoS33x4 = 0;
     this.fleetTpS = 0;
     this.fleetTpA = 0;
+    this.showLoSDetail = false;
   }
 
   private async calcAirPowerValue(deckId: number): Promise<number> {
@@ -341,12 +362,27 @@ export default struct FloatOverlayPanel {
     }
   }
 
-  private async calcFleetLoSValue(deckId: number): Promise<number> {
+  private calcFleetLoSTotal(deckId: number): number {
+    const ships = getDeckShips(deckId);
+    return ships.reduce((sum: number, ship: ShipState): number => {
+      return sum + Math.max(0, ship.scoutCur || 0);
+    }, 0);
+  }
+
+  private async calcFleetLoSValues(deckId: number): Promise<FleetLoSCalcValues> {
+    const total = this.calcFleetLoSTotal(deckId);
     try {
-      const losResult = await calcSingleFleetLoS(deckId, 1);
-      return losResult?.losScore ?? 0;
+      const losResult = await getLoSDisplayResult(deckId);
+      return {
+        score: losResult?.coeff1 ?? 0,
+        total,
+        coeff1: losResult?.coeff1 ?? 0,
+        coeff2: losResult?.coeff2 ?? 0,
+        coeff3: losResult?.coeff3 ?? 0,
+        coeff4: losResult?.coeff4 ?? 0,
+      };
     } catch (_e) {
-      return 0;
+      return { score: 0, total, coeff1: 0, coeff2: 0, coeff3: 0, coeff4: 0 };
     }
   }
 
@@ -371,7 +407,7 @@ export default struct FloatOverlayPanel {
 
     const deckId = this.activeFleet + 1;
     const airPowerPromise = this.calcAirPowerValue(deckId);
-    const fleetLoSPromise = this.calcFleetLoSValue(deckId);
+    const fleetLoSPromise = this.calcFleetLoSValues(deckId);
     const fleetTpPromise = this.calcFleetTpValues(deckId);
 
     const nextAirPower = await airPowerPromise;
@@ -382,7 +418,12 @@ export default struct FloatOverlayPanel {
       return;
     }
     this.airPower = nextAirPower;
-    this.fleetLoS = nextFleetLoS;
+    this.fleetLoS = nextFleetLoS.score;
+    this.fleetLoSTotal = nextFleetLoS.total;
+    this.fleetLoS33x1 = nextFleetLoS.coeff1;
+    this.fleetLoS33x2 = nextFleetLoS.coeff2;
+    this.fleetLoS33x3 = nextFleetLoS.coeff3;
+    this.fleetLoS33x4 = nextFleetLoS.coeff4;
     this.fleetTpS = nextFleetTp.s;
     this.fleetTpA = nextFleetTp.a;
   }
@@ -582,11 +623,106 @@ export default struct FloatOverlayPanel {
         .fontColor(PanelColors.overlayTxt)
       Text(value())
         .fontSize(PanelDimens.fontSm)
+        .fontWeight(FontWeight.Medium)
         .fontColor(PanelColors.stat)
         .margin({ left: 3 })
     }
-    .height(PanelDimens.statusBarH)
+    .height(15)
+    .padding({ left: 6, right: 6 })
+    .backgroundColor('#66252940')
+    .borderRadius(2)
     .alignItems(VerticalAlign.Center)
+  }
+
+  private formatLoSScore(value: number): string {
+    if (value === 0 || !Number.isFinite(value)) return '--';
+    return value.toFixed(1);
+  }
+
+  private formatLoSTotal(): string {
+    if (this.fleetLoSTotal <= 0 || !Number.isFinite(this.fleetLoSTotal)) return '--';
+    return `${Math.floor(this.fleetLoSTotal)}`;
+  }
+
+  @Builder private LoSDetailValue(label: string, value: number, color: string): void {
+    Row() {
+      Text(label)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.overlayTxt)
+      Text(this.formatLoSScore(value))
+        .fontSize(PanelDimens.fontSm)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(color)
+        .margin({ left: 3 })
+    }
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder private LoSDetailPopup(): void {
+    Column({ space: 5 }) {
+      Row() {
+        Text('索敌总和:')
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(PanelColors.overlayTxt)
+        Text(this.formatLoSTotal())
+          .fontSize(PanelDimens.fontSm)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#ffd86b')
+          .margin({ left: 4 })
+      }
+      .alignItems(VerticalAlign.Center)
+
+      Text('33式')
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.txtPrimary)
+
+      Row({ space: 12 }) {
+        this.LoSDetailValue('x1', this.fleetLoS33x1, '#56d8e0')
+        this.LoSDetailValue('x2', this.fleetLoS33x2, '#b7f7c8')
+      }
+      Row({ space: 12 }) {
+        this.LoSDetailValue('x3', this.fleetLoS33x3, '#ffd86b')
+        this.LoSDetailValue('x4', this.fleetLoS33x4, '#ff9f7a')
+      }
+    }
+    .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+    .backgroundColor('#f01a1d2e')
+    .borderRadius(4)
+    .border({ width: PanelDimens.borderW, color: PanelColors.overlayHdr })
+  }
+
+  @Builder private FleetLoSStat(): void {
+    Row() {
+      Text('索敌')
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.overlayTxt)
+      Text(this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
+        .fontSize(PanelDimens.fontSm)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(PanelColors.stat)
+        .margin({ left: 3 })
+    }
+    .height(15)
+    .padding({ left: 6, right: 6 })
+    .backgroundColor('#66252940')
+    .borderRadius(2)
+    .alignItems(VerticalAlign.Center)
+    .gesture(
+      LongPressGesture({ repeat: false, duration: 400 })
+        .onAction(() => { this.showLoSDetail = true; })
+        .onActionEnd(() => { this.showLoSDetail = false; })
+        .onActionCancel(() => { this.showLoSDetail = false; })
+    )
+    .bindPopup(this.showLoSDetail, {
+      builder: this.LoSDetailPopup,
+      placement: Placement.Top,
+      enableArrow: true,
+      onStateChange: (e: PanelPopupStateChangeEvent) => {
+        if (!e.isVisible) {
+          this.showLoSDetail = false;
+        }
+      },
+    })
   }
 
   @Builder private FleetTabIcon(idx: number): void {
@@ -612,11 +748,11 @@ export default struct FloatOverlayPanel {
       // Single-line fleet stats. Hidden on non-fleet tabs.
       if (this.activeFleet < 4) {
         Scroll() {
-          Row({ space: 10 }) {
+          Row({ space: 6 }) {
             this.FleetStat('制空', (): string => this.airPower > 0 ? `${this.airPower}` : '--')
             this.FleetStat('速度', (): string => formatFleetSpeed(this.fleetSpeed))
-            this.FleetStat('🚚 輸送', (): string => this.fleetTpS > 0 ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}` : '--')
-            this.FleetStat('👁 索敵', (): string => this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
+            this.FleetStat('输送', (): string => this.fleetTpS > 0 ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}` : '--')
+            this.FleetLoSStat()
           }
           .width('100%')
           .constraintSize({ minWidth: OVERLAY_FLEET_STATS_MIN_CONTENT_WIDTH })
