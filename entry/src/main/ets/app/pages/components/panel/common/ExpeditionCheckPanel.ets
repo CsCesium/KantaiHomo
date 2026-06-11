@@ -129,10 +129,10 @@ export default struct ExpeditionCheckPanel {
       return this.missingText(result);
     }
     if (result.bigSuccess.ok) {
-      return '必大成';
+      return '大成功';
     }
     if (result.bigSuccess.rate > 0) {
-      return `大成${formatBigSuccessRate(result.bigSuccess.rate)}`;
+      return `大成功${formatBigSuccessRate(result.bigSuccess.rate)}`;
     }
     return '可成功';
   }
