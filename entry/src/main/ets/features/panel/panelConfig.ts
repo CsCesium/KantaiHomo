@@ -205,7 +205,7 @@ export function hpColor(hp: number, hpMax: number): string {
   return PanelColors.hpCrit;
 }
 
-const EQUIP_ICON_DIR = 'resource://RAWFILE/equip-icons/';
+const EQUIP_ICON_DIR = 'resource://RAWFILE/icons/equip/';
 
 const AIRCRAFT_EQUIP_TYPES: ReadonlySet<number> = new Set([
   6, 7, 8, 9, 10, 11, 25, 26, 41, 45, 47, 48, 49, 53, 56, 57, 58, 59, 94,
