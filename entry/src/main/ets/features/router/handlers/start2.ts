@@ -212,6 +212,9 @@ class Start2Handler implements Handler {
       los: r.api_saku ?? 0,
       aa: r.api_tyku ?? 0,
       asw: r.api_tais ?? 0,
+      fire: r.api_houg ?? 0,
+      torp: r.api_raig ?? 0,
+      bomb: r.api_baku ?? 0,
       name: r.api_name ?? '',
     }));
     updateSlotItemEquipTypes(equipTypeItems);

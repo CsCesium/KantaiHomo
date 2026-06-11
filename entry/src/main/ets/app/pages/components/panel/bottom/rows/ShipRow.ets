@@ -1,9 +1,10 @@
-import { ShipItem } from '../../../../../../features/panel/type';
+import { PanelPopupStateChangeEvent, ShipItem } from '../../../../../../features/panel/type';
 import { PanelColors, PanelDimens, ShipDiems } from '../../../../../../features/panel/panelConfig';
 import { isShipEscaped } from '../../../../../../features/state';
 import ShipBannerBlock from './ShipBannerBlock';
 import ShipStatusBlock from './ShipStatusBlock';
 import ShipEquipBlock from './ShipEquipBlock';
+import { ShipScenarioPanel } from '../../ShipScenarioPanel';
 
 /**
  * 舰娘行：左 Banner + 中 HP/状态 + 右 装备列。
@@ -12,6 +13,8 @@ import ShipEquipBlock from './ShipEquipBlock';
  * - 行高固定为 SHIP_ROW_HEIGHT
  * - 装备槽弹窗的"当前展开槽 uid"由父面板用 detailUid 集中持有；具体的
  *   row 数据由 EquipSlot 内部按需加载，不在 @Param 链路里透传。
+ * - 双击舰名 Banner 区域弹出战斗场景估算面板（昼战/雷击/夜战），
+ *   开合状态行内自持，点击面板外区域自动关闭。
  */
 @ComponentV2
 export default struct ShipRow {
@@ -35,10 +38,17 @@ export default struct ShipRow {
   @Event onOpenDetail: (uid: number) => void = () => {};
   @Event onCloseDetail: (uid: number) => void = () => {};
 
+  /** 战斗场景估算弹窗是否展开（双击舰名区域切换）。 */
+  @Local scenarioOpen: boolean = false;
+
+  @Builder ScenarioPopup() {
+    ShipScenarioPanel({ uid: this.ship.id })
+  }
+
   build() {
     Stack() {
       Row({ space: 8 }) {
-        // 左列：身份 Banner
+        // 左列：身份 Banner（双击弹出战斗场景估算面板）
         Row() {
           ShipBannerBlock({
             ship: this.ship,
@@ -49,6 +59,20 @@ export default struct ShipRow {
         }
         .layoutWeight(5)
         .constraintSize({ minWidth: 0 })
+        .gesture(
+          TapGesture({ count: 2 })
+            .onAction(() => { this.scenarioOpen = !this.scenarioOpen; })
+        )
+        .bindPopup(this.scenarioOpen, {
+          builder: this.ScenarioPopup,
+          placement: Placement.Top,
+          enableArrow: true,
+          onStateChange: (e: PanelPopupStateChangeEvent) => {
+            if (!e.isVisible && this.scenarioOpen) {
+              this.scenarioOpen = false;
+            }
+          },
+        })
 
         // 中列：HP / 状态 / 进度条
         Row() {

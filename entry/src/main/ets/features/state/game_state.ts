@@ -119,6 +119,9 @@ class GameStateManager {
     slotItemLos: new Map(),
     slotItemAa: new Map(),
     slotItemAsw: new Map(),
+    slotItemFire: new Map(),
+    slotItemTorp: new Map(),
+    slotItemBomb: new Map(),
     slotItemNames: new Map(),
     useItemMasterNames: new Map(),
     slotItemIndex: new Map(),
@@ -540,6 +543,9 @@ class GameStateManager {
       exSlot,
       scoutCur: ship.stats?.scout?.current ?? 0,
       aswCur: ship.stats?.asw?.current ?? 0,
+      fireCur: ship.stats?.firepower?.current ?? 0,
+      torpCur: ship.stats?.torpedo?.current ?? 0,
+      luckCur: ship.stats?.luck?.current ?? 0,
       speed: ship.speed ?? 0,
       hpPercent,
       isTaiha: hpPercent <= 0.25,
@@ -1221,6 +1227,9 @@ class GameStateManager {
       slotItemLos: new Map(),
       slotItemAa: new Map(),
       slotItemAsw: new Map(),
+      slotItemFire: new Map(),
+      slotItemTorp: new Map(),
+      slotItemBomb: new Map(),
       slotItemNames: new Map(),
       useItemMasterNames: new Map(),
       slotItemIndex: new Map(),
@@ -1279,7 +1288,7 @@ class GameStateManager {
   /**
    * 更新装备图鉴类型缓存（来自 api_start2 装备图鉴，masterId → typeEquipType）
    */
-  updateSlotItemEquipTypes(items: ReadonlyArray<{ id: number; equipType: number; iconType: number; los?: number; aa?: number; asw?: number; name?: string }>): void {
+  updateSlotItemEquipTypes(items: ReadonlyArray<{ id: number; equipType: number; iconType: number; los?: number; aa?: number; asw?: number; fire?: number; torp?: number; bomb?: number; name?: string }>): void {
     for (const item of items) {
       this.state.slotItemEquipTypes.set(item.id, item.equipType);
       this.state.slotItemIconTypes.set(item.id, item.iconType);
@@ -1291,6 +1300,15 @@ class GameStateManager {
       }
       if (item.asw !== undefined) {
         this.state.slotItemAsw.set(item.id, item.asw);
+      }
+      if (item.fire !== undefined) {
+        this.state.slotItemFire.set(item.id, item.fire);
+      }
+      if (item.torp !== undefined) {
+        this.state.slotItemTorp.set(item.id, item.torp);
+      }
+      if (item.bomb !== undefined) {
+        this.state.slotItemBomb.set(item.id, item.bomb);
       }
       if (item.name !== undefined) {
         this.state.slotItemNames.set(item.id, item.name);
@@ -1691,7 +1709,7 @@ export function getGameState(): GameStateManager {
 export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number; stype?: number; ctype?: number }>) =>
   gameStateManager.updateShipMasterMeta(items);
 export const getShipMasterStype = (masterId: number): number => gameStateManager.getShipMasterStype(masterId);
-export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number; los?: number; aa?: number; asw?: number; name?: string }>) =>
+export const updateSlotItemEquipTypes = (items: ReadonlyArray<{ id: number; equipType: number; iconType: number; los?: number; aa?: number; asw?: number; fire?: number; torp?: number; bomb?: number; name?: string }>) =>
   gameStateManager.updateSlotItemEquipTypes(items);
 export const getSlotItemMasterAa = (masterId: number): number => gameStateManager.getSlotItemMasterAa(masterId);
 export const getSlotItemMasterEquipType = (masterId: number): number => gameStateManager.getSlotItemMasterEquipType(masterId);

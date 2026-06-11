@@ -1,0 +1,204 @@
+import { PanelColors } from '../../../../features/panel/panelConfig';
+import { ScenarioAttack } from '../../../../features/calc';
+import { buildShipScenarioData, ShipScenarioData } from '../../../../features/panel/shipScenario';
+
+const TAB_DAY = 0;
+const TAB_TORPEDO = 1;
+const TAB_NIGHT = 2;
+
+const TAB_LABELS: string[] = ['昼战', '雷击', '夜战'];
+
+const ACCENT_TAB = '#4a9eda';
+const ACCENT_TYPE = '#e5a04a';
+
+/**
+ * 战斗场景估算面板 — 双击舰名区域弹出。
+ *
+ * 按舰娘当前装备判定昼战/雷击/夜战各阶段可能出现的攻击类型，并给出
+ * 发动率与攻击力估算（平击 = 实际伤害上限攻击力，爆击 = ×1.5）。
+ * 不含支援阶段。
+ *
+ * 与 EquipDetailPanel 相同：接收 uid，内部自管 @Local 数据，保证在
+ * bindPopup 的 @Builder 中可靠重渲染。
+ */
+@ComponentV2
+export struct ShipScenarioPanel {
+  @Param uid: number = 0;
+
+  @Local data: ShipScenarioData | null = null;
+  @Local activeTab: number = TAB_DAY;
+
+  aboutToAppear(): void {
+    this.loadData();
+  }
+
+  @Monitor('uid')
+  onUidChange(): void {
+    this.loadData();
+  }
+
+  private loadData(): void {
+    this.data = this.uid > 0 ? buildShipScenarioData(this.uid) : null;
+  }
+
+  private currentAttacks(): ScenarioAttack[] {
+    if (!this.data) return [];
+    switch (this.activeTab) {
+      case TAB_TORPEDO: return this.data.scenarios.torpedo;
+      case TAB_NIGHT: return this.data.scenarios.night;
+      default: return this.data.scenarios.day;
+    }
+  }
+
+  private formatRate(rate: number): string {
+    return `${(rate * 100).toFixed(1)}%`;
+  }
+
+  @Builder private HeaderRow() {
+    Row({ space: 6 }) {
+      Text('攻击力')
+        .fontSize(13)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(PanelColors.txtPrimary)
+      Text('敌方类型 无')
+        .fontSize(11)
+        .fontColor(PanelColors.txtSub)
+      Blank().layoutWeight(1)
+      if (this.data) {
+        Text(`火力${this.data.firepower} 雷装${this.data.torpedo} 运${this.data.luck}`)
+          .fontSize(10)
+          .fontColor(PanelColors.txtMuted)
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder private TabBar() {
+    Row({ space: 14 }) {
+      ForEach(TAB_LABELS, (label: string, idx: number) => {
+        Column({ space: 2 }) {
+          Text(label)
+            .fontSize(12)
+            .fontWeight(this.activeTab === idx ? FontWeight.Medium : FontWeight.Normal)
+            .fontColor(this.activeTab === idx ? ACCENT_TAB : PanelColors.txtSub)
+          Row()
+            .width(24)
+            .height(2)
+            .borderRadius(1)
+            .backgroundColor(this.activeTab === idx ? ACCENT_TAB : Color.Transparent)
+        }
+        .alignItems(HorizontalAlign.Center)
+        .onClick(() => { this.activeTab = idx; })
+      }, (label: string, idx: number) => `scn-tab-${idx}`)
+    }
+    .width('100%')
+    .padding({ top: 2, bottom: 2 })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder private TableHeader() {
+    Row() {
+      Text('类型')
+        .fontSize(10)
+        .fontColor(PanelColors.txtSub)
+        .layoutWeight(5)
+      Text('发动率')
+        .fontSize(10)
+        .fontColor(PanelColors.txtSub)
+        .layoutWeight(4)
+      Text('平击')
+        .fontSize(10)
+        .fontColor(PanelColors.txtSub)
+        .layoutWeight(2)
+        .textAlign(TextAlign.End)
+      Text('爆击')
+        .fontSize(10)
+        .fontColor(PanelColors.txtSub)
+        .layoutWeight(2)
+        .textAlign(TextAlign.End)
+    }
+    .width('100%')
+  }
+
+  @Builder private AttackRow(attack: ScenarioAttack) {
+    Row() {
+      Row() {
+        Text(attack.label)
+          .fontSize(10)
+          .fontColor(ACCENT_TYPE)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .padding({ left: 6, right: 6, top: 1, bottom: 1 })
+      }
+      .borderWidth(1)
+      .borderColor(ACCENT_TYPE)
+      .borderRadius(8)
+      .layoutWeight(5)
+      .justifyContent(FlexAlign.Center)
+
+      Row({ space: 5 }) {
+        Text(`${attack.hits}`)
+          .fontSize(11)
+          .fontColor(PanelColors.txtMuted)
+        Text(this.formatRate(attack.rate))
+          .fontSize(11)
+          .fontColor(PanelColors.txtPrimary)
+      }
+      .layoutWeight(4)
+      .padding({ left: 8 })
+      .justifyContent(FlexAlign.Start)
+
+      Text(`${attack.normal}`)
+        .fontSize(11)
+        .fontColor(PanelColors.stat)
+        .layoutWeight(2)
+        .textAlign(TextAlign.End)
+      Text(`${attack.critical}`)
+        .fontSize(11)
+        .fontColor(PanelColors.stat)
+        .layoutWeight(2)
+        .textAlign(TextAlign.End)
+    }
+    .width('100%')
+    .height(24)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  build() {
+    Column({ space: 5 }) {
+      if (this.data) {
+        this.HeaderRow()
+        this.TabBar()
+        this.TableHeader()
+
+        if (this.currentAttacks().length > 0) {
+          ForEach(this.currentAttacks(), (attack: ScenarioAttack) => {
+            this.AttackRow(attack)
+          }, (attack: ScenarioAttack) => `scn-${this.activeTab}-${attack.id}`)
+        } else {
+          Text('该阶段无攻击手段')
+            .fontSize(11)
+            .fontColor(PanelColors.txtMuted)
+            .margin({ top: 6, bottom: 6 })
+            .alignSelf(ItemAlign.Center)
+        }
+
+        Text('估算值：假定制空权确保、不计敌方装甲与交战形态')
+          .fontSize(9)
+          .fontColor(PanelColors.txtMuted)
+          .margin({ top: 2 })
+      } else {
+        Text('无数据')
+          .fontSize(11)
+          .fontColor(PanelColors.txtMuted)
+      }
+    }
+    .width(300)
+    .padding(10)
+    .backgroundColor('#1a1d2e')
+    .borderRadius(8)
+    .border({ width: 1, color: '#2e3355' })
+    .alignItems(HorizontalAlign.Start)
+  }
+}
