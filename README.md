@@ -1,6 +1,6 @@
 # KantaiHomo
 
-English | [简体中文](README.zh-CN.md)
+English | [简体中文](README.zh-CN.md) | [Changelog](CHANGELOG.md)
 
 KanColleObserver(KCO) is a HarmonyOS native viewer and companion app for Kantai Collection
 (HTML5). It embeds the DMM game in ArkWeb and adds native panels, local
@@ -13,7 +13,7 @@ This is an unofficial project and is not affiliated with DMM, C2, or KADOKAWA.
 
 - HarmonyOS app for phone, tablet, and 2in1 devices.
 - Bundle name: `io.github.cesium.kchomo`.
-- Current configured app version: `1.0.0`.
+- Current configured app version: `1.0.1`.
 - Default game URL: `https://play.games.dmm.com/game/kancolle`.
 - Built with ArkTS, ArkWeb, Hvigor, and HarmonyOS SDK 6.x.
 
@@ -22,17 +22,19 @@ This is an unofficial project and is not affiliated with DMM, C2, or KADOKAWA.
 - Game launcher and WebView host with DMM login autofill, session persistence,
   logout, cache controls, custom home URL, and custom user agent.
 - Responsive game layout with portrait/landscape handling, game scale controls,
-  side fleet status, bottom panel, and floating overlay.
+  fleet state icons, side fleet status, bottom panel, and floating overlay.
 - Local game data pipeline: XHR/Fetch hooks parse game API responses, normalize
   domain models, and persist ships, equipment, fleets, resources, quests,
   expeditions, repairs, battles, maps, and battle records.
-- Live companion panels for fleet HP/status, equipment, resources, quests, map
-  gauges, air power, transport points, LoS, battle preview, and battle result.
-- Information pages for ship, equipment, and expedition data, including
-  expedition conditions when available.
-- Alerts for night battle prompts, sortie advance risk, battle result/taiha
-  warnings, expedition returns, and repair completion, with vibration and system
-  notification modes.
+- Live companion panels for fleet HP/status, equipment, resources, quests,
+  expedition checks, repair docks, land-based air corps, map gauges, air power,
+  transport points, LoS, battle preview, battle result, and ship battle
+  scenarios.
+- Information pages and static data for ship, equipment, expedition, equipment
+  classification, and expedition requirement rules.
+- Alerts for night battle prompts, sortie advance risk, practice/battle
+  result taiha warnings, expedition returns, and repair completion, with
+  vibration and system notification modes.
 - Resource cache for game image assets, optional audio caching, cache statistics,
   and manual clearing.
 - Optional WebView injections for touch hover, two-finger wheel, FPS display,
@@ -48,7 +50,8 @@ entry/src/main/ets/features/parsers/ Game API parsing pipelines
 entry/src/main/ets/domain/           Domain models, events, and services
 entry/src/main/ets/infra/storage/    KV, database, migrations, and DAOs
 entry/src/main/ets/features/alerts/  Reminder and notification system
-entry/src/main/ets/features/calc/    Air power, LoS, TP, AACI, and rate calculators
+entry/src/main/ets/features/calc/    Air power, LoS, TP, AACI, damage, and rate calculators
+entry/src/main/ets/features/expedition/ Expedition requirement checking
 entry/src/main/resources/rawfile/    Static data, ship avatars, and icons
 ```
 
