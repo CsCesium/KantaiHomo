@@ -147,13 +147,8 @@ export class Orientation {
 
     await this.refreshWindowStatus();
     if (this.shouldForceLandscape()) {
-      if (unlocked) {
-        this.lockedOrientation = null;
-        await this.setPreferred(window.Orientation.AUTO_ROTATION_LANDSCAPE);
-      } else {
-        this.lockedOrientation = window.Orientation.LANDSCAPE;
-        await this.forceSetOrientation(window.Orientation.LANDSCAPE);
-      }
+      this.lockedOrientation = window.Orientation.LANDSCAPE;
+      await this.forceSetOrientation(window.Orientation.LANDSCAPE);
       return;
     }
 
@@ -194,8 +189,10 @@ export class Orientation {
     if (this.shouldForceLandscape()) {
       if (this.rotationUnlocked) {
         this.lockedOrientation = null;
-        await this.pushExactBeforeAuto(window.Orientation.LANDSCAPE);
-        await this.setPreferred(window.Orientation.AUTO_ROTATION_LANDSCAPE);
+        await this.applySensorScopedOrientation(
+          window.Orientation.LANDSCAPE,
+          window.Orientation.AUTO_ROTATION_LANDSCAPE
+        );
       } else {
         this.lockedOrientation = window.Orientation.LANDSCAPE;
         await this.forceSetOrientation(window.Orientation.LANDSCAPE);
@@ -207,8 +204,10 @@ export class Orientation {
     if (this.shouldForcePortrait()) {
       if (this.rotationUnlocked) {
         this.lockedOrientation = null;
-        await this.pushExactBeforeAuto(window.Orientation.PORTRAIT);
-        await this.setPreferred(window.Orientation.AUTO_ROTATION_PORTRAIT);
+        await this.applySensorScopedOrientation(
+          window.Orientation.PORTRAIT,
+          window.Orientation.AUTO_ROTATION_PORTRAIT
+        );
       } else {
         this.lockedOrientation = window.Orientation.PORTRAIT;
         await this.forceSetOrientation(window.Orientation.PORTRAIT);
@@ -304,12 +303,29 @@ export class Orientation {
     }
   }
 
-  private async pushExactBeforeAuto(ori: window.Orientation): Promise<void> {
-    const currentWindowOri = await this.getCurrentLockedOrientation();
-    if (currentWindowOri === ori) {
+  /**
+   * 进入横屏/竖屏限定模式时的方向应用（旋转未锁定场景）。
+   *
+   * 必须分两阶段收敛，且一旦到达 AUTO_* 策略就不再回推：
+   *  - 已处于目标 AUTO_* 策略时直接返回。绝不依据窗口 rect 反复强推精确方向，
+   *    否则「强推精确方向 → 切 AUTO_* 触发系统按传感器重新评估 → 转出目标方向 →
+   *    onAreaChange 再次强推」会形成画面反复横置/竖置的死循环。
+   *  - 窗口尚未转入目标方向时，本次只推精确方向；待旋转完成后的下一次
+   *    applyByMode 再升级为 AUTO_*，此后由系统在允许的方向内跟随重力翻转。
+   */
+  private async applySensorScopedOrientation(
+    exact: window.Orientation,
+    auto: window.Orientation
+  ): Promise<void> {
+    if (this.current === auto) {
       return;
     }
-    await this.forceSetOrientation(ori);
+    const currentWindowOri = await this.getCurrentLockedOrientation();
+    if (currentWindowOri !== exact) {
+      await this.forceSetOrientation(exact);
+      return;
+    }
+    await this.setPreferred(auto);
   }
 
   async setPreferred(ori: window.Orientation): Promise<void> {
