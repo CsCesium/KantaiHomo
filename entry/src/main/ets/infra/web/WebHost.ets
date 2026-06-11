@@ -299,6 +299,13 @@ export default struct WebHost {
       return;
     }
 
+    // 宽屏下手动竖屏布局自动复位（切换按钮同时被禁用）：应用形态只服从宽屏 responsive 决策。
+    if (this.lrLayoutForced && !this.isNarrowViewport(widthVp, heightVp)) {
+      this.lrLayoutForced = false;
+      this.restoreLandscapeAfterManualLayout = false;
+      this.landscapeOrientationPending = false;
+    }
+
     const layoutScene: WindowScene = this.getLayoutScene(widthVp, heightVp);
     const decision = decideLayout({
       widthVp,
@@ -813,7 +820,18 @@ export default struct WebHost {
     return this.mode === HostMode.COMPACT && this.isNarrowLandscapeToolSurface();
   }
 
+  private isNarrowViewport(
+    widthVp: number = this.viewportWidthVp,
+    heightVp: number = this.viewportHeightVp
+  ): boolean {
+    return Math.min(widthVp, heightVp) <= NARROW_SHORT_SIDE_VP;
+  }
+
   private canToggleLrLayout(): boolean {
+    // 宽屏（短边超过窄屏阈值）不提供手动横/竖切换：应用形态只服从宽屏 responsive 决策。
+    if (!this.isNarrowViewport()) {
+      return false;
+    }
     if (this.scene === WindowScene.SPLIT) {
       return false;
     }
