@@ -443,8 +443,11 @@ export default struct FloatOverlayPanel {
     return this.useNarrowResourceLayout() ? RESOURCE_BAR_NARROW_H : RESOURCE_BAR_H;
   }
 
-  @Builder private AdmiralTag(text: string): void {
-    Text(text)
+  // @Builder 按值传递的参数不是响应式的：组件只会用首次构建时的快照渲染，
+  // 之后 @Local 变化不会刷新（这是「进港后面板数值一直是 '--'、切舰队不刷新」
+  // 的根因）。改为传入闭包，让 Text 在求值时直接读取 @Local，从而建立依赖。
+  @Builder private AdmiralTag(text: () => string): void {
+    Text(text())
       .fontSize(PanelDimens.fontSm)
       .fontColor(PanelColors.overlayTxt)
       .maxLines(1)
@@ -459,11 +462,11 @@ export default struct FloatOverlayPanel {
   @Builder private AdmiralHeader(): void {
     Scroll() {
       Row({ space: 4 }) {
-        this.AdmiralTag(`${this.admiralName}`)
-        this.AdmiralTag(`${this.admiralRank}`)
-        this.AdmiralTag(`提督经验: ${this.admiralExperience}`)
-        this.AdmiralTag(`今日: ${this.todaySenka}`)
-        this.AdmiralTag(`舰娘: ${this.shipCapacity}`)
+        this.AdmiralTag((): string => this.admiralName)
+        this.AdmiralTag((): string => this.admiralRank)
+        this.AdmiralTag((): string => `提督经验: ${this.admiralExperience}`)
+        this.AdmiralTag((): string => `今日: ${this.todaySenka}`)
+        this.AdmiralTag((): string => `舰娘: ${this.shipCapacity}`)
       }
       .height(PanelDimens.statusBarH)
       .alignItems(VerticalAlign.Center)
@@ -570,12 +573,14 @@ export default struct FloatOverlayPanel {
     .borderColor(PanelColors.overlayHdr)
   }
 
-  @Builder private FleetStat(label: string, value: string): void {
+  // value 必须是闭包（参见 AdmiralTag 的说明），否则切换舰队 / 异步算完
+  // 制空索敌后 UI 不刷新。
+  @Builder private FleetStat(label: string, value: () => string): void {
     Row() {
       Text(label)
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.overlayTxt)
-      Text(value)
+      Text(value())
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.stat)
         .margin({ left: 3 })
@@ -608,10 +613,10 @@ export default struct FloatOverlayPanel {
       if (this.activeFleet < 4) {
         Scroll() {
           Row({ space: 10 }) {
-            this.FleetStat('制空', this.airPower > 0 ? `${this.airPower}` : '--')
-            this.FleetStat('速度', formatFleetSpeed(this.fleetSpeed))
-            this.FleetStat('🚚 輸送', this.fleetTpS > 0 ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}` : '--')
-            this.FleetStat('👁 索敵', this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
+            this.FleetStat('制空', (): string => this.airPower > 0 ? `${this.airPower}` : '--')
+            this.FleetStat('速度', (): string => formatFleetSpeed(this.fleetSpeed))
+            this.FleetStat('🚚 輸送', (): string => this.fleetTpS > 0 ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}` : '--')
+            this.FleetStat('👁 索敵', (): string => this.fleetLoS !== 0 ? this.fleetLoS.toFixed(1) : '--')
           }
           .width('100%')
           .constraintSize({ minWidth: OVERLAY_FLEET_STATS_MIN_CONTENT_WIDTH })
