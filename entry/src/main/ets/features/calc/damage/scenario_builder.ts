@@ -69,9 +69,13 @@ interface EquipCounts {
   carrierTorpedoBomber: number;
   /** Embarked night fighters/attackers */
   nightPlane: number;
+  /** Embarked 試製 夜間瑞雲 (攻撃装備) */
+  nightZuiun: number;
   /** Σ equipment 爆装 */
   bombTotal: number;
 }
+
+const NIGHT_ZUIUN_MASTER_ID = 490;
 
 function isMainGun(t: number): boolean {
   return t === SlotItemEquipType.SmallCaliberMainGun
@@ -90,11 +94,17 @@ function isRadar(t: number): boolean {
     || t === SlotItemEquipType.LargeRadarII;
 }
 
+function isNightZuiunEquip(equip: ScenarioEquip): boolean {
+  return equip.masterId === NIGHT_ZUIUN_MASTER_ID
+    || equip.name.indexOf('夜間瑞雲') >= 0
+    || equip.name.indexOf('夜间瑞云') >= 0;
+}
+
 function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
   const counts: EquipCounts = {
     mainGun: 0, secondaryGun: 0, torpedo: 0, radar: 0, surfaceRadar: 0,
     apShell: 0, lookout: 0, spottingPlane: 0, carrierFighter: 0,
-    carrierDiveBomber: 0, carrierTorpedoBomber: 0, nightPlane: 0, bombTotal: 0,
+    carrierDiveBomber: 0, carrierTorpedoBomber: 0, nightPlane: 0, nightZuiun: 0, bombTotal: 0,
   };
 
   for (const eq of equips) {
@@ -125,6 +135,9 @@ function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
     }
     if (embarked && (eq.iconType === SlotItemIconId.NightFighter || eq.iconType === SlotItemIconId.NightAttacker)) {
       counts.nightPlane += 1;
+    }
+    if (embarked && isNightZuiunEquip(eq)) {
+      counts.nightZuiun += 1;
     }
     counts.bombTotal += eq.bomb;
   }
@@ -168,6 +181,7 @@ const NIGHT_ATTACK_LABEL = new Map<NightCutInType, string>([
   [NightCutInType.MainSecondaryCI, '主主副CI'],
   [NightCutInType.MainTorpCI, '炮雷CI'],
   [NightCutInType.CarrierNightCI, '夜袭CI'],
+  [NightCutInType.NightZuiunCI, '主主瑞CI'],
 ]);
 
 /** Post-cap power modifier and hit count per night attack type. */
@@ -182,6 +196,26 @@ const NIGHT_ATTACK_POWER = new Map<NightCutInType, { modifier: number; hits: num
   // 夜襲CI has several variants (×1.18~1.25, up to 3 hits); use a single estimate.
   [NightCutInType.CarrierNightCI, { modifier: 1.25, hits: 2 }],
 ]);
+
+function canUseNightZuiunAttack(shipType: ShipType): boolean {
+  return shipType === ShipType.CL
+    || shipType === ShipType.CAV
+    || shipType === ShipType.BBV
+    || shipType === ShipType.AV;
+}
+
+function nightZuiunModifier(counts: EquipCounts): number {
+  return (120
+    + Math.min(2, counts.nightZuiun) * 4
+    + (counts.surfaceRadar > 0 ? 4 : 0)) / 100;
+}
+
+function nightAttackPower(type: NightCutInType, counts: EquipCounts): { modifier: number; hits: number } {
+  if (type === NightCutInType.NightZuiunCI) {
+    return { modifier: nightZuiunModifier(counts), hits: 2 };
+  }
+  return NIGHT_ATTACK_POWER.get(type)!;
+}
 
 // ==================== Attack Type Detection ====================
 
@@ -214,7 +248,7 @@ function detectCarrierDayAttacks(counts: EquipCounts): DayAttackType[] {
 
 /**
  * Night attacks available to the ship, ordered by selection priority
- * (DD-exclusive cut-ins roll first, then generic cut-ins, then 連撃).
+ * (DD-exclusive and Night Zuiun cut-ins roll before generic cut-ins, then 連撃).
  */
 function detectNightAttacks(stype: number, counts: EquipCounts): NightCutInType[] {
   const shipType = stype as ShipType;
@@ -232,6 +266,10 @@ function detectNightAttacks(stype: number, counts: EquipCounts): NightCutInType[
     if (counts.torpedo >= 2 && counts.lookout >= 1) {
       types.push(NightCutInType.TorpTorpLookoutCI);
     }
+  }
+
+  if (canUseNightZuiunAttack(shipType) && counts.mainGun >= 2 && counts.nightZuiun >= 1) {
+    types.push(NightCutInType.NightZuiunCI);
   }
 
   if (counts.torpedo >= 2) {
@@ -325,7 +363,7 @@ function buildNightScenarios(input: ShipScenarioInput, counts: EquipCounts): Sce
   const attacks: ScenarioAttack[] = [];
   let remaining = 1;
   for (const type of types) {
-    const power = NIGHT_ATTACK_POWER.get(type)!;
+    const power = nightAttackPower(type, counts);
     const result = calcNightCutInRate({
       luck: input.luck,
       level: input.level,

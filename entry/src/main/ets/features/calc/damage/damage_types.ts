@@ -42,6 +42,10 @@ export type ScenarioAirState = 'supremacy' | 'superiority';
 
 /** One equipped slot item with the master stats needed by the formulas. */
 export interface ScenarioEquip {
+  /** SlotItem master id (api_slotitem_id) */
+  masterId: number;
+  /** SlotItem master name (api_name), used for special equipment detection */
+  name: string;
   /** SlotItemEquipType (api_type[2]) */
   equipType: number;
   /** Icon id (api_type[3]); used for night plane detection */

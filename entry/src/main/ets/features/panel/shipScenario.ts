@@ -54,6 +54,8 @@ function toScenarioEquip(slotUid: number, onslot: number, st: Readonly<GameState
   const masterId = st.slotItemIndex.get(slotUid);
   if (masterId === undefined) return null;
   return {
+    masterId,
+    name: st.slotItemNames.get(masterId) ?? '',
     equipType: st.slotItemEquipTypes.get(masterId) ?? 0,
     iconType: st.slotItemIconTypes.get(masterId) ?? 0,
     firepower: st.slotItemFire.get(masterId) ?? 0,

@@ -52,6 +52,8 @@ export enum NightCutInType {
   DoubleAttack = 'double_attack',
   /** 空母夜襲カットイン - Carrier Night CI */
   CarrierNightCI = 'carrier_night_ci',
+  /** 夜間瑞雲夜戦カットイン - Night Zuiun CI */
+  NightZuiunCI = 'night_zuiun_ci',
   /** 潜水艦カットイン - Submarine CI */
   SubmarineCI = 'submarine_ci',
 }
@@ -70,6 +72,7 @@ export const CUTIN_TYPE_COEFFICIENT: Record<NightCutInType, number> = {
   [NightCutInType.MainTorpCI]: 0.94,
   [NightCutInType.DoubleAttack]: 0.5, // Very high rate (simplified)
   [NightCutInType.CarrierNightCI]: 1.0, // Estimate
+  [NightCutInType.NightZuiunCI]: 1.35,
   [NightCutInType.SubmarineCI]: 1.0, // Estimate
 };
 
@@ -460,6 +463,8 @@ export function getCutInTypeName(type: NightCutInType): string {
       return '連撃';
     case NightCutInType.CarrierNightCI:
       return '夜襲カットイン';
+    case NightCutInType.NightZuiunCI:
+      return '夜間瑞雲カットイン';
     case NightCutInType.SubmarineCI:
       return '潜水艦カットイン';
     default:
