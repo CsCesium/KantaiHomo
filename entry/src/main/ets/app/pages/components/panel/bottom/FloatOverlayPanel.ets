@@ -21,7 +21,7 @@ import {
 } from '../../../../../features/calc';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../../ability/Entry';
 import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
-import { detectSpecialAttackBadge } from '../../../../../features/panel/specialAttackBadge';
+import { detectSpecialAttackBadges } from '../../../../../features/panel/specialAttackBadge';
 import { resourceIconPath } from '../../../../../features/resources/resourceMeta';
 import ShipRow from './rows/ShipRow';
 import MapGaugeRow from './rows/MapGaugeRow';
@@ -211,7 +211,7 @@ export default struct FloatOverlayPanel {
   @Local fleetTpS: number = 0;
   @Local fleetTpA: number = 0;
   @Local fleetSpeed: number = -1;
-  @Local specialAttack: string = '';
+  @Local specialAttacks: string[] = [];
   @Local mapGauges: MapGaugeSnapshot[] = [];
   @Local lbases: LbasBase[] = [];
   @Local currentLbasAreaId: number = 0;
@@ -305,13 +305,13 @@ export default struct FloatOverlayPanel {
         st.shipMasterStype,
         st.shipMasterCtype
       ));
-      this.specialAttack = detectSpecialAttackBadge(rawShips, this.activeFleet);
+      this.specialAttacks = detectSpecialAttackBadges(rawShips, this.activeFleet);
       this.fleetSpeed = rawShips.length > 0
         ? rawShips.reduce((min, s) => Math.min(min, s.speed), Number.POSITIVE_INFINITY)
         : -1;
     } else {
       this.ships = [];
-      this.specialAttack = '';
+      this.specialAttacks = [];
       this.fleetSpeed = -1;
     }
   }
@@ -651,7 +651,7 @@ export default struct FloatOverlayPanel {
               ShipRow({
                 ship,
                 isFlag: idx === 0,
-                specialAttack: this.specialAttack,
+                specialAttacks: this.specialAttacks,
                 showAvatar: this.showAvatar,
                 showKaisyuu: this.showKaisyuu,
                 showProficiency: this.showProficiency,
@@ -659,7 +659,7 @@ export default struct FloatOverlayPanel {
                 onOpenDetail: (uid: number) => { this.openEquipDetail(uid); },
                 onCloseDetail: (uid: number) => { this.closeEquipDetail(uid); },
               })
-            }, (ship: ShipItem) => `${shipRowKey(ship)}_${this.specialAttack}`)
+            }, (ship: ShipItem) => `${shipRowKey(ship)}_${this.specialAttacks.join('|')}`)
           } else {
             Text('NO DATA')
               .fontSize(PanelDimens.fontSm)

@@ -119,6 +119,7 @@ export {
   allowsSpecialAttack,
   specialAttackTypeFromApiCode,
   isSpecialAttackApiCode,
+  detectFleetSpecialAttacks,
   detectFleetSpecialAttack,
   getSpecialAttackShortLabel,
   calcNelsonTouchRate,

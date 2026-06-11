@@ -25,7 +25,7 @@ export default struct ShipRow {
     exSlot: 0, exSlotMasterId: 0, exSlotType: 0, exSlotIconType: 0, exSlotLevel: 0, exSlotAlv: 0,
   };
   @Param isFlag: boolean = false;
-  @Param specialAttack: string = '';
+  @Param specialAttacks: string[] = [];
 
   @Param showAvatar: boolean = true;
   @Param showKaisyuu: boolean = true;
@@ -43,7 +43,7 @@ export default struct ShipRow {
           ShipBannerBlock({
             ship: this.ship,
             isFlag: this.isFlag,
-            specialAttack: this.specialAttack,
+            specialAttacks: this.specialAttacks,
             showAvatar: this.showAvatar,
           })
         }

@@ -11,7 +11,7 @@ import {
   SpecialAttackFleetRole,
   SpecialAttackFleetShip,
   SpecialAttackType,
-  detectFleetSpecialAttack,
+  detectFleetSpecialAttacks,
   getSpecialAttackShortLabel,
 } from '../calc';
 import { getSortieContext } from '../../domain/service/sortie';
@@ -63,16 +63,16 @@ function isTwoWayAirBattleNight(battleStatus: BattleStatusSnapshot | null): bool
   return (battleStatus.battleApiPath ?? '').indexOf('airbattle') >= 0;
 }
 
-export function detectSpecialAttackBadge(
+export function detectSpecialAttackBadges(
   rawShips: ReadonlyArray<ShipState>,
   activeFleet: number,
-): string {
+): string[] {
   const battleStatus = getBattleStatus();
   const combinedType = resolveCombinedType();
   const state = getGameState().getState();
   const ships = rawShips.map((ship: ShipState): SpecialAttackFleetShip =>
     toSpecialAttackShip(ship, state.shipMasterStype));
-  const attackType: SpecialAttackType | null = detectFleetSpecialAttack(ships, {
+  const attackTypes: SpecialAttackType[] = detectFleetSpecialAttacks(ships, {
     triggeredShipUids: getSpecialAttackTriggeredShipUids(),
     triggeredShipCounts: getSpecialAttackTriggeredShipCounts(),
     fleetRole: resolveFleetRole(activeFleet, combinedType),
@@ -86,5 +86,13 @@ export function detectSpecialAttackBadge(
     isTwoWayAirBattleNight: isTwoWayAirBattleNight(battleStatus),
     hasSubmarineSupplyMaterial: getUseItemCountByName(SUBMARINE_SUPPLY_MATERIAL_NAME) > 0,
   });
-  return attackType !== null ? getSpecialAttackShortLabel(attackType) : '';
+  return attackTypes.map((attackType: SpecialAttackType): string => getSpecialAttackShortLabel(attackType));
+}
+
+export function detectSpecialAttackBadge(
+  rawShips: ReadonlyArray<ShipState>,
+  activeFleet: number,
+): string {
+  const labels = detectSpecialAttackBadges(rawShips, activeFleet);
+  return labels.length > 0 ? labels[0] : '';
 }

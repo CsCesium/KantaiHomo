@@ -20,8 +20,8 @@ export default struct ShipBannerBlock {
     exSlot: 0, exSlotMasterId: 0, exSlotType: 0, exSlotIconType: 0, exSlotLevel: 0, exSlotAlv: 0,
   };
   @Param isFlag: boolean = false;
-  /** Special-attack short label; empty string hides the badge. */
-  @Param specialAttack: string = '';
+  /** Special-attack short labels; empty array hides the badges. */
+  @Param specialAttacks: string[] = [];
   @Param showAvatar: boolean = true;
 
   /** Last URL that failed to load — suppresses retry loops on the same source. */
@@ -47,8 +47,12 @@ export default struct ShipBannerBlock {
   @Computed
   get capabilityTags(): string[] {
     const tags: string[] = [];
-    if (this.isFlag && this.specialAttack !== '') {
-      tags.push(this.specialAttack);
+    if (this.isFlag) {
+      for (const specialAttack of this.specialAttacks) {
+        if (specialAttack !== '') {
+          tags.push(specialAttack);
+        }
+      }
     }
     for (const tag of this.ship.tags) {
       tags.push(tag);

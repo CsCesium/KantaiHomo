@@ -243,7 +243,6 @@ export const SPECIAL_ATTACK_FLAGSHIP_IDS: Record<SpecialAttackType, Set<number>>
   [SpecialAttackType.YamatoTouch3]: new Set([
     911, // 大和改二
     916, // 大和改二重
-    546, // 武蔵改二
   ]),
   [SpecialAttackType.KongouNightAttack]: new Set([
     591, // 金剛改二丙
@@ -573,6 +572,10 @@ function isYamatoSecondShipEligible(flagship: SpecialAttackFleetShip, partner: S
   return false;
 }
 
+function isYamatoThreeShipFlagshipEligible(flagship: SpecialAttackFleetShip): boolean {
+  return YAMATO_KAI2_IDS.has(flagship.masterId);
+}
+
 function isKongouPartnerEligible(flagship: SpecialAttackFleetShip, partner: SpecialAttackFleetShip): boolean {
   if (KONGOU_CLASS_KAI2_IDS.has(partner.masterId)) return true;
   if (flagship.masterId === 591) return KONGOU_KAI2C_EXTRA_PARTNER_IDS.has(partner.masterId);
@@ -637,6 +640,7 @@ function isSpecialAttackCompositionEligible(
       return hasSixSurfaceShips(ships)
         && ship2 !== undefined
         && ship3 !== undefined
+        && isYamatoThreeShipFlagshipEligible(flagship)
         && isYamatoSecondShipEligible(flagship, ship2)
         && isShipBattleship(ship3)
         && canPartnerJoinSpecialAttack(type, ship2)
@@ -684,6 +688,41 @@ function isSpecialAttackCompositionEligible(
   }
 }
 
+function canUseSpecialAttackType(
+  type: SpecialAttackType,
+  flagship: SpecialAttackFleetShip,
+  ships: ReadonlyArray<SpecialAttackFleetShip>,
+  options?: DetectFleetSpecialAttackOptions,
+): boolean {
+  if (!isFlagshipCandidate(type, flagship)) return false;
+  if (hasReachedTriggerLimit(type, flagship, options)) return false;
+  if (!canFlagshipTriggerSpecialAttack(type, flagship)) return false;
+  if (!isFleetRoleAllowed(type, options)) return false;
+  if (isDisallowedByBattleContext(type, options)) return false;
+  if (!isFormationAllowed(type, options)) return false;
+  return isSpecialAttackCompositionEligible(type, ships, options);
+}
+
+/**
+ * Detect all special attacks a fleet composition and current ship state can
+ * still use. Ships must be in fleet order (index 0 = flagship).
+ */
+export function detectFleetSpecialAttacks(
+  ships: ReadonlyArray<SpecialAttackFleetShip>,
+  options?: DetectFleetSpecialAttackOptions,
+): SpecialAttackType[] {
+  const attacks: SpecialAttackType[] = [];
+  if (ships.length === 0) return attacks;
+  const flagship = ships[0];
+
+  for (const type of ALL_SPECIAL_ATTACK_TYPES) {
+    if (canUseSpecialAttackType(type, flagship, ships, options)) {
+      attacks.push(type);
+    }
+  }
+  return attacks;
+}
+
 /**
  * Detect whether a fleet composition and current ship state can still use a
  * special attack. Ships must be in fleet order (index 0 = flagship).
@@ -693,20 +732,8 @@ export function detectFleetSpecialAttack(
   ships: ReadonlyArray<SpecialAttackFleetShip>,
   options?: DetectFleetSpecialAttackOptions,
 ): SpecialAttackType | null {
-  if (ships.length === 0) return null;
-  const flagship = ships[0];
-
-  for (const type of ALL_SPECIAL_ATTACK_TYPES) {
-    if (!isFlagshipCandidate(type, flagship)) continue;
-    if (hasReachedTriggerLimit(type, flagship, options)) continue;
-    if (!canFlagshipTriggerSpecialAttack(type, flagship)) continue;
-    if (!isFleetRoleAllowed(type, options)) continue;
-    if (isDisallowedByBattleContext(type, options)) continue;
-    if (!isFormationAllowed(type, options)) continue;
-    if (!isSpecialAttackCompositionEligible(type, ships, options)) continue;
-    return type;
-  }
-  return null;
+  const attacks = detectFleetSpecialAttacks(ships, options);
+  return attacks.length > 0 ? attacks[0] : null;
 }
 
 /** Short display label for use in compact UI badges. */
