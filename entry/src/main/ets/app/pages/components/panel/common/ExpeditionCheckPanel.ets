@@ -49,9 +49,9 @@ const AREA_FILTERS: AreaFilterDef[] = [
   { area: 1, label: '1' },
   { area: 2, label: '2' },
   { area: 3, label: '3' },
+  { area: 7, label: '7' },
   { area: 4, label: '4' },
   { area: 5, label: '5' },
-  { area: 7, label: '7' },
   { area: -1, label: '他' },
 ];
 
