@@ -11,8 +11,8 @@
  *
  *   艦隊索敵項 = Σ(偵察機索敵×2) + Σ(電探索敵) + Σ⌊√(各艦素索敵)⌋
  *
- * 種別係数 (observed): 主主CI 150, 主徹CI 140, 主電CI 130, 主副CI 120, 連撃 130.
- * Carrier cut-in (戦爆連合) coefficients are community estimates.
+ * 種別係数: 主主CI 150, 主徹CI 140, 主電CI 130, 主副CI 120, 連撃 130.
+ * Carrier cut-in (戦爆連合) coefficients use the same observation-term formula.
  *
  * Reference: https://wikiwiki.jp/kancolle/弾着観測射撃
  */
@@ -27,11 +27,12 @@ const DAY_CI_COEFFICIENT = new Map<DayAttackType, number>([
   [DayAttackType.MainRadarCI, 130],
   [DayAttackType.MainSecCI, 120],
   [DayAttackType.DoubleAttack, 130],
-  // 戦爆連合 coefficients are not firmly established; estimates in line with
-  // their observed ordering (FBA rarest).
-  [DayAttackType.CarrierFBA, 135],
-  [DayAttackType.CarrierBBA, 125],
-  [DayAttackType.CarrierBA, 115],
+  [DayAttackType.CarrierFBA, 125],
+  [DayAttackType.CarrierBBA, 140],
+  [DayAttackType.CarrierBA, 155],
+  [DayAttackType.CarrierJetFBB, 135],
+  [DayAttackType.CarrierJetFB, 125],
+  [DayAttackType.CarrierJetFBA, 115],
 ]);
 
 /** Maximum trigger rate for a single roll */

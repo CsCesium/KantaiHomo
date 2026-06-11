@@ -18,9 +18,11 @@ import {
   ShipScenarioInput,
 } from './damage_types';
 import {
+  ANTI_SUBMARINE_CAP,
   DAY_BATTLE_CAP,
   NIGHT_BATTLE_CAP,
   TORPEDO_BATTLE_CAP,
+  antiSubmarineBasePower,
   criticalPower,
   dayCarrierBasePower,
   daySurfaceBasePower,
@@ -30,6 +32,7 @@ import {
 } from './attack_power';
 import { calcDayAttackRate, calcObservationTerm } from './day_attack_rate';
 import {
+  antiSubmarineImprovementBonus,
   carrierDayImprovementBonus,
   dayImprovementBonus,
   nightImprovementBonus,
@@ -61,21 +64,42 @@ interface EquipCounts {
   lookout: number;
   /** Embarked (onslot > 0) 水偵/水爆 */
   spottingPlane: number;
-  /** Embarked 艦戦 (incl. jet fighters) */
+  /** Embarked 艦戦 */
   carrierFighter: number;
-  /** Embarked 艦爆 (incl. jet fighter-bombers) */
+  /** Embarked 艦爆 */
   carrierDiveBomber: number;
   /** Embarked 艦攻 */
   carrierTorpedoBomber: number;
+  /** Embarked 噴式戦闘機 */
+  jetFighter: number;
+  /** Embarked 噴式戦闘爆撃機 */
+  jetFighterBomber: number;
   /** Embarked night fighters/attackers */
   nightPlane: number;
   /** Embarked 試製 夜間瑞雲 (攻撃装備) */
   nightZuiun: number;
+  /** Σ equipment 対潜, including equipment that only affects displayed ASW */
+  aswEquipTotal: number;
+  /** Σ equipment 対潜 that contributes to anti-submarine attack power */
+  aswPowerEquipTotal: number;
+  /** Embarked aircraft that enables ASW targeting for conditional ship types */
+  aswConditionAircraft: number;
+  /** Embarked ASW aircraft that make the attack use the aircraft constant */
+  aswAircraft: number;
+  sonar: number;
+  smallSonar: number;
+  largeSonar: number;
+  depthCharge: number;
+  depthChargeProjector: number;
+  mortar: number;
+  depthChargeAny: number;
   /** Σ equipment 爆装 */
   bombTotal: number;
 }
 
 const NIGHT_ZUIUN_MASTER_ID = 490;
+const NARROW_DEPTH_CHARGE_MASTER_IDS: ReadonlySet<number> = new Set([226, 227, 378, 439, 488]);
+const DEPTH_CHARGE_PROJECTOR_MASTER_IDS: ReadonlySet<number> = new Set([44, 45, 287, 288, 377, 472, 569]);
 
 function isMainGun(t: number): boolean {
   return t === SlotItemEquipType.SmallCaliberMainGun
@@ -94,17 +118,86 @@ function isRadar(t: number): boolean {
     || t === SlotItemEquipType.LargeRadarII;
 }
 
+function nameContainsAny(name: string, fragments: ReadonlyArray<string>): boolean {
+  for (const fragment of fragments) {
+    if (name.indexOf(fragment) >= 0) return true;
+  }
+  return false;
+}
+
 function isNightZuiunEquip(equip: ScenarioEquip): boolean {
   return equip.masterId === NIGHT_ZUIUN_MASTER_ID
     || equip.name.indexOf('夜間瑞雲') >= 0
     || equip.name.indexOf('夜间瑞云') >= 0;
 }
 
+function isSonar(t: number): boolean {
+  return t === SlotItemEquipType.Sonar || t === SlotItemEquipType.LargeSonar;
+}
+
+function isDepthChargeAny(t: number): boolean {
+  return t === SlotItemEquipType.DepthCharge;
+}
+
+function isMortar(equip: ScenarioEquip): boolean {
+  return isDepthChargeAny(equip.equipType) && nameContainsAny(equip.name, ['迫撃砲', '迫击炮']);
+}
+
+function isDepthChargeProjector(equip: ScenarioEquip): boolean {
+  if (!isDepthChargeAny(equip.equipType)) return false;
+  return DEPTH_CHARGE_PROJECTOR_MASTER_IDS.has(equip.masterId)
+    || nameContainsAny(equip.name, ['投射機', '投射机', '噴進砲', '喷进炮', 'Weapon Alpha', 'Mk.32']);
+}
+
+function isNarrowDepthCharge(equip: ScenarioEquip): boolean {
+  if (!isDepthChargeAny(equip.equipType)) return false;
+  if (NARROW_DEPTH_CHARGE_MASTER_IDS.has(equip.masterId)) return true;
+  if (isMortar(equip) || isDepthChargeProjector(equip)) return false;
+  return nameContainsAny(equip.name, ['爆雷', 'Hedgehog', '短魚雷', '短鱼雷']);
+}
+
+function isAswAircraft(equip: ScenarioEquip): boolean {
+  const t = equip.equipType;
+  return equip.onslot > 0
+    && equip.asw > 0
+    && (t === SlotItemEquipType.CarrierTorpedoBomber
+      || t === SlotItemEquipType.CarrierDiveBomber
+      || t === SlotItemEquipType.JetFighterBomber
+      || t === SlotItemEquipType.SeaplaneBomber
+      || t === SlotItemEquipType.Autogyro
+      || t === SlotItemEquipType.AntiSubPatrol);
+}
+
+function isAswConditionAircraft(equip: ScenarioEquip): boolean {
+  if (equip.onslot <= 0) return false;
+  const t = equip.equipType;
+  if (t === SlotItemEquipType.LargeFlyingBoat) return true;
+  if (t === SlotItemEquipType.SeaplaneBomber
+      || t === SlotItemEquipType.Autogyro
+      || t === SlotItemEquipType.AntiSubPatrol) {
+    return true;
+  }
+  return equip.asw > 0
+    && (t === SlotItemEquipType.CarrierTorpedoBomber
+      || t === SlotItemEquipType.CarrierDiveBomber
+      || t === SlotItemEquipType.JetFighterBomber);
+}
+
+function contributesToAswPower(equip: ScenarioEquip): boolean {
+  if (equip.asw <= 0) return false;
+  const t = equip.equipType;
+  return isSonar(t) || isDepthChargeAny(t) || isAswAircraft(equip);
+}
+
 function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
   const counts: EquipCounts = {
     mainGun: 0, secondaryGun: 0, torpedo: 0, radar: 0, surfaceRadar: 0,
     apShell: 0, lookout: 0, spottingPlane: 0, carrierFighter: 0,
-    carrierDiveBomber: 0, carrierTorpedoBomber: 0, nightPlane: 0, nightZuiun: 0, bombTotal: 0,
+    carrierDiveBomber: 0, carrierTorpedoBomber: 0, jetFighter: 0, jetFighterBomber: 0,
+    nightPlane: 0, nightZuiun: 0,
+    aswEquipTotal: 0, aswPowerEquipTotal: 0, aswConditionAircraft: 0, aswAircraft: 0,
+    sonar: 0, smallSonar: 0, largeSonar: 0, depthCharge: 0, depthChargeProjector: 0, mortar: 0,
+    depthChargeAny: 0, bombTotal: 0,
   };
 
   for (const eq of equips) {
@@ -119,25 +212,52 @@ function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
     }
     if (t === SlotItemEquipType.APShell) counts.apShell += 1;
     if (t === SlotItemEquipType.SurfaceShipPersonnel) counts.lookout += 1;
+    if (isSonar(t)) {
+      counts.sonar += 1;
+      if (t === SlotItemEquipType.Sonar) counts.smallSonar += 1;
+      if (t === SlotItemEquipType.LargeSonar) counts.largeSonar += 1;
+    }
+    if (isDepthChargeAny(t)) {
+      counts.depthChargeAny += 1;
+      if (isNarrowDepthCharge(eq)) counts.depthCharge += 1;
+      if (isDepthChargeProjector(eq)) counts.depthChargeProjector += 1;
+      if (isMortar(eq)) counts.mortar += 1;
+    }
+    counts.aswEquipTotal += eq.asw;
+    if (contributesToAswPower(eq)) {
+      counts.aswPowerEquipTotal += eq.asw;
+    }
 
     const embarked = eq.onslot > 0;
     if (embarked && (t === SlotItemEquipType.SeaplaneRecon || t === SlotItemEquipType.SeaplaneBomber)) {
       counts.spottingPlane += 1;
     }
-    if (embarked && (t === SlotItemEquipType.CarrierFighter || t === SlotItemEquipType.JetFighter)) {
+    if (embarked && t === SlotItemEquipType.CarrierFighter) {
       counts.carrierFighter += 1;
     }
-    if (embarked && (t === SlotItemEquipType.CarrierDiveBomber || t === SlotItemEquipType.JetFighterBomber)) {
+    if (embarked && t === SlotItemEquipType.CarrierDiveBomber) {
       counts.carrierDiveBomber += 1;
     }
     if (embarked && t === SlotItemEquipType.CarrierTorpedoBomber) {
       counts.carrierTorpedoBomber += 1;
+    }
+    if (embarked && t === SlotItemEquipType.JetFighter) {
+      counts.jetFighter += 1;
+    }
+    if (embarked && t === SlotItemEquipType.JetFighterBomber) {
+      counts.jetFighterBomber += 1;
     }
     if (embarked && (eq.iconType === SlotItemIconId.NightFighter || eq.iconType === SlotItemIconId.NightAttacker)) {
       counts.nightPlane += 1;
     }
     if (embarked && isNightZuiunEquip(eq)) {
       counts.nightZuiun += 1;
+    }
+    if (isAswConditionAircraft(eq)) {
+      counts.aswConditionAircraft += 1;
+    }
+    if (isAswAircraft(eq)) {
+      counts.aswAircraft += 1;
     }
     counts.bombTotal += eq.bomb;
   }
@@ -157,6 +277,9 @@ const DAY_ATTACK_LABEL = new Map<DayAttackType, string>([
   [DayAttackType.CarrierFBA, '战爆攻CI'],
   [DayAttackType.CarrierBBA, '爆爆攻CI'],
   [DayAttackType.CarrierBA, '爆攻CI'],
+  [DayAttackType.CarrierJetFBB, '喷战喷爆喷爆CI'],
+  [DayAttackType.CarrierJetFB, '喷战喷爆CI'],
+  [DayAttackType.CarrierJetFBA, '喷战爆攻CI'],
 ]);
 
 /** Post-cap power modifier and hit count per day attack type. */
@@ -170,6 +293,9 @@ const DAY_ATTACK_POWER = new Map<DayAttackType, { modifier: number; hits: number
   [DayAttackType.CarrierFBA, { modifier: 1.25, hits: 1 }],
   [DayAttackType.CarrierBBA, { modifier: 1.2, hits: 1 }],
   [DayAttackType.CarrierBA, { modifier: 1.15, hits: 1 }],
+  [DayAttackType.CarrierJetFBB, { modifier: 1.35, hits: 1 }],
+  [DayAttackType.CarrierJetFB, { modifier: 1.3, hits: 1 }],
+  [DayAttackType.CarrierJetFBA, { modifier: 1.27, hits: 1 }],
 ]);
 
 const NIGHT_ATTACK_LABEL = new Map<NightCutInType, string>([
@@ -217,6 +343,40 @@ function nightAttackPower(type: NightCutInType, counts: EquipCounts): { modifier
   return NIGHT_ATTACK_POWER.get(type)!;
 }
 
+function antiSubmarineSynergyModifier(counts: EquipCounts): number {
+  const oldSynergy = counts.sonar > 0 && (counts.depthChargeProjector > 0 || counts.mortar > 0) ? 1.15 : 1.0;
+  const newSynergy = 1
+    + (counts.smallSonar > 0 && counts.depthCharge > 0 ? 0.15 : 0)
+    + (counts.depthChargeProjector > 0 && counts.depthCharge > 0 ? 0.1 : 0);
+  const largeSonarDepthSynergy = counts.largeSonar > 0
+    && counts.smallSonar <= 0
+    && counts.depthCharge > 0
+    && counts.depthChargeProjector <= 0
+    && counts.mortar <= 0
+    ? 1.15
+    : 1.0;
+  return oldSynergy * newSynergy * largeSonarDepthSynergy;
+}
+
+function isAswCoreShipType(shipType: ShipType): boolean {
+  return shipType === ShipType.DE
+    || shipType === ShipType.DD
+    || shipType === ShipType.CL
+    || shipType === ShipType.CLT
+    || shipType === ShipType.CT
+    || shipType === ShipType.AO;
+}
+
+function canUseAntiSubmarineAttack(shipType: ShipType, counts: EquipCounts): boolean {
+  if (isSubmarineType(shipType) || shipType === ShipType.AS || shipType === ShipType.AR) return false;
+  if (isAswCoreShipType(shipType)) return true;
+  if (shipType === ShipType.CVL) return counts.aswConditionAircraft > 0;
+  if (shipType === ShipType.AV || shipType === ShipType.LHA || shipType === ShipType.CAV || shipType === ShipType.BBV) {
+    return counts.aswConditionAircraft > 0 || counts.depthChargeAny > 0;
+  }
+  return false;
+}
+
 // ==================== Attack Type Detection ====================
 
 /**
@@ -237,12 +397,29 @@ function detectDaySpottingAttacks(counts: EquipCounts): DayAttackType[] {
 
 /** Carrier cut-ins (戦爆連合), ordered by selection priority. */
 function detectCarrierDayAttacks(counts: EquipCounts): DayAttackType[] {
-  if (counts.carrierDiveBomber <= 0 || counts.carrierTorpedoBomber <= 0) return [];
-
   const types: DayAttackType[] = [];
-  if (counts.carrierFighter >= 1) types.push(DayAttackType.CarrierFBA);
-  if (counts.carrierDiveBomber >= 2) types.push(DayAttackType.CarrierBBA);
-  types.push(DayAttackType.CarrierBA);
+  const hasOrdinaryBA = counts.carrierDiveBomber >= 1 && counts.carrierTorpedoBomber >= 1;
+  const hasJetOnlyBombers = counts.carrierDiveBomber === 0 && counts.carrierTorpedoBomber === 0;
+  const hasJetFighter = counts.jetFighter >= 1;
+
+  if (counts.carrierFighter >= 1 && hasOrdinaryBA) {
+    types.push(DayAttackType.CarrierFBA);
+  }
+  if (counts.carrierDiveBomber >= 2 && counts.carrierTorpedoBomber >= 1) {
+    types.push(DayAttackType.CarrierBBA);
+  }
+  if (hasOrdinaryBA) {
+    types.push(DayAttackType.CarrierBA);
+  }
+  if (hasJetFighter && counts.jetFighterBomber >= 2 && hasJetOnlyBombers) {
+    types.push(DayAttackType.CarrierJetFBB);
+  }
+  if (hasJetFighter && counts.jetFighterBomber >= 1 && hasJetOnlyBombers) {
+    types.push(DayAttackType.CarrierJetFB);
+  }
+  if (hasJetFighter && counts.jetFighterBomber === 0 && hasOrdinaryBA) {
+    types.push(DayAttackType.CarrierJetFBA);
+  }
   return types;
 }
 
@@ -350,6 +527,25 @@ function buildTorpedoScenarios(input: ShipScenarioInput): ScenarioAttack[] {
   )];
 }
 
+function buildAntiSubmarineScenarios(input: ShipScenarioInput, counts: EquipCounts): ScenarioAttack[] {
+  const shipType = input.stype as ShipType;
+  if (!canUseAntiSubmarineAttack(shipType, counts)) return [];
+  if (input.asw <= 0 && counts.aswPowerEquipTotal <= 0) return [];
+
+  const basePower = antiSubmarineBasePower(
+    input.asw,
+    counts.aswEquipTotal,
+    counts.aswPowerEquipTotal,
+    antiSubmarineImprovementBonus(input.equips),
+    counts.aswAircraft > 0,
+  ) * antiSubmarineSynergyModifier(counts);
+
+  return [makeAttack(
+    'asw_normal', '普通攻击', 1, 1,
+    basePower, ANTI_SUBMARINE_CAP, 1.0,
+  )];
+}
+
 function buildNightScenarios(input: ShipScenarioInput, counts: EquipCounts): ScenarioAttack[] {
   const shipType = input.stype as ShipType;
   const carrier = isCarrierType(shipType);
@@ -398,13 +594,14 @@ function buildNightScenarios(input: ShipScenarioInput, counts: EquipCounts): Sce
 }
 
 /**
- * Build the attack scenario table for one ship (昼战 / 雷击 / 夜战).
+ * Build the attack scenario table for one ship (昼战 / 雷击 / 对潜 / 夜战).
  */
 export function buildShipBattleScenarios(input: ShipScenarioInput): ShipBattleScenarios {
   const counts = countEquips(input.equips);
   return {
     day: buildDayScenarios(input, counts),
     torpedo: buildTorpedoScenarios(input),
+    asw: buildAntiSubmarineScenarios(input, counts),
     night: buildNightScenarios(input, counts),
   };
 }

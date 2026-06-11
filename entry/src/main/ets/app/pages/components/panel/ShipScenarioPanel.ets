@@ -4,13 +4,15 @@ import { buildShipScenarioData, ShipScenarioData } from '../../../../features/pa
 
 const TAB_DAY = 0;
 const TAB_TORPEDO = 1;
-const TAB_NIGHT = 2;
+const TAB_ASW = 2;
+const TAB_NIGHT = 3;
 
-const TAB_LABELS: string[] = ['昼战', '雷击', '夜战'];
+const TAB_LABELS: string[] = ['昼战', '雷击', '对潜', '夜战'];
 
 const ACCENT_TAB = '#4a9eda';
 const ACCENT_TYPE_DAY = '#e5a04a';
 const ACCENT_TYPE_TORPEDO = '#64B5F6'; // rgb(100, 181, 246)
+const ACCENT_TYPE_ASW = '#4DD0E1'; // rgb(77, 208, 225)
 const ACCENT_TYPE_NIGHT = '#9FA8DA'; // rgb(159, 168, 218)
 const ACCENT_TYPE_NIGHT_AERIAL = '#9383EF';
 
@@ -48,6 +50,7 @@ export struct ShipScenarioPanel {
     if (!this.data) return [];
     switch (this.activeTab) {
       case TAB_TORPEDO: return this.data.scenarios.torpedo;
+      case TAB_ASW: return this.data.scenarios.asw;
       case TAB_NIGHT: return this.data.scenarios.night;
       default: return this.data.scenarios.day;
     }
@@ -68,6 +71,7 @@ export struct ShipScenarioPanel {
 
   private attackAccentColor(attack: ScenarioAttack): string {
     if (this.activeTab === TAB_TORPEDO) return ACCENT_TYPE_TORPEDO;
+    if (this.activeTab === TAB_ASW) return ACCENT_TYPE_ASW;
     if (this.activeTab === TAB_NIGHT) {
       return this.isNightAerialAttack(attack) ? ACCENT_TYPE_NIGHT_AERIAL : ACCENT_TYPE_NIGHT;
     }
@@ -85,7 +89,7 @@ export struct ShipScenarioPanel {
         .fontColor(PanelColors.txtSub)
       Blank().layoutWeight(1)
       if (this.data) {
-        Text(`火力${this.data.firepower} 雷装${this.data.torpedo} 运${this.data.luck}`)
+        Text(`火力${this.data.firepower} 雷装${this.data.torpedo} 对潜${this.data.asw} 运${this.data.luck}`)
           .fontSize(10)
           .fontColor(PanelColors.txtMuted)
       }

@@ -12,7 +12,8 @@
  *
  * Artillery spotting cut-ins (弾着観測射撃) require an embarked seaplane
  * recon/bomber and air superiority or better. Carrier cut-ins (戦爆連合)
- * require embarked bomber combinations.
+ * require embarked bomber combinations. Jet carrier cut-ins require jet fighter
+ * / jet bomber combinations and are rolled separately from ordinary FBA.
  */
 export enum DayAttackType {
   /** 通常砲撃 */
@@ -33,6 +34,12 @@ export enum DayAttackType {
   CarrierBBA = 'day_cvci_bba',
   /** 爆攻CI (艦爆 + 艦攻) */
   CarrierBA = 'day_cvci_ba',
+  /** 噴式戦爆爆CI (噴戦 + 噴爆×2) */
+  CarrierJetFBB = 'day_cvci_jet_fbb',
+  /** 噴式戦爆CI (噴戦 + 噴爆) */
+  CarrierJetFB = 'day_cvci_jet_fb',
+  /** 噴式戦爆攻CI (噴戦 + 艦爆 + 艦攻) */
+  CarrierJetFBA = 'day_cvci_jet_fba',
 }
 
 // ==================== Input ====================
@@ -56,6 +63,8 @@ export interface ScenarioEquip {
   torpedo: number;
   /** 爆装 (api_baku) */
   bomb: number;
+  /** 対潜 (api_tais) */
+  asw: number;
   /** 索敵 (api_saku) */
   los: number;
   /** 改修度 (api_level, ★0..10) */
@@ -75,6 +84,8 @@ export interface ShipScenarioInput {
   firepower: number;
   /** Displayed torpedo (api_raisou[0], incl. equipment) */
   torpedo: number;
+  /** Displayed ASW (api_taisen[0], incl. equipment) */
+  asw: number;
   isFlagship: boolean;
   hpNow: number;
   hpMax: number;
@@ -112,12 +123,14 @@ export interface ScenarioAttack {
   modifier: number;
 }
 
-/** Attack scenarios for the three phases shown in the panel (no 支援). */
+/** Attack scenarios for the phases shown in the panel (no 支援). */
 export interface ShipBattleScenarios {
   /** 昼战 (砲撃戦); empty = ship cannot shell in day battle */
   day: ScenarioAttack[];
   /** 雷击 (雷撃戦); empty = ship cannot join the torpedo phase */
   torpedo: ScenarioAttack[];
+  /** 对潜 (対潜攻撃); empty = ship cannot attack submarines */
+  asw: ScenarioAttack[];
   /** 夜战; empty = ship cannot attack at night */
   night: ScenarioAttack[];
 }

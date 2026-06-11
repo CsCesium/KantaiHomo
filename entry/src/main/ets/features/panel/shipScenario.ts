@@ -23,6 +23,7 @@ export interface ShipScenarioData {
   /** Displayed stats used as calculation base */
   firepower: number;
   torpedo: number;
+  asw: number;
   luck: number;
   scenarios: ShipBattleScenarios;
 }
@@ -61,6 +62,7 @@ function toScenarioEquip(slotUid: number, onslot: number, st: Readonly<GameState
     firepower: st.slotItemFire.get(masterId) ?? 0,
     torpedo: st.slotItemTorp.get(masterId) ?? 0,
     bomb: st.slotItemBomb.get(masterId) ?? 0,
+    asw: st.slotItemAsw.get(masterId) ?? 0,
     los: st.slotItemLos.get(masterId) ?? 0,
     level: st.slotItemLevels.get(slotUid) ?? 0,
     onslot,
@@ -147,6 +149,7 @@ export function buildShipScenarioData(uid: number): ShipScenarioData | null {
     luck: ship.luckCur,
     firepower: ship.fireCur,
     torpedo: ship.torpCur,
+    asw: ship.aswCur,
     isFlagship,
     hpNow: ship.hpNow,
     hpMax: ship.hpMax,
@@ -163,6 +166,7 @@ export function buildShipScenarioData(uid: number): ShipScenarioData | null {
     isFlagship,
     firepower: ship.fireCur,
     torpedo: ship.torpCur,
+    asw: ship.aswCur,
     luck: ship.luckCur,
     scenarios: buildShipBattleScenarios(input),
   };

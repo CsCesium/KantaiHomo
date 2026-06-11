@@ -14,6 +14,8 @@
  *   夜戦:
  *     主砲(全)・魚雷・徹甲弾・探照灯・高射装置・大発系: +√★
  *     副砲: 昼戦と同じ 0.3×★ / 0.2×★
+ *   対潜:
+ *     ソナー・爆雷系: +√★
  *
  * Reference: https://wikiwiki.jp/kancolle/改修工廠
  */
@@ -39,6 +41,12 @@ function isLargeCaliberMainGun(t: number): boolean {
 
 function isTorpedoType(t: number): boolean {
   return t === SlotItemEquipType.Torpedo || t === SlotItemEquipType.SubmarineTorpedo;
+}
+
+function isAntiSubImprovementType(t: number): boolean {
+  return t === SlotItemEquipType.Sonar
+    || t === SlotItemEquipType.LargeSonar
+    || t === SlotItemEquipType.DepthCharge;
 }
 
 /** 改修√★ が火力に乗る共通カテゴリ（主砲以外） */
@@ -102,6 +110,18 @@ export function torpedoImprovementBonus(equips: ReadonlyArray<ScenarioEquip>): n
     const t = eq.equipType;
     if (isTorpedoType(t) || t === SlotItemEquipType.AAGun) {
       bonus += 1.2 * sqrtStar(eq.level);
+    }
+  }
+  return bonus;
+}
+
+/** 対潜攻撃の改修強化値（ソナー・爆雷系 +√★） */
+export function antiSubmarineImprovementBonus(equips: ReadonlyArray<ScenarioEquip>): number {
+  let bonus = 0;
+  for (const eq of equips) {
+    if (eq.level <= 0) continue;
+    if (isAntiSubImprovementType(eq.equipType)) {
+      bonus += sqrtStar(eq.level);
     }
   }
   return bonus;

@@ -9,6 +9,7 @@
  *   昼砲撃(水上艦):   基本攻撃力 = 火力 + 改修 + 5
  *   昼砲撃(空母):     基本攻撃力 = ⌊(火力 + 雷装 + ⌊1.3×爆装⌋ + 改修) × 1.5⌋ + 55
  *   雷撃:             基本攻撃力 = 雷装 + 改修 + 5
+ *   対潜:             基本攻撃力 = 2×√素対潜 + 1.5×装備対潜 + 改修 + 8/13
  *   夜戦:             基本攻撃力 = 火力 + 雷装 + 改修
  *
  *   キャップ後攻撃力 = cap + √(基本攻撃力 - cap)   (基本攻撃力 > cap 时)
@@ -24,6 +25,9 @@ export const DAY_BATTLE_CAP = 220;
 
 /** 雷撃戦キャップ */
 export const TORPEDO_BATTLE_CAP = 180;
+
+/** 対潜戦キャップ */
+export const ANTI_SUBMARINE_CAP = 170;
 
 /** 夜戦キャップ */
 export const NIGHT_BATTLE_CAP = 360;
@@ -83,6 +87,26 @@ export function dayCarrierBasePower(firepower: number, torpedo: number, bomb: nu
  */
 export function torpedoBasePower(torpedo: number, improvement: number = 0): number {
   return torpedo + improvement + 5;
+}
+
+/**
+ * Anti-submarine basic power.
+ *
+ * displayedAsw includes equipment; the formula uses intrinsic ship ASW plus
+ * only ASW-contributing equipment separately.
+ */
+export function antiSubmarineBasePower(
+  displayedAsw: number,
+  allEquipmentAsw: number,
+  attackEquipmentAsw: number,
+  improvement: number = 0,
+  aircraftAttack: boolean = false,
+): number {
+  const shipAsw = Math.max(0, displayedAsw - allEquipmentAsw);
+  return 2 * Math.sqrt(shipAsw)
+    + 1.5 * attackEquipmentAsw
+    + improvement
+    + (aircraftAttack ? 8 : 13);
 }
 
 /**
