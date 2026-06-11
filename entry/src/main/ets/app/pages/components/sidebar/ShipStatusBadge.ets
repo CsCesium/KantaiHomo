@@ -17,12 +17,13 @@ const STATUS_PANEL_WIDTH = 24;
 const DAMAGE_CONTROL_ICON_ID = SlotItemIconId.DamageControl;
 const DAMAGE_BADGE_BG = '#00000088';
 const DAMAGE_BADGE_BORDER = '#FFFFFFCC';
+const RESUPPLY_ICON_PATH = 'resource://RAWFILE/icons/common/给.gif';
 
 /**
  * 舰娘状态徽章 — 展示单艘舰娘的圆形头像、HP 环、特殊装备角标和补给指示符。
  *
  * 布局（横向）：
- *   [HP环 + 头像圆 + 损管/女神(按需)] [补给⚠(按需) + Cond emoji+数值]
+ *   [HP环 + 头像圆 + 损管/女神(按需)] [补给图标(按需) + Cond emoji+数值]
  *
  * @param ship        舰娘状态数据
  * @param equip       特殊装备状态（损管/女神）
@@ -230,10 +231,10 @@ export default struct ShipStatusBadge {
     Column({ space: 3 }) {
       // 补给不足图标（仅在 sidebar 允许提示且需要补给时显示）
       if (this.showResupplyAlert && this.ship.needsResupply) {
-        Text('⚠')
-          .fontSize(10)
-          .fontColor('#FF9F43')
-          .maxLines(1)
+        Image(RESUPPLY_ICON_PATH)
+          .width(12)
+          .height(12)
+          .objectFit(ImageFit.Contain)
       }
       // Cond：emoji icon + 数值
       Row({ space: 2 }) {
