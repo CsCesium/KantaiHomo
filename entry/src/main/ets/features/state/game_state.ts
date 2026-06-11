@@ -97,6 +97,7 @@ class GameStateManager {
     useItemCounts: new Map(),
     sortieResourceGains: null,
     decks: [],
+    combinedFleetType: 0,
     Ndocks:[],
     Kdocks:[],
     quests: [],
@@ -798,6 +799,7 @@ class GameStateManager {
     admiral?: Admiral;
     materials?: Materials;
     decks?: Deck[];
+    combinedFleetType?: number;
     ships?: Ship[];
   }): void {
     if (data.admiral) {
@@ -835,6 +837,10 @@ class GameStateManager {
     if (data.decks) {
       const capturedAt = Date.now();
       this.state.decks = data.decks.map(deck => deckToSnapshot(deck, capturedAt));
+    }
+
+    if (data.combinedFleetType !== undefined) {
+      this.state.combinedFleetType = data.combinedFleetType;
     }
 
     if (data.ships) {
@@ -910,6 +916,13 @@ class GameStateManager {
    */
   getDecks(): readonly DeckSnapshot[] {
     return this.state.decks;
+  }
+
+  /**
+   * 获取港口联合舰队类型（0=通常, 1=机动, 2=水上, 3=输送）
+   */
+  getCombinedFleetType(): number {
+    return this.state.combinedFleetType;
   }
 
   /**
@@ -1216,6 +1229,7 @@ class GameStateManager {
       useItemCounts: new Map(),
       sortieResourceGains: null,
       decks: [],
+      combinedFleetType: 0,
       Ndocks:[],
       Kdocks:[],
       quests: [],
@@ -1706,6 +1720,7 @@ class GameStateManager {
       admiral: this.state.admiral,
       materials: this.state.materials,
       decks: this.state.decks,
+      combinedFleetType: this.state.combinedFleetType,
       Ndocks: this.state.Ndocks,
       Kdocks: this.state.Kdocks,
       quests: this.state.quests,
@@ -1814,6 +1829,7 @@ export const getMaterials = () => gameStateManager.getMaterials();
 export const getNDocks = ()=> gameStateManager.getNDocks();
 export const getKDocks = ()=> gameStateManager.getKDocks();
 export const getDecks = () => gameStateManager.getDecks();
+export const getCombinedFleetType = () => gameStateManager.getCombinedFleetType();
 export const getDeck = (deckId: number) => gameStateManager.getDeck(deckId);
 export const getQuests = () => gameStateManager.getQuests();
 export const getShip = (uid: number) => gameStateManager.getShip(uid);

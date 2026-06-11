@@ -64,6 +64,7 @@ class PortPersistHandler implements Handler {
       admiral: snapshot.admiral,
       materials: snapshot.materials,
       decks: snapshot.decks,
+      combinedFleetType: snapshot.combinedFlag ?? 0,
       ships: snapshot.ships,
     });
     console.info('[port] snapshot updated to GameState');

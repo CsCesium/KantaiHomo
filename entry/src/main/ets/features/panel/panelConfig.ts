@@ -76,6 +76,23 @@ export const FLEET_TAB_COLORS: readonly string[] = [
   '#37474f',  // 任務       — slate grey (quest list)
 ];
 
+const FLEET_ICON_DIR = 'resource://RAWFILE/icons/fleet/';
+
+export type FleetIconState = 'unavaliable' | 'idle' | 'selected' | 'exped';
+
+export function fleetIconPath(
+  deckId: number,
+  state: FleetIconState,
+  combined: boolean = false,
+  sortie: boolean = false
+): string {
+  if (combined && deckId === 1) {
+    return `${FLEET_ICON_DIR}fleet_combined${sortie ? '_sortie' : ''}.png`;
+  }
+  const id = deckId >= 1 && deckId <= 4 ? deckId : 1;
+  return `${FLEET_ICON_DIR}fleet_${id}_${state}.png`;
+}
+
 // ── Quest category visual mapping (panel) ──────────────────────────────────
 
 /**

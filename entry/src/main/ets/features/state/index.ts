@@ -85,6 +85,7 @@ export {
   getNDocks,
   getKDocks,
   getDecks,
+  getCombinedFleetType,
   getDeck,
   getQuests,
   getShip,

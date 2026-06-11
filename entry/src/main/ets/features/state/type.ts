@@ -155,6 +155,8 @@ export interface GameState {
   sortieResourceGains: SortieResourceGains | null;
   /** 四个舰队 */
   decks: DeckSnapshot[];
+  /** 港口联合舰队类型（api_combined_flag：0=通常, 1=机动, 2=水上, 3=输送） */
+  combinedFleetType: number;
   /** 修理渠状态 */
   Ndocks:NDockSnapShot[];
   /** 修理渠状态 */

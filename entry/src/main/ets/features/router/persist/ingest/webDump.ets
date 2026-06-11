@@ -35,7 +35,8 @@ import {
   patchShipExSlot,
   patchShipUnsetSlots,
   patchShipSlotExchange,
-  patchShipSlotDeprive
+  patchShipSlotDeprive,
+  updateFromPort
 } from '../../../state';
 import { getSortieContext } from '../../../../domain/service';
 import { parseFormBody } from '../../../utils/common';
@@ -186,6 +187,11 @@ function patchPanelStateFromHenseiRequest(dump: ApiDump): void {
 
   if (url.includes('/api_req_hensei/preset_select')) {
     patchDeckFromResponse(dump.responseText);
+    return;
+  }
+  if (url.includes('/api_req_hensei/combined')) {
+    const params = parseFormBody(dump.requestBody);
+    updateFromPort({ combinedFleetType: params.getInt('api_combined_type', 0) });
     return;
   }
   if (!url.includes('/api_req_hensei/change')) return;

@@ -1,7 +1,9 @@
 import { ShipItem } from '../../../../../features/panel/type';
-import { PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { PanelColors, PanelDimens, fleetIconPath } from '../../../../../features/panel/panelConfig';
+import type { FleetIconState } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
+  getCombinedFleetType,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   MapGaugeSnapshot,
   getMapGauges,
@@ -20,6 +22,7 @@ import {
   getFleetTP,
 } from '../../../../../features/calc';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../../ability/Entry';
+import { getSortieContext } from '../../../../../domain/service/sortie';
 import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
 import { detectSpecialAttackBadges } from '../../../../../features/panel/specialAttackBadge';
 import { resourceIconPath } from '../../../../../features/resources/resourceMeta';
@@ -348,15 +351,40 @@ export default struct FloatOverlayPanel {
   }
 
   private selectFleet(idx: number): void {
+    if (idx < 4 && this.isFleetUnavailable(idx)) {
+      return;
+    }
     this.activeFleet = idx;
     this.refreshShips();
     this.loadCalcStats();
   }
 
-  private isOnExpedition(idx: number): boolean {
-    if (idx >= 4) return false;
-    const deck = this.decks.find(d => d.deckId === idx + 1);
+  private fleetDeck(idx: number): DeckSnapshot | undefined {
+    return this.decks.find(d => d.deckId === idx + 1);
+  }
+
+  private isFleetUnavailable(idx: number): boolean {
+    return idx < 4 && this.fleetDeck(idx) === undefined;
+  }
+
+  private isFleetOnExpedition(idx: number): boolean {
+    const deck = this.fleetDeck(idx);
     return !!(deck?.expeditionReturnTime && deck.expeditionReturnTime > Date.now());
+  }
+
+  private fleetTabState(idx: number): FleetIconState {
+    if (this.isFleetUnavailable(idx)) return 'unavaliable';
+    if (this.isFleetOnExpedition(idx)) return 'exped';
+    if (this.activeFleet === idx) return 'selected';
+    return 'idle';
+  }
+
+  private fleetTabIcon(idx: number): string {
+    const sortieContext = getSortieContext();
+    const combinedType = sortieContext?.combinedType ?? getCombinedFleetType();
+    const combined = idx === 0 && combinedType > 0;
+    const sortie = sortieContext !== null && sortieContext.combinedType > 0;
+    return fleetIconPath(idx + 1, this.fleetTabState(idx), combined, sortie);
   }
 
   private openEquipDetail(uid: number): void {
@@ -519,6 +547,21 @@ export default struct FloatOverlayPanel {
     .alignItems(VerticalAlign.Center)
   }
 
+  @Builder private FleetTabIcon(idx: number): void {
+    Row() {
+      Image(this.fleetTabIcon(idx))
+        .width(28)
+        .height(20)
+        .objectFit(ImageFit.Contain)
+    }
+    .width(34)
+    .height(PanelDimens.tabBarH - 4)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .opacity(this.isFleetUnavailable(idx) ? 0.52 : 1.0)
+    .onClick(() => { this.selectFleet(idx); })
+  }
+
   build() {
     Column() {
       this.AdmiralHeader()
@@ -553,14 +596,7 @@ export default struct FloatOverlayPanel {
         Row() {
           Row({ space: 4 }) {
             ForEach([0, 1, 2, 3], (idx: number) => {
-              Text(this.isOnExpedition(idx) ? `${idx + 1}↗` : `${idx + 1}`)
-                .fontSize(PanelDimens.fontSm)
-                .fontColor(PanelColors.txtTabOn)
-                .backgroundColor(this.activeFleet === idx ? '#0d47a1' : PanelColors.bgTabInactive)
-                .opacity(this.activeFleet === idx ? 1.0 : 0.55)
-                .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-                .borderRadius(PanelDimens.radius)
-                .onClick(() => { this.selectFleet(idx); })
+              this.FleetTabIcon(idx)
             }, (idx: number) => `ftab-${idx}`)
           }
           .alignItems(VerticalAlign.Center)

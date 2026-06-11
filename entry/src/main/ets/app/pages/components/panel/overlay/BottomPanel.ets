@@ -1,7 +1,9 @@
 import { ShipItem } from '../../../../../features/panel/type';
-import { FLEET_TAB_COLORS, PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
+import { FLEET_TAB_COLORS, PanelColors, PanelDimens, fleetIconPath } from '../../../../../features/panel/panelConfig';
+import type { FleetIconState } from '../../../../../features/panel/panelConfig';
 import {
   subscribeGameState, getDeckShips, getMaterials, getDecks, getGameState,
+  getCombinedFleetType,
   MaterialsSnapshot, DeckSnapshot, ShipState,
   getMapGauges,
   MapGaugeSnapshot,
@@ -20,6 +22,7 @@ import {
   getFleetTP,
 } from '../../../../../features/calc';
 import { APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_SIDEBAR_SHOW_AVATAR } from '../../../../../ability/Entry';
+import { getSortieContext } from '../../../../../domain/service/sortie';
 import { buildShipCapabilityTags } from '../../../../../features/panel/shipCapabilityTags';
 import { detectSpecialAttackBadges } from '../../../../../features/panel/specialAttackBadge';
 import { resourceIconPath } from '../../../../../features/resources/resourceMeta';
@@ -346,35 +349,76 @@ export default struct BottomPanel {
   }
 
   private selectFleet(idx: number): void {
+    if (idx < 4 && this.isFleetUnavailable(idx)) {
+      return;
+    }
     this.activeFleet = idx;
     this.refreshShips();
     this.loadCalcStats();
   }
 
-  private tabLabel(idx: number): string {
-    if (idx >= 4) return FLEET_TABS_LABEL[idx];
-    const deck = this.decks.find(d => d.deckId === idx + 1);
-    if (deck?.expeditionReturnTime && deck.expeditionReturnTime > Date.now()) {
-      return `${idx + 1}↗`;
-    }
-    return `${idx + 1}`;
+  private fleetDeck(idx: number): DeckSnapshot | undefined {
+    return this.decks.find(d => d.deckId === idx + 1);
+  }
+
+  private isFleetUnavailable(idx: number): boolean {
+    return idx < 4 && this.fleetDeck(idx) === undefined;
+  }
+
+  private isFleetOnExpedition(idx: number): boolean {
+    const deck = this.fleetDeck(idx);
+    return !!(deck?.expeditionReturnTime && deck.expeditionReturnTime > Date.now());
+  }
+
+  private fleetTabState(idx: number): FleetIconState {
+    if (this.isFleetUnavailable(idx)) return 'unavaliable';
+    if (this.isFleetOnExpedition(idx)) return 'exped';
+    if (this.activeFleet === idx) return 'selected';
+    return 'idle';
+  }
+
+  private fleetTabIcon(idx: number): string {
+    const sortieContext = getSortieContext();
+    const combinedType = sortieContext?.combinedType ?? getCombinedFleetType();
+    const combined = idx === 0 && combinedType > 0;
+    const sortie = sortieContext !== null && sortieContext.combinedType > 0;
+    return fleetIconPath(idx + 1, this.fleetTabState(idx), combined, sortie);
   }
 
   // ── builders ──────────────────────────────────────────────────────────────
+
+  @Builder FleetTabIcon(idx: number) {
+    Row() {
+      Image(this.fleetTabIcon(idx))
+        .width(30)
+        .height(22)
+        .objectFit(ImageFit.Contain)
+    }
+    .width(40)
+    .height(PanelDimens.tabBarH)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
+    .opacity(this.isFleetUnavailable(idx) ? 0.52 : 1.0)
+    .onClick(() => { this.selectFleet(idx); })
+  }
 
   @Builder TabBar() {
     Scroll() {
       Row({ space: 3 }) {
         ForEach(FLEET_TABS_LABEL, (_tab: string, idx: number) => {
-          Text(this.tabLabel(idx))
-            .fontSize(PanelDimens.fontLg)
-            .fontWeight(this.activeFleet === idx ? FontWeight.Bold : FontWeight.Normal)
-            .fontColor(PanelColors.txtTabOn)
-            .backgroundColor(FLEET_TAB_COLORS[idx] ?? PanelColors.bgTabInactive)
-            .opacity(this.activeFleet === idx ? 1.0 : 0.38)
-            .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-            .borderRadius(PanelDimens.radius)
-            .onClick(() => { this.selectFleet(idx); })
+          if (idx < 4) {
+            this.FleetTabIcon(idx)
+          } else {
+            Text(FLEET_TABS_LABEL[idx])
+              .fontSize(PanelDimens.fontLg)
+              .fontWeight(this.activeFleet === idx ? FontWeight.Bold : FontWeight.Normal)
+              .fontColor(PanelColors.txtTabOn)
+              .backgroundColor(FLEET_TAB_COLORS[idx] ?? PanelColors.bgTabInactive)
+              .opacity(this.activeFleet === idx ? 1.0 : 0.38)
+              .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+              .borderRadius(PanelDimens.radius)
+              .onClick(() => { this.selectFleet(idx); })
+          }
         }, (_tab: string, idx: number) => `fleet-${idx}`)
       }
       .width('100%')
