@@ -70,7 +70,7 @@ export const FLEET_TAB_COLORS: readonly string[] = [
   '#006064',  // Fleet III — deep teal
   '#263238',  // Fleet IV  — dark blue-grey
   '#4e342e',  // 陆航       — warm brown (base air corps)
-  '#4a148c',  // 道具       — deep purple (supplies)
+  '#4a148c',  // 遠征       — deep purple (expedition checker)
   '#006064',  // 入渠       — deep teal (repair docks)
   '#1a3a5c',  // 地図       — dark navy (map info)
   '#37474f',  // 任務       — slate grey (quest list)

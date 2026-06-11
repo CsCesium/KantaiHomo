@@ -32,14 +32,16 @@ import ResourceAmount from '../common/ResourceAmount';
 import QuestPanel from '../common/QuestPanel';
 import NdockPanel from '../common/NdockPanel';
 import LbasPanel from '../common/LbasPanel';
+import ExpeditionCheckPanel from '../common/ExpeditionCheckPanel';
 import { shouldDisplayMapGauge } from './rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const OVERLAY_LBAS_TAB_IDX = 4;
-const OVERLAY_NDOCK_TAB_IDX = 5;
-const OVERLAY_MAP_TAB_IDX = 6;
-const OVERLAY_QUEST_TAB_IDX = 7;
-const OVERLAY_TAB_MIN_CONTENT_WIDTH = 330;
+const OVERLAY_EXPEDITION_TAB_IDX = 5;
+const OVERLAY_NDOCK_TAB_IDX = 6;
+const OVERLAY_MAP_TAB_IDX = 7;
+const OVERLAY_QUEST_TAB_IDX = 8;
+const OVERLAY_TAB_MIN_CONTENT_WIDTH = 380;
 const OVERLAY_FLEET_STATS_MIN_CONTENT_WIDTH = 360;
 const RESOURCE_NARROW_WIDTH = 460;
 const RESOURCE_BAR_H = 20;
@@ -791,6 +793,15 @@ export default struct FloatOverlayPanel {
               .borderRadius(PanelDimens.radius)
               .onClick(() => { this.selectFleet(OVERLAY_LBAS_TAB_IDX); })
 
+            Text('远征')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(PanelColors.txtTabOn)
+              .backgroundColor(this.activeFleet === OVERLAY_EXPEDITION_TAB_IDX ? '#4a148c' : PanelColors.bgTabInactive)
+              .opacity(this.activeFleet === OVERLAY_EXPEDITION_TAB_IDX ? 1.0 : 0.55)
+              .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+              .borderRadius(PanelDimens.radius)
+              .onClick(() => { this.selectFleet(OVERLAY_EXPEDITION_TAB_IDX); })
+
             Text('入渠')
               .fontSize(PanelDimens.fontSm)
               .fontColor(PanelColors.txtTabOn)
@@ -846,6 +857,8 @@ export default struct FloatOverlayPanel {
               showKaisyuu: this.showKaisyuu,
               showProficiency: this.showProficiency,
             })
+          } else if (this.activeFleet === OVERLAY_EXPEDITION_TAB_IDX) {
+            ExpeditionCheckPanel({ compact: true })
           } else if (this.activeFleet === OVERLAY_NDOCK_TAB_IDX) {
             NdockPanel({ ndocks: this.ndocks, compact: true })
           } else if (this.activeFleet === OVERLAY_MAP_TAB_IDX) {

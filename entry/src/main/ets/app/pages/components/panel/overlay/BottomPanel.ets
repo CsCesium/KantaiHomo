@@ -32,11 +32,13 @@ import ResourceAmount from '../common/ResourceAmount';
 import QuestPanel from '../common/QuestPanel';
 import NdockPanel from '../common/NdockPanel';
 import LbasPanel from '../common/LbasPanel';
+import ExpeditionCheckPanel from '../common/ExpeditionCheckPanel';
 import { shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
-const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '陆航', '道具', '入渠', '地図', '任务'];
+const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '陆航', '远征', '入渠', '地図', '任务'];
 const LBAS_TAB_IDX = 4;
+const EXPEDITION_TAB_IDX = 5;
 const NDOCK_TAB_IDX = 6;
 const MAP_TAB_IDX = 7;
 const QUEST_TAB_IDX = 8;
@@ -836,6 +838,8 @@ export default struct BottomPanel {
               showKaisyuu: this.showKaisyuu,
               showProficiency: this.showProficiency,
             })
+          } else if (this.activeFleet === EXPEDITION_TAB_IDX) {
+            ExpeditionCheckPanel({ compact: false })
           } else if (this.activeFleet === NDOCK_TAB_IDX) {
             NdockPanel({ ndocks: this.ndocks, compact: false })
           } else if (this.activeFleet === MAP_TAB_IDX) {

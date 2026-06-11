@@ -49,6 +49,7 @@ export function applyBattleHp(
     scoutCur:      base.scoutCur,
     aswCur:        base.aswCur,
     fireCur:       base.fireCur,
+    aaCur:         base.aaCur,
     torpCur:       base.torpCur,
     luckCur:       base.luckCur,
     speed:         base.speed,
