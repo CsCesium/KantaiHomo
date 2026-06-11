@@ -9,7 +9,10 @@ const TAB_NIGHT = 2;
 const TAB_LABELS: string[] = ['昼战', '雷击', '夜战'];
 
 const ACCENT_TAB = '#4a9eda';
-const ACCENT_TYPE = '#e5a04a';
+const ACCENT_TYPE_DAY = '#e5a04a';
+const ACCENT_TYPE_TORPEDO = '#64B5F6'; // rgb(100, 181, 246)
+const ACCENT_TYPE_NIGHT = '#9FA8DA'; // rgb(159, 168, 218)
+const ACCENT_TYPE_NIGHT_AERIAL = '#9383EF';
 
 /**
  * 战斗场景估算面板 — 双击舰名区域弹出。
@@ -52,6 +55,23 @@ export struct ShipScenarioPanel {
 
   private formatRate(rate: number): string {
     return `${(rate * 100).toFixed(1)}%`;
+  }
+
+  private isNightAerialAttack(attack: ScenarioAttack): boolean {
+    const id = attack.id.toLowerCase();
+    return id === 'carrier_night_ci'
+      || id.indexOf('zuiun') >= 0
+      || id.indexOf('zuiyun') >= 0
+      || attack.label.indexOf('瑞云') >= 0
+      || attack.label.indexOf('瑞雲') >= 0;
+  }
+
+  private attackAccentColor(attack: ScenarioAttack): string {
+    if (this.activeTab === TAB_TORPEDO) return ACCENT_TYPE_TORPEDO;
+    if (this.activeTab === TAB_NIGHT) {
+      return this.isNightAerialAttack(attack) ? ACCENT_TYPE_NIGHT_AERIAL : ACCENT_TYPE_NIGHT;
+    }
+    return ACCENT_TYPE_DAY;
   }
 
   @Builder private HeaderRow() {
@@ -126,13 +146,13 @@ export struct ShipScenarioPanel {
       Row() {
         Text(attack.label)
           .fontSize(10)
-          .fontColor(ACCENT_TYPE)
+          .fontColor(this.attackAccentColor(attack))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .padding({ left: 6, right: 6, top: 1, bottom: 1 })
       }
       .borderWidth(1)
-      .borderColor(ACCENT_TYPE)
+      .borderColor(this.attackAccentColor(attack))
       .borderRadius(8)
       .layoutWeight(5)
       .justifyContent(FlexAlign.Center)

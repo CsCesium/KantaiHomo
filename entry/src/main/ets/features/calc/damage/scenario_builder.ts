@@ -288,7 +288,7 @@ function buildDayScenarios(input: ShipScenarioInput, counts: EquipCounts): Scena
     remaining -= rate;
   }
 
-  attacks.unshift(makeAttack(
+  attacks.push(makeAttack(
     DayAttackType.Normal, DAY_ATTACK_LABEL.get(DayAttackType.Normal)!, 1, remaining,
     basePower, DAY_BATTLE_CAP, 1.0,
   ));
@@ -346,7 +346,7 @@ function buildNightScenarios(input: ShipScenarioInput, counts: EquipCounts): Sce
     remaining -= rate;
   }
 
-  attacks.unshift(makeAttack(
+  attacks.push(makeAttack(
     'night_normal', '普通攻击', 1, remaining,
     basePower, NIGHT_BATTLE_CAP, 1.0,
   ));
