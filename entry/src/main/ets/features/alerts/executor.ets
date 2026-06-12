@@ -25,6 +25,10 @@ import type {
   SortieAdvanceAlert,
   FleetStatusAlert,
   RepairCompleteAlert,
+  DevResultAlert,
+  BuildStartAlert,
+  BuildResultAlert,
+  RemodelResultAlert,
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
@@ -427,6 +431,50 @@ async function handleRepairComplete(alert: RepairCompleteAlert): Promise<void> {
   }
 }
 
+/** 装备开发结果 — 仅 Toast（工厂场景无需震动/系统通知） */
+async function handleDevResult(alert: DevResultAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableToast || !config.enableDevResultToast) return;
+
+  const body = `🔧 开发结果：${alert.itemNames.join('、')}`;
+  console.info(`[AlertExecutor] dev result: ${body}`);
+  await executeToast(body, 3000, alert.failCount >= alert.itemNames.length ? '#FF9F43' : undefined);
+}
+
+/** 建造开始 — 仅 Toast（与建造结果共用开关） */
+async function handleBuildStart(alert: BuildStartAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableToast || !config.enableBuildResultToast) return;
+
+  const prefix = alert.isLarge ? '大型建造' : '开始建造';
+  const body = `🚢 ${prefix}：${alert.shipName}`;
+  console.info(`[AlertExecutor] build start: ${body}`);
+  await executeToast(body, 3000);
+}
+
+/** 建造完成领取舰娘 — 仅 Toast */
+async function handleBuildResult(alert: BuildResultAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableToast || !config.enableBuildResultToast) return;
+
+  const body = `🚢 建造完成：${alert.shipName}`;
+  console.info(`[AlertExecutor] build result: ${body}`);
+  await executeToast(body, 3000);
+}
+
+/** 改修结果 — 仅 Toast */
+async function handleRemodelResult(alert: RemodelResultAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableToast || !config.enableRemodelResultToast) return;
+
+  const starStr = alert.success && alert.level > 0 ? ` ★${alert.level}` : '';
+  const body = alert.success
+    ? `🔨 改修成功：${alert.itemName}${starStr}`
+    : `🔨 改修失败：${alert.itemName}`;
+  console.info(`[AlertExecutor] remodel result: ${body}`);
+  await executeToast(body, 3000, alert.success ? undefined : '#FF9F43');
+}
+
 // ========== 主处理函数 ==========
 
 async function handleAlert(alert: AnyAlert): Promise<void> {
@@ -457,6 +505,18 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'repair_complete':
       await handleRepairComplete(alert);
+      break;
+    case 'dev_result':
+      await handleDevResult(alert);
+      break;
+    case 'build_start':
+      await handleBuildStart(alert);
+      break;
+    case 'build_result':
+      await handleBuildResult(alert);
+      break;
+    case 'remodel_result':
+      await handleRemodelResult(alert);
       break;
   }
 }

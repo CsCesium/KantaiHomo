@@ -44,6 +44,12 @@ export type EventType =
     | 'LBAS_UPDATE'
   // Supply
     | 'SUPPLY_CHARGE'
+  // Kousyou (工厂: 开发/建造/改修)
+    | 'KOUSYOU_DEV_RESULT'
+    | 'KOUSYOU_GETSHIP_RESULT'
+    | 'KOUSYOU_REMODEL_RESULT'
+    | 'KOUSYOU_CREATESHIP_START'
+    | 'KOUSYOU_KDOCK_UPDATE'
   // UI
     | 'YASEN_DETECTED'
     | 'TAIHA_WARNING';

@@ -65,6 +65,12 @@ struct Setting {
   @State private repairAlertEnabled: boolean = true;
   @State private alertMode: AlertMode = 'both';
 
+  // ── Toast settings ─────────────────────────────────────────────
+  @State private toastEnabled: boolean = true;
+  @State private devResultToastEnabled: boolean = true;
+  @State private buildResultToastEnabled: boolean = true;
+  @State private remodelResultToastEnabled: boolean = true;
+
   // ── UI state ───────────────────────────────────────────────────
   @State private configDirty: boolean = false;
   @State private accountDirty: boolean = false;
@@ -88,6 +94,10 @@ struct Setting {
       kvGetBool('alerts.battle.enabled', true),
       kvGetBool(APP_STORAGE_REPAIR_ALERT_ENABLED, true),
       kvGetString('alerts.mode', 'both'),
+      kvGetBool('alerts.toast.enabled', true),
+      kvGetBool('alerts.toast.dev.enabled', true),
+      kvGetBool('alerts.toast.build.enabled', true),
+      kvGetBool('alerts.toast.remodel.enabled', true),
     ]);
     this.homeUrl = results[0] as string;
     this.userAgent = results[1] as string;
@@ -96,6 +106,10 @@ struct Setting {
     this.battleResultAlertEnabled = results[4] as boolean;
     this.repairAlertEnabled = results[5] as boolean;
     this.alertMode = (results[6] as string) as AlertMode;
+    this.toastEnabled = results[7] as boolean;
+    this.devResultToastEnabled = results[8] as boolean;
+    this.buildResultToastEnabled = results[9] as boolean;
+    this.remodelResultToastEnabled = results[10] as boolean;
     this.configDirty = false;
     this.accountDirty = false;
   }
@@ -125,6 +139,30 @@ struct Setting {
     this.repairAlertEnabled = v;
     void kvSet(APP_STORAGE_REPAIR_ALERT_ENABLED, v);
     setAlertConfig({ enableRepairAlert: v });
+  }
+
+  private onToastToggle(v: boolean): void {
+    this.toastEnabled = v;
+    void kvSet('alerts.toast.enabled', v);
+    setAlertConfig({ enableToast: v });
+  }
+
+  private onDevResultToastToggle(v: boolean): void {
+    this.devResultToastEnabled = v;
+    void kvSet('alerts.toast.dev.enabled', v);
+    setAlertConfig({ enableDevResultToast: v });
+  }
+
+  private onBuildResultToastToggle(v: boolean): void {
+    this.buildResultToastEnabled = v;
+    void kvSet('alerts.toast.build.enabled', v);
+    setAlertConfig({ enableBuildResultToast: v });
+  }
+
+  private onRemodelResultToastToggle(v: boolean): void {
+    this.remodelResultToastEnabled = v;
+    void kvSet('alerts.toast.remodel.enabled', v);
+    setAlertConfig({ enableRemodelResultToast: v });
   }
 
   private onAdvanceGuardToggle(v: boolean): void {
@@ -816,6 +854,40 @@ struct Setting {
               '维修渠修理完成时震动 / 铃声提醒',
               this.repairAlertEnabled,
               (v: boolean) => { this.onRepairAlertToggle(v); }
+            )
+          }
+          .width('100%')
+
+          // ── SECTION: Toast 提示 ───────────────────────────────
+          this.SectionHeader('Toast 提示')
+
+          Column({ space: 8 }) {
+            this.ToggleRow(
+              'Toast 总开关',
+              '关闭后所有 Toast 弹出提示（战斗 / 远征 / 工厂等）均不显示',
+              this.toastEnabled,
+              (v: boolean) => { this.onToastToggle(v); }
+            )
+
+            this.ToggleRow(
+              '开发结果提示',
+              '装备开发后 Toast 显示开发出的装备名称',
+              this.devResultToastEnabled,
+              (v: boolean) => { this.onDevResultToastToggle(v); }
+            )
+
+            this.ToggleRow(
+              '建造结果提示',
+              '建造开始与完成领取时 Toast 显示舰娘名称',
+              this.buildResultToastEnabled,
+              (v: boolean) => { this.onBuildResultToastToggle(v); }
+            )
+
+            this.ToggleRow(
+              '改修结果提示',
+              '改修工厂改修后 Toast 显示成功 / 失败与 ★ 等级',
+              this.remodelResultToastEnabled,
+              (v: boolean) => { this.onRemodelResultToastToggle(v); }
             )
           }
           .width('100%')

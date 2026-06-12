@@ -10,6 +10,7 @@ import { supplyPipeline } from './supply';
 import { lbasPipeline } from './lbas';
 import { slotitemPipeline } from './slotitem';
 import { requireInfoPipeline } from './require_info';
+import { kousyouPipeline } from './kousyou';
 import { DUMP_PIPELINES, registerPipeline, DumpPipeline } from '../pipeline';
 
 export * from './port';
@@ -24,6 +25,7 @@ export * from './supply';
 export * from './lbas';
 export * from './slotitem';
 export * from './require_info';
+export * from './kousyou';
 
 /** 所有 pipeline，按需维护。新增 pipeline 时在此数组添加即可。 */
 const ALL_PIPELINES: DumpPipeline[] = [
@@ -39,6 +41,7 @@ const ALL_PIPELINES: DumpPipeline[] = [
   lbasPipeline,
   slotitemPipeline,
   requireInfoPipeline,
+  kousyouPipeline,
 ];
 
 /**
