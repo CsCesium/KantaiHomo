@@ -57,6 +57,7 @@ function damageShip(
   let   item: number | null = null;
 
   if (toShip != null) {
+    toShip.received += damage;
     toHP = Math.max(0, toShip.nowHP - damage);
     // 大破修理女神检查（api_useitem 中的女神补给）
     if (toHP <= 0 && toShip.useItem != null) {

@@ -333,8 +333,10 @@ export interface ShipBattleStatus {
   hpAfter: number;
   /** 最大HP */
   hpMax: number;
-  /** 受到的伤害 */
+  /** 受到的伤害（封顶到当前HP，用于血条损伤段） */
   damageReceived: number;
+  /** 本场战斗造成的伤害累计（炮击/雷击归因，不含航空与支援） */
+  damageDealt: number;
   /** HP百分比 (战后) */
   hpPercent: number;
   /** 是否击沉 */
@@ -373,6 +375,8 @@ export interface EnemyBattleStatus {
   hpNow: number[];
   /** 各舰最大HP */
   hpMax: number[];
+  /** 各舰受到的伤害总值（不封顶，含击沉后溢出） */
+  damageReceivedTotal: number[];
   /** 击沉数量 */
   sunkCount: number;
 }

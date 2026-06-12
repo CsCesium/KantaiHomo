@@ -141,6 +141,10 @@ export interface ShipPrediction {
 
   damageReceived: number;
   damageTaken: number;    // 承伤比例 (百分比)
+  /** 本场战斗造成的伤害累计（炮击/雷击归因，不含航空与支援）；无归因数据时缺省 */
+  damageDealt?: number;
+  /** 本场战斗受到的伤害累计（不封顶，含击沉后溢出）；无数据时缺省 */
+  damageReceivedTotal?: number;
 
   isSunk: boolean;
   isTaiha: boolean;       // 大破 (≤25%)

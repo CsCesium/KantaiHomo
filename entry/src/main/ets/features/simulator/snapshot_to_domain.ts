@@ -43,6 +43,8 @@ export function simSnapshotToDomainPrediction(
       hpMax:          s.maxHP,
       damageReceived,
       damageTaken:    s.maxHP > 0 ? Math.round((1 - hpAfter / s.maxHP) * 100) : 0,
+      damageDealt:    s.damageDealt,
+      damageReceivedTotal: s.damageReceivedTotal,
       isSunk:         s.isSunk,
       isTaiha:        s.isTaiha,
       isChuuha:       s.isChuuha,

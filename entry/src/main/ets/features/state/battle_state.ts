@@ -43,6 +43,7 @@ function buildShipBattleStatus(pred: ShipPrediction, index: number, isAirRaid: b
     hpAfter: pred.hpAfter,
     hpMax: pred.hpMax,
     damageReceived: pred.damageReceived,
+    damageDealt: pred.damageDealt ?? 0,
     hpPercent,
     isSunk: pred.isSunk,
     isTaiha: pred.isTaiha,
@@ -84,6 +85,7 @@ function buildEnemyBattleStatus(
       hpBefore: [],
       hpNow: [],
       hpMax: [],
+      damageReceivedTotal: [],
       sunkCount: 0,
     };
   }
@@ -91,6 +93,8 @@ function buildEnemyBattleStatus(
   const hpBefore = predictions.map(p => p.hpBefore);
   const hpNow = predictions.map(p => p.hpAfter);
   const hpMax = predictions.map(p => p.hpMax);
+  // 不封顶的受伤总值；无归因数据时退回封顶差值
+  const damageReceivedTotal = predictions.map(p => p.damageReceivedTotal ?? p.damageReceived);
   const sunkCount = predictions.filter(p => p.isSunk).length;
 
   return {
@@ -98,6 +102,7 @@ function buildEnemyBattleStatus(
     hpBefore,
     hpNow,
     hpMax,
+    damageReceivedTotal,
     sunkCount,
   };
 }

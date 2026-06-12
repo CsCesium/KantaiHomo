@@ -86,6 +86,7 @@ function cloneShipBattleStatus(ship: ShipBattleStatus): ShipBattleStatus {
     hpAfter: ship.hpAfter,
     hpMax: ship.hpMax,
     damageReceived: ship.damageReceived,
+    damageDealt: ship.damageDealt,
     hpPercent: ship.hpPercent,
     isSunk: ship.isSunk,
     isTaiha: ship.isTaiha,
@@ -116,6 +117,7 @@ function cloneEnemyBattleStatus(enemy: EnemyBattleStatus): EnemyBattleStatus {
     hpBefore: enemy.hpBefore.slice(),
     hpNow: enemy.hpNow.slice(),
     hpMax: enemy.hpMax.slice(),
+    damageReceivedTotal: enemy.damageReceivedTotal.slice(),
     sunkCount: enemy.sunkCount,
   };
   return cloned;
@@ -216,17 +218,19 @@ export default struct BattlePreviewPanel {
 
   /**
    * HP bar with:
-   *   - damage value on the left (fixed width)
+   *   - left label (fixed width)：我方=本场造成的总伤害（不计航空），敌方=受到的总伤害（不封顶）
    *   - tick marks at 25% and 50% thresholds
    *   - color: green >50%, orange 25-50%, red ≤25%, empty if sunk
+   *
+   * `damage` 仅用于血条损伤段（封顶到当前HP），左侧文字由 leftText/leftColor 单独给出。
    */
-  @Builder HpBarRow(hpAfter: number, hpMax: number, damage: number) {
+  @Builder HpBarRow(hpAfter: number, hpMax: number, damage: number, leftText: string, leftColor: string) {
     Row({ space: 4 }) {
-      // Damage indicator (left, fixed width)
-      if (damage > 0) {
-        Text(`-${damage}`)
+      // Left label (fixed width)
+      if (leftText !== '') {
+        Text(leftText)
           .fontSize(9)
-          .fontColor(PanelColors.hpCrit)
+          .fontColor(leftColor)
           .width(26)
           .textAlign(TextAlign.End)
       } else {
@@ -278,8 +282,10 @@ export default struct BattlePreviewPanel {
   /**
    * Compact 2-line friendly ship row.
    *
-   *   name (flex)   beforeHP→afterHP   [badge]
-   *   [-dmg fixed]  [====HP bar with ticks====]
+   *   name (flex)    beforeHP→afterHP   [badge]
+   *   [总输出 fixed]  [====HP bar with ticks====]
+   *
+   * 血条左侧显示该舰本场战斗造成的总伤害（炮击/雷击，不计航空）。
    */
   @Builder BattleShipRow(ship: ShipBattleStatus, landBased: boolean = false) {
     Column({ space: 2 }) {
@@ -312,8 +318,14 @@ export default struct BattlePreviewPanel {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      // Line 2: damage on left + HP bar with threshold ticks
-      this.HpBarRow(ship.hpAfter, ship.hpMax, ship.damageReceived)
+      // Line 2: 本场造成的总伤害 on left + HP bar with threshold ticks
+      this.HpBarRow(
+        ship.hpAfter,
+        ship.hpMax,
+        ship.damageReceived,
+        ship.damageDealt > 0 ? `${ship.damageDealt}` : '',
+        PanelColors.stat,
+      )
     }
     .width('100%')
     .height(BATTLE_SHIP_ROW_H)
@@ -327,12 +339,13 @@ export default struct BattlePreviewPanel {
   /**
    * Compact 2-line enemy ship row.
    *
-   *   <name>   beforeHP→afterHP   [badge]
-   *   [-dmg]   [====HP bar====]
+   *   <name>     beforeHP→afterHP   [badge]
+   *   [-总受伤]   [====HP bar====]
    *
+   * 血条左侧显示该舰受到的所有伤害总值（不封顶，可超过其血量上限）。
    * 敵舰 master id 在图鉴缓存中通常含日文舰名，未命中时回退为 `敵N`。
    */
-  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number, landBased: boolean = false) {
+  @Builder EnemyShipRow(idx: number, masterId: number, hpBefore: number, hpAfter: number, hpMax: number, totalDamage: number, landBased: boolean = false) {
     // 单舰陆基判定：来源于 master.api_soku === 0 的「陆上型」敌人（栖姬/集積地等）；
     // 整列空袭时由 landBased=true 强制覆盖。
     Column({ space: 2 }) {
@@ -361,7 +374,13 @@ export default struct BattlePreviewPanel {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      this.HpBarRow(hpAfter > 0 ? hpAfter : 0, hpMax, Math.max(0, hpBefore - hpAfter))
+      this.HpBarRow(
+        hpAfter > 0 ? hpAfter : 0,
+        hpMax,
+        Math.max(0, hpBefore - hpAfter),
+        totalDamage > 0 ? `-${totalDamage}` : '',
+        PanelColors.hpCrit,
+      )
     }
     .width('100%')
     .height(BATTLE_SHIP_ROW_H)
@@ -593,7 +612,7 @@ export default struct BattlePreviewPanel {
         if (ship.hpMax > 0) {
           this.BattleShipRow(ship, landBased)
         }
-    }, (ship: ShipBattleStatus) => `${renderKey}-bship-${ship.uid}-${ship.hpBefore}-${ship.hpAfter}-${ship.damageReceived}`)
+    }, (ship: ShipBattleStatus) => `${renderKey}-bship-${ship.uid}-${ship.hpBefore}-${ship.hpAfter}-${ship.damageReceived}-${ship.damageDealt}`)
   }
 
   /** Enemy fleet ship list with HP bars. */
@@ -625,10 +644,11 @@ export default struct BattlePreviewPanel {
           enemy.hpBefore[idx] ?? enemy.hpMax[idx],
           enemy.hpNow[idx] ?? 0,
           enemy.hpMax[idx],
+          enemy.damageReceivedTotal[idx] ?? 0,
           landBased
         )
       }
-    }, (_: number, idx: number) => `${renderKey}-erow-${idx}-${enemy.hpBefore[idx] ?? 0}-${enemy.hpNow[idx] ?? 0}`)
+    }, (_: number, idx: number) => `${renderKey}-erow-${idx}-${enemy.hpBefore[idx] ?? 0}-${enemy.hpNow[idx] ?? 0}-${enemy.damageReceivedTotal[idx] ?? 0}`)
   }
 
   // ── result view builders ───────────────────────────────────────────────────
