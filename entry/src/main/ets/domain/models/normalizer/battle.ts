@@ -25,7 +25,11 @@ import {
   BattleSide,
   BattleHpFleet,
   FleetRef,
-  BattleFleet
+  BattleFleet,
+  AerialStageInfo,
+  AntiAirCutInInfo,
+  AerialCombatInfo,
+  LbasWaveInfo
 } from "../struct/battle";
 
 export interface NormalizeBattleOptions {
@@ -138,6 +142,17 @@ function buildMeta(apiPath: string, d: any, now: number) {
   const friendPlaneNow: number | undefined = (friendPlaneMax !== undefined && friendPlaneLost !== undefined)
     ? Math.max(0, friendPlaneMax - friendPlaneLost)
     : undefined;
+  const enemyPlaneMax: number | undefined = typeof stage1?.api_e_count === 'number' ? stage1.api_e_count : undefined;
+  const enemyPlaneLost: number | undefined = typeof stage1?.api_e_lostcount === 'number' ? stage1.api_e_lostcount : undefined;
+  const enemyPlaneNow: number | undefined = (enemyPlaneMax !== undefined && enemyPlaneLost !== undefined)
+    ? Math.max(0, enemyPlaneMax - enemyPlaneLost)
+    : undefined;
+
+  const aerialPhases: AerialCombatInfo[] = [];
+  const kouku1 = parseAerialCombat(d?.api_kouku);
+  if (kouku1) aerialPhases.push(kouku1);
+  const kouku2 = parseAerialCombat(d?.api_kouku2);
+  if (kouku2) aerialPhases.push(kouku2);
 
   const meta = {
     apiPath,
@@ -150,10 +165,85 @@ function buildMeta(apiPath: string, d: any, now: number) {
     airState,
     friendPlaneNow,
     friendPlaneMax,
+    enemyPlaneNow,
+    enemyPlaneMax,
+    aerialPhases: aerialPhases.length ? aerialPhases : undefined,
+    lbasWaves: parseLbasWaves(d?.api_air_base_attack),
     balloonCell: typeof d?.api_balloon_cell === 'number' ? d.api_balloon_cell : undefined,
     atollCell: typeof d?.api_atoll_cell === 'number' ? d.api_atoll_cell : undefined,
   };
   return meta;
+}
+
+/** ---------- Aerial combat info extraction ---------- */
+
+function parseAerialStage(s: any): AerialStageInfo | undefined {
+  if (!s || typeof s !== 'object') return undefined;
+  if (typeof s.api_f_count !== 'number' && typeof s.api_e_count !== 'number') return undefined;
+  return {
+    friendCount: typeof s.api_f_count === 'number' ? s.api_f_count : 0,
+    friendLost: typeof s.api_f_lostcount === 'number' ? s.api_f_lostcount : 0,
+    enemyCount: typeof s.api_e_count === 'number' ? s.api_e_count : 0,
+    enemyLost: typeof s.api_e_lostcount === 'number' ? s.api_e_lostcount : 0,
+  };
+}
+
+/** api_touch_plane: [友方触接机图鉴ID, 敌方触接机图鉴ID]，<=0 表示未触接 */
+function parseTouchPlane(arr: any): { friend?: number; enemy?: number } {
+  if (!Array.isArray(arr)) return {};
+  return {
+    friend: typeof arr[0] === 'number' && arr[0] > 0 ? arr[0] : undefined,
+    enemy: typeof arr[1] === 'number' && arr[1] > 0 ? arr[1] : undefined,
+  };
+}
+
+function parseAirFire(s2: any): AntiAirCutInInfo | undefined {
+  const fire = s2?.api_air_fire;
+  if (!fire || typeof fire.api_kind !== 'number') return undefined;
+  return {
+    shipIdx: typeof fire.api_idx === 'number' ? fire.api_idx : -1,
+    kind: fire.api_kind,
+    useItemIds: Array.isArray(fire.api_use_items)
+      ? fire.api_use_items.filter((x: any) => typeof x === 'number' && x > 0)
+      : [],
+  };
+}
+
+function parseAerialCombat(kouku: any): AerialCombatInfo | undefined {
+  if (!kouku || typeof kouku !== 'object') return undefined;
+  const stage1 = parseAerialStage(kouku.api_stage1);
+  const stage2 = parseAerialStage(kouku.api_stage2);
+  if (!stage1 && !stage2) return undefined;
+  const touch = parseTouchPlane(kouku.api_stage1?.api_touch_plane);
+  return {
+    airState: typeof kouku.api_stage1?.api_disp_seiku === 'number' ? kouku.api_stage1.api_disp_seiku : undefined,
+    stage1,
+    stage2,
+    touchFriend: touch.friend,
+    touchEnemy: touch.enemy,
+    airFire: parseAirFire(kouku.api_stage2),
+  };
+}
+
+function parseLbasWaves(arr: any): LbasWaveInfo[] | undefined {
+  if (!Array.isArray(arr) || arr.length === 0) return undefined;
+  const waves: LbasWaveInfo[] = [];
+  for (const w of arr) {
+    if (!w || typeof w !== 'object') continue;
+    const touch = parseTouchPlane(w.api_stage1?.api_touch_plane);
+    waves.push({
+      baseId: typeof w.api_base_id === 'number' ? w.api_base_id : 0,
+      squadronCounts: Array.isArray(w.api_squadron_plane)
+        ? w.api_squadron_plane.map((s: any) => (typeof s?.api_count === 'number' ? s.api_count : 0))
+        : [],
+      airState: typeof w.api_stage1?.api_disp_seiku === 'number' ? w.api_stage1.api_disp_seiku : undefined,
+      stage1: parseAerialStage(w.api_stage1),
+      stage2: parseAerialStage(w.api_stage2),
+      touchFriend: touch.friend,
+      touchEnemy: touch.enemy,
+    });
+  }
+  return waves.length ? waves : undefined;
 }
 
 function parseFormation(arr?: number[]): BattleFormation | undefined {

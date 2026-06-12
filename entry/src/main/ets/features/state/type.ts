@@ -1,5 +1,7 @@
 // ==================== 状态类型定义 ====================
 
+import type { AerialCombatInfo, LbasWaveInfo } from '../../domain/models/struct/battle';
+
 /** 提督快照（用于计算经验/战果变化） */
 export interface AdmiralSnapshot {
   memberId: number;
@@ -441,8 +443,16 @@ export interface BattleStatusSnapshot {
   friendPlaneNow?: number;
   /** 友方初期機数 */
   friendPlaneMax?: number;
+  /** 敌方残機数 */
+  enemyPlaneNow?: number;
+  /** 敌方初期機数 */
+  enemyPlaneMax?: number;
   /** 対空CI発動 */
   aaciTriggered?: boolean;
+  /** 主舰队航空战情报（api_kouku / api_kouku2 各一项，含 S1/S2、触接、对空CI） */
+  aerialPhases?: AerialCombatInfo[];
+  /** 陆航攻击各波次情报 */
+  lbasWaves?: LbasWaveInfo[];
 
   // 时间戳
   /** 战斗开始时间 */
