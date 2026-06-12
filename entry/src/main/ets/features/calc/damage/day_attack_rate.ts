@@ -32,6 +32,11 @@ const DAY_CI_COEFFICIENT = new Map<DayAttackType, number>([
   [DayAttackType.CarrierFBA, 135],
   [DayAttackType.CarrierBBA, 125],
   [DayAttackType.CarrierBA, 115],
+  // 噴式CI (2026/02 実装、噴式艦戦が必要): verification is ongoing; estimates
+  // mirror the analogous regular cut-ins.
+  [DayAttackType.JetFBB, 135],
+  [DayAttackType.JetFBA, 130],
+  [DayAttackType.JetFB, 125],
 ]);
 
 /** Maximum trigger rate for a single roll */

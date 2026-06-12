@@ -61,12 +61,16 @@ interface EquipCounts {
   lookout: number;
   /** Embarked (onslot > 0) 水偵/水爆 */
   spottingPlane: number;
-  /** Embarked 艦戦 (incl. jet fighters) */
+  /** Embarked 艦戦 (噴式機は通常戦爆連合の条件を満たさないため含まない) */
   carrierFighter: number;
-  /** Embarked 艦爆 (incl. jet fighter-bombers) */
+  /** Embarked 艦爆 (噴式戦闘爆撃機は含まない) */
   carrierDiveBomber: number;
   /** Embarked 艦攻 */
   carrierTorpedoBomber: number;
+  /** Embarked 噴式艦上戦闘機 (震電改三, 2026/02 実装カテゴリ) */
+  jetFighter: number;
+  /** Embarked 噴式戦闘爆撃機 (橘花改/噴式景雲改) */
+  jetBomber: number;
   /** Embarked night fighters/attackers */
   nightPlane: number;
   /** Σ equipment 爆装 */
@@ -94,7 +98,8 @@ function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
   const counts: EquipCounts = {
     mainGun: 0, secondaryGun: 0, torpedo: 0, radar: 0, surfaceRadar: 0,
     apShell: 0, lookout: 0, spottingPlane: 0, carrierFighter: 0,
-    carrierDiveBomber: 0, carrierTorpedoBomber: 0, nightPlane: 0, bombTotal: 0,
+    carrierDiveBomber: 0, carrierTorpedoBomber: 0, jetFighter: 0, jetBomber: 0,
+    nightPlane: 0, bombTotal: 0,
   };
 
   for (const eq of equips) {
@@ -114,14 +119,20 @@ function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
     if (embarked && (t === SlotItemEquipType.SeaplaneRecon || t === SlotItemEquipType.SeaplaneBomber)) {
       counts.spottingPlane += 1;
     }
-    if (embarked && (t === SlotItemEquipType.CarrierFighter || t === SlotItemEquipType.JetFighter)) {
+    if (embarked && t === SlotItemEquipType.CarrierFighter) {
       counts.carrierFighter += 1;
     }
-    if (embarked && (t === SlotItemEquipType.CarrierDiveBomber || t === SlotItemEquipType.JetFighterBomber)) {
+    if (embarked && t === SlotItemEquipType.CarrierDiveBomber) {
       counts.carrierDiveBomber += 1;
     }
     if (embarked && t === SlotItemEquipType.CarrierTorpedoBomber) {
       counts.carrierTorpedoBomber += 1;
+    }
+    if (embarked && t === SlotItemEquipType.JetFighter) {
+      counts.jetFighter += 1;
+    }
+    if (embarked && t === SlotItemEquipType.JetFighterBomber) {
+      counts.jetBomber += 1;
     }
     if (embarked && (eq.iconType === SlotItemIconId.NightFighter || eq.iconType === SlotItemIconId.NightAttacker)) {
       counts.nightPlane += 1;
@@ -144,6 +155,9 @@ const DAY_ATTACK_LABEL = new Map<DayAttackType, string>([
   [DayAttackType.CarrierFBA, '战爆攻CI'],
   [DayAttackType.CarrierBBA, '爆爆攻CI'],
   [DayAttackType.CarrierBA, '爆攻CI'],
+  [DayAttackType.JetFBB, '喷战喷爆爆CI'],
+  [DayAttackType.JetFBA, '喷战爆攻CI'],
+  [DayAttackType.JetFB, '喷战喷爆CI'],
 ]);
 
 /** Post-cap power modifier and hit count per day attack type. */
@@ -157,6 +171,10 @@ const DAY_ATTACK_POWER = new Map<DayAttackType, { modifier: number; hits: number
   [DayAttackType.CarrierFBA, { modifier: 1.25, hits: 1 }],
   [DayAttackType.CarrierBBA, { modifier: 1.2, hits: 1 }],
   [DayAttackType.CarrierBA, { modifier: 1.15, hits: 1 }],
+  // 噴式CI (2026/02): 倍率は検証中、通常戦爆連合よりやや高めとされる推定値。
+  [DayAttackType.JetFBB, { modifier: 1.3, hits: 1 }],
+  [DayAttackType.JetFBA, { modifier: 1.25, hits: 1 }],
+  [DayAttackType.JetFB, { modifier: 1.2, hits: 1 }],
 ]);
 
 const NIGHT_ATTACK_LABEL = new Map<NightCutInType, string>([
@@ -201,14 +219,29 @@ function detectDaySpottingAttacks(counts: EquipCounts): DayAttackType[] {
   return types;
 }
 
-/** Carrier cut-ins (戦爆連合), ordered by selection priority. */
+/**
+ * Carrier cut-ins, ordered by selection priority.
+ *
+ * 噴式CI (2026/02 実装) は噴式艦上戦闘機が必須で、噴式機は通常の
+ * 戦爆連合条件 (艦戦/艦爆) を満たさない。
+ */
 function detectCarrierDayAttacks(counts: EquipCounts): DayAttackType[] {
-  if (counts.carrierDiveBomber <= 0 || counts.carrierTorpedoBomber <= 0) return [];
-
   const types: DayAttackType[] = [];
-  if (counts.carrierFighter >= 1) types.push(DayAttackType.CarrierFBA);
-  if (counts.carrierDiveBomber >= 2) types.push(DayAttackType.CarrierBBA);
-  types.push(DayAttackType.CarrierBA);
+
+  if (counts.jetFighter >= 1) {
+    if (counts.jetBomber >= 2) types.push(DayAttackType.JetFBB);
+    if (counts.carrierDiveBomber >= 1 && counts.carrierTorpedoBomber >= 1) {
+      types.push(DayAttackType.JetFBA);
+    }
+    if (counts.jetBomber >= 1) types.push(DayAttackType.JetFB);
+  }
+
+  if (counts.carrierDiveBomber >= 1 && counts.carrierTorpedoBomber >= 1) {
+    if (counts.carrierFighter >= 1) types.push(DayAttackType.CarrierFBA);
+    if (counts.carrierDiveBomber >= 2) types.push(DayAttackType.CarrierBBA);
+    types.push(DayAttackType.CarrierBA);
+  }
+
   return types;
 }
 

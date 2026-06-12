@@ -33,6 +33,12 @@ export enum DayAttackType {
   CarrierBBA = 'day_cvci_bba',
   /** 爆攻CI (艦爆 + 艦攻) */
   CarrierBA = 'day_cvci_ba',
+  /** 噴式CI (噴式艦戦 + 噴式戦闘爆撃機×2)；2026/02 実装 */
+  JetFBB = 'day_cvci_jet_fbb',
+  /** 噴式CI (噴式艦戦 + 艦爆 + 艦攻)；2026/02 実装 */
+  JetFBA = 'day_cvci_jet_fba',
+  /** 噴式CI (噴式艦戦 + 噴式戦闘爆撃機)；2026/02 実装 */
+  JetFB = 'day_cvci_jet_fb',
 }
 
 // ==================== Input ====================
