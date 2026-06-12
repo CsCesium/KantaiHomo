@@ -16,6 +16,7 @@ import '../../handlers/supply';
 import '../../handlers/lbas';
 import '../../handlers/slotitem';
 import '../../handlers/require_info';
+import '../../handlers/kousyou';
 import type { PersistDeps } from '../type';
 import { parseDumpInWorker } from './webDumpTask'
 import { parseDump, ParseResult } from '../../../parsers/pipeline';

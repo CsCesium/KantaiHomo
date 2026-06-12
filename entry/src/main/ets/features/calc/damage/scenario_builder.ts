@@ -311,8 +311,8 @@ const DAY_ATTACK_LABEL = new Map<DayAttackType, string>([
   [DayAttackType.CarrierFBA, '战爆攻CI'],
   [DayAttackType.CarrierBBA, '爆爆攻CI'],
   [DayAttackType.CarrierBA, '爆攻CI'],
-  [DayAttackType.CarrierJetFBB, '喷战喷爆喷爆CI'],
-  [DayAttackType.CarrierJetFB, '喷战喷爆CI'],
+  [DayAttackType.CarrierJetFBB, '喷战爆²CI'],
+  [DayAttackType.CarrierJetFB, '喷战爆CI'],
   [DayAttackType.CarrierJetFBA, '喷战爆攻CI'],
 ]);
 
@@ -341,7 +341,7 @@ const NIGHT_ATTACK_LABEL = new Map<NightCutInType, string>([
   [NightCutInType.MainSecondaryCI, '主主副CI'],
   [NightCutInType.MainTorpCI, '炮雷CI'],
   [NightCutInType.CarrierNightCI, '夜袭CI'],
-  [NightCutInType.NightZuiunCI, '主主瑞CI'],
+  [NightCutInType.NightZuiunCI, '夜瑞CI'],
 ]);
 
 /** Post-cap power modifier and hit count per night attack type. */
@@ -431,6 +431,8 @@ function detectDaySpottingAttacks(counts: EquipCounts): DayAttackType[] {
 
 /** Carrier cut-ins (戦爆連合), ordered by selection priority. */
 function detectCarrierDayAttacks(counts: EquipCounts): DayAttackType[] {
+  if (counts.carrierDiveBomber <= 0 || counts.carrierTorpedoBomber <= 0) return [];
+
   const types: DayAttackType[] = [];
   const hasOrdinaryBA = counts.carrierDiveBomber >= 1 && counts.carrierTorpedoBomber >= 1;
   const hasJetOnlyBombers = counts.carrierDiveBomber === 0 && counts.carrierTorpedoBomber === 0;
