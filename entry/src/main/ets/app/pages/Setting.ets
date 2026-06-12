@@ -878,7 +878,7 @@ struct Setting {
 
             this.ToggleRow(
               '建造结果提示',
-              '建造完成领取舰娘时 Toast 显示舰娘名称',
+              '建造开始与完成领取时 Toast 显示舰娘名称',
               this.buildResultToastEnabled,
               (v: boolean) => { this.onBuildResultToastToggle(v); }
             )

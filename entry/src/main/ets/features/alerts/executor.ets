@@ -26,6 +26,7 @@ import type {
   FleetStatusAlert,
   RepairCompleteAlert,
   DevResultAlert,
+  BuildStartAlert,
   BuildResultAlert,
   RemodelResultAlert,
 } from './type';
@@ -418,6 +419,17 @@ async function handleDevResult(alert: DevResultAlert): Promise<void> {
   await executeToast(body, 3000, alert.failCount >= alert.itemNames.length ? '#FF9F43' : undefined);
 }
 
+/** 建造开始 — 仅 Toast（与建造结果共用开关） */
+async function handleBuildStart(alert: BuildStartAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableToast || !config.enableBuildResultToast) return;
+
+  const prefix = alert.isLarge ? '大型建造' : '开始建造';
+  const body = `🚢 ${prefix}：${alert.shipName}`;
+  console.info(`[AlertExecutor] build start: ${body}`);
+  await executeToast(body, 3000);
+}
+
 /** 建造完成领取舰娘 — 仅 Toast */
 async function handleBuildResult(alert: BuildResultAlert): Promise<void> {
   const config = getAlertBus().getConfig();
@@ -474,6 +486,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'dev_result':
       await handleDevResult(alert);
+      break;
+    case 'build_start':
+      await handleBuildStart(alert);
       break;
     case 'build_result':
       await handleBuildResult(alert);

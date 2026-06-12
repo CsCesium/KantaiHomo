@@ -30,6 +30,7 @@ export type AlertType =
   | 'sortie_advance'
   | 'repair_complete'
   | 'dev_result'
+  | 'build_start'
   | 'build_result'
   | 'remodel_result';
 
@@ -137,6 +138,15 @@ export interface DevResultAlert extends BaseAlert {
   failCount: number;
 }
 
+/** 建造开始提示（createship 后由 kdock 更新补全舰娘名） */
+export interface BuildStartAlert extends BaseAlert {
+  type: 'build_start';
+  shipName: string;
+  kdockId: number;
+  /** 是否大型建造 */
+  isLarge: boolean;
+}
+
 /** 建造完成领取提示（/api_req_kousyou/getship） */
 export interface BuildResultAlert extends BaseAlert {
   type: 'build_result';
@@ -164,6 +174,7 @@ export type AnyAlert =
   | RepairCompleteAlert
   | FleetStatusAlert
   | DevResultAlert
+  | BuildStartAlert
   | BuildResultAlert
   | RemodelResultAlert;
 

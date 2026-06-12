@@ -122,6 +122,8 @@ class AlertBusImpl {
         return `repair:${(alert as RepairCompleteAlert).dockId}`;
       case 'dev_result':
         return `dev:${alert.itemNames.join(',')}:${alert.timestamp}`;
+      case 'build_start':
+        return `build_start:${alert.kdockId}:${alert.shipName}`;
       case 'build_result':
         return `build:${alert.kdockId}:${alert.shipName}`;
       case 'remodel_result':

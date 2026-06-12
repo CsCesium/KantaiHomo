@@ -1,9 +1,12 @@
 import type { ApiDump } from '../../../infra/web/types';
 import type {
   AnyKousyouEvt,
+  CreateShipStartEvent,
   DevItemEntry,
   DevItemResultEvent,
   GetShipResultEvent,
+  KdockEntry,
+  KdockUpdateEvent,
   RemodelSlotResultEvent,
 } from '../../../domain/events/kousyou';
 import type {
@@ -12,17 +15,26 @@ import type {
   ApiReqKousyouGetshipRespRaw,
   ApiReqKousyouRemodelslotRespRaw,
 } from '../../../domain/models/api/request';
+import type { ApiKdockRaw } from '../../../domain/models/api/k_dock';
 import { EndpointRule, ParserCtx, mkEvt, detectEndpoint } from './common';
 import { parseSvdata } from '../../utils/common';
 
 const EP_CREATEITEM = '/api_req_kousyou/createitem';
 const EP_GETSHIP = '/api_req_kousyou/getship';
 const EP_REMODEL = '/api_req_kousyou/remodel_slot';
+const EP_CREATESHIP = '/api_req_kousyou/createship';
+const EP_KDOCK = '/api_get_member/kdock';
 
 const RULES: EndpointRule[] = [
   { endpoint: EP_CREATEITEM, match: (url) => url.includes(EP_CREATEITEM) },
   { endpoint: EP_GETSHIP, match: (url) => url.includes(EP_GETSHIP) },
   { endpoint: EP_REMODEL, match: (url) => url.includes(EP_REMODEL) },
+  // 排除 createship_speedup（高速建造完成，无新建造信息）
+  {
+    endpoint: EP_CREATESHIP,
+    match: (url) => url.includes(EP_CREATESHIP) && !url.includes('/api_req_kousyou/createship_speedup'),
+  },
+  { endpoint: EP_KDOCK, match: (url) => url.includes(EP_KDOCK) },
 ];
 
 export function matchKousyouUrl(url: string): boolean {
@@ -98,6 +110,46 @@ function parseRemodelSlot(ctx: ParserCtx): RemodelSlotResultEvent | null {
   ) as RemodelSlotResultEvent;
 }
 
+function parseCreateShipStart(ctx: ParserCtx): CreateShipStartEvent | null {
+  // 响应 api_data 为空对象，仅确认调用成功；建造信息来自请求参数
+  const js = parseSvdata<{ api_result?: number }>(ctx.responseText);
+  if (js?.api_result !== 1) return null;
+
+  const body = ctx.requestBody ?? '';
+  const kdockMatch = /api_kdock_id=(\d+)/.exec(body);
+  if (!kdockMatch) return null;
+
+  return mkEvt(
+    ctx,
+    'KOUSYOU_CREATESHIP_START',
+    ['kousyou-createship', kdockMatch[1], ctx.ts],
+    {
+      kdockId: parseInt(kdockMatch[1]),
+      isLarge: /api_large_flag=1/.test(body),
+      highspeed: /api_highspeed=1/.test(body),
+    }
+  ) as CreateShipStartEvent;
+}
+
+function parseKdock(ctx: ParserCtx): KdockUpdateEvent | null {
+  const js = parseSvdata<{ api_data?: ApiKdockRaw[] }>(ctx.responseText);
+  const data = js?.api_data;
+  if (!Array.isArray(data) || data.length === 0) return null;
+
+  const docks = data.map((raw: ApiKdockRaw): KdockEntry => ({
+    dockId: raw.api_id ?? 0,
+    state: raw.api_state ?? 0,
+    shipMasterId: raw.api_created_ship_id ?? 0,
+    completeTime: raw.api_complete_time ?? 0,
+  }));
+  return mkEvt(
+    ctx,
+    'KOUSYOU_KDOCK_UPDATE',
+    ['kousyou-kdock', docks.map(d => `${d.dockId}-${d.shipMasterId}`).join('_'), ctx.ts],
+    { docks }
+  ) as KdockUpdateEvent;
+}
+
 export function parseKousyou(dump: ApiDump): AnyKousyouEvt[] | null {
   const endpoint = detectEndpoint(dump.url, RULES);
   if (!endpoint) return null;
@@ -120,6 +172,12 @@ export function parseKousyou(dump: ApiDump): AnyKousyouEvt[] | null {
       break;
     case EP_REMODEL:
       evt = parseRemodelSlot(ctx);
+      break;
+    case EP_CREATESHIP:
+      evt = parseCreateShipStart(ctx);
+      break;
+    case EP_KDOCK:
+      evt = parseKdock(ctx);
       break;
   }
 

@@ -39,11 +39,42 @@ export interface RemodelSlotResultPayload {
   afterLevel: number;
 }
 
+/**
+ * 建造开始（/api_req_kousyou/createship）。
+ * 响应不含舰娘信息，舰娘图鉴 ID 由紧随其后的 kdock 更新补全。
+ */
+export interface CreateShipStartPayload {
+  kdockId: number;
+  /** 是否大型建造 */
+  isLarge: boolean;
+  /** 是否使用高速建造材 */
+  highspeed: boolean;
+}
+
+/** 单个建造渠状态（/api_get_member/kdock） */
+export interface KdockEntry {
+  dockId: number;
+  /** 0=空闲 1=未解锁? 2=建造中 3=建造完成 */
+  state: number;
+  /** 建造中舰娘图鉴 ID（空渠为 0） */
+  shipMasterId: number;
+  completeTime: number;
+}
+
+/** 建造渠列表更新 */
+export interface KdockUpdatePayload {
+  docks: KdockEntry[];
+}
+
 export type DevItemResultEvent = PayloadEvent<'KOUSYOU_DEV_RESULT', DevItemResultPayload>;
 export type GetShipResultEvent = PayloadEvent<'KOUSYOU_GETSHIP_RESULT', GetShipResultPayload>;
 export type RemodelSlotResultEvent = PayloadEvent<'KOUSYOU_REMODEL_RESULT', RemodelSlotResultPayload>;
+export type CreateShipStartEvent = PayloadEvent<'KOUSYOU_CREATESHIP_START', CreateShipStartPayload>;
+export type KdockUpdateEvent = PayloadEvent<'KOUSYOU_KDOCK_UPDATE', KdockUpdatePayload>;
 
 export type AnyKousyouEvt =
   | DevItemResultEvent
   | GetShipResultEvent
-  | RemodelSlotResultEvent;
+  | RemodelSlotResultEvent
+  | CreateShipStartEvent
+  | KdockUpdateEvent;

@@ -26,6 +26,7 @@ export type {
   FleetStatusAlert,
   RepairCompleteAlert,
   DevResultAlert,
+  BuildStartAlert,
   BuildResultAlert,
   RemodelResultAlert,
   AlertConfig,
