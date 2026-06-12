@@ -64,6 +64,7 @@ export default struct ExpeditionCheckPanel {
   @Param compact: boolean = false;
 
   @Local private requirements: ExpeditionRequirement[] = [];
+  @Local private visible: ExpeditionRequirement[] = [];
   @Local private activeArea: number = 0;
   @Local private loadError: string = '';
   @Local private stateVersion: number = 0;
@@ -77,6 +78,7 @@ export default struct ExpeditionCheckPanel {
     this.unsubscribe = subscribeGameState((changeType: StateChangeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' || changeType === 'decks') {
         this.stateVersion++;
+        this.applyFilter();
       }
     });
   }
@@ -102,16 +104,17 @@ export default struct ExpeditionCheckPanel {
       this.requirements = [];
       this.loadError = String(e);
     }
+    this.applyFilter();
   }
 
-  private visibleRequirements(): ExpeditionRequirement[] {
+  private applyFilter(): void {
     if (this.activeArea === 0) {
-      return this.requirements;
+      this.visible = this.requirements.slice();
+    } else if (this.activeArea === -1) {
+      this.visible = this.requirements.filter((req: ExpeditionRequirement): boolean => !isKnownExpeditionArea(req.area));
+    } else {
+      this.visible = this.requirements.filter((req: ExpeditionRequirement): boolean => req.area === this.activeArea);
     }
-    if (this.activeArea === -1) {
-      return this.requirements.filter((req: ExpeditionRequirement): boolean => !isKnownExpeditionArea(req.area));
-    }
-    return this.requirements.filter((req: ExpeditionRequirement): boolean => req.area === this.activeArea);
   }
 
   private check(req: ExpeditionRequirement, deckId: number): ExpeditionCheckResult {
@@ -164,7 +167,10 @@ export default struct ExpeditionCheckPanel {
       .backgroundColor(this.activeArea === filter.area ? '#2e3355' : PanelColors.bgTabInactive)
       .opacity(this.activeArea === filter.area ? 1.0 : 0.62)
       .borderRadius(PanelDimens.radius)
-      .onClick(() => { this.activeArea = filter.area; })
+      .onClick(() => {
+        this.activeArea = filter.area;
+        this.applyFilter();
+      })
   }
 
   @Builder private AreaBar(): void {
@@ -456,8 +462,8 @@ export default struct ExpeditionCheckPanel {
 
         Scroll() {
           Column() {
-            if (this.visibleRequirements().length > 0) {
-              ForEach(this.visibleRequirements(), (req: ExpeditionRequirement) => {
+            if (this.visible.length > 0) {
+              ForEach(this.visible, (req: ExpeditionRequirement) => {
                 this.MissionRow(req)
               }, (req: ExpeditionRequirement) => `exp-${req.id}-${this.stateVersion}`)
             } else {
