@@ -117,8 +117,8 @@ const COLOR_FG_MONTHLY = '#E1BEE7';
 
 function damageTypeLabel(t: number): string {
   switch (t) {
-    case 1: return '消耗+';
-    case 2: return '撃沈有';
+    case 1: return '交战+';
+    case 2: return '交战++';
     default: return '';
   }
 }

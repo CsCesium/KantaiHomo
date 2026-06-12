@@ -19,6 +19,7 @@ import {
   StateChangeType,
   NDockSnapShot,
   KDockSnapShot,
+  QuestSnapshot,
   CurrentBattleState,
   BattleStatusSnapshot,
   BattleResultSnapshot,
@@ -480,11 +481,8 @@ class GameStateManager {
     }
   }
 
-  /**
-   * 更新任务（仅维护当前可见任务页）
-   */
-  updateQuests(quests: Quest[]): void {
-    this.state.quests = quests.map(quest => ({
+  private questToSnapshot(quest: Quest, capturedAt: number): QuestSnapshot {
+    return {
       questId: quest.questId,
       title: quest.title,
       detail: quest.detail,
@@ -493,10 +491,52 @@ class GameStateManager {
       type: quest.type,
       progress: quest.progress,
       updatedAt: quest.updatedAt,
-      capturedAt: Date.now(),
-    }));
+      capturedAt,
+    };
+  }
 
-    this.state.lastUpdatedAt = Date.now();
+  /**
+   * 更新任务。
+   *
+   * questlist 在游戏内按分类/分页筛选时只返回局部列表，不能把响应当作全量任务覆盖。
+   */
+  updateQuests(quests: Quest[]): void {
+    const capturedAt = Date.now();
+    const incoming = new Map<number, QuestSnapshot>();
+    for (const quest of quests) {
+      if (quest.questId > 0) {
+        incoming.set(quest.questId, this.questToSnapshot(quest, capturedAt));
+      }
+    }
+
+    if (incoming.size === 0) {
+      return;
+    }
+
+    const merged: QuestSnapshot[] = [];
+    const seen = new Set<number>();
+    for (const existing of this.state.quests) {
+      const next = incoming.get(existing.questId);
+      if (next) {
+        merged.push(next);
+        incoming.delete(existing.questId);
+      } else {
+        merged.push(existing);
+      }
+      seen.add(existing.questId);
+    }
+
+    for (const quest of quests) {
+      const next = incoming.get(quest.questId);
+      if (next && !seen.has(next.questId)) {
+        merged.push(next);
+        seen.add(next.questId);
+      }
+    }
+
+    this.state.quests = merged;
+
+    this.state.lastUpdatedAt = capturedAt;
     this.notifyListeners('quests');
   }
 

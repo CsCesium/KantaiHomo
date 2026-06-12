@@ -412,9 +412,9 @@ export function buildShipCapabilityTags(ctx: ShipCapabilityTagContext): string[]
   if (detectAacis(ctx.shipMasterId, ctx.stype, ctx.ctype, masters).length > 0) {
     tags.push(AACI_TAG);
   }
-  if (supportsNightCutIn(ctx.stype, masters)) {
-    tags.push(NIGHT_CI_TAG);
-  }
+  // if (supportsNightCutIn(ctx.stype, masters)) {
+  //   tags.push(NIGHT_CI_TAG);
+  // }
   if (supportsOpeningAsw(ctx, equips)) {
     tags.push(OPENING_ASW_TAG);
   }

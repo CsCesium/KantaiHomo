@@ -4,17 +4,17 @@ export default struct ShipCapabilityTag {
 
   @Computed
   get bgColor(): string {
-    if (this.label === '対空CI') return '#66356b4f';
+    if (this.label === '対空CI') return '#66306078';
     if (this.label === '夜戦CI') return '#665d4820';
-    if (this.label === '先制対潜') return '#66306078';
+    if (this.label === '先制対潜') return '#66356b4f';
     return '#66505a18';
   }
 
   @Computed
   get fgColor(): string {
-    if (this.label === '対空CI') return '#aee8ff';
+    if (this.label === '対空CI') return '#b7f7c8';
     if (this.label === '夜戦CI') return '#ffd18a';
-    if (this.label === '先制対潜') return '#b7f7c8';
+    if (this.label === '先制対潜') return '#aee8ff';
     return '#ffd86b';
   }
 
