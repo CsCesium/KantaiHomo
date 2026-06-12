@@ -1,4 +1,5 @@
 import { SlotItemJoinedRow } from '../../../../infra/storage/types';
+import { SlotItemEquipType } from '../../../../domain/models';
 import { getPersistDeps } from '../../../../infra/deps';
 import { kaisyuuIcon, airMasteryIcon, equipLabel, PanelColors } from '../../../../features/panel/panelConfig';
 import { rangeLabel } from './bottom/rows/shipHelpers';
@@ -7,6 +8,10 @@ interface StatLine {
   label: string;
   text: string;
   positive: boolean;
+}
+
+function isLbasInterceptor(row: SlotItemJoinedRow): boolean {
+  return row.mst_typeEquipType === SlotItemEquipType.Interceptor;
 }
 
 function buildStats(row: SlotItemJoinedRow): StatLine[] {
@@ -38,8 +43,8 @@ function buildStats(row: SlotItemJoinedRow): StatLine[] {
   push('对空', row.mst_stat_aa);
   push('对潜', row.mst_stat_asw);
   push('索敵', row.mst_stat_los);
-  push('命中', row.mst_stat_hit);
-  push('回避', row.mst_stat_evasion);
+  push(isLbasInterceptor(row) ? '对爆' : '命中', row.mst_stat_hit);
+  push(isLbasInterceptor(row) ? '迎击' : '回避', row.mst_stat_evasion);
   push('装甲', row.mst_stat_armor);
   pushRange(row.mst_range);
   return lines;
