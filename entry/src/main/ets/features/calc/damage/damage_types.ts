@@ -75,6 +75,10 @@ export interface ScenarioEquip {
 
 /** Input describing one ship and its fleet context. */
 export interface ShipScenarioInput {
+  /** Ship master id (api_ship_id) */
+  shipMasterId: number;
+  /** Ship master/current display name, used for ship-specific exceptions */
+  shipName: string;
   /** Ship type (api_stype) */
   stype: number;
   level: number;

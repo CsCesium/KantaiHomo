@@ -100,6 +100,29 @@ interface EquipCounts {
 const NIGHT_ZUIUN_MASTER_ID = 490;
 const NARROW_DEPTH_CHARGE_MASTER_IDS: ReadonlySet<number> = new Set([226, 227, 378, 439, 488]);
 const DEPTH_CHARGE_PROJECTOR_MASTER_IDS: ReadonlySet<number> = new Set([44, 45, 287, 288, 377, 472, 569]);
+const UNCONDITIONAL_NIGHT_CARRIER_IDS: ReadonlySet<number> = new Set([
+  529, // 大鷹改二
+  536, // 神鷹改二
+  646, // 加賀改二護
+  889, // 雲鷹改二
+]);
+const UNCONDITIONAL_NIGHT_CARRIER_NAMES: ReadonlySet<string> = new Set([
+  'Graf Zeppelin',
+  'Graf Zeppelin改',
+  'Saratoga',
+  '大鷹改二',
+  '大鹰改二',
+  '神鷹改二',
+  '神鹰改二',
+  '雲鷹改二',
+  '云鹰改二',
+  '加賀改二護',
+  '加贺改二护',
+  'Lexington',
+  'Lexington改',
+  'Wasp',
+  'Wasp改',
+]);
 
 function isMainGun(t: number): boolean {
   return t === SlotItemEquipType.SmallCaliberMainGun
@@ -187,6 +210,17 @@ function contributesToAswPower(equip: ScenarioEquip): boolean {
   if (equip.asw <= 0) return false;
   const t = equip.equipType;
   return isSonar(t) || isDepthChargeAny(t) || isAswAircraft(equip);
+}
+
+function hasCarrierDayAttackAircraft(counts: EquipCounts): boolean {
+  return counts.carrierTorpedoBomber > 0
+    || counts.carrierDiveBomber > 0
+    || counts.jetFighterBomber > 0;
+}
+
+function isUnconditionalNightCarrier(input: ShipScenarioInput): boolean {
+  return UNCONDITIONAL_NIGHT_CARRIER_IDS.has(input.shipMasterId)
+    || UNCONDITIONAL_NIGHT_CARRIER_NAMES.has(input.shipName);
 }
 
 function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
@@ -427,13 +461,13 @@ function detectCarrierDayAttacks(counts: EquipCounts): DayAttackType[] {
  * Night attacks available to the ship, ordered by selection priority
  * (DD-exclusive and Night Zuiun cut-ins roll before generic cut-ins, then 連撃).
  */
-function detectNightAttacks(stype: number, counts: EquipCounts): NightCutInType[] {
-  const shipType = stype as ShipType;
+function detectNightAttacks(input: ShipScenarioInput, counts: EquipCounts): NightCutInType[] {
+  const shipType = input.stype as ShipType;
   const types: NightCutInType[] = [];
 
   if (isCarrierType(shipType)) {
     if (counts.nightPlane > 0) types.push(NightCutInType.CarrierNightCI);
-    return types;
+    if (types.length > 0 || !isUnconditionalNightCarrier(input)) return types;
   }
 
   if (shipType === ShipType.DD) {
@@ -484,6 +518,8 @@ function buildDayScenarios(input: ShipScenarioInput, counts: EquipCounts): Scena
   if (isSubmarineType(shipType)) return [];
 
   const carrier = isCarrierType(shipType);
+  if (carrier && !hasCarrierDayAttackAircraft(counts)) return [];
+
   const basePower = carrier
     ? dayCarrierBasePower(input.firepower, input.torpedo, counts.bombTotal, carrierDayImprovementBonus(input.equips))
     : daySurfaceBasePower(input.firepower, dayImprovementBonus(input.equips));
@@ -549,11 +585,11 @@ function buildAntiSubmarineScenarios(input: ShipScenarioInput, counts: EquipCoun
 function buildNightScenarios(input: ShipScenarioInput, counts: EquipCounts): ScenarioAttack[] {
   const shipType = input.stype as ShipType;
   const carrier = isCarrierType(shipType);
-  if (carrier && counts.nightPlane <= 0) return [];
+  if (carrier && counts.nightPlane <= 0 && !isUnconditionalNightCarrier(input)) return [];
   if (input.firepower + input.torpedo <= 0) return [];
 
   const basePower = nightBasePower(input.firepower, input.torpedo, nightImprovementBonus(input.equips));
-  const types = detectNightAttacks(input.stype, counts);
+  const types = detectNightAttacks(input, counts);
   const damageState = getDamageState(input.hpNow, Math.max(1, input.hpMax));
 
   const attacks: ScenarioAttack[] = [];

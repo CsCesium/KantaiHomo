@@ -144,6 +144,8 @@ export function buildShipScenarioData(uid: number): ShipScenarioData | null {
   const isFlagship = deck ? deck.shipUids[0] === uid : false;
 
   const input: ShipScenarioInput = {
+    shipMasterId: ship.masterId,
+    shipName: ship.name,
     stype: st.shipMasterStype.get(ship.masterId) ?? 0,
     level: ship.level,
     luck: ship.luckCur,
