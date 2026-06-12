@@ -1,7 +1,8 @@
 import { SlotItemJoinedRow } from '../../../../infra/storage/types';
 import { SlotItemEquipType } from '../../../../domain/models';
 import { getPersistDeps } from '../../../../infra/deps';
-import { kaisyuuIcon, airMasteryIcon, equipLabel, PanelColors } from '../../../../features/panel/panelConfig';
+import { airMasteryIcon, equipLabel, isAircraftEquipType, PanelColors } from '../../../../features/panel/panelConfig';
+import { getAntiAirResistanceType, isLandAttackBomber } from '../../../../features/panel/equipmentClassification';
 import { rangeLabel } from './bottom/rows/shipHelpers';
 
 interface StatLine {
@@ -10,8 +11,51 @@ interface StatLine {
   positive: boolean;
 }
 
+interface FeatureTag {
+  label: string;
+  bg: string;
+  fg: string;
+}
+
+function rowMasterId(row: SlotItemJoinedRow): number {
+  return row.mst_id ?? row.masterId;
+}
+
 function isLbasInterceptor(row: SlotItemJoinedRow): boolean {
   return row.mst_typeEquipType === SlotItemEquipType.Interceptor;
+}
+
+function antiAirResistanceLabel(type: number): string {
+  switch (type) {
+    case 1: return '弱';
+    case 2: return '中';
+    case 3: return '强';
+    case 4: return '超';
+    case 5: return '超+';
+    default: return '';
+  }
+}
+
+function buildFeatureTags(row: SlotItemJoinedRow): FeatureTag[] {
+  const equipType = row.mst_typeEquipType ?? 0;
+  if (!isAircraftEquipType(equipType)) return [];
+
+  const tags: FeatureTag[] = [];
+  const masterId = rowMasterId(row);
+  const iconId = row.mst_typeIconId ?? 0;
+  const name = row.mst_name ?? '';
+
+  if (isLandAttackBomber(masterId, equipType, iconId, name)) {
+    tags.push({ label: '对地', bg: '#3d3320', fg: '#ffd27a' });
+  }
+
+  const resistanceType = getAntiAirResistanceType(masterId, equipType, iconId, name);
+  const resistanceLabel = antiAirResistanceLabel(resistanceType);
+  if (resistanceLabel.length > 0) {
+    tags.push({ label: `抗击坠 ${resistanceLabel}`, bg: '#203847', fg: '#8bd9ff' });
+  }
+
+  return tags;
 }
 
 function buildStats(row: SlotItemJoinedRow): StatLine[] {
@@ -122,11 +166,6 @@ export struct EquipDetailPanel {
           Row({ space: 6 }) {
             if ((this.row.level ?? 0) > 0) {
               Row({ space: 2 }) {
-                if (kaisyuuIcon(this.row.level ?? 0) !== null) {
-                  Image(kaisyuuIcon(this.row.level ?? 0)!)
-                    .width(14)
-                    .height(14)
-                }
                 Text(`★${this.row.level}`)
                   .fontSize(11)
                   .fontColor('#FFD56A')
@@ -168,6 +207,21 @@ export struct EquipDetailPanel {
           }, (stat: StatLine) => `eq-stat-${stat.label}`)
         }
         .width('100%')
+
+        if (buildFeatureTags(this.row).length > 0) {
+          Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+            ForEach(buildFeatureTags(this.row), (tag: FeatureTag) => {
+              Text(tag.label)
+                .fontSize(10)
+                .fontColor(tag.fg)
+                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                .backgroundColor(tag.bg)
+                .borderRadius(3)
+                .margin({ right: 4, top: 2 })
+            }, (tag: FeatureTag) => `eq-feature-${tag.label}`)
+          }
+          .width('100%')
+        }
 
       } else {
         Text('加载中…')
