@@ -1,6 +1,5 @@
 import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel/panelConfig';
 import { airStateName, airStateColor } from '../../../../../features/panel/airStateUi';
-import { PanelPopupStateChangeEvent } from '../../../../../features/panel/type';
 import {
   subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName, isShipMasterLandBased,
   BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus,
@@ -184,6 +183,7 @@ export default struct BattlePreviewPanel {
     this.resultSnap = result;
 
     if (result) {
+      this.aerialDetailOpen = false;
       this.battleRenderKey = `result-${result.battleId}-${result.endedAt}`;
       this.viewFriendMain = cloneFleetBattleStatus(result.friendMain);
       this.viewFriendEscort = cloneOptionalFleetBattleStatus(result.friendEscort);
@@ -203,6 +203,7 @@ export default struct BattlePreviewPanel {
       return;
     }
 
+    this.aerialDetailOpen = false;
     this.battleRenderKey = 'empty';
     this.viewFriendMain = null;
     this.viewFriendEscort = null;
@@ -388,8 +389,15 @@ export default struct BattlePreviewPanel {
     return names;
   }
 
-  /** 航空战 / 对空状态详情弹窗（双击制空 tag 弹出）。 */
-  @Builder AerialDetailPopup() {
+  /** 航空战 / 对空状态详情面板（双击制空 tag 切换，面板内居中显示）。 */
+  @Builder AerialDetailOverlay() {
+    // 点击面板外区域（半透明遮罩）关闭
+    Column()
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#80000000')
+      .onClick(() => { this.aerialDetailOpen = false; })
+
     AerialCombatPanel({
       phases: this.statusSnap?.aerialPhases ?? [],
       lbasWaves: this.statusSnap?.lbasWaves ?? [],
@@ -463,16 +471,6 @@ export default struct BattlePreviewPanel {
                 TapGesture({ count: 2 })
                   .onAction(() => { this.aerialDetailOpen = !this.aerialDetailOpen; })
               )
-              .bindPopup(this.aerialDetailOpen, {
-                builder: this.AerialDetailPopup,
-                placement: Placement.Bottom,
-                enableArrow: true,
-                onStateChange: (e: PanelPopupStateChangeEvent) => {
-                  if (!e.isVisible && this.aerialDetailOpen) {
-                    this.aerialDetailOpen = false;
-                  }
-                },
-              })
           }
 
           if (snap.aaciTriggered) {
@@ -494,7 +492,7 @@ export default struct BattlePreviewPanel {
       .padding({ left: 10, right: 10 })
       .alignItems(VerticalAlign.Center)
 
-      // Row 2: formation info + 残機数（我方绿 / 敌方红）
+      // Row 2: formation info + 剩余机数（我方绿 / 敌方红）
       Row({ space: 6 }) {
         Text(formationName(snap.friendFormation))
           .fontSize(PanelDimens.fontSm)
@@ -509,12 +507,12 @@ export default struct BattlePreviewPanel {
         Blank().layoutWeight(1)
 
         if (snap.friendPlaneMax !== undefined && snap.friendPlaneMax > 0) {
-          Text(`自 ${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
+          Text(`我 ${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.hpOk)
         }
         if (snap.enemyPlaneMax !== undefined && snap.enemyPlaneMax > 0) {
-          Text(`敵 ${snap.enemyPlaneNow ?? 0}/${snap.enemyPlaneMax}`)
+          Text(`敌 ${snap.enemyPlaneNow ?? 0}/${snap.enemyPlaneMax}`)
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.hpCrit)
         }
@@ -685,7 +683,7 @@ export default struct BattlePreviewPanel {
       // Row 2: MVP + drop + base exp
       Row({ space: 8 }) {
         if (snap.mvp !== undefined) {
-          Text(`MVP: ${snap.mvp}番艦`)
+          Text(`MVP: ${snap.mvp}号舰`)
             .fontSize(PanelDimens.fontSm)
             .fontColor('#FFD700')
         }
@@ -953,30 +951,39 @@ export default struct BattlePreviewPanel {
   // ── main build ────────────────────────────────────────────────────────────
 
   build() {
-    Column() {
-      if (this.resultSnap) {
-        // ── Result view ─────────────────────────────────────────────────
-        ForEach([this.battleRenderKey], (_key: string) => {
-          this.ResultContent()
-        }, (key: string): string => key)
+    Stack({ alignContent: Alignment.Center }) {
+      Column() {
+        if (this.resultSnap) {
+          // ── Result view ─────────────────────────────────────────────────
+          ForEach([this.battleRenderKey], (_key: string) => {
+            this.ResultContent()
+          }, (key: string): string => key)
 
-      } else if (this.statusSnap) {
-        // ── Prediction view ──────────────────────────────────────────────
-        ForEach([this.battleRenderKey], (_key: string) => {
-          this.StatusContent()
-        }, (key: string): string => key)
+        } else if (this.statusSnap) {
+          // ── Prediction view ──────────────────────────────────────────────
+          ForEach([this.battleRenderKey], (_key: string) => {
+            this.StatusContent()
+          }, (key: string): string => key)
 
-      } else {
-        // ── Empty / loading ──────────────────────────────────────────────
-        Column() {
-          Text('NO BATTLE DATA')
-            .fontSize(PanelDimens.fontMd)
-            .fontColor(PanelColors.txtMuted)
+        } else {
+          // ── Empty / loading ──────────────────────────────────────────────
+          Column() {
+            Text('NO BATTLE DATA')
+              .fontSize(PanelDimens.fontMd)
+              .fontColor(PanelColors.txtMuted)
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
         }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+
+      // 航空战详情：固定面板居中显示
+      if (this.aerialDetailOpen) {
+        this.AerialDetailOverlay()
       }
     }
     .width('100%')

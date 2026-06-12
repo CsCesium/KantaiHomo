@@ -6,11 +6,11 @@ import { PanelColors } from './panelConfig';
  */
 
 export function airStateName(s: number | undefined): string {
-  if (s === 1) return '確保';
-  if (s === 2) return '優勢';
+  if (s === 1) return '确保';
+  if (s === 2) return '优势';
   if (s === 3) return '均衡';
-  if (s === 4) return '劣勢';
-  if (s === 5) return '喪失';
+  if (s === 4) return '劣势';
+  if (s === 5) return '丧失';
   return '';
 }
 
