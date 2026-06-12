@@ -50,16 +50,41 @@ export function getMapGaugeInfo(gauge: MapGaugeSnapshot): MapGaugeInfo {
 /**
  * 周期性刷新的地图 = 常规海域 EO（每月重置）；非周期性 = 活动海图（一次性）。
  *
- * 区分方式：常规 EO 位于常规海域且没有 hpMax，只有 defeatCount/requiredDefeats。
+ * 区分方式：常规 EO 位于常规海域、没有 hpMax，且需要多次击破。
+ * 4-4、7-1 等一次击破的普通清图记录不应在 cleared 后继续显示。
  * 即使常规 EO 当前已通关，也保留显示，因为下个月仍会重置；活动海图斩杀后隐藏。
  */
 export function isPeriodicMapGauge(gauge: MapGaugeSnapshot): boolean {
   const areaNo = Math.floor(gauge.mapId / 10);
-  return gauge.hpMax === null && areaNo >= 1 && areaNo <= 7;
+  const required = gauge.requiredDefeats ?? 0;
+  return gauge.hpMax === null && areaNo >= 1 && areaNo <= 7 && required > 1;
 }
 
 export function shouldDisplayMapGauge(gauge: MapGaugeSnapshot): boolean {
   return !gauge.cleared || isPeriodicMapGauge(gauge);
+}
+
+function isRegularFinalOperationMap(gauge: MapGaugeSnapshot): boolean {
+  const areaNo = Math.floor(gauge.mapId / 10);
+  const mapNo = gauge.mapId % 10;
+  const required = gauge.requiredDefeats ?? 0;
+  return gauge.hpMax === null && areaNo >= 1 && areaNo <= 7 && required > 1 && (mapNo === 5 || mapNo === 6);
+}
+
+function mapGaugeDisplayPriority(gauge: MapGaugeSnapshot): number {
+  if (gauge.hpMax !== null) return 0;
+  if (isRegularFinalOperationMap(gauge)) return 1;
+  if (isPeriodicMapGauge(gauge)) return 2;
+  return 3;
+}
+
+export function compareMapGaugeDisplayOrder(a: MapGaugeSnapshot, b: MapGaugeSnapshot): number {
+  if (a.cleared !== b.cleared) return a.cleared ? 1 : -1;
+  const priorityA = mapGaugeDisplayPriority(a);
+  const priorityB = mapGaugeDisplayPriority(b);
+  if (priorityA !== priorityB) return priorityA - priorityB;
+  if (a.mapId !== b.mapId) return a.mapId - b.mapId;
+  return a.gaugeNum - b.gaugeNum;
 }
 
 /** 是否为该 gauge 显示血条 / 进度条。活动图按 HP，EO 按击破次数。 */

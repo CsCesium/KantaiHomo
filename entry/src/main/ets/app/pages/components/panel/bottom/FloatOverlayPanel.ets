@@ -33,7 +33,7 @@ import QuestPanel from '../common/QuestPanel';
 import NdockPanel from '../common/NdockPanel';
 import LbasPanel from '../common/LbasPanel';
 import ExpeditionCheckPanel from '../common/ExpeditionCheckPanel';
-import { shouldDisplayMapGauge } from './rows/shipHelpers';
+import { compareMapGaugeDisplayOrder, shouldDisplayMapGauge } from './rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const OVERLAY_LBAS_TAB_IDX = 4;
@@ -304,7 +304,9 @@ export default struct FloatOverlayPanel {
     this.admiralExperience = admiral ? `${admiral.experience}` : '--';
     this.todaySenka = senka ? `${senka.estimatedTodaySenka}` : '--';
     this.shipCapacity = formatLimitCount(st.ships.size, admiral?.maxShips);
-    this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.mapGauges = getMapGauges()
+      .filter((g: MapGaugeSnapshot) => shouldDisplayMapGauge(g))
+      .sort(compareMapGaugeDisplayOrder);
     this.lbases = [...st.lbases];
     this.currentLbasAreaId = st.currentLbasAreaId;
     this.ndocks = [...getNDocks()];

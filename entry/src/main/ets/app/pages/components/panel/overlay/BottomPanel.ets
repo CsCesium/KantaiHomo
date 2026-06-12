@@ -33,7 +33,7 @@ import QuestPanel from '../common/QuestPanel';
 import NdockPanel from '../common/NdockPanel';
 import LbasPanel from '../common/LbasPanel';
 import ExpeditionCheckPanel from '../common/ExpeditionCheckPanel';
-import { shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
+import { compareMapGaugeDisplayOrder, shouldDisplayMapGauge } from '../bottom/rows/shipHelpers';
 import { lengthToNumber } from '../../../../../infra/utils/trans';
 
 const FLEET_TABS_LABEL: string[] = ['1', '2', '3', '4', '陆航', '远征', '入渠', '地図', '任务'];
@@ -297,7 +297,9 @@ export default struct BottomPanel {
     this.materials = getMaterials();
     this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
-    this.mapGauges = getMapGauges().filter(g => shouldDisplayMapGauge(g));
+    this.mapGauges = getMapGauges()
+      .filter((g: MapGaugeSnapshot) => shouldDisplayMapGauge(g))
+      .sort(compareMapGaugeDisplayOrder);
     this.lbases = [...st.lbases];
     this.currentLbasAreaId = st.currentLbasAreaId;
     this.ndocks = [...getNDocks()];
