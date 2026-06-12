@@ -1,10 +1,13 @@
 import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel/panelConfig';
+import { airStateName, airStateColor } from '../../../../../features/panel/airStateUi';
+import { PanelPopupStateChangeEvent } from '../../../../../features/panel/type';
 import {
   subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName, isShipMasterLandBased,
   BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus,
   EnemyBattleStatus
 } from '../../../../../features/state';
 import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../../../../domain/models';
+import AerialCombatPanel from './AerialCombatPanel';
 
 // ── pure helpers (no ArkUI APIs) ──────────────────────────────────────────
 
@@ -44,24 +47,6 @@ function phaseName(phase: 'day' | 'night' | 'day_to_night'): string {
   if (phase === 'night') return '开幕夜戦';
   if (phase === 'day_to_night') return '夜戦';
   return '昼戦';
-}
-
-function airStateName(s: number | undefined): string {
-  if (s === 1) return '確保';
-  if (s === 2) return '優勢';
-  if (s === 3) return '均衡';
-  if (s === 4) return '劣勢';
-  if (s === 5) return '喪失';
-  return '';
-}
-
-function airStateColor(s: number | undefined): string {
-  if (s === 1) return '#43a047';
-  if (s === 2) return '#26c6da';
-  if (s === 3) return PanelColors.txtSub;
-  if (s === 4) return '#fb8c00';
-  if (s === 5) return PanelColors.hpCrit;
-  return PanelColors.txtMuted;
 }
 
 function shipBadgeText(ship: ShipBattleStatus, landBased: boolean = false): string {
@@ -171,6 +156,8 @@ export default struct BattlePreviewPanel {
   @Local viewEnemyMain: EnemyBattleStatus | null = null;
   @Local viewEnemyEscort: EnemyBattleStatus | null = null;
   @Local viewIsAirRaid: boolean = false;
+  /** 航空战详情弹窗是否展开（双击制空 tag 切换）。 */
+  @Local aerialDetailOpen: boolean = false;
 
   private unsubscribe: (() => void) | null = null;
 
@@ -384,11 +371,37 @@ export default struct BattlePreviewPanel {
 
   // ── prediction view builders ───────────────────────────────────────────────
 
+  /** 友方舰名（主力+护卫顺序），用于航空战详情面板解析对空CI发动舰。 */
+  private aaciShipNames(): string[] {
+    const names: string[] = [];
+    const snap = this.statusSnap;
+    if (snap) {
+      for (const ship of snap.friendMain.ships) {
+        names.push(ship.name);
+      }
+      if (snap.friendEscort) {
+        for (const ship of snap.friendEscort.ships) {
+          names.push(ship.name);
+        }
+      }
+    }
+    return names;
+  }
+
+  /** 航空战 / 对空状态详情弹窗（双击制空 tag 弹出）。 */
+  @Builder AerialDetailPopup() {
+    AerialCombatPanel({
+      phases: this.statusSnap?.aerialPhases ?? [],
+      lbasWaves: this.statusSnap?.lbasWaves ?? [],
+      shipNames: this.aaciShipNames(),
+    })
+  }
+
   /**
    * Header: two rows.
    *
-   *   Row 1: [map+cell+phase (left)] [rank+engagement (center)] [air state+CI (right)]
-   *   Row 2: [friend formation vs enemy formation]
+   *   Row 1: [map+cell+phase (left)] [rank+engagement (center)] [air state tag+CI (right)]
+   *   Row 2: [friend formation vs enemy formation] [friend/enemy plane counts (right)]
    */
   @Builder PredictHeader(snap: BattleStatusSnapshot) {
     Column({ space: 0 }) {
@@ -436,19 +449,30 @@ export default struct BattlePreviewPanel {
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
 
-        // Right: air state + plane count + AACI
+        // Right: air state tag (双击弹出航空战详情) + AACI
         Row({ space: 4 }) {
           if (snap.airState) {
             Text(airStateName(snap.airState))
               .fontSize(PanelDimens.fontSm)
               .fontColor(airStateColor(snap.airState))
               .fontWeight(FontWeight.Medium)
-          }
-
-          if (snap.friendPlaneMax !== undefined && snap.friendPlaneMax > 0) {
-            Text(`✈${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(PanelColors.txtSub)
+              .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+              .backgroundColor(PanelColors.bgTabInactive)
+              .borderRadius(2)
+              .gesture(
+                TapGesture({ count: 2 })
+                  .onAction(() => { this.aerialDetailOpen = !this.aerialDetailOpen; })
+              )
+              .bindPopup(this.aerialDetailOpen, {
+                builder: this.AerialDetailPopup,
+                placement: Placement.Bottom,
+                enableArrow: true,
+                onStateChange: (e: PanelPopupStateChangeEvent) => {
+                  if (!e.isVisible && this.aerialDetailOpen) {
+                    this.aerialDetailOpen = false;
+                  }
+                },
+              })
           }
 
           if (snap.aaciTriggered) {
@@ -470,7 +494,7 @@ export default struct BattlePreviewPanel {
       .padding({ left: 10, right: 10 })
       .alignItems(VerticalAlign.Center)
 
-      // Row 2: formation info
+      // Row 2: formation info + 残機数（我方绿 / 敌方红）
       Row({ space: 6 }) {
         Text(formationName(snap.friendFormation))
           .fontSize(PanelDimens.fontSm)
@@ -481,6 +505,19 @@ export default struct BattlePreviewPanel {
         Text(formationName(snap.enemyFormation))
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtSub)
+
+        Blank().layoutWeight(1)
+
+        if (snap.friendPlaneMax !== undefined && snap.friendPlaneMax > 0) {
+          Text(`自 ${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.hpOk)
+        }
+        if (snap.enemyPlaneMax !== undefined && snap.enemyPlaneMax > 0) {
+          Text(`敵 ${snap.enemyPlaneNow ?? 0}/${snap.enemyPlaneMax}`)
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.hpCrit)
+        }
       }
       .width('100%')
       .height(20)

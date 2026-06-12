@@ -193,7 +193,11 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
     airState: battleContext.merged?.meta.airState,
     friendPlaneNow: battleContext.merged?.meta.friendPlaneNow,
     friendPlaneMax: battleContext.merged?.meta.friendPlaneMax,
-    aaciTriggered: false,
+    enemyPlaneNow: battleContext.merged?.meta.enemyPlaneNow,
+    enemyPlaneMax: battleContext.merged?.meta.enemyPlaneMax,
+    aaciTriggered: (battleContext.merged?.meta.aerialPhases ?? []).some(p => !!p.airFire),
+    aerialPhases: battleContext.merged?.meta.aerialPhases,
+    lbasWaves: battleContext.merged?.meta.lbasWaves,
 
     // 时间戳
     startedAt: battleContext.startedAt,
