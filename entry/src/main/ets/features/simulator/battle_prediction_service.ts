@@ -43,6 +43,10 @@ export interface ShipHPSnapshot {
   maxHP:    number;
   nowHP:    number;
   initHP:   number;
+  /** 本场战斗造成的伤害累计（炮击/雷击归因，不含航空与支援） */
+  damageDealt: number;
+  /** 本场战斗受到的伤害累计（不封顶，含击沉后溢出） */
+  damageReceivedTotal: number;
   /** 是否大破 (≤25%) */
   isTaiha:  boolean;
   /** 是否中破 (≤50%) */
@@ -101,6 +105,8 @@ function toHPSnapshot(ships: (SimShip | null)[] | null | undefined): ShipHPSnaps
         maxHP:    s.maxHP,
         nowHP,
         initHP:   s.initHP,
+        damageDealt: s.damage,
+        damageReceivedTotal: s.received,
         isTaiha:  nowHP > 0 && nowHP * 4 <= s.maxHP,
         isChuuha: nowHP > 0 && nowHP * 4 > s.maxHP && nowHP * 2 <= s.maxHP,
         isShouha: nowHP > 0 && nowHP * 2 > s.maxHP && nowHP * 4 <= s.maxHP * 3,

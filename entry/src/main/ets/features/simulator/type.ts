@@ -114,6 +114,7 @@ export interface ShipOpts {
   nowHP:      number;
   lostHP?:    number;
   damage?:    number;
+  received?:  number;
   items?:     (number | null)[];
   useItem?:   number | null;
   baseParam?: Param4;
@@ -132,6 +133,8 @@ export class SimShip {
   lostHP:     number;
   /** 该舰本场战斗造成的伤害累计 */
   damage:     number;
+  /** 该舰本场战斗受到的伤害累计（不封顶，含击沉后溢出） */
+  received:   number;
   items:      (number | null)[];
   useItem:    number | null;
   baseParam?: Param4;
@@ -147,6 +150,7 @@ export class SimShip {
     this.initHP     = opts.nowHP;
     this.lostHP     = opts.lostHP ?? 0;
     this.damage     = opts.damage ?? 0;
+    this.received   = opts.received ?? 0;
     this.items      = opts.items ?? [];
     this.useItem    = opts.useItem ?? null;
     this.baseParam  = opts.baseParam;
