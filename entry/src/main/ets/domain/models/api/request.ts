@@ -77,6 +77,12 @@ export interface ApiReqKousyouCreateitemParams {
   api_item4: string;         // 铝土
 }
 
+/** 开发产出条目（多重开发，api_slotitem_id 为 null/-1 表示该槽失败） */
+export interface ApiKousyouGetItemRaw {
+  api_id: number;
+  api_slotitem_id: number | null;
+}
+
 /** 开发响应 */
 export interface ApiReqKousyouCreateitemRespRaw {
   api_create_flag: 0 | 1;
@@ -85,10 +91,22 @@ export interface ApiReqKousyouCreateitemRespRaw {
     api_id: number;
     api_slotitem_id: number;
   };
+  /** 多重开发格式（现行 API）：一次最多 3 个产出 */
+  api_get_items?: ApiKousyouGetItemRaw[];
   api_material: number[];
   api_type3?: number;
   api_unsetslot?: Record<string, number[]>;
   api_fdata?: string;
+}
+
+/** 建造完成领取响应 */
+export interface ApiReqKousyouGetshipRespRaw {
+  /** 新舰娘实例 UID */
+  api_id: number;
+  /** 舰娘图鉴 ID */
+  api_ship_id: number;
+  api_kdock?: object[];
+  api_slotitem?: object[];
 }
 
 /** 改修工厂请求参数 */

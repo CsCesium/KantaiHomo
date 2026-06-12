@@ -184,6 +184,10 @@ export default class EntryAbility extends UIAbility {
         kvGetBool('alerts.battle.enabled', true),
         kvGetBool(APP_STORAGE_REPAIR_ALERT_ENABLED, true),
         kvGetString('alerts.mode', 'both'),
+        kvGetBool('alerts.toast.enabled', true),
+        kvGetBool('alerts.toast.dev.enabled', true),
+        kvGetBool('alerts.toast.build.enabled', true),
+        kvGetBool('alerts.toast.remodel.enabled', true),
       ]).then((results: Array<boolean | string>) => {
         const yasen = results[0] as boolean;
         const battle = results[1] as boolean;
@@ -195,6 +199,10 @@ export default class EntryAbility extends UIAbility {
           enableRepairAlert: repair,
           enableVibrate: mode === 'vibrate' || mode === 'both',
           enableNotification: mode === 'ring' || mode === 'both',
+          enableToast: results[4] as boolean,
+          enableDevResultToast: results[5] as boolean,
+          enableBuildResultToast: results[6] as boolean,
+          enableRemodelResultToast: results[7] as boolean,
         });
       });
 

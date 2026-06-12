@@ -28,7 +28,10 @@ export type AlertType =
   | 'battle_result'
   | 'fleet_status'
   | 'sortie_advance'
-  | 'repair_complete';
+  | 'repair_complete'
+  | 'dev_result'
+  | 'build_result'
+  | 'remodel_result';
 
 export interface BaseAlert {
   type: AlertType;
@@ -125,6 +128,31 @@ export interface FleetStatusAlert extends BaseAlert {
   fleet1LowCondShipUids: number[];
 }
 
+/** 装备开发结果提示（/api_req_kousyou/createitem） */
+export interface DevResultAlert extends BaseAlert {
+  type: 'dev_result';
+  /** 各槽产出名称，失败槽为「失败」占位 */
+  itemNames: string[];
+  /** 失败槽数量 */
+  failCount: number;
+}
+
+/** 建造完成领取提示（/api_req_kousyou/getship） */
+export interface BuildResultAlert extends BaseAlert {
+  type: 'build_result';
+  shipName: string;
+  kdockId: number;
+}
+
+/** 改修结果提示（/api_req_kousyou/remodel_slot） */
+export interface RemodelResultAlert extends BaseAlert {
+  type: 'remodel_result';
+  success: boolean;
+  itemName: string;
+  /** 改修后的 ★ 等级（未知为 -1） */
+  level: number;
+}
+
 export type AnyAlert =
   | ExpeditionReturnAlert
   | YasenPromptAlert
@@ -134,7 +162,10 @@ export type AnyAlert =
   | BattleResultAlert
   | SortieAdvanceAlert
   | RepairCompleteAlert
-  | FleetStatusAlert;
+  | FleetStatusAlert
+  | DevResultAlert
+  | BuildResultAlert
+  | RemodelResultAlert;
 
 // ========== Alert Config ==========
 
@@ -152,6 +183,12 @@ export interface AlertConfig {
   enableRepairAlert: boolean;
   /** 是否启用进击选择提醒 (sortie_advance) */
   enableAdvanceAlert: boolean;
+  /** 是否启用开发结果 Toast (dev_result) */
+  enableDevResultToast: boolean;
+  /** 是否启用建造结果 Toast (build_result) */
+  enableBuildResultToast: boolean;
+  /** 是否启用改修结果 Toast (remodel_result) */
+  enableRemodelResultToast: boolean;
 }
 
 export const DEFAULT_ALERT_CONFIG: AlertConfig = {
@@ -164,6 +201,9 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   enableBattleResultAlert: true,
   enableRepairAlert: true,
   enableAdvanceAlert: true,
+  enableDevResultToast: true,
+  enableBuildResultToast: true,
+  enableRemodelResultToast: true,
 };
 
 // ========== Expedition DAO interface ==========

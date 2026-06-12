@@ -120,6 +120,12 @@ class AlertBusImpl {
         return `fstatus:${alert.unsuppliedDecks.join(',')}:${alert.idleDecks.join(',')}:${alert.fleet1LowCondShipUids.slice().sort((a, b) => a - b).join(',')}`;
       case 'repair_complete':
         return `repair:${(alert as RepairCompleteAlert).dockId}`;
+      case 'dev_result':
+        return `dev:${alert.itemNames.join(',')}:${alert.timestamp}`;
+      case 'build_result':
+        return `build:${alert.kdockId}:${alert.shipName}`;
+      case 'remodel_result':
+        return `remodel:${alert.itemName}:${alert.level}:${alert.success ? 1 : 0}`;
       default:
         return `unknown`;
     }
