@@ -124,6 +124,12 @@ export default struct ShipStatusBadge {
     return this.showAvatar && this.avatarUrl.length > 0 && this.failedAvatarUrl !== this.avatarUrl;
   }
 
+  /** 已退避（goback_port）舰娘头像置灰，回港前保持。 */
+  @Computed
+  get escaped(): boolean {
+    return isShipEscaped(this.ship.uid);
+  }
+
   @Computed
   get badgePositionX(): number {
     return this.ringDiam - RING_STROKE_WIDTH - this.badgeSize-2;
@@ -136,7 +142,7 @@ export default struct ShipStatusBadge {
 
   /** HP 颜色 */
   private hpColor(): string {
-    return isShipEscaped(this.ship.uid) ? PanelColors.escapeHp : panelHpColor(this.ship.hpNow, this.ship.hpMax);
+    return this.escaped ? PanelColors.escapeHp : panelHpColor(this.ship.hpNow, this.ship.hpMax);
   }
 
   @Builder
@@ -164,6 +170,7 @@ export default struct ShipStatusBadge {
       .maxLines(2)
       .textOverflow({ overflow: TextOverflow.Clip })
       .padding(2)
+      .grayscale(this.escaped ? 1 : 0)
   }
 
   private condVisual(cond: number): CondVisual {
@@ -279,6 +286,7 @@ export default struct ShipStatusBadge {
             .borderRadius(this.avatarDiam / 2)
             .backgroundColor('#1e1e1e')
             .clip(true)
+            .grayscale(this.escaped ? 1 : 0)
         } else {
           this.avatarFallback()
         }
@@ -293,7 +301,7 @@ export default struct ShipStatusBadge {
             .position({ x: this.badgePositionX, y: this.badgePositionY })
         }
 
-        if (isShipEscaped(this.ship.uid)) {
+        if (this.escaped) {
           Row()
             .width(this.ringDiam)
             .height(this.ringDiam)
@@ -303,7 +311,7 @@ export default struct ShipStatusBadge {
         }
 
         // 退避（goback_port）标签 — 蓝色，盖在头像下沿
-        if (isShipEscaped(this.ship.uid)) {
+        if (this.escaped) {
           Text('退避')
             .fontSize(this.nameFontSize + 1)
             .fontColor(PanelColors.escapeLabel)

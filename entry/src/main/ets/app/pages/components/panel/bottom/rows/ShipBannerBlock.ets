@@ -1,6 +1,6 @@
 import { ShipItem } from '../../../../../../features/panel/type';
 import { ShipDiems } from '../../../../../../features/panel/panelConfig';
-import { getGameServerUrl } from '../../../../../../features/state';
+import { getGameServerUrl, isShipEscaped } from '../../../../../../features/state';
 import { getShipRemodelUrl } from '../../../../../../features/game/shipGraph';
 import ShipCapabilityTag from './ShipCapabilityTag';
 
@@ -30,6 +30,12 @@ export default struct ShipBannerBlock {
   @Computed
   get isDamaged(): boolean {
     return this.ship.hpMax > 0 && this.ship.hp <= this.ship.hpMax / 2;
+  }
+
+  /** 已退避（goback_port）舰娘整块 Banner 置灰，回港前保持。 */
+  @Computed
+  get escaped(): boolean {
+    return isShipEscaped(this.ship.id);
   }
 
   @Computed
@@ -166,5 +172,6 @@ export default struct ShipBannerBlock {
     .height('100%')
     .borderRadius(ShipDiems.SHIP_BANNER_RADIUS)
     .clip(true)
+    .grayscale(this.escaped ? 1 : 0)
   }
 }
