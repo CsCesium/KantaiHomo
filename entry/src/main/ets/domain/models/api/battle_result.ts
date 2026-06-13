@@ -15,6 +15,12 @@ export interface ApiBattleResultGetShipRaw {
   api_ship_getmes: string;
 }
 
+export interface ApiBattleResultEscapeRaw {
+  api_escape_idx?: number[];   // 退避対象候補, 1-based
+  api_tow_idx?: number[];      // 護衛退避の曳航艦候補, 1-based
+  api_escape_type?: number;    // 1=遊撃部隊, 2=水雷戦隊
+}
+
 export interface ApiBattleResultRaw {
   // 战斗结果等级
   api_win_rank: string;  // 'S' | 'A' | 'B' | 'C' | 'D' | 'E'
@@ -49,9 +55,10 @@ export interface ApiBattleResultRaw {
   // 受损flag
   api_destsf?: number;  // 沉没flag
 
-  // 逃跑相关
-  api_escape?: number;  // 可逃跑
-  api_escape_flag?: number[];  // [main退避, escort退避]
+  // 退避候補。実際の goback_port request body には対象 index が乗らないため、
+  // battleresult の候補を保持して goback_port 成功時に確定する。
+  api_escape?: ApiBattleResultEscapeRaw;
+  api_escape_flag?: number[];  // legacy/compat
 
   // 联合舰队
   api_get_ship_exp_combined?: number[];

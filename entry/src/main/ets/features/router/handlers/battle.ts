@@ -14,6 +14,7 @@ import {
   SortieCell,
   SortieContext,
 } from '../../../domain/models';
+import type { BattleResultEscapeCandidate } from '../../../domain/models';
 import { getSortieContext, setSortieContext, clearSortieContext, enrichPredictionWithShipInfo, checkTaihaAdvanceRisk } from '../../../domain/service';
 import { buildDayBattleStatus, buildNightBattleStatus, buildBattleResultSnapshot } from '../../state/battle_state';
 import { updateBattleStatus, updateBattleResult, getShipSpecialEquip, getDeck, getDeckShips, getSlotItemMasterId, isShipEscaped,
@@ -298,6 +299,50 @@ function collectTriggeredSpecialAttackUids(
   return Array.from(out);
 }
 
+function resolveEscapePositionUid(context: SortieContext, position: number | undefined): number {
+  if (position === undefined || !Number.isFinite(position)) return 0;
+  const pos = Math.floor(position);
+  if (pos <= 0) return 0;
+
+  const mainShips = context.fleetSnapshot?.ships ?? [];
+  if (pos <= mainShips.length) {
+    return mainShips[pos - 1]?.uid ?? 0;
+  }
+
+  const escortShips = context.fleetSnapshotEscort?.ships ?? [];
+  const escortIdx = pos - mainShips.length - 1;
+  if (escortIdx >= 0 && escortIdx < escortShips.length) {
+    return escortShips[escortIdx]?.uid ?? 0;
+  }
+
+  // Compatibility with the official flattened 1-12 numbering for combined fleets.
+  if (pos > 6 && escortShips.length > 0) {
+    return escortShips[pos - 7]?.uid ?? 0;
+  }
+
+  return 0;
+}
+
+function resolvePendingEscapeUids(
+  context: SortieContext,
+  escape: BattleResultEscapeCandidate | undefined,
+): number[] {
+  if (!escape) return [];
+
+  const uids: number[] = [];
+  const add = (position: number | undefined): void => {
+    const uid = resolveEscapePositionUid(context, position);
+    if (uid > 0 && uids.indexOf(uid) < 0) {
+      uids.push(uid);
+    }
+  };
+
+  // The official client uses only the first target and first towing candidate.
+  add(escape.targetShipIndexes[0]);
+  add(escape.towingShipIndexes[0]);
+  return uids;
+}
+
 class BattleHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     const e = ev as AnyBattleEvt;
@@ -482,6 +527,13 @@ class BattleHandler implements Handler {
 
     // 1. 获取出击上下文
     const context = getSortieContext();
+    if (context && !isPractice) {
+      const pendingEscapeUids = resolvePendingEscapeUids(context, normalizedResult.escape);
+      context.pendingEscapeUids = pendingEscapeUids.length > 0 ? pendingEscapeUids : undefined;
+      if (pendingEscapeUids.length > 0) {
+        console.info('[battle] pending escape candidates:', pendingEscapeUids.join(','));
+      }
+    }
 
     // 2. 构建战斗记录
     const now = Date.now();

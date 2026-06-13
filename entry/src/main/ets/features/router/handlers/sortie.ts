@@ -234,6 +234,9 @@ class SortieHandler implements Handler {
     // 已经把战后 HP 攒成 patches 挂在 SortieContext 上，这里一次性 flush，
     // 保证 mainpanel 和下一格战斗 simulator 都拿到正确的初始 HP。
     const ctxBeforeMove = getSortieContext();
+    if (ctxBeforeMove?.pendingEscapeUids) {
+      ctxBeforeMove.pendingEscapeUids = undefined;
+    }
     if (ctxBeforeMove?.pendingHpPatches && ctxBeforeMove.pendingHpPatches.length > 0) {
       try {
         patchShipsHp(ctxBeforeMove.pendingHpPatches);

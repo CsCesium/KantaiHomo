@@ -316,43 +316,49 @@ export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void
   patchPanelStateFromNyukyoRequest(dump);
   patchPanelStateFromKaisouRequest(dump);
 
-  // 退避机制：解析请求体的 api_escape_idx，把对应位置的舰娘 UID 标记为已退避。
-  // - 联合舰队 (combined_battle/goback_port)：位置 1-12，1-6 主力，7-12 护卫。
-  // - 单舰队/游击队 (sortie/goback_port，部分活动机制)：位置按主队 1-based 序号映射。
-  // - api_escape_idx 是逗号分隔列表，长度可为 1（仅一艘舰退避）或 2（退避 + 拖船），
-  //   循环按位置逐个处理，两种情况都被覆盖。
-  // 大破警告会跳过这些 UID，主面板/侧边栏会以退避样式显示。
+  // 退避机制：实际 goback_port 请求体通常只包含 api_token/api_verno，
+  // 退避对象来自上一条 battleresult.api_escape。BattleHandler 会先把候选 UID
+  // 暂存在 SortieContext.pendingEscapeUids；这里仅在 goback_port 成功后确认。
+  // 旧的 requestBody.api_escape_idx 解析只作为兼容兜底。
   const isGobackPort = dump.url?.includes('/api_req_combined_battle/goback_port')
     || dump.url?.includes('/api_req_sortie/goback_port');
-  if (isGobackPort) {
+  if (isGobackPort && isSuccessfulApiResponse(dump.responseText)) {
     try {
-      const params = parseFormBody(dump.requestBody);
-      const idxRaw = params.getString('api_escape_idx');
-      if (idxRaw) {
-        const positions = idxRaw.split(',')
-          .map(s => parseInt(s.trim(), 10))
-          .filter(n => Number.isFinite(n) && n >= 1 && n <= 12);
-        const ctx = getSortieContext();
-        const mainShips = ctx?.fleetSnapshot?.ships;
-        const escortShips = ctx?.fleetSnapshotEscort?.ships;
-        const uids: number[] = [];
-        for (const pos of positions) {
-          // 优先按规范：1-6 → main，7-12 → escort。
-          // 没有护卫舰队时按主队 1-based 序号映射，覆盖游击队第 7 艘单舰退避。
-          let uid = 0;
-          if (pos <= 6) {
-            uid = mainShips?.[pos - 1]?.uid ?? 0;
-          } else if (escortShips) {
-            uid = escortShips[pos - 7]?.uid ?? 0;
-          } else {
-            uid = mainShips?.[pos - 1]?.uid ?? 0;
+      const ctx = getSortieContext();
+      let uids: number[] = ctx?.pendingEscapeUids ? Array.from(ctx.pendingEscapeUids) : [];
+      if (ctx?.pendingEscapeUids) {
+        ctx.pendingEscapeUids = undefined;
+      }
+
+      if (uids.length === 0) {
+        const params = parseFormBody(dump.requestBody);
+        const idxRaw = params.getString('api_escape_idx');
+        if (idxRaw) {
+          const positions = idxRaw.split(',')
+            .map(s => parseInt(s.trim(), 10))
+            .filter(n => Number.isFinite(n) && n >= 1 && n <= 12);
+          const mainShips = ctx?.fleetSnapshot?.ships;
+          const escortShips = ctx?.fleetSnapshotEscort?.ships;
+          uids = [];
+          for (const pos of positions) {
+            // 优先按规范：1-6 → main，7-12 → escort。
+            // 没有护卫舰队时按主队 1-based 序号映射，覆盖游击队第 7 艘单舰退避。
+            let uid = 0;
+            if (pos <= 6) {
+              uid = mainShips?.[pos - 1]?.uid ?? 0;
+            } else if (escortShips) {
+              uid = escortShips[pos - 7]?.uid ?? 0;
+            } else {
+              uid = mainShips?.[pos - 1]?.uid ?? 0;
+            }
+            if (uid > 0) uids.push(uid);
           }
-          if (uid > 0) uids.push(uid);
         }
-        if (uids.length > 0) {
-          markShipsEscaped(uids);
-          console.info('[ingest] escaped ships:', uids.join(','));
-        }
+      }
+
+      if (uids.length > 0) {
+        markShipsEscaped(uids);
+        console.info('[ingest] escaped ships:', uids.join(','));
       }
     } catch (e) {
       console.warn('[ingest] goback_port parse failed:', String(e));

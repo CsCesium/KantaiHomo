@@ -57,6 +57,13 @@ export interface SortieContext {
    * 保证下一格战斗 simulator 用最新 GameState 初始化，HP 不会漂移。
    */
   pendingHpPatches?: ReadonlyArray<{ uid: number; hpNow: number; hpMax: number }>;
+
+  /**
+   * BATTLE_RESULT 中 api_escape 给出的退避候选 UID。
+   * goback_port 请求本身只确认操作，不携带候选 index；用户选择退避せず时
+   * 不会请求 goback_port，因此这里只暂存，等 goback_port 成功后再标记退避。
+   */
+  pendingEscapeUids?: ReadonlyArray<number>;
 }
 
 // ==================== 战斗上下文 ====================

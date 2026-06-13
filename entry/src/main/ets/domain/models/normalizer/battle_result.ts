@@ -3,7 +3,7 @@
  * 处理 api_req_sortie/battleresult, api_req_practice/battle_result 等 API
  */
 
-import { ApiBattleResultRaw, ApiPracticeBattleResultRaw } from '../api/battle_result';
+import type { ApiBattleResultEscapeRaw, ApiBattleResultRaw, ApiPracticeBattleResultRaw } from '../api/battle_result';
 import type { ApiMaybeEnvelope } from '../common';
 
 // ==================== Normalized Types ====================
@@ -34,6 +34,12 @@ export interface BattleResultEnemy {
   deckName: string;
 }
 
+export interface BattleResultEscapeCandidate {
+  targetShipIndexes: number[]; // 1-based positions from api_escape_idx
+  towingShipIndexes: number[]; // 1-based positions from api_tow_idx
+  escapeType: number;
+}
+
 export interface NormalizedBattleResult {
   rank: string;  // S/A/B/C/D/E
 
@@ -48,7 +54,7 @@ export interface NormalizedBattleResult {
 
   // 特殊标记
   firstClear?: boolean;
-  escape?: number;
+  escape?: BattleResultEscapeCandidate;
   escapeFlag?: number[];
 
   // 演习专用
@@ -102,7 +108,7 @@ export function normalizeBattleResult(
     drop: extractDrop(data),
 
     firstClear: data.api_first_clear === 1,
-    escape: data.api_escape,
+    escape: normalizeEscapeCandidate(data.api_escape),
     escapeFlag: data.api_escape_flag,
 
     normalizedAt: now,
@@ -170,6 +176,27 @@ function extractDrop(data: ApiBattleResultRaw): BattleResultDrop | undefined {
     itemId: data.api_get_useitem?.api_useitem_id,
     itemName: data.api_get_useitem?.api_useitem_name,
     slotItemId: data.api_get_slotitem?.api_slotitem_id,
+  };
+}
+
+function normalizeNumberArray(value: number[] | undefined): number[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item: number): number => Number(item))
+    .filter((item: number): boolean => Number.isFinite(item) && item > 0);
+}
+
+function normalizeEscapeCandidate(data: ApiBattleResultEscapeRaw | undefined): BattleResultEscapeCandidate | undefined {
+  if (!data) return undefined;
+  const targetShipIndexes = normalizeNumberArray(data.api_escape_idx);
+  const towingShipIndexes = normalizeNumberArray(data.api_tow_idx);
+  if (targetShipIndexes.length === 0 && towingShipIndexes.length === 0) {
+    return undefined;
+  }
+  return {
+    targetShipIndexes,
+    towingShipIndexes,
+    escapeType: Number(data.api_escape_type ?? 0),
   };
 }
 
