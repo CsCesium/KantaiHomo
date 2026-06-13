@@ -2,6 +2,7 @@ import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel
 import { airStateName, airStateColor } from '../../../../../features/panel/airStateUi';
 import {
   subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName, isShipMasterLandBased,
+  isShipEscaped,
   BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus,
   EnemyBattleStatus
 } from '../../../../../features/state';
@@ -50,6 +51,8 @@ function phaseName(phase: 'day' | 'night' | 'day_to_night'): string {
 
 function shipBadgeText(ship: ShipBattleStatus, landBased: boolean = false): string {
   if (ship.isSunk) return landBased ? '破壊' : '轰沈';
+  // 已退避（goback_port）舰回港前状态标记固定显示「退避」，不再显示大破等损伤等级。
+  if (isShipEscaped(ship.uid)) return '退避';
   if (ship.isTaiha) return landBased ? '损壊' : '大破';
   if (ship.isChuuha) return landBased ? '损害' : '中破';
   if (ship.isShouha) return landBased ? '混乱' : '小破';
@@ -58,10 +61,22 @@ function shipBadgeText(ship: ShipBattleStatus, landBased: boolean = false): stri
 
 function shipBadgeColor(ship: ShipBattleStatus): string {
   if (ship.isSunk) return PanelColors.txtMuted;
+  if (isShipEscaped(ship.uid)) return PanelColors.escapeLabel;
   if (ship.isTaiha) return ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.hpCrit;
   if (ship.isChuuha) return PanelColors.hpMid;
   if (ship.isShouha) return PanelColors.hpShouha;
   return PanelColors.hpOk;
+}
+
+/** 已退避舰名 / HP 全部置灰，其余沿用原有损伤配色。 */
+function shipNameColor(ship: ShipBattleStatus): string {
+  if (ship.isSunk) return PanelColors.txtMuted;
+  if (isShipEscaped(ship.uid)) return PanelColors.escapeHp;
+  return ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.txtPrimary;
+}
+
+function shipHpTextColor(ship: ShipBattleStatus): string {
+  return isShipEscaped(ship.uid) ? PanelColors.escapeHp : hpColor(ship.hpAfter, ship.hpMax);
 }
 
 function enemyBadgeText(hpNow: number, hpMax: number, landBased: boolean = false): string {
@@ -224,7 +239,7 @@ export default struct BattlePreviewPanel {
    *
    * `damage` 仅用于血条损伤段（封顶到当前HP），左侧文字由 leftText/leftColor 单独给出。
    */
-  @Builder HpBarRow(hpAfter: number, hpMax: number, damage: number, leftText: string, leftColor: string) {
+  @Builder HpBarRow(hpAfter: number, hpMax: number, damage: number, leftText: string, leftColor: string, escaped: boolean = false) {
     Row({ space: 4 }) {
       // Left label (fixed width)
       if (leftText !== '') {
@@ -244,7 +259,7 @@ export default struct BattlePreviewPanel {
             Column()
               .layoutWeight(hpAfter)
               .height('100%')
-              .backgroundColor(hpColor(hpAfter, hpMax))
+              .backgroundColor(escaped ? PanelColors.escapeHp : hpColor(hpAfter, hpMax))
           }
           if (damage > 0) {
             Column()
@@ -293,10 +308,8 @@ export default struct BattlePreviewPanel {
       Row({ space: 3 }) {
         Text(ship.name)
           .fontSize(PanelDimens.fontMd)
-          .fontColor(ship.isSunk
-            ? PanelColors.txtMuted
-            : (ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.txtPrimary))
-          .fontWeight(ship.hasSinkRisk ? FontWeight.Bold : FontWeight.Normal)
+          .fontColor(shipNameColor(ship))
+          .fontWeight(ship.hasSinkRisk && !isShipEscaped(ship.uid) ? FontWeight.Bold : FontWeight.Normal)
           .layoutWeight(1)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -306,7 +319,7 @@ export default struct BattlePreviewPanel {
 
         Text(`${ship.hpBefore}→${ship.hpAfter}`)
           .fontSize(PanelDimens.fontSm)
-          .fontColor(hpColor(ship.hpAfter, ship.hpMax))
+          .fontColor(shipHpTextColor(ship))
 
         Text(shipBadgeText(ship, landBased))
           .fontSize(PanelDimens.fontSm)
@@ -325,6 +338,7 @@ export default struct BattlePreviewPanel {
         ship.damageReceived,
         ship.damageDealt > 0 ? `${ship.damageDealt}` : '',
         PanelColors.stat,
+        isShipEscaped(ship.uid)
       )
     }
     .width('100%')
@@ -380,6 +394,7 @@ export default struct BattlePreviewPanel {
         Math.max(0, hpBefore - hpAfter),
         totalDamage > 0 ? `-${totalDamage}` : '',
         PanelColors.hpCrit,
+        false,
       )
     }
     .width('100%')
@@ -612,7 +627,7 @@ export default struct BattlePreviewPanel {
         if (ship.hpMax > 0) {
           this.BattleShipRow(ship, landBased)
         }
-    }, (ship: ShipBattleStatus) => `${renderKey}-bship-${ship.uid}-${ship.hpBefore}-${ship.hpAfter}-${ship.damageReceived}-${ship.damageDealt}`)
+    }, (ship: ShipBattleStatus) => `${renderKey}-bship-${ship.uid}-${ship.hpBefore}-${ship.hpAfter}-${ship.damageReceived}-${ship.damageDealt}-${isShipEscaped(ship.uid) ? 1 : 0}`)
   }
 
   /** Enemy fleet ship list with HP bars. */
@@ -997,13 +1012,6 @@ export default struct BattlePreviewPanel {
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
         }
-      }
-      .width('100%')
-      .height('100%')
-
-      // 航空战详情：固定面板居中显示
-      if (this.aerialDetailOpen) {
-        this.AerialDetailOverlay()
       }
     }
     .width('100%')
