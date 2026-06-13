@@ -1013,6 +1013,13 @@ export default struct BattlePreviewPanel {
           .alignItems(HorizontalAlign.Center)
         }
       }
+      .width('100%')
+      .height('100%')
+
+      // 航空战详情：固定面板居中显示
+      if (this.aerialDetailOpen) {
+        this.AerialDetailOverlay()
+      }
     }
     .width('100%')
     .height('100%')
