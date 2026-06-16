@@ -1,6 +1,6 @@
 
 // ==================== 状态管理类 ====================
-import { Admiral, Materials, Deck, Ship, Ndock, Kdock, Quest } from "../../domain/models";
+import { Admiral, Materials, Deck, Ship, Ndock, Kdock, Quest, QuestState } from "../../domain/models";
 import type { LbasBase, LbasSquadron } from '../../domain/models/struct/lbas';
 import type { MapResourceGain } from '../../domain/models/struct/map';
 import { kvSet } from "../../infra/storage/kv";
@@ -499,23 +499,35 @@ class GameStateManager {
    * 更新任务。
    *
    * questlist 在游戏内按分类/分页筛选时只返回局部列表，不能把响应当作全量任务覆盖。
+   * 面板只需要当前接取中的任务；接口明确返回为未接取/完成的任务要从缓存移除。
    */
   updateQuests(quests: Quest[]): void {
     const capturedAt = Date.now();
     const incoming = new Map<number, QuestSnapshot>();
+    const inactiveIds = new Set<number>();
     for (const quest of quests) {
-      if (quest.questId > 0) {
+      if (quest.questId <= 0) {
+        continue;
+      }
+
+      if (quest.state === QuestState.ACTIVE) {
         incoming.set(quest.questId, this.questToSnapshot(quest, capturedAt));
+      } else {
+        inactiveIds.add(quest.questId);
       }
     }
 
-    if (incoming.size === 0) {
+    if (incoming.size === 0 && inactiveIds.size === 0) {
       return;
     }
 
     const merged: QuestSnapshot[] = [];
     const seen = new Set<number>();
     for (const existing of this.state.quests) {
+      if (inactiveIds.has(existing.questId)) {
+        continue;
+      }
+
       const next = incoming.get(existing.questId);
       if (next) {
         merged.push(next);
