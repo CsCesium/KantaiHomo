@@ -3,28 +3,28 @@
 /**
  * update-improvement-data.mjs — 改修（装备改修）データの月次更新スクリプト。
  *
- * データソース: akashi-list.me （https://akashi-list.me/ , gh-pages の index.html に
- * 改修可能装备が `<div class="weapon" id="wNNN">` ブロックとして埋め込まれている）。
+ * 2 つのデータソースをマージして「改修可能装备 + 全消費配方」を生成する。
  *
- * 取得できる情報（akashi-list が公開している範囲）:
- *   - 装备 master id（= weapon id）/ 名称
- *   - akashi カテゴリ（type）
- *   - 改修资材（ネジ）の段階別消費数  ★0〜5 / ★6〜9 / MAX
- *   - 秘书艦（改修補助艦）の曜日別可否（日〜土）
+ *  1) akashi-list.me （gh-pages の index.html に埋め込み）
+ *       - 現在 改修可能な装备の一覧（master id / 名称 / カテゴリ）
+ *       - 改修資材(ネジ) の段階別消費数  ★0〜5 / ★6〜9 / MAX（最新値）
+ *       - 秘书艦の曜日別可否（日〜土）
  *
- * 取得できない情報（akashi-list に存在しない → JSON にも入らない）:
- *   - 開発资材 / 消費装备（→ 日本語 wiki「改修表」が必要）
- *   - 秘书艦の艦名（akashi はスプライト index のみ持ち、艦名対応表が無い）
+ *  2) WhoCallsTheFleet item DB （KC3Kai が同梱しているミラー）
+ *       - 段階別の完全な配方： 開発資材(通常/確保) / 改修資材(通常/確保) / 消費装備
+ *       - 秘书艦の master id + 曜日（→ アプリ内で艦名解決可能）
+ *       - 注意: WCTFDB は ~2018 で更新停止。新装备(akashi にのみ存在)は
+ *         「改修資材のみ」で開発資材/消費装備は不明(—)になる。
  *
  * 出力: entry/src/main/resources/rawfile/data/improvement.json
  *
  * 使い方:
- *   node scripts/update-improvement-data.mjs            # akashi-list から取得
- *   node scripts/update-improvement-data.mjs <file.html> # ローカル HTML から生成
+ *   node scripts/update-improvement-data.mjs                       # 両ソースを取得
+ *   node scripts/update-improvement-data.mjs <akashi.html> [wctf.nedb]
  *
- * 月次運用: 毎月 1 回このスクリプトを実行し、生成された JSON をコミットする。
- * （CI のデータセンター IP は Cloudflare にブロックされることがあるため、
- *  ネットワーク制限の無い通常マシン上で実行すること。）
+ * 月次運用: 毎月 1 回実行し、生成された JSON をコミットする。
+ * 開発資材・消費装備・確保量まで最新化したい場合は日本語 wiki「改修表」が
+ * 必要だが、本スクリプトは GitHub 上の安定ソースのみを使う（再現性重視）。
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
@@ -37,51 +37,44 @@ const OUT_PATH = resolve(
   '../entry/src/main/resources/rawfile/data/improvement.json'
 );
 
-// akashi-list.me 本体は Cloudflare で弾かれることがあるため gh-pages の生 HTML を優先。
-const SOURCES = [
+const AKASHI_SOURCES = [
   'https://raw.githubusercontent.com/yukikuri/akashi-list/gh-pages/index.html',
   'https://akashi-list.me/',
 ];
+const WCTF_SOURCE =
+  'https://raw.githubusercontent.com/KC3Kai/KC3Kai/master/src/data/WhoCallsTheFleet_items.nedb';
 
-const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+const WEEK = ['日', '月', '火', '水', '木', '金', '土']; // index 0=日(Sun)..6=土(Sat)
 
-async function loadHtml(localPath) {
-  if (localPath) {
-    console.log(`[improvement] reading local file: ${localPath}`);
-    return await readFile(localPath, 'utf-8');
-  }
-  for (const url of SOURCES) {
+const UA =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
+
+async function fetchFirst(urls) {
+  for (const url of urls) {
     try {
       console.log(`[improvement] fetching: ${url}`);
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
-        },
-      });
+      const res = await fetch(url, { headers: { 'User-Agent': UA } });
       if (res.ok) return await res.text();
       console.warn(`[improvement]   -> HTTP ${res.status}`);
     } catch (e) {
       console.warn(`[improvement]   -> ${String(e)}`);
     }
   }
-  throw new Error('all sources failed; pass a local HTML file as argument');
+  return null;
 }
 
-/** aia-all スクリプト内の weapon メタ表 {id:"NNN",type:"key"} から id→type を作る。 */
+// ─────────────────────────── akashi-list parsing ───────────────────────────
+
 function parseTypeMap(html) {
   const m = html.match(/<script id=aia-all>([\s\S]*?)<\/script>/);
   const map = new Map();
   if (!m) return map;
   const re = /\{id:"(\d+)",type:"([a-zA-Z]+)"/g;
   let g;
-  while ((g = re.exec(m[1])) !== null) {
-    map.set(parseInt(g[1], 10), g[2]);
-  }
+  while ((g = re.exec(m[1])) !== null) map.set(parseInt(g[1], 10), g[2]);
   return map;
 }
 
-/** 1 つの support-ship セグメントから {sprite, days[7]} を作る。 */
 function parseSecretary(seg) {
   const sm = seg.match(/\/img\/s(\d+)\.png/);
   if (!sm) return null;
@@ -89,7 +82,6 @@ function parseSecretary(seg) {
   const re = /<span( class=enable)?>[日月火水木金土]<\/span>/g;
   let g;
   while ((g = re.exec(seg)) !== null) days.push(Boolean(g[1]));
-  // 7 つの曜日 span が揃わない場合は欠落を false 扱いで 7 個に整える
   while (days.length < 7) days.push(false);
   return { sprite: parseInt(sm[1], 10), days: days.slice(0, 7) };
 }
@@ -106,26 +98,21 @@ function parseKit(block) {
   return [toNum(parts[0]), toNum(parts[1]), toNum(parts[2])];
 }
 
-function parseEquipment(html, typeMap) {
+function parseAkashi(html) {
+  const typeMap = parseTypeMap(html);
   const marker = '<div class=weapon id=w';
   const starts = [];
-  for (let i = html.indexOf(marker); i >= 0; i = html.indexOf(marker, i + 1)) {
-    starts.push(i);
-  }
-  const out = [];
+  for (let i = html.indexOf(marker); i >= 0; i = html.indexOf(marker, i + 1)) starts.push(i);
+  const out = new Map();
   for (let k = 0; k < starts.length; k++) {
     const block = html.slice(starts[k], starts[k + 1] ?? html.length);
-    // id は `id=wNNN>` または `id=wNNN data-tip-style=...>` の両形がある。
     const idm = block.match(/id=w(\d+)/);
     if (!idm) continue;
     const id = parseInt(idm[1], 10);
-    // alt は `alt="019: 名称"`（引用符あり）と `alt=091:名称>`（引用符なし）の両形がある。
     const namem = block.match(/alt="?\d+:\s*([^">]+)/);
     const name = namem ? namem[1].trim() : '';
     const kit = parseKit(block);
-
-    // remodelkit が無い／全段 null の装备は「改修不可」。改修一覧には載せない。
-    if (kit.every((x) => x === null)) continue;
+    if (kit.every((x) => x === null)) continue; // 改修不可
 
     const secretaries = [];
     const segs = block.split('class=support-ship>');
@@ -133,37 +120,160 @@ function parseEquipment(html, typeMap) {
       const sec = parseSecretary(segs[s]);
       if (sec) secretaries.push(sec);
     }
-
-    // 改修可能曜日 = 全秘书艦の可否の OR。秘书艦が無ければ全曜日可とみなす。
     const days = [false, false, false, false, false, false, false];
     if (secretaries.length === 0) days.fill(true);
     else for (const sec of secretaries) for (let d = 0; d < 7; d++) days[d] = days[d] || sec.days[d];
 
-    out.push({ id, name, type: typeMap.get(id) ?? 'etc', kit, days, secretaries });
+    out.set(id, { id, name, type: typeMap.get(id) ?? 'etc', kit, days, secretaries });
   }
   return out;
 }
 
-async function main() {
-  const localPath = process.argv[2];
-  const html = await loadHtml(localPath);
-  const typeMap = parseTypeMap(html);
-  const equipment = parseEquipment(html, typeMap);
-  equipment.sort((a, b) => a.id - b.id);
+// ─────────────────────── WhoCallsTheFleet parsing ───────────────────────────
 
+/** consumed list element [idOrStr, count] -> {id, count, use} | null */
+function parseConsumed(pair) {
+  if (!Array.isArray(pair) || pair.length < 2) return null;
+  const v = pair[0];
+  const count = Number(pair[1]) || 0;
+  if (v === null || v === undefined || count <= 0) return null;
+  if (typeof v === 'string') {
+    const m = v.match(/_(\d+)$/);
+    if (!m) return null;
+    return { id: Number(m[1]), count, use: true };
+  }
+  if (typeof v === 'number' && v > 0) return { id: v, count, use: false };
+  return null;
+}
+
+/** WCTF resource stage [dev, devGS, screw, screwGS, consumedList] -> stage obj */
+function parseStage(st) {
+  if (!Array.isArray(st)) return null;
+  const dev = Number(st[0]) || 0;
+  const devGS = Number(st[1]) || 0;
+  const screw = Number(st[2]) || 0;
+  const screwGS = Number(st[3]) || 0;
+  const consumed = [];
+  if (Array.isArray(st[4])) {
+    for (const pair of st[4]) {
+      const c = parseConsumed(pair);
+      if (c) consumed.push(c);
+    }
+  }
+  return { dev, devGS, screw, screwGS, consumed };
+}
+
+function parseWctf(text) {
+  const map = new Map();
+  for (const line of text.split('\n')) {
+    const l = line.trim();
+    if (!l) continue;
+    let o;
+    try { o = JSON.parse(l); } catch { continue; }
+    if (!o || !o.improvement || !Array.isArray(o.improvement) || o.improvement.length === 0) continue;
+    // 標準改修(improvement[0])を採用。
+    const imp = o.improvement[0];
+    const res = imp.resource || [];
+    const base = Array.isArray(res[0]) ? res[0].slice(0, 4).map((n) => Number(n) || 0) : null;
+    const stages = [parseStage(res[1]), parseStage(res[2]), parseStage(res[3])];
+
+    // req: [[days[7], [shipIds]], ...] -> reqs + 曜日 union
+    const reqs = [];
+    const days = [false, false, false, false, false, false, false];
+    if (Array.isArray(imp.req)) {
+      for (const r of imp.req) {
+        const rdays = Array.isArray(r[0]) ? r[0].map(Boolean) : [];
+        const ships = Array.isArray(r[1]) ? r[1].filter((x) => typeof x === 'number' && x > 0) : [];
+        while (rdays.length < 7) rdays.push(false);
+        for (let d = 0; d < 7; d++) days[d] = days[d] || rdays[d];
+        reqs.push({ days: rdays.slice(0, 7), ships });
+      }
+    }
+    map.set(o.id, { base, stages, reqs, days });
+  }
+  return map;
+}
+
+// ─────────────────────────────── merge ─────────────────────────────────────
+
+function merge(akashi, wctf) {
+  const equipment = [];
+  for (const a of akashi.values()) {
+    const w = wctf.get(a.id);
+    let entry;
+    if (w) {
+      // 完全配方（WCTF）。改修資材の通常値は段階データに含まれる。
+      entry = {
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        full: true,
+        base: w.base,
+        stages: w.stages,
+        reqs: w.reqs,            // 实秘书艦 master id + 曜日
+        days: w.days.some(Boolean) ? w.days : a.days,
+        secretaryCount: w.reqs.reduce((n, r) => n + r.ships.length, 0),
+      };
+    } else {
+      // akashi のみ：改修資材(ネジ)段階値だけ。開発資材/消費装備は不明。
+      const stages = a.kit.map((screw) =>
+        screw === null ? null : { dev: -1, devGS: -1, screw, screwGS: -1, consumed: [] });
+      entry = {
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        full: false,
+        base: null,
+        stages,
+        reqs: a.secretaries.map((s) => ({ days: s.days, ships: [] })),
+        days: a.days,
+        secretaryCount: a.secretaries.length,
+      };
+    }
+    equipment.push(entry);
+  }
+  equipment.sort((x, y) => x.id - y.id);
+  return equipment;
+}
+
+// ─────────────────────────────── main ──────────────────────────────────────
+
+async function main() {
+  const localAkashi = process.argv[2];
+  const localWctf = process.argv[3];
+
+  const akashiHtml = localAkashi
+    ? await readFile(localAkashi, 'utf-8')
+    : await fetchFirst(AKASHI_SOURCES);
+  if (!akashiHtml) throw new Error('akashi-list source unavailable');
+
+  const wctfText = localWctf
+    ? await readFile(localWctf, 'utf-8')
+    : await fetchFirst([WCTF_SOURCE]);
+  if (!wctfText) throw new Error('WhoCallsTheFleet source unavailable');
+
+  const akashi = parseAkashi(akashiHtml);
+  const wctf = parseWctf(wctfText);
+  const equipment = merge(akashi, wctf);
   if (equipment.length === 0) throw new Error('parsed 0 equipment — source layout may have changed');
 
+  const fullCount = equipment.filter((e) => e.full).length;
   const today = new Date();
   const payload = {
-    source: 'https://akashi-list.me/',
-    note: 'Generated by scripts/update-improvement-data.mjs. days/secretaries[].days order: ' + WEEK.join(''),
+    source: 'akashi-list.me (set/screws/days) + WhoCallsTheFleet/KC3Kai (full recipe)',
+    note:
+      'days & reqs[].days order: ' + WEEK.join('') + ' (0=Sun). ' +
+      'stages = [★0-5, ★6-9, MAX]; each {dev,devGS(確保),screw,screwGS(確保),consumed:[{id,count,use}]}. ' +
+      'dev/devGS/screwGS = -1 means unknown (item newer than WCTF; only akashi screws known). ' +
+      'consumed.id: use=false→slotitem master id, use=true→useitem id. reqs[].ships = secretary ship master ids.',
     fetchedAt: `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`,
     count: equipment.length,
+    fullRecipeCount: fullCount,
     equipment,
   };
 
   await writeFile(OUT_PATH, JSON.stringify(payload, null, 0) + '\n', 'utf-8');
-  console.log(`[improvement] wrote ${equipment.length} entries -> ${OUT_PATH}`);
+  console.log(`[improvement] wrote ${equipment.length} entries (${fullCount} with full recipe) -> ${OUT_PATH}`);
 }
 
 main().catch((e) => {

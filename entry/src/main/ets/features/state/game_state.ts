@@ -1451,6 +1451,11 @@ class GameStateManager {
     this.notifyListeners('all');
   }
 
+  /** 按 id 查询道具图鉴名称（无数据时返回空串） */
+  getUseItemMasterName(id: number): string {
+    return this.state.useItemMasterNames.get(id) ?? '';
+  }
+
   /**
    * 更新装备实例索引（来自 api_get_member/slot_item，uid → masterId/level/alv）
    */
@@ -1851,6 +1856,7 @@ export const updateUseItems = (items: ReadonlyArray<{ itemId: number; count: num
 export const getUseItemCount = (itemId: number): number => gameStateManager.getUseItemCount(itemId);
 export const updateUseItemMasterNames = (items: ReadonlyArray<{ id: number; name: string }>) =>
   gameStateManager.updateUseItemMasterNames(items);
+export const getUseItemMasterName = (id: number): string => gameStateManager.getUseItemMasterName(id);
 export const getUseItemCountByName = (name: string): number => gameStateManager.getUseItemCountByName(name);
 export const patchMaterials = (update: Parameters<GameStateManager['patchMaterials']>[0]) =>
   gameStateManager.patchMaterials(update);

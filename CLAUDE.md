@@ -184,16 +184,27 @@ and are loaded via `resourceManager.getRawFileContent(...)`.
 
 The 改修情报 viewer (`app/pages/components/info/RemodelInfoPage.ets`, opened from the
 in-game info sub-menu next to 舰娘/装备) reads improvable equipment from `improvement.json`.
+`scripts/update-improvement-data.mjs` builds it by **merging two GitHub-hosted sources**:
 
-- **Source:** [akashi-list.me](https://akashi-list.me/) (the data is embedded in its
-  gh-pages `index.html`). Provides, per equipment: master id, name, akashi category,
-  改修资材 (ネジ) counts per stage (★0–5 / ★6–9 / MAX), and secretary ships' per-weekday
-  availability. It does **not** provide 開発資材 or 消費装備 (those require the JP wiki).
+- **[akashi-list.me](https://akashi-list.me/)** (embedded in its gh-pages `index.html`) —
+  the **current** improvable set, 改修资材 (ネジ) counts per stage (★0–5 / ★6–9 / MAX),
+  and secretary per-weekday availability.
+- **WhoCallsTheFleet** (mirrored in KC3Kai's repo) — the **full recipe**: 開発資材 and
+  改修资材 with both 通常 and 確保 amounts, 消費装備, and secretary ship master ids
+  (→ ship names resolved in-app). WCTFDB stopped updating ~2018, so equipment newer than
+  that is `full: false` (akashi screw counts only; 開発資材/消費装備 unknown).
+
+Per-equipment schema: `{ id, name, type, full, base:[燃弹钢铝], stages:[★0-5,★6-9,MAX],
+reqs:[{days[7],ships[]}], days[7], secretaryCount }`; each stage is
+`{ dev, devGS(確保), screw, screwGS(確保), consumed:[{id,count,use}] }` (`-1` = unknown).
+
 - **Update (monthly):** run the offline script and commit the regenerated JSON —
   ```bash
   node scripts/update-improvement-data.mjs
   ```
-  Run it from a normal machine; CI datacenter IPs may be Cloudflare-blocked from the source.
+  Both sources are on `raw.githubusercontent.com`. To refresh 開発資材/消費装備/確保 for
+  the newest equipment too, the JP wiki「改修表」is the only complete current source — but
+  it's not reachable from CI (network allowlist), so run any wiki-based variant locally.
 
 ---
 
