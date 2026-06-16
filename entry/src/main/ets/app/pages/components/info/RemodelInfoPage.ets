@@ -4,6 +4,7 @@ import {
   subscribeGameState,
   getGameState,
   getSlotItemMasterName,
+  getSlotItemMasterEquipType,
   getSlotItemMasterIconType,
   getUseItemMasterName,
   getShipMasterName,
@@ -12,12 +13,12 @@ import { equipLabel } from '../../../../features/panel/panelConfig';
 
 // ==================== 数据 schema ====================
 //
-// 改修情报由 rawfile/data/improvement.json 提供，
-// 由 scripts/update-improvement-data.mjs 每月拉取更新，合并两源：
-//   - akashi-list.me：当前可改修装备一览 / 改修资材(ネジ)段階値 / 秘书艦曜日
-//   - WhoCallsTheFleet(KC3Kai 镜像)：完整配方（開発資材+確保 / 改修資材+確保 /
-//     消費装備）+ 秘书艦 master id。WCTF ~2018 停更，故新装备 full=false，
-//     開発資材/消費装備未知(-1)，仅有 akashi 的 ネジ 数。
+// 改修情报由 rawfile/data/improvement.json 提供，由
+// scripts/update-improvement-data.mjs 每月从 ElectronicObserver 数据库
+// (wiki「改修表」由来、持续更新) 拉取生成。每个段階含完整配方：
+//   開発資材(通常 dev / 確保 devGS) / 改修資材ネジ(通常 screw / 確保 screwGS) /
+//   消費装備(consumed) / 基礎消費(base) / 秘书艦(reqs.ships) / MAX 改修更新先(convertTo)。
+// 装备名・分类・图标按 master id 在 App 内解析。
 
 interface ConsumedItem {
   id: number;
@@ -27,24 +28,22 @@ interface ConsumedItem {
 
 interface ReqGroup {
   days: boolean[];   // 长度 7，日月火水木金土
-  ships: number[];   // 秘书艦 master id（akashi-only 时为空）
+  ships: number[];   // 秘书艦 master id
 }
 
 interface Stage {
-  dev: number;       // 開発資材（通常），-1=未知
-  devGS: number;     // 開発資材（確保），-1=未知
+  dev: number;       // 開発資材（通常）
+  devGS: number;     // 開発資材（確保）
   screw: number;     // 改修資材ネジ（通常）
-  screwGS: number;   // 改修資材ネジ（確保），-1=未知
+  screwGS: number;   // 改修資材ネジ（確保）
   consumed: ConsumedItem[];
 }
 
 interface ImprovementEntry {
   id: number;
-  name: string;
-  type: string;
-  full: boolean;
-  base: number[] | null;        // [燃,弹,钢,铝] or null
+  base: number[];               // [燃,弹,钢,铝]
   stages: (Stage | null)[];     // [★0-5, ★6-9, MAX]
+  convertTo: number;            // MAX 改修更新先 master id（0=无）
   reqs: ReqGroup[];
   days: boolean[];
   secretaryCount: number;
@@ -64,14 +63,15 @@ interface NamedShip { id: number; name: string; }
 interface RemodelRow {
   id: number;
   name: string;
-  type: string;
+  group: string;    // 装备大类 key（与装备一览一致）
   iconType: number;
-  full: boolean;
-  base: number[];   // [燃,弹,钢,铝]，长度不足视为无
+  base: number[];
   stages: (Stage | null)[];
+  convertTo: number;
+  convertToName: string;
   reqs: ReqGroup[];
   days: boolean[];
-  secretaries: NamedShip[];   // 已解析的秘书艦（去重，保序）
+  secretaries: NamedShip[];
   held: number;
   availToday: boolean;
 }
@@ -92,39 +92,44 @@ const BASE_ICONS: string[] = [
 
 const WEEK: string[] = ['日', '月', '火', '水', '木', '金', '土'];
 
-interface CatInfo { label: string; icon: number; }
+// 装备大类分组：与「装备一览」(EquipInfoPage) 保持一致，按 equipType(api_type[2])
+// 归类，分类按钮用对应的代表 icon。
+interface GroupSpec { key: string; label: string; icon: number; types: number[]; }
 
-const CAT_INFO: Map<string, CatInfo> = (() => {
-  const m = new Map<string, CatInfo>();
-  m.set('lightGun', { label: '小口径主砲', icon: 1 });
-  m.set('mediumGun', { label: '中口径主砲', icon: 2 });
-  m.set('heavyGun', { label: '大口径主砲', icon: 3 });
-  m.set('secondaryGun', { label: '副砲', icon: 4 });
-  m.set('antiAircraftGun', { label: '対空機銃・高射', icon: 15 });
-  m.set('torpedo', { label: '魚雷', icon: 5 });
-  m.set('asw', { label: '対潜', icon: 18 });
-  m.set('shell', { label: '強化弾', icon: 13 });
-  m.set('fighter', { label: '艦戦', icon: 6 });
-  m.set('diveBomber', { label: '艦爆', icon: 7 });
-  m.set('torpedoBomber', { label: '艦攻', icon: 8 });
-  m.set('aircraft', { label: '攻撃機', icon: 8 });
-  m.set('seaplane', { label: '水偵', icon: 10 });
-  m.set('seaplaneBomber', { label: '水爆', icon: 10 });
-  m.set('radar', { label: '電探', icon: 11 });
-  m.set('landbasedAircraft', { label: '陸上機', icon: 37 });
-  m.set('landingCraft', { label: '上陸用舟艇', icon: 20 });
-  m.set('bulge', { label: '機関・バルジ', icon: 23 });
-  m.set('searchlight', { label: '探照灯', icon: 24 });
-  m.set('etc', { label: 'その他', icon: 0 });
+const EQUIP_GROUPS: GroupSpec[] = [
+  { key: 'gun_main', label: '主砲',   icon: 3,  types: [1, 2, 3, 38] },
+  { key: 'gun_sub',  label: '副対空', icon: 4,  types: [4, 21, 36] },
+  { key: 'torpedo',  label: '魚雷',   icon: 5,  types: [5, 32] },
+  { key: 'planes',   label: '艦載',   icon: 6,  types: [6, 7, 8, 11, 25, 26, 45] },
+  { key: 'recon',    label: '偵察',   icon: 9,  types: [9, 10, 41, 49, 57] },
+  { key: 'radar',    label: '電探',   icon: 11, types: [12, 13, 27, 28, 58] },
+  { key: 'asw',      label: '対潜',   icon: 18, types: [14, 15, 40] },
+  { key: 'land',     label: '陸上',   icon: 37, types: [47, 48, 52, 53] },
+  { key: 'jet',      label: '噴式',   icon: 56, types: [54, 55, 56] },
+];
+
+const EQUIP_TYPE_TO_GROUP: Map<number, string> = (() => {
+  const m = new Map<number, string>();
+  for (const g of EQUIP_GROUPS) for (const t of g.types) m.set(t, g.key);
+  return m;
+})();
+
+const GROUP_LABEL: Map<string, string> = (() => {
+  const m = new Map<string, string>();
+  for (const g of EQUIP_GROUPS) m.set(g.key, g.label);
+  m.set('other', '他');
+  return m;
+})();
+
+const GROUP_ICON: Map<string, number> = (() => {
+  const m = new Map<string, number>();
+  for (const g of EQUIP_GROUPS) m.set(g.key, g.icon);
+  m.set('other', 0);
   return m;
 })();
 
 const CAT_ORDER: string[] = [
-  'lightGun', 'mediumGun', 'heavyGun', 'secondaryGun', 'antiAircraftGun',
-  'torpedo', 'asw', 'shell',
-  'fighter', 'diveBomber', 'torpedoBomber', 'aircraft',
-  'seaplane', 'seaplaneBomber', 'radar', 'landbasedAircraft',
-  'landingCraft', 'bulge', 'searchlight', 'etc',
+  'gun_main', 'gun_sub', 'torpedo', 'planes', 'recon', 'radar', 'asw', 'land', 'jet', 'other',
 ];
 
 const STAGE_LABELS: string[] = ['★0 ～ 5', '★6 ～ 9', 'MAX'];
@@ -153,20 +158,22 @@ function jstWeekday(): number {
   return new Date(Date.now() + 9 * 3600 * 1000).getUTCDay();
 }
 
-function catLabel(type: string): string {
-  const info = CAT_INFO.get(type);
-  return info !== undefined ? info.label : type;
+function groupForType(equipType: number): string {
+  return EQUIP_TYPE_TO_GROUP.get(equipType) ?? 'other';
 }
 
-function catIcon(type: string): number {
-  const info = CAT_INFO.get(type);
-  return info !== undefined ? info.icon : 0;
+function catLabel(group: string): string {
+  return GROUP_LABEL.get(group) ?? '他';
 }
 
-/** "通常 (確保)" 文本：确保值未知(-1)时只显示通常值。 */
+function catIcon(group: string): number {
+  return GROUP_ICON.get(group) ?? 0;
+}
+
+/** "通常 (確保)" 文本：确保值无效(<=0)或与通常相同时只显示通常值。 */
 function amountText(normal: number, ensure: number): string {
   if (normal < 0) return '?';
-  return ensure >= 0 && ensure !== normal ? `${normal} (${ensure})` : `${normal}`;
+  return ensure > 0 && ensure !== normal ? `${normal} (${ensure})` : `${normal}`;
 }
 
 function consumedName(c: ConsumedItem): string {
@@ -259,17 +266,20 @@ export default struct RemodelInfoPage {
     const rows: RemodelRow[] = [];
     const cats = new Set<string>();
     for (const e of this.entries) {
-      const iconType = getSlotItemMasterIconType(e.id) || catIcon(e.type);
+      const group = groupForType(getSlotItemMasterEquipType(e.id));
+      const iconType = getSlotItemMasterIconType(e.id) || catIcon(group);
       const masterName = getSlotItemMasterName(e.id);
-      cats.add(e.type);
+      const convName = e.convertTo > 0 ? getSlotItemMasterName(e.convertTo) : '';
+      cats.add(group);
       rows.push({
         id: e.id,
-        name: masterName.length > 0 ? masterName : e.name,
-        type: e.type,
+        name: masterName.length > 0 ? masterName : `#${e.id}`,
+        group,
         iconType,
-        full: e.full,
         base: e.base ?? [],
         stages: e.stages,
+        convertTo: e.convertTo,
+        convertToName: convName.length > 0 ? convName : (e.convertTo > 0 ? `#${e.convertTo}` : ''),
         reqs: e.reqs,
         days: e.days,
         secretaries: this.resolveSecretaries(e.reqs),
@@ -288,7 +298,7 @@ export default struct RemodelInfoPage {
     for (const r of this.allRows) {
       if (this.todayOnly && !r.availToday) continue;
       if (q.length > 0 && r.name.toLowerCase().indexOf(q) < 0) continue;
-      if (this.typeFilter !== 'all' && r.type !== this.typeFilter) continue;
+      if (this.typeFilter !== 'all' && r.group !== this.typeFilter) continue;
       out.push(r);
     }
     out.sort((a, b) => (b.held - a.held) || (a.id - b.id));
@@ -496,6 +506,26 @@ export default struct RemodelInfoPage {
       this.StageRow(STAGE_LABELS[1], row.stages.length > 1 ? row.stages[1] : null)
       this.StageRow(STAGE_LABELS[2], row.stages.length > 2 ? row.stages[2] : null)
 
+      // MAX 改修更新先
+      if (row.convertTo > 0) {
+        Row({ space: 4 }) {
+          Text('改修更新').fontSize(11).fontColor('#9aa3b0').width(58)
+          if (getSlotItemMasterIconType(row.convertTo) > 0) {
+            Image(equipLabel(getSlotItemMasterIconType(row.convertTo), 0, row.convertTo))
+              .width(16).height(16)
+          }
+          Text(`→ ${row.convertToName}`)
+            .fontSize(12)
+            .fontColor('#C8B99A')
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .padding({ top: 4 })
+        .alignItems(VerticalAlign.Center)
+      }
+
       // 基础资源（燃弹钢铝）
       if (row.base.length >= 4) {
         Row({ space: 10 }) {
@@ -534,7 +564,7 @@ export default struct RemodelInfoPage {
           }
           .width('100%')
         } else {
-          Text('（秘书艦データなし — akashi-list の曜日のみ）')
+          Text('（秘书艦データなし）')
             .fontSize(10)
             .fontColor(COLOR_MUTED)
             .width('100%')
@@ -544,17 +574,10 @@ export default struct RemodelInfoPage {
       .padding({ top: 6 })
       .border({ width: { top: 0.5 }, color: COLOR_BORDER })
 
-      if (!row.full) {
-        Text('※ この装备は WhoCallsTheFleet 未収録（新装备）。開発資材・消費装備・確保量は不明。')
-          .fontSize(10)
-          .fontColor(COLOR_MUTED)
-          .width('100%')
-      } else {
-        Text('※ ( )内は確保時の消費量。配方は WhoCallsTheFleet 由来。')
-          .fontSize(10)
-          .fontColor(COLOR_MUTED)
-          .width('100%')
-      }
+      Text('※ ( )内は確保時の消費量。')
+        .fontSize(10)
+        .fontColor(COLOR_MUTED)
+        .width('100%')
     }
     .width('100%')
     .padding({ left: 14, right: 14, top: 8, bottom: 12 })

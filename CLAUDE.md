@@ -184,27 +184,28 @@ and are loaded via `resourceManager.getRawFileContent(...)`.
 
 The 改修情报 viewer (`app/pages/components/info/RemodelInfoPage.ets`, opened from the
 in-game info sub-menu next to 舰娘/装备) reads improvable equipment from `improvement.json`.
-`scripts/update-improvement-data.mjs` builds it by **merging two GitHub-hosted sources**:
 
-- **[akashi-list.me](https://akashi-list.me/)** (embedded in its gh-pages `index.html`) —
-  the **current** improvable set, 改修资材 (ネジ) counts per stage (★0–5 / ★6–9 / MAX),
-  and secretary per-weekday availability.
-- **WhoCallsTheFleet** (mirrored in KC3Kai's repo) — the **full recipe**: 開発資材 and
-  改修资材 with both 通常 and 確保 amounts, 消費装備, and secretary ship master ids
-  (→ ship names resolved in-app). WCTFDB stopped updating ~2018, so equipment newer than
-  that is `full: false` (akashi screw counts only; 開発資材/消費装備 unknown).
+- **Source:** ElectronicObserver's data repo
+  (`raw.githubusercontent.com/ElectronicObserverEN/Data/master/Data/EquipmentUpgrades.json`),
+  which is **wiki (改修表) derived and actively maintained** (covers new equipment).
+  It provides the full per-stage recipe: 開発資材 and 改修资材 with both 通常 and 確保
+  amounts, 消費装備 (装备 + 道具), base 燃弹钢铝 cost, secretary ship master ids + weekday
+  availability, and the MAX 改修更新先.
+- Equipment **name / category / icon are resolved in-app** from the equipment master id
+  (`getSlotItemMaster*`), so the JSON stores recipe data only. Categories reuse the same
+  `equipType → group` buckets as `EquipInfoPage`.
 
-Per-equipment schema: `{ id, name, type, full, base:[燃弹钢铝], stages:[★0-5,★6-9,MAX],
+Per-equipment schema: `{ id, base:[燃弹钢铝], stages:[★0-5,★6-9,MAX], convertTo,
 reqs:[{days[7],ships[]}], days[7], secretaryCount }`; each stage is
-`{ dev, devGS(確保), screw, screwGS(確保), consumed:[{id,count,use}] }` (`-1` = unknown).
+`{ dev, devGS(確保), screw, screwGS(確保), consumed:[{id,count,use}] }`
+(`use`: false→slotitem id, true→useitem id; `convertTo`: MAX 改修更新先 equip id, 0=none).
 
 - **Update (monthly):** run the offline script and commit the regenerated JSON —
   ```bash
   node scripts/update-improvement-data.mjs
   ```
-  Both sources are on `raw.githubusercontent.com`. To refresh 開発資材/消費装備/確保 for
-  the newest equipment too, the JP wiki「改修表」is the only complete current source — but
-  it's not reachable from CI (network allowlist), so run any wiki-based variant locally.
+  The source is on `raw.githubusercontent.com` (reachable from CI). Pass a local
+  `EquipmentUpgrades.json` path as an argument to build from a file instead.
 
 ---
 
