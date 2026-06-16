@@ -13,6 +13,7 @@ export default struct LeftButtonColumn {
   @Event onOpenShipInfo: () => void;
   @Event onOpenEquipInfo: () => void;
   @Event onOpenExpeditionInfo: () => void;
+  @Event onOpenRemodelInfo: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param rotateEnabled: boolean = true;
   @Param panelActive: boolean = false;
@@ -120,6 +121,7 @@ export default struct LeftButtonColumn {
     .bindMenu([
       { value: '舰娘', action: () => this.onOpenShipInfo?.() },
       { value: '装备', action: () => this.onOpenEquipInfo?.() },
+      { value: '改修', action: () => this.onOpenRemodelInfo?.() },
       { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
     ])
   }

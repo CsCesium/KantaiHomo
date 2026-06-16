@@ -25,6 +25,7 @@ import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED } 
 import { isInBattle, subscribeGameState } from "../../features/state";
 import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
 import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
+import RemodelInfoPage from "../../app/pages/components/info/RemodelInfoPage";
 import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
 import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
 import { registerWebHostPageVisibleHandler } from "./pageVisibility";
@@ -114,6 +115,7 @@ export default struct WebHost {
   @State private shipInfoVisible: boolean = false;
   @State private equipInfoVisible: boolean = false;
   @State private expeditionInfoVisible: boolean = false;
+  @State private remodelInfoVisible: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
@@ -932,6 +934,7 @@ export default struct WebHost {
               onToggleBattlePreview: () => this.toggleBattlePreview(),
               onOpenShipInfo: () => { this.shipInfoVisible = true; },
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+              onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               rotateEnabled: this.canToggleLrLayout(),
@@ -1016,6 +1019,7 @@ export default struct WebHost {
                 onToggleBattlePreview: () => this.toggleBattlePreview(),
                 onOpenShipInfo: () => { this.shipInfoVisible = true; },
                 onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+                onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
                 onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 rotateEnabled: this.canToggleLrLayout(),
@@ -1049,6 +1053,7 @@ export default struct WebHost {
               onToggleBattlePreview: () => this.toggleBattlePreview(),
               onOpenShipInfo: () => { this.shipInfoVisible = true; },
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
+              onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               rotateEnabled: this.canToggleLrLayout(),
@@ -1098,6 +1103,13 @@ export default struct WebHost {
       if (this.equipInfoVisible) {
         EquipInfoPage({
           onClose: () => { this.equipInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+      if (this.remodelInfoVisible) {
+        RemodelInfoPage({
+          onClose: () => { this.remodelInfoVisible = false; },
         })
           .width('100%')
           .height('100%')
