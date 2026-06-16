@@ -70,6 +70,7 @@ export {
   getSlotItemMasterLos,
   getSlotItemMasterAa,
   getSlotItemMasterEquipType,
+  getSlotItemMasterIconType,
   getSlotItemMasterName,
   updateShipGraphFilenames,
   setGameServerUrl,

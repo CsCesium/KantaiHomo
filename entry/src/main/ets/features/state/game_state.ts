@@ -1480,6 +1480,11 @@ class GameStateManager {
     return this.state.slotItemEquipTypes.get(masterId) ?? 0;
   }
 
+  /** 按图鉴 ID 查询装备图标类型 api_type[3]（无数据时返回 0） */
+  getSlotItemMasterIconType(masterId: number): number {
+    return this.state.slotItemIconTypes.get(masterId) ?? 0;
+  }
+
   /** 按图鉴 ID 查询装备名称（无数据时返回空串） */
   getSlotItemMasterName(masterId: number): string {
     return this.state.slotItemNames.get(masterId) ?? '';
@@ -1875,6 +1880,7 @@ export const updateSlotItemEquipTypes = (items: ReadonlyArray<{
   gameStateManager.updateSlotItemEquipTypes(items);
 export const getSlotItemMasterAa = (masterId: number): number => gameStateManager.getSlotItemMasterAa(masterId);
 export const getSlotItemMasterEquipType = (masterId: number): number => gameStateManager.getSlotItemMasterEquipType(masterId);
+export const getSlotItemMasterIconType = (masterId: number): number => gameStateManager.getSlotItemMasterIconType(masterId);
 export const getSlotItemMasterName = (masterId: number): string => gameStateManager.getSlotItemMasterName(masterId);
 export const updateSlotItemIndex = (items: ReadonlyArray<{ uid: number; masterId: number; level?: number; alv?: number }>) =>
   gameStateManager.updateSlotItemIndex(items);

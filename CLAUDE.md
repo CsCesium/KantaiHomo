@@ -168,6 +168,35 @@ Game server IPs are defined in `entry/src/main/resources/rawfile/data/servers.js
 
 ---
 
+## Bundled Reference Data (`rawfile/data/`)
+
+Static reference datasets shipped with the app live in `entry/src/main/resources/rawfile/data/`
+and are loaded via `resourceManager.getRawFileContent(...)`.
+
+| File | Used by | Notes |
+|---|---|---|
+| `servers.json` | session/server detection | 20 official game server IPs |
+| `expedition_conditions.json` | `ExpeditionInfoPage` | Expedition fleet requirements |
+| `equipment_classification.json` | `panel/equipmentClassification.ts` | Equipment grouping overrides |
+| `improvement.json` | `RemodelInfoPage` (改修情报) | Equipment improvement (改修) table |
+
+### Improvement data (`improvement.json`)
+
+The 改修情报 viewer (`app/pages/components/info/RemodelInfoPage.ets`, opened from the
+in-game info sub-menu next to 舰娘/装备) reads improvable equipment from `improvement.json`.
+
+- **Source:** [akashi-list.me](https://akashi-list.me/) (the data is embedded in its
+  gh-pages `index.html`). Provides, per equipment: master id, name, akashi category,
+  改修资材 (ネジ) counts per stage (★0–5 / ★6–9 / MAX), and secretary ships' per-weekday
+  availability. It does **not** provide 開発資材 or 消費装備 (those require the JP wiki).
+- **Update (monthly):** run the offline script and commit the regenerated JSON —
+  ```bash
+  node scripts/update-improvement-data.mjs
+  ```
+  Run it from a normal machine; CI datacenter IPs may be Cloudflare-blocked from the source.
+
+---
+
 ## Domain: Game Concepts
 
 | Concept | Description |
