@@ -16,7 +16,7 @@ import { kvGetString, kvSet } from '../../../../infra/storage/kv';
 // 改修情报由 rawfile/data/improvement.json 提供，由
 // scripts/update-improvement-data.mjs 每月从 ElectronicObserver 数据库
 // (wiki 改修表由来、持续更新) 拉取生成。每个阶段含完整配方：
-//   开发材料(普通 dev / 确保 devGS) / 改修材料(普通 screw / 确保 screwGS) /
+//   开发资材(普通 dev / 确保 devGS) / 改修资材(普通 screw / 确保 screwGS) /
 //   消耗装备(consumed) / 基础消耗(base) / 秘书舰(reqs.ships) / MAX 更新目标(convertTo)。
 // 装备名、分类、图标按 master id 在 App 内解析。
 
@@ -32,10 +32,10 @@ interface ReqGroup {
 }
 
 interface Stage {
-  dev: number;       // 开发材料（普通）
-  devGS: number;     // 开发材料（确保）
-  screw: number;     // 改修材料（普通）
-  screwGS: number;   // 改修材料（确保）
+  dev: number;       // 开发资材（普通）
+  devGS: number;     // 开发资材（确保）
+  screw: number;     // 改修资材（普通）
+  screwGS: number;   // 改修资材（确保）
   consumed: ConsumedItem[];
 }
 
@@ -149,13 +149,13 @@ const ICON_GROUPS: GroupSpec[] = [
   { key: 'i-48', label: '袭击机', icon: 48 },
   { key: 'i-49', label: '大型陆上机', icon: 49 },
   { key: 'i-50', label: '水上侦察机', icon: 50 },
-  { key: 'i-51', label: '特殊水侦', icon: 51 },
+  { key: 'i-51', label: '水上侦察机二', icon: 51 },
   { key: 'i-52', label: 'DD战车', icon: 52 },
   { key: 'i-54', label: '油罐装备', icon: 54 },
   { key: 'i-55', label: '气球', icon: 55 },
   { key: 'i-56', label: '喷气战斗机', icon: 56 },
   { key: 'i-57', label: '震电系飞机', icon: 57 },
-  { key: 'i-58', label: '特殊飞机', icon: 58 },
+  { key: 'i-58', label: '飞机装备', icon: 58 },
   { key: 'i-59', label: '航空装备', icon: 59 },
   { key: 'i-60', label: '震电改', icon: 60 },
 ];
@@ -259,6 +259,7 @@ export default struct RemodelInfoPage {
   @Local private todayOnly: boolean = true;
   @Local private expandedId: number = -1;
   @Local private favorites: Set<number> = new Set<number>();
+  @Local private unimprovedMaterialHeld: Map<number, number> = new Map<number, number>();
 
   private entries: ImprovementEntry[] = [];
   private loaded: boolean = false;
@@ -336,6 +337,18 @@ export default struct RemodelInfoPage {
     return out;
   }
 
+  private buildUnimprovedMaterialHeldIndex(): Map<number, number> {
+    const out = new Map<number, number>();
+    const state = getGameState().getState();
+    state.slotItemIndex.forEach((masterId: number, uid: number) => {
+      const level = state.slotItemLevels.get(uid) ?? 0;
+      if (level <= 0) {
+        out.set(masterId, (out.get(masterId) ?? 0) + 1);
+      }
+    });
+    return out;
+  }
+
   /** 解析秘书舰：合并各 req 组的 ship id，去重保序，解析舰名。 */
   private resolveSecretaries(reqs: ReqGroup[]): NamedShip[] {
     const seen = new Set<number>();
@@ -354,6 +367,7 @@ export default struct RemodelInfoPage {
   private rebuildRows(): void {
     if (!this.loaded) return;
     const held = this.buildHeldIndex();
+    this.unimprovedMaterialHeld = this.buildUnimprovedMaterialHeldIndex();
     const today = jstWeekday();
     const rows: RemodelRow[] = [];
     const cats = new Set<string>();
@@ -537,6 +551,11 @@ export default struct RemodelInfoPage {
       Text(`×${c.count}`)
         .fontSize(11)
         .fontColor('#9aa3b0')
+      if (!c.use) {
+        Text(`（${this.unimprovedMaterialHeld.get(c.id) ?? 0}）`)
+          .fontSize(11)
+          .fontColor(COLOR_HELD)
+      }
     }
   }
 
@@ -551,7 +570,7 @@ export default struct RemodelInfoPage {
       if (st === null || (st.screw <= 0 && st.dev <= 0 && st.consumed.length === 0)) {
         Text('—').fontSize(12).fontColor(COLOR_MUTED).layoutWeight(1).textAlign(TextAlign.Center)
       } else {
-        // 开发材料
+        // 开发资材
         Row({ space: 2 }) {
           if (st.dev < 0) {
             Text('?').fontSize(12).fontColor(COLOR_MUTED)
@@ -564,7 +583,7 @@ export default struct RemodelInfoPage {
         }
         .width(78)
         .justifyContent(FlexAlign.Center)
-        // 改修材料
+        // 改修资材
         Row({ space: 2 }) {
           Image(SCREW_ICON).width(14).height(14)
           Text(amountText(st.screw, st.screwGS)).fontSize(12).fontColor(COLOR_SCREW)
@@ -595,11 +614,11 @@ export default struct RemodelInfoPage {
   @Builder
   private DetailPanel(row: RemodelRow, today: number) {
     Column({ space: 6 }) {
-      // 标题栏：★ / 开发材料 / 改修材料 / 消耗装备
+      // 标题栏：★ / 开发资材 / 改修资材 / 消耗装备
       Row() {
         Text('★').fontSize(11).fontColor('#9aa3b0').width(58)
-        Text('开发資材').fontSize(11).fontColor('#9aa3b0').width(78).textAlign(TextAlign.Center)
-        Text('改修資材').fontSize(11).fontColor('#9aa3b0').width(72).textAlign(TextAlign.Center)
+        Text('开发资材').fontSize(11).fontColor('#9aa3b0').width(78).textAlign(TextAlign.Center)
+        Text('改修资材').fontSize(11).fontColor('#9aa3b0').width(72).textAlign(TextAlign.Center)
         Text('消耗装备').fontSize(11).fontColor('#9aa3b0').layoutWeight(1)
       }
       .width('100%')
