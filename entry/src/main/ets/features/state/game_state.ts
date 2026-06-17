@@ -614,6 +614,8 @@ class GameStateManager {
       aswCur: ship.stats?.asw?.current ?? 0,
       fireCur: ship.stats?.firepower?.current ?? 0,
       aaCur: ship.stats?.antiAir?.current ?? 0,
+      armorCur: ship.stats?.armor?.current ?? 0,
+      evasionCur: ship.stats?.evasion?.current ?? 0,
       torpCur: ship.stats?.torpedo?.current ?? 0,
       luckCur: ship.stats?.luck?.current ?? 0,
       speed: ship.speed ?? 0,

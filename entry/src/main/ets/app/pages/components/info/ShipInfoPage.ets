@@ -7,7 +7,7 @@ import {
 
 // ==================== Types ====================
 
-type TypeGroup = 'all' | 'dd' | 'cl' | 'ca' | 'bb' | 'cv' | 'ss' | 'other';
+type TypeGroup = string;
 type StatusFilter = 'all' | 'taiha' | 'chuuha' | 'resupply' | 'tired' | 'married';
 type SortKey =
   | 'level_desc'
@@ -38,7 +38,18 @@ interface ShipInfoItem {
   needsResupply: boolean;
   scoutCur: number;
   aswCur: number;
+  fireCur: number;
+  torpCur: number;
+  aaCur: number;
+  armorCur: number;
+  evasionCur: number;
+  luckCur: number;
   speed: number;
+  range: number;
+  slotCount: number;
+  statLine1: string;
+  statLine2: string;
+  detailLine: string;
   escaped: boolean;
 }
 
@@ -46,62 +57,80 @@ interface ShipInfoItem {
 
 /** stype → 简短类别标签（用于行内徽章）。 */
 const STYPE_LABELS: Map<number, string> = new Map([
-  [1, '海防'], [2, '駆'], [3, '軽巡'], [4, '雷巡'],
-  [5, '重巡'], [6, '航巡'], [7, '軽空'], [8, '高戦'],
-  [9, '戦'], [10, '航戦'], [11, '正空'], [13, '潜'],
-  [14, '潜空'], [16, '水母'], [17, '揚陸'], [18, '装空'],
-  [19, '工作'], [20, '潜母'], [21, '練巡'], [22, '補給'],
+  [1, '海防'], [2, '驱逐'], [3, '轻巡'], [4, '雷巡'],
+  [5, '重巡'], [6, '航巡'], [7, '轻航'], [8, '巡战'],
+  [9, '战舰'], [10, '航战'], [11, '正航'], [12, '超弩'],
+  [13, '潜艇'], [14, '潜航'], [15, '补给'], [16, '水母'],
+  [17, '扬陆'], [18, '装航'], [19, '工作'], [20, '潜母'],
+  [21, '练巡'], [22, '补给'],
 ]);
 
+interface TypeGroupSpec {
+  key: TypeGroup;
+  label: string;
+  stypes: number[];
+}
+
 /** 类型筛选分组：每组对应一个 stype 集合。'other' 取剩余 stype。 */
-const TYPE_GROUP_STYPES: Map<TypeGroup, number[]> = new Map([
-  ['dd', [1, 2]],
-  ['cl', [3, 4, 21]],
-  ['ca', [5, 6]],
-  ['bb', [8, 9, 10]],
-  ['cv', [7, 11, 18]],
-  ['ss', [13, 14]],
-]);
+const TYPE_GROUPS: TypeGroupSpec[] = [
+  { key: 'de', label: '海防', stypes: [1] },
+  { key: 'dd', label: '驱逐', stypes: [2] },
+  { key: 'cl', label: '轻巡', stypes: [3, 4, 21] },
+  { key: 'ca', label: '重巡', stypes: [5, 6] },
+  { key: 'bb', label: '战舰', stypes: [8, 9, 10, 12] },
+  { key: 'cv', label: '航母', stypes: [7, 11, 18] },
+  { key: 'ss', label: '潜艇', stypes: [13, 14] },
+  { key: 'aux', label: '辅助', stypes: [15, 16, 17, 19, 20, 22] },
+];
+
+const TYPE_GROUP_STYPES: Map<TypeGroup, number[]> = (() => {
+  const m = new Map<TypeGroup, number[]>();
+  for (const g of TYPE_GROUPS) m.set(g.key, g.stypes);
+  return m;
+})();
+
+const TYPE_GROUP_LABELS: Map<TypeGroup, string> = (() => {
+  const m = new Map<TypeGroup, string>();
+  for (const g of TYPE_GROUPS) m.set(g.key, g.label);
+  m.set('all', '全部');
+  m.set('other', '其他');
+  return m;
+})();
+
+const TYPE_GROUP_ORDER: string[] = (() => {
+  const out: string[] = [];
+  for (const g of TYPE_GROUPS) out.push(g.key);
+  out.push('other');
+  return out;
+})();
 
 const KNOWN_GROUPED_STYPES: Set<number> = (() => {
   const s = new Set<number>();
-  TYPE_GROUP_STYPES.forEach((arr: number[]) => {
-    for (const v of arr) s.add(v);
-  });
+  for (const g of TYPE_GROUPS) {
+    for (const v of g.stypes) s.add(v);
+  }
   return s;
 })();
 
-interface TypeChipDef { key: TypeGroup; label: string; }
 interface StatusChipDef { key: StatusFilter; label: string; }
 interface SortChipDef { key: SortKey; label: string; }
 
-const TYPE_CHIPS: TypeChipDef[] = [
-  { key: 'all', label: '全' },
-  { key: 'dd', label: '駆' },
-  { key: 'cl', label: '軽' },
-  { key: 'ca', label: '重' },
-  { key: 'bb', label: '戦' },
-  { key: 'cv', label: '空' },
-  { key: 'ss', label: '潜' },
-  { key: 'other', label: '他' },
-];
-
 const STATUS_CHIPS: StatusChipDef[] = [
-  { key: 'all', label: '全' },
+  { key: 'all', label: '全部' },
   { key: 'taiha', label: '大破' },
   { key: 'chuuha', label: '中破' },
-  { key: 'resupply', label: '要補' },
-  { key: 'tired', label: '疲労' },
-  { key: 'married', label: 'ケッコン' },
+  { key: 'resupply', label: '需补给' },
+  { key: 'tired', label: '疲劳' },
+  { key: 'married', label: '婚舰' },
 ];
 
 const SORT_CHIPS: SortChipDef[] = [
   { key: 'level_desc', label: 'Lv↓' },
   { key: 'level_asc', label: 'Lv↑' },
   { key: 'hp_asc', label: 'HP↑' },
-  { key: 'cond_asc', label: '気↑' },
+  { key: 'cond_asc', label: '士气↑' },
   { key: 'uid_asc', label: 'UID' },
-  { key: 'stype_asc', label: '種別' },
+  { key: 'stype_asc', label: '舰种' },
 ];
 
 const COLOR_HP_TAIHA = '#E53935';
@@ -125,7 +154,11 @@ const COLOR_BORDER = '#272a36';
 // ==================== Pure helpers ====================
 
 function typeLabel(stype: number): string {
-  return STYPE_LABELS.get(stype) ?? '?';
+  return STYPE_LABELS.get(stype) ?? `舰种${stype}`;
+}
+
+function typeGroupLabel(group: TypeGroup): string {
+  return TYPE_GROUP_LABELS.get(group) ?? '其他';
 }
 
 function matchTypeGroup(stype: number, group: TypeGroup): boolean {
@@ -133,6 +166,13 @@ function matchTypeGroup(stype: number, group: TypeGroup): boolean {
   if (group === 'other') return !KNOWN_GROUPED_STYPES.has(stype);
   const list = TYPE_GROUP_STYPES.get(group);
   return list !== undefined && list.indexOf(stype) >= 0;
+}
+
+function typeGroupForStype(stype: number): TypeGroup {
+  for (const g of TYPE_GROUPS) {
+    if (g.stypes.indexOf(stype) >= 0) return g.key;
+  }
+  return 'other';
 }
 
 function matchStatus(item: ShipInfoItem, status: StatusFilter): boolean {
@@ -177,13 +217,37 @@ function speedLabel(speed: number): string {
   if (speed >= 15) return '高速+';
   if (speed >= 10) return '高速';
   if (speed >= 5) return '低速';
-  if (speed === 0) return '陸上';
+  if (speed === 0) return '陆上';
   return '--';
+}
+
+function rangeLabel(range: number): string {
+  switch (range) {
+    case 0: return '无';
+    case 1: return '短';
+    case 2: return '中';
+    case 3: return '长';
+    case 4: return '超长';
+    case 5: return '超长+';
+    default: return `${range}`;
+  }
+}
+
+function buildStatLine1(item: ShipInfoItem): string {
+  return `火力 ${item.fireCur}  雷装 ${item.torpCur}  对空 ${item.aaCur}  装甲 ${item.armorCur}`;
+}
+
+function buildStatLine2(item: ShipInfoItem): string {
+  return `回避 ${item.evasionCur}  对潜 ${item.aswCur}  索敌 ${item.scoutCur}  运 ${item.luckCur}`;
+}
+
+function buildDetailLine(item: ShipInfoItem): string {
+  return `速力 ${speedLabel(item.speed)}  射程 ${rangeLabel(item.range)}  槽 ${item.slotCount}  MID:${item.masterId}`;
 }
 
 function toItem(s: ShipState): ShipInfoItem {
   const stype = getGameState().getShipMasterStype(s.masterId);
-  return {
+  const item: ShipInfoItem = {
     uid: s.uid,
     masterId: s.masterId,
     name: s.name,
@@ -204,9 +268,24 @@ function toItem(s: ShipState): ShipInfoItem {
     needsResupply: s.needsResupply,
     scoutCur: s.scoutCur,
     aswCur: s.aswCur,
+    fireCur: s.fireCur,
+    torpCur: s.torpCur,
+    aaCur: s.aaCur,
+    armorCur: s.armorCur,
+    evasionCur: s.evasionCur,
+    luckCur: s.luckCur,
     speed: s.speed,
+    range: s.range,
+    slotCount: s.slotCount,
+    statLine1: '',
+    statLine2: '',
+    detailLine: '',
     escaped: isShipEscaped(s.uid),
   };
+  item.statLine1 = buildStatLine1(item);
+  item.statLine2 = buildStatLine2(item);
+  item.detailLine = buildDetailLine(item);
+  return item;
 }
 
 // ==================== Page Component ====================
@@ -219,6 +298,7 @@ export default struct ShipInfoPage {
   @Local private allShips: ShipInfoItem[] = [];
   /** 经 filter + sort 后的可见集合，喂给 List。 */
   @Local private visibleShips: ShipInfoItem[] = [];
+  @Local private presentTypes: string[] = [];
 
   @Local private searchText: string = '';
   @Local private typeFilter: TypeGroup = 'all';
@@ -253,6 +333,7 @@ export default struct ShipInfoPage {
 
   /** 重新计算可见列表：依次应用搜索 / 舰种 / 状态过滤，再按 sortKey 排序。 */
   private recompute(): void {
+    this.rebuildPresentTypes();
     const q = this.searchText.trim().toLowerCase();
     const out: ShipInfoItem[] = [];
     for (const it of this.allShips) {
@@ -263,6 +344,26 @@ export default struct ShipInfoPage {
     }
     out.sort((a, b) => compareShips(a, b, this.sortKey));
     this.visibleShips = out;
+  }
+
+  private rebuildPresentTypes(): void {
+    const q = this.searchText.trim().toLowerCase();
+    const groups = new Set<string>();
+    for (const it of this.allShips) {
+      if (q.length > 0 && it.name.toLowerCase().indexOf(q) < 0) continue;
+      if (!matchStatus(it, this.statusFilter)) continue;
+      groups.add(typeGroupForStype(it.stype));
+    }
+    const ordered = TYPE_GROUP_ORDER.filter((c) => groups.has(c));
+    const extra: string[] = [];
+    groups.forEach((c: string) => {
+      if (TYPE_GROUP_ORDER.indexOf(c) < 0) extra.push(c);
+    });
+    extra.sort();
+    this.presentTypes = ordered.concat(extra);
+    if (this.typeFilter !== 'all' && this.presentTypes.indexOf(this.typeFilter) < 0) {
+      this.typeFilter = 'all';
+    }
   }
 
   private setSearch(v: string): void {
@@ -292,15 +393,15 @@ export default struct ShipInfoPage {
   // ==================== Builders ====================
 
   @Builder
-  private TypeChip(def: TypeChipDef) {
-    Text(def.label)
+  private TypeChip(type: TypeGroup) {
+    Text(type === 'all' ? '全部' : typeGroupLabel(type))
       .fontSize(12)
-      .fontColor(this.typeFilter === def.key ? COLOR_FG_CHIP_ACTIVE : COLOR_FG_CHIP)
-      .fontWeight(this.typeFilter === def.key ? FontWeight.Medium : FontWeight.Regular)
+      .fontColor(this.typeFilter === type ? COLOR_FG_CHIP_ACTIVE : COLOR_FG_CHIP)
+      .fontWeight(this.typeFilter === type ? FontWeight.Medium : FontWeight.Regular)
       .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-      .backgroundColor(this.typeFilter === def.key ? COLOR_BG_CHIP_ACTIVE : COLOR_BG_CHIP)
+      .backgroundColor(this.typeFilter === type ? COLOR_BG_CHIP_ACTIVE : COLOR_BG_CHIP)
       .borderRadius(12)
-      .onClick(() => this.setTypeFilter(def.key))
+      .onClick(() => this.setTypeFilter(type))
   }
 
   @Builder
@@ -358,39 +459,52 @@ export default struct ShipInfoPage {
       .width('100%')
 
       // Type chips
-      Row({ space: 6 }) {
-        Text('種')
-          .fontSize(11)
-          .fontColor('#666')
-          .width(20)
-        ForEach(TYPE_CHIPS, (c: TypeChipDef) => {
-          this.TypeChip(c)
-        }, (c: TypeChipDef) => `t-${c.key}`)
+      Scroll() {
+        Row({ space: 6 }) {
+          Text('类')
+            .fontSize(11)
+            .fontColor('#666')
+            .width(20)
+          this.TypeChip('all')
+          ForEach(this.presentTypes, (c: string) => {
+            this.TypeChip(c)
+          }, (c: string) => `t-${c}`)
+        }
       }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
       .width('100%')
 
       // Status chips
-      Row({ space: 6 }) {
-        Text('状')
-          .fontSize(11)
-          .fontColor('#666')
-          .width(20)
-        ForEach(STATUS_CHIPS, (c: StatusChipDef) => {
-          this.StatusChip(c)
-        }, (c: StatusChipDef) => `s-${c.key}`)
+      Scroll() {
+        Row({ space: 6 }) {
+          Text('状')
+            .fontSize(11)
+            .fontColor('#666')
+            .width(20)
+          ForEach(STATUS_CHIPS, (c: StatusChipDef) => {
+            this.StatusChip(c)
+          }, (c: StatusChipDef) => `s-${c.key}`)
+        }
       }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
       .width('100%')
 
       // Sort chips
-      Row({ space: 6 }) {
-        Text('順')
-          .fontSize(11)
-          .fontColor('#666')
-          .width(20)
-        ForEach(SORT_CHIPS, (c: SortChipDef) => {
-          this.SortChip(c)
-        }, (c: SortChipDef) => `o-${c.key}`)
+      Scroll() {
+        Row({ space: 6 }) {
+          Text('序')
+            .fontSize(11)
+            .fontColor('#666')
+            .width(20)
+          ForEach(SORT_CHIPS, (c: SortChipDef) => {
+            this.SortChip(c)
+          }, (c: SortChipDef) => `o-${c.key}`)
+        }
       }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
       .width('100%')
     }
     .width('100%')
@@ -401,7 +515,7 @@ export default struct ShipInfoPage {
 
   /**
    * 单条舰娘记录行：参考 ShipRow 的纵向 banner+status+equip 划分，但去掉装备列，
-   * 转而展示更完整的纯文本字段（uid / masterId / stype / 索敌 / 对潜 / 速力 / 退避）。
+   * 转而展示更完整的纯文本字段（uid / masterId / stype / 属性 / 速力 / 射程 / 退避）。
    */
   @Builder
   private ShipInfoRow(item: ShipInfoItem) {
@@ -438,7 +552,7 @@ export default struct ShipInfoPage {
           .fontSize(13)
           .fontColor(item.level >= 100 ? '#FFD54F' : '#C8B99A')
           .fontWeight(FontWeight.Medium)
-        Text(`/${item.expToNext}`)
+        Text(`下级 ${item.expToNext}`)
           .fontSize(11)
           .fontColor('#6A7280')
       }
@@ -451,35 +565,32 @@ export default struct ShipInfoPage {
           .fontSize(12)
           .fontColor(hpColor(item))
           .fontWeight(FontWeight.Medium)
-        Text(`気 ${item.cond}`)
+        Text(`士气 ${item.cond}`)
           .fontSize(12)
           .fontColor(condColor(item.cond))
         Text(`燃 ${item.fuel}/${item.fuelMax}`)
           .fontSize(12)
           .fontColor(item.needsResupply ? COLOR_RESUPPLY : COLOR_LOW)
-        Text(`弾 ${item.ammo}/${item.ammoMax}`)
+        Text(`弹 ${item.ammo}/${item.ammoMax}`)
           .fontSize(12)
           .fontColor(item.needsResupply ? COLOR_RESUPPLY : COLOR_LOW)
       }
       .width('100%')
 
-      // Stats row 2: scout / asw / speed / master id
-      Row({ space: 12 }) {
-        Text(`索 ${item.scoutCur}`)
-          .fontSize(11)
-          .fontColor('#90A0B0')
-        Text(`対潜 ${item.aswCur}`)
-          .fontSize(11)
-          .fontColor('#90A0B0')
-        Text(`速 ${speedLabel(item.speed)}`)
-          .fontSize(11)
-          .fontColor('#90A0B0')
-        Blank().layoutWeight(1)
-        Text(`MID:${item.masterId}`)
-          .fontSize(10)
-          .fontColor('#4a5260')
-      }
-      .width('100%')
+      Text(item.statLine1)
+        .fontSize(11)
+        .fontColor('#90A0B0')
+        .width('100%')
+
+      Text(item.statLine2)
+        .fontSize(11)
+        .fontColor('#90A0B0')
+        .width('100%')
+
+      Text(item.detailLine)
+        .fontSize(10)
+        .fontColor('#4a5260')
+        .width('100%')
     }
     .width('100%')
     .padding({ left: 14, right: 14, top: 10, bottom: 10 })

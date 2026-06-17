@@ -50,6 +50,8 @@ export function applyBattleHp(
     aswCur:        base.aswCur,
     fireCur:       base.fireCur,
     aaCur:         base.aaCur,
+    armorCur:      base.armorCur,
+    evasionCur:    base.evasionCur,
     torpCur:       base.torpCur,
     luckCur:       base.luckCur,
     speed:         base.speed,

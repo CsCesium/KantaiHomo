@@ -129,6 +129,10 @@ export interface ShipState {
   fireCur: number;
   /** 当前显示对空值（含装备加成，来自 api_taiku[0]） */
   aaCur: number;
+  /** 当前显示装甲值（含装备加成，来自 api_soukou[0]） */
+  armorCur: number;
+  /** 当前显示回避值（含装备加成，来自 api_kaihi[0]） */
+  evasionCur: number;
   /** 当前显示雷装值（含装备加成，来自 api_raisou[0]） */
   torpCur: number;
   /** 当前显示运值（来自 api_lucky[0]） */
