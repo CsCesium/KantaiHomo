@@ -280,19 +280,28 @@ export default struct RemodelInfoPage {
     return out;
   }
 
-  /** 解析秘书艦：合并各 req 组的 ship id，去重保序，解析艦名。 */
-  private resolveSecretaries(reqs: ReqGroup[]): NamedShip[] {
-    const seen = new Set<number>();
-    const out: NamedShip[] = [];
-    for (const r of reqs) {
-      for (const sid of r.ships) {
-        if (seen.has(sid)) continue;
-        seen.add(sid);
-        const nm = getShipMasterName(sid);
-        out.push({ id: sid, name: nm !== undefined && nm.length > 0 ? nm : `#${sid}` });
+  /**
+   * 解析秘书艦：合并 req 组的 ship id，去重保序，解析艦名。
+   * 当日可改修的装备只取「今日（JST）支持改修」的 req 组的秘书舰；
+   * 若今日无可用组（非当日可改的装备，全曜日模式下可见），回退为全部。
+   */
+  private resolveSecretaries(reqs: ReqGroup[], today: number): NamedShip[] {
+    const collect = (todayOnly: boolean): NamedShip[] => {
+      const seen = new Set<number>();
+      const out: NamedShip[] = [];
+      for (const r of reqs) {
+        if (todayOnly && !(r.days.length === 7 && r.days[today])) continue;
+        for (const sid of r.ships) {
+          if (seen.has(sid)) continue;
+          seen.add(sid);
+          const nm = getShipMasterName(sid);
+          out.push({ id: sid, name: nm !== undefined && nm.length > 0 ? nm : `#${sid}` });
+        }
       }
-    }
-    return out;
+      return out;
+    };
+    const todayList = collect(true);
+    return todayList.length > 0 ? todayList : collect(false);
   }
 
   private rebuildRows(): void {
@@ -318,7 +327,7 @@ export default struct RemodelInfoPage {
         convertToName: convName.length > 0 ? convName : (e.convertTo > 0 ? `#${e.convertTo}` : ''),
         reqs: e.reqs,
         days: e.days,
-        secretaries: this.resolveSecretaries(e.reqs),
+        secretaries: this.resolveSecretaries(e.reqs, today),
         held: held.get(e.id) ?? 0,
         availToday: e.days.length === 7 ? e.days[today] : true,
       });
