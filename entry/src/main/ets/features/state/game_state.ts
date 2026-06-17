@@ -121,6 +121,7 @@ class GameStateManager {
     slotItemIconTypes: new Map(),
     slotItemLos: new Map(),
     slotItemAa: new Map(),
+    slotItemArmor: new Map(),
     slotItemAsw: new Map(),
     slotItemHit: new Map(),
     slotItemEvasion: new Map(),
@@ -128,6 +129,10 @@ class GameStateManager {
     slotItemFire: new Map(),
     slotItemTorp: new Map(),
     slotItemBomb: new Map(),
+    slotItemSpeed: new Map(),
+    slotItemRange: new Map(),
+    slotItemRare: new Map(),
+    slotItemCost: new Map(),
     slotItemNames: new Map(),
     useItemMasterNames: new Map(),
     slotItemIndex: new Map(),
@@ -1349,6 +1354,7 @@ class GameStateManager {
       slotItemIconTypes: new Map(),
       slotItemLos: new Map(),
       slotItemAa: new Map(),
+      slotItemArmor: new Map(),
       slotItemAsw: new Map(),
       slotItemHit: new Map(),
       slotItemEvasion: new Map(),
@@ -1356,6 +1362,10 @@ class GameStateManager {
       slotItemFire: new Map(),
       slotItemTorp: new Map(),
       slotItemBomb: new Map(),
+      slotItemSpeed: new Map(),
+      slotItemRange: new Map(),
+      slotItemRare: new Map(),
+      slotItemCost: new Map(),
       slotItemNames: new Map(),
       useItemMasterNames: new Map(),
       slotItemIndex: new Map(),
@@ -1420,10 +1430,15 @@ class GameStateManager {
     iconType: number;
     los?: number;
     aa?: number;
+    armor?: number;
     asw?: number;
     fire?: number;
     torp?: number;
     bomb?: number;
+    speed?: number;
+    range?: number;
+    rare?: number;
+    cost?: number;
     hit?: number;
     evasion?: number;
     distance?: number;
@@ -1438,6 +1453,9 @@ class GameStateManager {
       if (item.aa !== undefined) {
         this.state.slotItemAa.set(item.id, item.aa);
       }
+      if (item.armor !== undefined) {
+        this.state.slotItemArmor.set(item.id, item.armor);
+      }
       if (item.asw !== undefined) {
         this.state.slotItemAsw.set(item.id, item.asw);
       }
@@ -1449,6 +1467,18 @@ class GameStateManager {
       }
       if (item.bomb !== undefined) {
         this.state.slotItemBomb.set(item.id, item.bomb);
+      }
+      if (item.speed !== undefined) {
+        this.state.slotItemSpeed.set(item.id, item.speed);
+      }
+      if (item.range !== undefined) {
+        this.state.slotItemRange.set(item.id, item.range);
+      }
+      if (item.rare !== undefined) {
+        this.state.slotItemRare.set(item.id, item.rare);
+      }
+      if (item.cost !== undefined) {
+        this.state.slotItemCost.set(item.id, item.cost);
       }
       if (item.hit !== undefined) {
         this.state.slotItemHit.set(item.id, item.hit);
@@ -1473,6 +1503,66 @@ class GameStateManager {
   /** 按图鉴 ID 查询装备对空（无数据时返回 0） */
   getSlotItemMasterAa(masterId: number): number {
     return this.state.slotItemAa.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备装甲（无数据时返回 0） */
+  getSlotItemMasterArmor(masterId: number): number {
+    return this.state.slotItemArmor.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备对潜（无数据时返回 0） */
+  getSlotItemMasterAsw(masterId: number): number {
+    return this.state.slotItemAsw.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备火力（无数据时返回 0） */
+  getSlotItemMasterFire(masterId: number): number {
+    return this.state.slotItemFire.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备雷装（无数据时返回 0） */
+  getSlotItemMasterTorp(masterId: number): number {
+    return this.state.slotItemTorp.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备爆装（无数据时返回 0） */
+  getSlotItemMasterBomb(masterId: number): number {
+    return this.state.slotItemBomb.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备命中（无数据时返回 0） */
+  getSlotItemMasterHit(masterId: number): number {
+    return this.state.slotItemHit.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备回避（无数据时返回 0） */
+  getSlotItemMasterEvasion(masterId: number): number {
+    return this.state.slotItemEvasion.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备速力（无数据时返回 0） */
+  getSlotItemMasterSpeed(masterId: number): number {
+    return this.state.slotItemSpeed.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备射程（无数据时返回 0） */
+  getSlotItemMasterRange(masterId: number): number {
+    return this.state.slotItemRange.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询装备稀有度（无数据时返回 0） */
+  getSlotItemMasterRare(masterId: number): number {
+    return this.state.slotItemRare.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询航空机消耗（无数据时返回 0） */
+  getSlotItemMasterCost(masterId: number): number {
+    return this.state.slotItemCost.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询航空机航程（无数据时返回 0） */
+  getSlotItemMasterDistance(masterId: number): number {
+    return this.state.slotItemDistance.get(masterId) ?? 0;
   }
 
   /** 按图鉴 ID 查询装备类型（无数据时返回 0） */
@@ -1876,7 +1966,15 @@ export const updateSlotItemEquipTypes = (items: ReadonlyArray<{
   iconType: number;
   los?: number;
   aa?: number;
+  armor?: number;
   asw?: number;
+  fire?: number;
+  torp?: number;
+  bomb?: number;
+  speed?: number;
+  range?: number;
+  rare?: number;
+  cost?: number;
   hit?: number;
   evasion?: number;
   distance?: number;
@@ -1884,6 +1982,18 @@ export const updateSlotItemEquipTypes = (items: ReadonlyArray<{
 }>) =>
   gameStateManager.updateSlotItemEquipTypes(items);
 export const getSlotItemMasterAa = (masterId: number): number => gameStateManager.getSlotItemMasterAa(masterId);
+export const getSlotItemMasterArmor = (masterId: number): number => gameStateManager.getSlotItemMasterArmor(masterId);
+export const getSlotItemMasterAsw = (masterId: number): number => gameStateManager.getSlotItemMasterAsw(masterId);
+export const getSlotItemMasterFire = (masterId: number): number => gameStateManager.getSlotItemMasterFire(masterId);
+export const getSlotItemMasterTorp = (masterId: number): number => gameStateManager.getSlotItemMasterTorp(masterId);
+export const getSlotItemMasterBomb = (masterId: number): number => gameStateManager.getSlotItemMasterBomb(masterId);
+export const getSlotItemMasterHit = (masterId: number): number => gameStateManager.getSlotItemMasterHit(masterId);
+export const getSlotItemMasterEvasion = (masterId: number): number => gameStateManager.getSlotItemMasterEvasion(masterId);
+export const getSlotItemMasterSpeed = (masterId: number): number => gameStateManager.getSlotItemMasterSpeed(masterId);
+export const getSlotItemMasterRange = (masterId: number): number => gameStateManager.getSlotItemMasterRange(masterId);
+export const getSlotItemMasterRare = (masterId: number): number => gameStateManager.getSlotItemMasterRare(masterId);
+export const getSlotItemMasterCost = (masterId: number): number => gameStateManager.getSlotItemMasterCost(masterId);
+export const getSlotItemMasterDistance = (masterId: number): number => gameStateManager.getSlotItemMasterDistance(masterId);
 export const getSlotItemMasterEquipType = (masterId: number): number => gameStateManager.getSlotItemMasterEquipType(masterId);
 export const getSlotItemMasterIconType = (masterId: number): number => gameStateManager.getSlotItemMasterIconType(masterId);
 export const getSlotItemMasterName = (masterId: number): string => gameStateManager.getSlotItemMasterName(masterId);

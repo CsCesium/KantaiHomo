@@ -211,6 +211,7 @@ class Start2Handler implements Handler {
       iconType: Array.isArray(r.api_type) ? (r.api_type[3] ?? 0) : 0,
       los: r.api_saku ?? 0,
       aa: r.api_tyku ?? 0,
+      armor: r.api_souk ?? 0,
       asw: r.api_tais ?? 0,
       hit: r.api_houm ?? 0,
       evasion: r.api_houk ?? 0,
@@ -218,6 +219,10 @@ class Start2Handler implements Handler {
       fire: r.api_houg ?? 0,
       torp: r.api_raig ?? 0,
       bomb: r.api_baku ?? 0,
+      speed: r.api_soku ?? 0,
+      range: r.api_leng ?? 0,
+      rare: r.api_rare ?? 0,
+      cost: r.api_cost ?? 0,
       name: r.api_name ?? '',
     }));
     updateSlotItemEquipTypes(equipTypeItems);

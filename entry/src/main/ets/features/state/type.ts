@@ -205,6 +205,8 @@ export interface GameState {
   slotItemLos: Map<number, number>;
   /** 装备图鉴 对空（slotitem masterId → api_tyku，制空计算用） */
   slotItemAa: Map<number, number>;
+  /** 装备图鉴 装甲（slotitem masterId → api_souk） */
+  slotItemArmor: Map<number, number>;
   /** 装备图鉴 对潜（slotitem masterId → api_tais） */
   slotItemAsw: Map<number, number>;
   /** 装备图鉴 命中/对爆（slotitem masterId → api_houm） */
@@ -219,6 +221,14 @@ export interface GameState {
   slotItemTorp: Map<number, number>;
   /** 装备图鉴 爆装（slotitem masterId → api_baku，攻击力计算用） */
   slotItemBomb: Map<number, number>;
+  /** 装备图鉴 速力（slotitem masterId → api_soku） */
+  slotItemSpeed: Map<number, number>;
+  /** 装备图鉴 射程（slotitem masterId → api_leng） */
+  slotItemRange: Map<number, number>;
+  /** 装备图鉴 稀有度（slotitem masterId → api_rare） */
+  slotItemRare: Map<number, number>;
+  /** 装备图鉴 航空机消耗（slotitem masterId → api_cost） */
+  slotItemCost: Map<number, number>;
   /** 装备图鉴名称（slotitem masterId → api_name） */
   slotItemNames: Map<number, string>;
   /** 道具图鉴名称（useitem id → api_name） */
