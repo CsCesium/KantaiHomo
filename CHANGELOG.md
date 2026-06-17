@@ -2,6 +2,51 @@
 
 English | [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.0.2 - 2026-06-17
+
+Compared with `v1.0.1`.
+
+### Added
+
+- Equipment improvement information viewer backed by `rawfile/data/improvement.json`,
+  including improvement days, secretary ships, normal/guaranteed dev material
+  and screw costs, consumed equipment, base resource costs, and MAX conversion
+  targets.
+- Persistent improvement favorites with priority sorting and `addEquip:` command
+  support for adding favorite equipment from the game context.
+- Aerial combat detail panel in battle preview, showing aircraft stage losses,
+  contact, anti-air cut-in information, and land-based air waves.
+- Arsenal event parsing and Toast alerts for equipment development, ship
+  construction start/completion, and equipment improvement results, with
+  separate settings toggles.
+- Jet carrier cut-ins in day battle scenario estimates.
+- Additional ship and equipment attributes in state and info pages, including
+  ship armor/evasion and equipment armor, speed, range, rarity, cost, and
+  distance.
+- Equipment classification rules for land attack bombers and anti-air
+  resistance groups.
+
+### Changed
+
+- Improvement recipes now use current ElectronicObserver/wiki-derived data and
+  show only today's secretary ships for today-improvable equipment.
+- Battle preview now shows output/received damage totals beside HP bars, and the
+  aerial combat detail popup is centered with Chinese labels.
+- Quest state handling now merges partial quest pages and removes completed or
+  inactive quests from the visible panel list.
+- Map gauge ordering and display logic were refined.
+- Equipment and ship info pages were expanded with richer filters and stat
+  display.
+
+### Fixed
+
+- Escaped ships are normalized from battle results and stay grayed out as
+  escaped until returning to port.
+- Fixed the expedition check "All" tab showing an empty-data state after
+  filtering.
+- Corrected carrier attack checks and the land-based aircraft UI description.
+- Fixed missing state properties and lint issues around the 1.0.2 changes.
+
 ## 1.0.1 - 2026-06-12
 
 Compared with `v1.0.0`.
