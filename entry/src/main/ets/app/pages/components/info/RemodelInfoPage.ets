@@ -10,6 +10,7 @@ import {
   getShipMasterName,
 } from '../../../../features/state';
 import { equipLabel } from '../../../../features/panel/panelConfig';
+import { kvGetString, kvSet } from '../../../../infra/storage/kv';
 
 // ==================== 数据 schema ====================
 //
@@ -79,6 +80,9 @@ interface RemodelRow {
 // ==================== 常量 ====================
 
 const REMODEL_RAWFILE = 'data/improvement.json';
+
+/** 收藏的装备 id 列表（JSON 数组）持久化到 KV。 */
+const FAV_KEY = 'remodel.favorites';
 
 const RES_ICON_DIR = 'resource://RAWFILE/icons/res/';
 const DEV_ICON = `${RES_ICON_DIR}dev.png`;
@@ -150,6 +154,7 @@ const COLOR_DAY_OFF = '#3a3f4c';
 const COLOR_TODAY = '#FFD54F';
 const COLOR_MUTED = '#5a6270';
 const COLOR_SECRETARY = '#B0BEC5';
+const COLOR_FAV = '#FFB300';   // 收藏（star_fill）警示色
 
 // ==================== 工具函数 ====================
 
@@ -197,12 +202,14 @@ export default struct RemodelInfoPage {
   @Local private typeFilter: string = 'all';
   @Local private todayOnly: boolean = true;
   @Local private expandedId: number = -1;
+  @Local private favorites: Set<number> = new Set<number>();
 
   private entries: ImprovementEntry[] = [];
   private loaded: boolean = false;
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
+    void this.loadFavorites();
     void this.loadData();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships') {
@@ -233,6 +240,35 @@ export default struct RemodelInfoPage {
     }
     this.loaded = true;
     this.rebuildRows();
+  }
+
+  /** 从 KV 读取收藏的装备 id 列表。 */
+  private async loadFavorites(): Promise<void> {
+    try {
+      const raw = await kvGetString(FAV_KEY, '[]');
+      const arr = JSON.parse(raw) as number[];
+      const set = new Set<number>();
+      if (Array.isArray(arr)) {
+        for (const v of arr) if (typeof v === 'number' && v > 0) set.add(v);
+      }
+      this.favorites = set;
+      this.recompute();
+    } catch (e) {
+      console.info('[RemodelInfoPage] favorites not loaded:', String(e));
+    }
+  }
+
+  /** 切换收藏并持久化；收藏后该装备优先显示。 */
+  private toggleFavorite(id: number): void {
+    const next = new Set<number>(this.favorites);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    this.favorites = next;
+    void kvSet(FAV_KEY, JSON.stringify(Array.from(next)));
+    this.recompute();
   }
 
   private buildHeldIndex(): Map<number, number> {
@@ -301,7 +337,11 @@ export default struct RemodelInfoPage {
       if (this.typeFilter !== 'all' && r.group !== this.typeFilter) continue;
       out.push(r);
     }
-    out.sort((a, b) => (b.held - a.held) || (a.id - b.id));
+    out.sort((a, b) => {
+      const fa = this.favorites.has(a.id) ? 1 : 0;
+      const fb = this.favorites.has(b.id) ? 1 : 0;
+      return (fb - fa) || (b.held - a.held) || (a.id - b.id);
+    });
     this.visibleRows = out;
   }
 
@@ -612,44 +652,61 @@ export default struct RemodelInfoPage {
   private RemodelRowView(row: RemodelRow, today: number) {
     Column() {
       Row({ space: 8 }) {
-        if (row.iconType > 0) {
-          Image(equipLabel(row.iconType, 0, row.id))
-            .width(28)
-            .height(28)
-        } else {
-          Text('改')
-            .fontSize(12)
-            .fontColor(COLOR_MUTED)
-            .width(28)
-            .height(28)
-            .textAlign(TextAlign.Center)
-            .backgroundColor('#222633')
-            .borderRadius(4)
-        }
-        Column({ space: 2 }) {
-          Text(row.name.length > 0 ? row.name : `#${row.id}`)
-            .fontSize(14)
+        // 可点击区：展开/收起详情
+        Row({ space: 8 }) {
+          if (row.iconType > 0) {
+            Image(equipLabel(row.iconType, 0, row.id))
+              .width(28)
+              .height(28)
+          } else {
+            Text('改')
+              .fontSize(12)
+              .fontColor(COLOR_MUTED)
+              .width(28)
+              .height(28)
+              .textAlign(TextAlign.Center)
+              .backgroundColor('#222633')
+              .borderRadius(4)
+          }
+          Column({ space: 2 }) {
+            Text(row.name.length > 0 ? row.name : `#${row.id}`)
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor('#FFF')
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+            this.SecretarySummary(row, today)
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
+
+          Text(`×${row.held}`)
+            .fontSize(13)
+            .fontColor(row.held > 0 ? COLOR_HELD : COLOR_MUTED)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#FFF')
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-          this.SecretarySummary(row, today)
+            .width(38)
+            .textAlign(TextAlign.End)
         }
         .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(VerticalAlign.Center)
+        .onClick(() => this.toggleExpand(row.id))
 
-        Text(`×${row.held}`)
-          .fontSize(13)
-          .fontColor(row.held > 0 ? COLOR_HELD : COLOR_MUTED)
-          .fontWeight(FontWeight.Medium)
-          .width(38)
-          .textAlign(TextAlign.End)
+        // 收藏按钮：sys.symbol.star / star_fill（警示色）
+        Button({ type: ButtonType.Normal, stateEffect: true }) {
+          SymbolGlyph(this.favorites.has(row.id) ? $r('sys.symbol.star_fill') : $r('sys.symbol.star'))
+            .fontSize(20)
+            .fontColor([this.favorites.has(row.id) ? COLOR_FAV : '#566070'])
+        }
+        .width(36)
+        .height(36)
+        .backgroundColor(Color.Transparent)
+        .border({ width: 0 })
+        .onClick(() => this.toggleFavorite(row.id))
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
-      .padding({ left: 14, right: 14, top: 10, bottom: 10 })
-      .onClick(() => this.toggleExpand(row.id))
+      .padding({ left: 14, right: 6, top: 10, bottom: 10 })
 
       if (this.expandedId === row.id) {
         this.DetailPanel(row, today)
@@ -714,7 +771,7 @@ export default struct RemodelInfoPage {
             ListItem() {
               this.RemodelRowView(row, jstWeekday())
             }
-          }, (row: RemodelRow) => `${row.id}`)
+          }, (row: RemodelRow) => `${row.id}-${this.favorites.has(row.id) ? 1 : 0}-${this.expandedId === row.id ? 1 : 0}`)
         }
         .width('100%')
         .layoutWeight(1)
