@@ -17,6 +17,7 @@ export default struct ButtonRow {
   @Event onToggleBattlePreview: () => void;
   @Event onOpenShipInfo: () => void;
   @Event onOpenEquipInfo: () => void;
+  @Event onOpenRemodelInfo: () => void;
   @Event onOpenExpeditionInfo: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param rotateEnabled: boolean = true;
@@ -123,6 +124,7 @@ export default struct ButtonRow {
     .bindMenu([
       { value: '舰娘', action: () => this.onOpenShipInfo?.() },
       { value: '装备', action: () => this.onOpenEquipInfo?.() },
+      { value: '改修', action: () => this.onOpenRemodelInfo?.() },
       { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
     ])
   }
