@@ -4,7 +4,6 @@ import {
   subscribeGameState,
   getGameState,
   getSlotItemMasterName,
-  getSlotItemMasterEquipType,
   getSlotItemMasterIconType,
   getUseItemMasterName,
   getShipMasterName,
@@ -16,10 +15,10 @@ import { kvGetString, kvSet } from '../../../../infra/storage/kv';
 //
 // 改修情报由 rawfile/data/improvement.json 提供，由
 // scripts/update-improvement-data.mjs 每月从 ElectronicObserver 数据库
-// (wiki「改修表」由来、持续更新) 拉取生成。每个段階含完整配方：
-//   開発資材(通常 dev / 確保 devGS) / 改修資材ネジ(通常 screw / 確保 screwGS) /
-//   消費装備(consumed) / 基礎消費(base) / 秘书艦(reqs.ships) / MAX 改修更新先(convertTo)。
-// 装备名・分类・图标按 master id 在 App 内解析。
+// (wiki 改修表由来、持续更新) 拉取生成。每个阶段含完整配方：
+//   开发材料(普通 dev / 确保 devGS) / 改修材料(普通 screw / 确保 screwGS) /
+//   消耗装备(consumed) / 基础消耗(base) / 秘书舰(reqs.ships) / MAX 更新目标(convertTo)。
+// 装备名、分类、图标按 master id 在 App 内解析。
 
 interface ConsumedItem {
   id: number;
@@ -29,14 +28,14 @@ interface ConsumedItem {
 
 interface ReqGroup {
   days: boolean[];   // 长度 7，日月火水木金土
-  ships: number[];   // 秘书艦 master id
+  ships: number[];   // 秘书舰 master id
 }
 
 interface Stage {
-  dev: number;       // 開発資材（通常）
-  devGS: number;     // 開発資材（確保）
-  screw: number;     // 改修資材ネジ（通常）
-  screwGS: number;   // 改修資材ネジ（確保）
+  dev: number;       // 开发材料（普通）
+  devGS: number;     // 开发材料（确保）
+  screw: number;     // 改修材料（普通）
+  screwGS: number;   // 改修材料（确保）
   consumed: ConsumedItem[];
 }
 
@@ -64,7 +63,7 @@ interface NamedShip { id: number; name: string; }
 interface RemodelRow {
   id: number;
   name: string;
-  group: string;    // 装备大类 key（与装备一览一致）
+  group: string;    // 装备图标分类 key
   iconType: number;
   base: number[];
   stages: (Stage | null)[];
@@ -94,47 +93,93 @@ const BASE_ICONS: string[] = [
   `${RES_ICON_DIR}bauxite.png`,
 ];
 
-const WEEK: string[] = ['日', '月', '火', '水', '木', '金', '土'];
+const WEEK: string[] = ['日', '一', '二', '三', '四', '五', '六'];
 
-// 装备大类分组：与「装备一览」(EquipInfoPage) 保持一致，按 equipType(api_type[2])
-// 归类，分类按钮用对应的代表 icon。
-interface GroupSpec { key: string; label: string; icon: number; types: number[]; }
+// 装备类型按普通装备 icon(api_type[3]) 细分。特殊图标变体（例如 10-11、17-2）不参与分类。
+interface GroupSpec { key: string; label: string; icon: number; }
 
-const EQUIP_GROUPS: GroupSpec[] = [
-  { key: 'gun_main', label: '主砲',   icon: 3,  types: [1, 2, 3, 38] },
-  { key: 'gun_sub',  label: '副対空', icon: 4,  types: [4, 21, 36] },
-  { key: 'torpedo',  label: '魚雷',   icon: 5,  types: [5, 32] },
-  { key: 'planes',   label: '艦載',   icon: 6,  types: [6, 7, 8, 11, 25, 26, 45] },
-  { key: 'recon',    label: '偵察',   icon: 9,  types: [9, 10, 41, 49, 57] },
-  { key: 'radar',    label: '電探',   icon: 11, types: [12, 13, 27, 28, 58] },
-  { key: 'asw',      label: '対潜',   icon: 18, types: [14, 15, 40] },
-  { key: 'land',     label: '陸上',   icon: 37, types: [47, 48, 52, 53] },
-  { key: 'jet',      label: '噴式',   icon: 56, types: [54, 55, 56] },
+const ICON_GROUPS: GroupSpec[] = [
+  { key: 'i-1', label: '小口径主炮', icon: 1 },
+  { key: 'i-2', label: '中口径主炮', icon: 2 },
+  { key: 'i-3', label: '大口径主炮', icon: 3 },
+  { key: 'i-4', label: '副炮', icon: 4 },
+  { key: 'i-5', label: '鱼雷', icon: 5 },
+  { key: 'i-6', label: '舰载战斗机', icon: 6 },
+  { key: 'i-7', label: '舰载轰炸机', icon: 7 },
+  { key: 'i-8', label: '舰载攻击机', icon: 8 },
+  { key: 'i-9', label: '舰载侦察机', icon: 9 },
+  { key: 'i-10', label: '水上机', icon: 10 },
+  { key: 'i-11', label: '电探', icon: 11 },
+  { key: 'i-12', label: '对空强化弹', icon: 12 },
+  { key: 'i-13', label: '对舰强化弹', icon: 13 },
+  { key: 'i-14', label: '损害管制', icon: 14 },
+  { key: 'i-15', label: '对空机枪', icon: 15 },
+  { key: 'i-16', label: '高角炮', icon: 16 },
+  { key: 'i-17', label: '爆雷', icon: 17 },
+  { key: 'i-18', label: '声呐', icon: 18 },
+  { key: 'i-19', label: '机关强化', icon: 19 },
+  { key: 'i-20', label: '登陆艇', icon: 20 },
+  { key: 'i-21', label: '旋翼机', icon: 21 },
+  { key: 'i-22', label: '反潜巡逻机', icon: 22 },
+  { key: 'i-23', label: '增设装甲', icon: 23 },
+  { key: 'i-24', label: '探照灯', icon: 24 },
+  { key: 'i-25', label: '运输桶', icon: 25 },
+  { key: 'i-26', label: '修理设施', icon: 26 },
+  { key: 'i-27', label: '照明弹', icon: 27 },
+  { key: 'i-28', label: '司令部设施', icon: 28 },
+  { key: 'i-29', label: '航空人员', icon: 29 },
+  { key: 'i-30', label: '高射装置', icon: 30 },
+  { key: 'i-31', label: '对陆装备', icon: 31 },
+  { key: 'i-32', label: '水上舰人员', icon: 32 },
+  { key: 'i-33', label: '大型飞行艇', icon: 33 },
+  { key: 'i-34', label: '战斗粮食', icon: 34 },
+  { key: 'i-35', label: '补给物资', icon: 35 },
+  { key: 'i-36', label: '特型内火艇', icon: 36 },
+  { key: 'i-37', label: '陆上攻击机', icon: 37 },
+  { key: 'i-38', label: '局地战斗机', icon: 38 },
+  { key: 'i-39', label: '喷气景云', icon: 39 },
+  { key: 'i-40', label: '橘花改', icon: 40 },
+  { key: 'i-41', label: '运输机材', icon: 41 },
+  { key: 'i-42', label: '潜水舰装备', icon: 42 },
+  { key: 'i-43', label: '水上战斗机', icon: 43 },
+  { key: 'i-44', label: '陆军战斗机', icon: 44 },
+  { key: 'i-45', label: '夜间战斗机', icon: 45 },
+  { key: 'i-46', label: '夜间攻击机', icon: 46 },
+  { key: 'i-47', label: '陆上反潜机', icon: 47 },
+  { key: 'i-48', label: '袭击机', icon: 48 },
+  { key: 'i-49', label: '大型陆上机', icon: 49 },
+  { key: 'i-50', label: '水上侦察机', icon: 50 },
+  { key: 'i-51', label: '特殊水侦', icon: 51 },
+  { key: 'i-52', label: 'DD战车', icon: 52 },
+  { key: 'i-54', label: '油罐装备', icon: 54 },
+  { key: 'i-55', label: '气球', icon: 55 },
+  { key: 'i-56', label: '喷气战斗机', icon: 56 },
+  { key: 'i-57', label: '震电系飞机', icon: 57 },
+  { key: 'i-58', label: '特殊飞机', icon: 58 },
+  { key: 'i-59', label: '航空装备', icon: 59 },
+  { key: 'i-60', label: '震电改', icon: 60 },
 ];
-
-const EQUIP_TYPE_TO_GROUP: Map<number, string> = (() => {
-  const m = new Map<number, string>();
-  for (const g of EQUIP_GROUPS) for (const t of g.types) m.set(t, g.key);
-  return m;
-})();
 
 const GROUP_LABEL: Map<string, string> = (() => {
   const m = new Map<string, string>();
-  for (const g of EQUIP_GROUPS) m.set(g.key, g.label);
-  m.set('other', '他');
+  for (const g of ICON_GROUPS) m.set(g.key, g.label);
+  m.set('other', '其他');
   return m;
 })();
 
 const GROUP_ICON: Map<string, number> = (() => {
   const m = new Map<string, number>();
-  for (const g of EQUIP_GROUPS) m.set(g.key, g.icon);
+  for (const g of ICON_GROUPS) m.set(g.key, g.icon);
   m.set('other', 0);
   return m;
 })();
 
-const CAT_ORDER: string[] = [
-  'gun_main', 'gun_sub', 'torpedo', 'planes', 'recon', 'radar', 'asw', 'land', 'jet', 'other',
-];
+const CAT_ORDER: string[] = (() => {
+  const out: string[] = [];
+  for (const g of ICON_GROUPS) out.push(g.key);
+  out.push('other');
+  return out;
+})();
 
 const STAGE_LABELS: string[] = ['★0 ～ 5', '★6 ～ 9', 'MAX'];
 
@@ -163,19 +208,30 @@ function jstWeekday(): number {
   return new Date(Date.now() + 9 * 3600 * 1000).getUTCDay();
 }
 
-function groupForType(equipType: number): string {
-  return EQUIP_TYPE_TO_GROUP.get(equipType) ?? 'other';
+function iconGroupForIcon(iconType: number): string {
+  return iconType > 0 ? `i-${iconType}` : 'other';
+}
+
+function iconIdFromGroup(group: string): number {
+  if (group.indexOf('i-') !== 0) return 0;
+  const id = Number(group.substring(2));
+  return id > 0 ? Math.floor(id) : 0;
 }
 
 function catLabel(group: string): string {
-  return GROUP_LABEL.get(group) ?? '他';
+  const label = GROUP_LABEL.get(group);
+  if (label !== undefined) return label;
+  const icon = iconIdFromGroup(group);
+  return icon > 0 ? `图标${icon}` : '其他';
 }
 
 function catIcon(group: string): number {
-  return GROUP_ICON.get(group) ?? 0;
+  const icon = GROUP_ICON.get(group);
+  if (icon !== undefined) return icon;
+  return iconIdFromGroup(group);
 }
 
-/** "通常 (確保)" 文本：确保值无效(<=0)或与通常相同时只显示通常值。 */
+/** "普通 (确保)" 文本：确保值无效(<=0)或与普通相同时只显示普通值。 */
 function amountText(normal: number, ensure: number): string {
   if (normal < 0) return '?';
   return ensure > 0 && ensure !== normal ? `${normal} (${ensure})` : `${normal}`;
@@ -280,7 +336,7 @@ export default struct RemodelInfoPage {
     return out;
   }
 
-  /** 解析秘书艦：合并各 req 组的 ship id，去重保序，解析艦名。 */
+  /** 解析秘书舰：合并各 req 组的 ship id，去重保序，解析舰名。 */
   private resolveSecretaries(reqs: ReqGroup[]): NamedShip[] {
     const seen = new Set<number>();
     const out: NamedShip[] = [];
@@ -302,8 +358,8 @@ export default struct RemodelInfoPage {
     const rows: RemodelRow[] = [];
     const cats = new Set<string>();
     for (const e of this.entries) {
-      const group = groupForType(getSlotItemMasterEquipType(e.id));
-      const iconType = getSlotItemMasterIconType(e.id) || catIcon(group);
+      const iconType = getSlotItemMasterIconType(e.id);
+      const group = iconGroupForIcon(iconType);
       const masterName = getSlotItemMasterName(e.id);
       const convName = e.convertTo > 0 ? getSlotItemMasterName(e.convertTo) : '';
       cats.add(group);
@@ -324,7 +380,13 @@ export default struct RemodelInfoPage {
       });
     }
     this.allRows = rows;
-    this.presentCats = CAT_ORDER.filter((c) => cats.has(c));
+    const orderedCats = CAT_ORDER.filter((c) => cats.has(c));
+    const extraCats: string[] = [];
+    cats.forEach((c: string) => {
+      if (CAT_ORDER.indexOf(c) < 0) extraCats.push(c);
+    });
+    extraCats.sort((a: string, b: string) => catIcon(a) - catIcon(b));
+    this.presentCats = orderedCats.concat(extraCats);
     this.recompute();
   }
 
@@ -393,7 +455,7 @@ export default struct RemodelInfoPage {
           .width(15)
           .height(15)
       }
-      Text(type === 'all' ? '全' : catLabel(type))
+      Text(type === 'all' ? '全部' : catLabel(type))
         .fontSize(12)
         .fontColor(this.typeFilter === type ? COLOR_FG_CHIP_ACTIVE : COLOR_FG_CHIP)
         .fontWeight(this.typeFilter === type ? FontWeight.Medium : FontWeight.Regular)
@@ -420,7 +482,7 @@ export default struct RemodelInfoPage {
           .height(36)
           .layoutWeight(1)
           .onChange((v: string) => this.setSearch(v))
-        Text(this.todayOnly ? '本日のみ' : '全曜日')
+        Text(this.todayOnly ? '仅今日' : '全部日期')
           .fontSize(12)
           .fontColor(this.todayOnly ? COLOR_FG_CHIP_ACTIVE : COLOR_FG_CHIP)
           .fontWeight(this.todayOnly ? FontWeight.Medium : FontWeight.Regular)
@@ -458,7 +520,7 @@ export default struct RemodelInfoPage {
           .width(16)
           .height(16)
       } else {
-        Text(c.use ? '資' : '装')
+        Text(c.use ? '道' : '装')
           .fontSize(9)
           .fontColor(COLOR_MUTED)
           .width(16)
@@ -478,7 +540,7 @@ export default struct RemodelInfoPage {
     }
   }
 
-  /** 段階消費表的一行。screw<=0 且无消费 视为「该段不存在」。 */
+  /** 阶段消耗表的一行。screw<=0 且无消费视为该段不存在。 */
   @Builder
   private StageRow(label: string, st: Stage | null) {
     Row() {
@@ -489,7 +551,7 @@ export default struct RemodelInfoPage {
       if (st === null || (st.screw <= 0 && st.dev <= 0 && st.consumed.length === 0)) {
         Text('—').fontSize(12).fontColor(COLOR_MUTED).layoutWeight(1).textAlign(TextAlign.Center)
       } else {
-        // 開発資材
+        // 开发材料
         Row({ space: 2 }) {
           if (st.dev < 0) {
             Text('?').fontSize(12).fontColor(COLOR_MUTED)
@@ -502,14 +564,14 @@ export default struct RemodelInfoPage {
         }
         .width(78)
         .justifyContent(FlexAlign.Center)
-        // 改修資材
+        // 改修材料
         Row({ space: 2 }) {
           Image(SCREW_ICON).width(14).height(14)
           Text(amountText(st.screw, st.screwGS)).fontSize(12).fontColor(COLOR_SCREW)
         }
         .width(72)
         .justifyContent(FlexAlign.Center)
-        // 消費装備
+        // 消耗装备
         Column({ space: 2 }) {
           if (st.consumed.length === 0) {
             Text('—').fontSize(12).fontColor(COLOR_MUTED)
@@ -529,16 +591,16 @@ export default struct RemodelInfoPage {
     .border({ width: { top: 0.5 }, color: '#20232e' })
   }
 
-  /** 展开区：段階消費表 + 基础资源 + 秘书艦明细。 */
+  /** 展开区：阶段消耗表 + 基础资源 + 秘书舰明细。 */
   @Builder
   private DetailPanel(row: RemodelRow, today: number) {
     Column({ space: 6 }) {
-      // 标题栏：★ / 開発資材 / 改修資材 / 消費装備
+      // 标题栏：★ / 开发材料 / 改修材料 / 消耗装备
       Row() {
         Text('★').fontSize(11).fontColor('#9aa3b0').width(58)
-        Text('開発資材').fontSize(11).fontColor('#9aa3b0').width(78).textAlign(TextAlign.Center)
+        Text('开发資材').fontSize(11).fontColor('#9aa3b0').width(78).textAlign(TextAlign.Center)
         Text('改修資材').fontSize(11).fontColor('#9aa3b0').width(72).textAlign(TextAlign.Center)
-        Text('消費装備').fontSize(11).fontColor('#9aa3b0').layoutWeight(1)
+        Text('消耗装备').fontSize(11).fontColor('#9aa3b0').layoutWeight(1)
       }
       .width('100%')
 
@@ -549,7 +611,7 @@ export default struct RemodelInfoPage {
       // MAX 改修更新先
       if (row.convertTo > 0) {
         Row({ space: 4 }) {
-          Text('改修更新').fontSize(11).fontColor('#9aa3b0').width(58)
+          Text('更新目标').fontSize(11).fontColor('#9aa3b0').width(58)
           if (getSlotItemMasterIconType(row.convertTo) > 0) {
             Image(equipLabel(getSlotItemMasterIconType(row.convertTo), 0, row.convertTo))
               .width(16).height(16)
@@ -569,7 +631,7 @@ export default struct RemodelInfoPage {
       // 基础资源（燃弹钢铝）
       if (row.base.length >= 4) {
         Row({ space: 10 }) {
-          Text('基礎').fontSize(11).fontColor('#9aa3b0').width(58)
+          Text('基础').fontSize(11).fontColor('#9aa3b0').width(58)
           ForEach(row.base, (v: number, idx: number) => {
             Row({ space: 2 }) {
               Image(BASE_ICONS[idx]).width(13).height(13)
@@ -581,10 +643,10 @@ export default struct RemodelInfoPage {
         .padding({ top: 4 })
       }
 
-      // 秘书艦
+      // 秘书舰
       Column({ space: 4 }) {
         Row() {
-          Text('秘书艦').fontSize(11).fontColor('#9aa3b0').layoutWeight(1)
+          Text('秘书舰').fontSize(11).fontColor('#9aa3b0').layoutWeight(1)
           this.DayStrip(row.days, today)
         }
         .width('100%')
@@ -604,7 +666,7 @@ export default struct RemodelInfoPage {
           }
           .width('100%')
         } else {
-          Text('（秘书艦データなし）')
+          Text('（无秘书舰数据）')
             .fontSize(10)
             .fontColor(COLOR_MUTED)
             .width('100%')
@@ -614,7 +676,7 @@ export default struct RemodelInfoPage {
       .padding({ top: 6 })
       .border({ width: { top: 0.5 }, color: COLOR_BORDER })
 
-      Text('※ ( )内は確保時の消費量。')
+      Text('※ 括号内为确保成功时的消耗量。')
         .fontSize(10)
         .fontColor(COLOR_MUTED)
         .width('100%')
@@ -624,7 +686,7 @@ export default struct RemodelInfoPage {
     .backgroundColor('#11141c')
   }
 
-  /** 折叠行的秘书艦摘要：最多 3 个艦名 + 余量；无名时回退到曜日条。 */
+  /** 折叠行的秘书舰摘要：最多 3 个舰名 + 余量；无名时回退到日期条。 */
   @Builder
   private SecretarySummary(row: RemodelRow, today: number) {
     if (row.secretaries.length > 0) {
@@ -638,7 +700,7 @@ export default struct RemodelInfoPage {
             .constraintSize({ maxWidth: 64 })
         }, (s: NamedShip) => `ss-${s.id}`)
         if (row.secretaries.length > 3) {
-          Text(`他${row.secretaries.length - 3}`)
+          Text(`另${row.secretaries.length - 3}`)
             .fontSize(10)
             .fontColor(COLOR_MUTED)
         }
@@ -722,7 +784,7 @@ export default struct RemodelInfoPage {
       // Header
       Row() {
         Row({ space: 8 }) {
-          Text('改修情报')
+          Text('改修信息')
             .fontSize(17)
             .fontWeight(FontWeight.Medium)
             .fontColor('#FFF')
