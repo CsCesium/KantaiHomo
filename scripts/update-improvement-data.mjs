@@ -3,28 +3,29 @@
 /**
  * update-improvement-data.mjs — 改修（装备改修）データの月次更新スクリプト。
  *
- * データソース: akashi-list.me （https://akashi-list.me/ , gh-pages の index.html に
- * 改修可能装备が `<div class="weapon" id="wNNN">` ブロックとして埋め込まれている）。
+ * データソース: ElectronicObserver のデータリポジトリ
+ *   https://raw.githubusercontent.com/ElectronicObserverEN/Data/master/Data/EquipmentUpgrades.json
  *
- * 取得できる情報（akashi-list が公開している範囲）:
- *   - 装备 master id（= weapon id）/ 名称
- *   - akashi カテゴリ（type）
- *   - 改修资材（ネジ）の段階別消費数  ★0〜5 / ★6〜9 / MAX
- *   - 秘书艦（改修補助艦）の曜日別可否（日〜土）
+ * ElectronicObserver(EN) は現在も活発に更新されている艦これビューアで、その改修
+ * データは日本語 wiki「改修表」由来かつ最新（新装备も収録）。各装备・各段階の
+ * 完全な配方を持つ：
+ *   - 開発資材（通常 devmats / 確保 devmats_sli）
+ *   - 改修資材ネジ（通常 screws / 確保 screws_sli）
+ *   - 消費装備（equips）/ 消費道具（consumable）
+ *   - 基礎消費（燃弹钢铝）
+ *   - 秘书艦（helpers の ship master id + 曜日）
+ *   - MAX 改修更新先（convert.id_after）
  *
- * 取得できない情報（akashi-list に存在しない → JSON にも入らない）:
- *   - 開発资材 / 消費装备（→ 日本語 wiki「改修表」が必要）
- *   - 秘书艦の艦名（akashi はスプライト index のみ持ち、艦名対応表が無い）
+ * 装备名・カテゴリ・アイコンはアプリ内のマスターデータ(api_mst_slotitem)から
+ * master id で解決するため、JSON には配方のみを格納する。
  *
  * 出力: entry/src/main/resources/rawfile/data/improvement.json
  *
  * 使い方:
- *   node scripts/update-improvement-data.mjs            # akashi-list から取得
- *   node scripts/update-improvement-data.mjs <file.html> # ローカル HTML から生成
+ *   node scripts/update-improvement-data.mjs                  # ネットから取得
+ *   node scripts/update-improvement-data.mjs <EquipmentUpgrades.json>
  *
- * 月次運用: 毎月 1 回このスクリプトを実行し、生成された JSON をコミットする。
- * （CI のデータセンター IP は Cloudflare にブロックされることがあるため、
- *  ネットワーク制限の無い通常マシン上で実行すること。）
+ * 月次運用: 毎月 1 回実行し、生成された JSON をコミットする。
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
@@ -37,126 +38,126 @@ const OUT_PATH = resolve(
   '../entry/src/main/resources/rawfile/data/improvement.json'
 );
 
-// akashi-list.me 本体は Cloudflare で弾かれることがあるため gh-pages の生 HTML を優先。
-const SOURCES = [
-  'https://raw.githubusercontent.com/yukikuri/akashi-list/gh-pages/index.html',
-  'https://akashi-list.me/',
-];
+const SOURCE =
+  'https://raw.githubusercontent.com/ElectronicObserverEN/Data/master/Data/EquipmentUpgrades.json';
 
-const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+const WEEK = ['日', '月', '火', '水', '木', '金', '土']; // 0=日(Sun)..6=土(Sat)
 
-async function loadHtml(localPath) {
+async function loadJson(localPath) {
+  let text;
   if (localPath) {
     console.log(`[improvement] reading local file: ${localPath}`);
-    return await readFile(localPath, 'utf-8');
+    text = await readFile(localPath, 'utf-8');
+  } else {
+    console.log(`[improvement] fetching: ${SOURCE}`);
+    const res = await fetch(SOURCE, { headers: { 'User-Agent': 'kantaihomo-updater' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${SOURCE}`);
+    text = await res.text();
   }
-  for (const url of SOURCES) {
-    try {
-      console.log(`[improvement] fetching: ${url}`);
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
-        },
-      });
-      if (res.ok) return await res.text();
-      console.warn(`[improvement]   -> HTTP ${res.status}`);
-    } catch (e) {
-      console.warn(`[improvement]   -> ${String(e)}`);
-    }
-  }
-  throw new Error('all sources failed; pass a local HTML file as argument');
+  // EquipmentUpgrades.json は UTF-8 BOM 付き。
+  return JSON.parse(text.replace(/^﻿/, ''));
 }
 
-/** aia-all スクリプト内の weapon メタ表 {id:"NNN",type:"key"} から id→type を作る。 */
-function parseTypeMap(html) {
-  const m = html.match(/<script id=aia-all>([\s\S]*?)<\/script>/);
-  const map = new Map();
-  if (!m) return map;
-  const re = /\{id:"(\d+)",type:"([a-zA-Z]+)"/g;
-  let g;
-  while ((g = re.exec(m[1])) !== null) {
-    map.set(parseInt(g[1], 10), g[2]);
-  }
-  return map;
+/** EO の helpers[].days(曜日 index 配列) を 7 要素 bool 配列に。 */
+function daysToBool(days) {
+  const out = [false, false, false, false, false, false, false];
+  if (Array.isArray(days)) for (const d of days) if (d >= 0 && d < 7) out[d] = true;
+  return out;
 }
 
-/** 1 つの support-ship セグメントから {sprite, days[7]} を作る。 */
-function parseSecretary(seg) {
-  const sm = seg.match(/\/img\/s(\d+)\.png/);
-  if (!sm) return null;
-  const days = [];
-  const re = /<span( class=enable)?>[日月火水木金土]<\/span>/g;
-  let g;
-  while ((g = re.exec(seg)) !== null) days.push(Boolean(g[1]));
-  // 7 つの曜日 span が揃わない場合は欠落を false 扱いで 7 個に整える
-  while (days.length < 7) days.push(false);
-  return { sprite: parseInt(sm[1], 10), days: days.slice(0, 7) };
-}
-
-function parseKit(block) {
-  const m = block.match(/class=remodelkit>([^<]+)</);
-  if (!m) return [null, null, null];
-  const parts = m[1].split('/').map((s) => s.trim());
-  const toNum = (s) => {
-    if (s === undefined || s === '' || s === '-' || s === '−') return null;
-    const n = parseInt(s.replace(/[^0-9]/g, ''), 10);
-    return Number.isFinite(n) ? n : null;
-  };
-  return [toNum(parts[0]), toNum(parts[1]), toNum(parts[2])];
-}
-
-function parseEquipment(html, typeMap) {
-  const marker = '<div class=weapon id=w';
-  const starts = [];
-  for (let i = html.indexOf(marker); i >= 0; i = html.indexOf(marker, i + 1)) {
-    starts.push(i);
-  }
+/** consumed: equips(装备) + consumable(道具) を {id,count,use} 配列に。 */
+function buildConsumed(phase) {
   const out = [];
-  for (let k = 0; k < starts.length; k++) {
-    const block = html.slice(starts[k], starts[k + 1] ?? html.length);
-    // id は `id=wNNN>` または `id=wNNN data-tip-style=...>` の両形がある。
-    const idm = block.match(/id=w(\d+)/);
-    if (!idm) continue;
-    const id = parseInt(idm[1], 10);
-    // alt は `alt="019: 名称"`（引用符あり）と `alt=091:名称>`（引用符なし）の両形がある。
-    const namem = block.match(/alt="?\d+:\s*([^">]+)/);
-    const name = namem ? namem[1].trim() : '';
-    const kit = parseKit(block);
-
-    // remodelkit が無い／全段 null の装备は「改修不可」。改修一覧には載せない。
-    if (kit.every((x) => x === null)) continue;
-
-    const secretaries = [];
-    const segs = block.split('class=support-ship>');
-    for (let s = 1; s < segs.length; s++) {
-      const sec = parseSecretary(segs[s]);
-      if (sec) secretaries.push(sec);
-    }
-
-    // 改修可能曜日 = 全秘书艦の可否の OR。秘书艦が無ければ全曜日可とみなす。
-    const days = [false, false, false, false, false, false, false];
-    if (secretaries.length === 0) days.fill(true);
-    else for (const sec of secretaries) for (let d = 0; d < 7; d++) days[d] = days[d] || sec.days[d];
-
-    out.push({ id, name, type: typeMap.get(id) ?? 'etc', kit, days, secretaries });
+  for (const e of phase.equips || []) {
+    const id = Number(e.id) || 0;
+    const count = Number(e.eq_count) || 0;
+    if (id > 0 && count > 0) out.push({ id, count, use: false });
+  }
+  for (const c of phase.consumable || []) {
+    const id = Number(c.id) || 0;
+    const count = Number(c.eq_count) || 0;
+    if (id > 0 && count > 0) out.push({ id, count, use: true });
   }
   return out;
 }
 
-async function main() {
-  const localPath = process.argv[2];
-  const html = await loadHtml(localPath);
-  const typeMap = parseTypeMap(html);
-  const equipment = parseEquipment(html, typeMap);
-  equipment.sort((a, b) => a.id - b.id);
+/** EO phase(p1/p2/conv) → stage オブジェクト。無い段階は null。 */
+function buildStage(phase) {
+  if (!phase) return null;
+  const dev = Number(phase.devmats) || 0;
+  const devGS = Number(phase.devmats_sli) || 0;
+  const screw = Number(phase.screws) || 0;
+  const screwGS = Number(phase.screws_sli) || 0;
+  const consumed = buildConsumed(phase);
+  // 段階が完全に空（改修更新が無い等）の場合 null 扱い。
+  if (dev === 0 && devGS === 0 && screw === 0 && screwGS === 0 && consumed.length === 0) return null;
+  return { dev, devGS, screw, screwGS, consumed };
+}
 
-  if (equipment.length === 0) throw new Error('parsed 0 equipment — source layout may have changed');
+function transform(eo) {
+  const equipment = [];
+  for (const entry of eo) {
+    const imps = entry.improvement;
+    if (!Array.isArray(imps) || imps.length === 0) continue;
+
+    // 配方・更新先は標準改修(improvement[0])を採用。曜日/秘书艦は全 entry の和集合。
+    const main = imps[0];
+    const costs = main.costs || {};
+    const stages = [buildStage(costs.p1), buildStage(costs.p2), buildStage(costs.conv)];
+
+    const base = [
+      Number(costs.fuel) || 0,
+      Number(costs.ammo) || 0,
+      Number(costs.steel) || 0,
+      Number(costs.baux) || 0,
+    ];
+
+    const reqs = [];
+    const days = [false, false, false, false, false, false, false];
+    for (const im of imps) {
+      for (const h of im.helpers || []) {
+        const hb = daysToBool(h.days);
+        const ships = (h.ship_ids || []).filter((x) => typeof x === 'number' && x > 0);
+        for (let d = 0; d < 7; d++) days[d] = days[d] || hb[d];
+        reqs.push({ days: hb, ships });
+      }
+    }
+    // helpers/曜日データが無い装备は「いつでも改修可」とみなす。
+    if (!days.some(Boolean)) days.fill(true);
+
+    const convertTo = Number((main.convert || {}).id_after) || 0;
+
+    equipment.push({
+      id: entry.eq_id,
+      base,
+      stages,
+      convertTo,
+      reqs,
+      days,
+      secretaryCount: reqs.reduce((n, r) => n + r.ships.length, 0),
+    });
+  }
+  equipment.sort((a, b) => a.id - b.id);
+  return equipment;
+}
+
+async function main() {
+  const eo = await loadJson(process.argv[2]);
+  if (!Array.isArray(eo)) throw new Error('unexpected source format (expected array)');
+
+  const equipment = transform(eo);
+  if (equipment.length === 0) throw new Error('parsed 0 equipment — source schema may have changed');
 
   const today = new Date();
   const payload = {
-    source: 'https://akashi-list.me/',
-    note: 'Generated by scripts/update-improvement-data.mjs. days/secretaries[].days order: ' + WEEK.join(''),
+    source: 'https://raw.githubusercontent.com/ElectronicObserverEN/Data (wiki-derived, maintained)',
+    note:
+      'days & reqs[].days order: ' + WEEK.join('') + ' (0=Sun). ' +
+      'stages = [★0-5, ★6-9, MAX]; null = stage not applicable. each stage ' +
+      '{dev,devGS(確保),screw,screwGS(確保),consumed:[{id,count,use}]}. ' +
+      'consumed.use=false→slotitem master id, use=true→useitem id. ' +
+      'reqs[].ships = secretary ship master ids. convertTo = MAX 改修更新先 equip id (0=none). ' +
+      '装备名/カテゴリ/アイコンは master id からアプリ内で解決。',
     fetchedAt: `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`,
     count: equipment.length,
     equipment,

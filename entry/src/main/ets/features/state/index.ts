@@ -41,6 +41,7 @@ export {
   updateUseItems,
   getUseItemCount,
   updateUseItemMasterNames,
+  getUseItemMasterName,
   getUseItemCountByName,
   patchMaterials,
   addSortieResourceGains,

@@ -4,31 +4,49 @@ import {
   subscribeGameState,
   getGameState,
   getSlotItemMasterName,
+  getSlotItemMasterEquipType,
   getSlotItemMasterIconType,
+  getUseItemMasterName,
+  getShipMasterName,
 } from '../../../../features/state';
 import { equipLabel } from '../../../../features/panel/panelConfig';
 
 // ==================== 数据 schema ====================
 //
-// 改修情报由 rawfile/data/improvement.json 提供，数据源 akashi-list.me，
-// 由 scripts/update-improvement-data.mjs 每月拉取更新。
-//
-// akashi-list 仅提供「改修资材(ネジ)」段階别消費 + 秘书艦的曜日别可否；
-// 「開発资材 / 消費装备」需日文 wiki，akashi-list 未提供（展示为 —）。
-// 秘书艦 akashi 仅有内部 sprite index、无艦名对应表，故以「曜日可否」呈现。
+// 改修情报由 rawfile/data/improvement.json 提供，由
+// scripts/update-improvement-data.mjs 每月从 ElectronicObserver 数据库
+// (wiki「改修表」由来、持续更新) 拉取生成。每个段階含完整配方：
+//   開発資材(通常 dev / 確保 devGS) / 改修資材ネジ(通常 screw / 確保 screwGS) /
+//   消費装備(consumed) / 基礎消費(base) / 秘书艦(reqs.ships) / MAX 改修更新先(convertTo)。
+// 装备名・分类・图标按 master id 在 App 内解析。
 
-interface ImprovementSecretary {
-  sprite: number;
-  days: boolean[];     // 长度 7，顺序 日月火水木金土
+interface ConsumedItem {
+  id: number;
+  count: number;
+  use: boolean;   // true=道具(useitem)，false=装备(slotitem)
+}
+
+interface ReqGroup {
+  days: boolean[];   // 长度 7，日月火水木金土
+  ships: number[];   // 秘书艦 master id
+}
+
+interface Stage {
+  dev: number;       // 開発資材（通常）
+  devGS: number;     // 開発資材（確保）
+  screw: number;     // 改修資材ネジ（通常）
+  screwGS: number;   // 改修資材ネジ（確保）
+  consumed: ConsumedItem[];
 }
 
 interface ImprovementEntry {
-  id: number;          // 装备 master id
-  name: string;
-  type: string;        // akashi 分类 key
-  kit: (number | null)[];  // [★0-5, ★6-9, MAX] 改修资材(ネジ) 数，null = 该段不可
-  days: boolean[];     // 长度 7，= 各秘书艦可否的并集（该曜日是否可改修）
-  secretaries: ImprovementSecretary[];
+  id: number;
+  base: number[];               // [燃,弹,钢,铝]
+  stages: (Stage | null)[];     // [★0-5, ★6-9, MAX]
+  convertTo: number;            // MAX 改修更新先 master id（0=无）
+  reqs: ReqGroup[];
+  days: boolean[];
+  secretaryCount: number;
 }
 
 interface ImprovementFile {
@@ -40,64 +58,81 @@ interface ImprovementFile {
 
 // ==================== 视图模型 ====================
 
+interface NamedShip { id: number; name: string; }
+
 interface RemodelRow {
   id: number;
   name: string;
-  type: string;
+  group: string;    // 装备大类 key（与装备一览一致）
   iconType: number;
-  kit: (number | null)[];
+  base: number[];
+  stages: (Stage | null)[];
+  convertTo: number;
+  convertToName: string;
+  reqs: ReqGroup[];
   days: boolean[];
-  secretaries: ImprovementSecretary[];
-  held: number;        // 实际持有数量
-  availToday: boolean; // 当前日本时间是否可改修
+  secretaries: NamedShip[];
+  held: number;
+  availToday: boolean;
 }
 
 // ==================== 常量 ====================
 
 const REMODEL_RAWFILE = 'data/improvement.json';
 
-const SCREW_ICON = 'resource://RAWFILE/icons/res/nail.png';
+const RES_ICON_DIR = 'resource://RAWFILE/icons/res/';
+const DEV_ICON = `${RES_ICON_DIR}dev.png`;
+const SCREW_ICON = `${RES_ICON_DIR}nail.png`;
+const BASE_ICONS: string[] = [
+  `${RES_ICON_DIR}fuel.png`,
+  `${RES_ICON_DIR}ammo.png`,
+  `${RES_ICON_DIR}iron.png`,
+  `${RES_ICON_DIR}bauxite.png`,
+];
 
 const WEEK: string[] = ['日', '月', '火', '水', '木', '金', '土'];
 
-interface CatInfo { label: string; icon: number; }
+// 装备大类分组：与「装备一览」(EquipInfoPage) 保持一致，按 equipType(api_type[2])
+// 归类，分类按钮用对应的代表 icon。
+interface GroupSpec { key: string; label: string; icon: number; types: number[]; }
 
-/** akashi 分类 key → {短标签, 代表 icon(api_type[3])}。代表 icon 仅用于分类按钮与兜底。 */
-const CAT_INFO: Map<string, CatInfo> = (() => {
-  const m = new Map<string, CatInfo>();
-  m.set('lightGun', { label: '小口径主砲', icon: 1 });
-  m.set('mediumGun', { label: '中口径主砲', icon: 2 });
-  m.set('heavyGun', { label: '大口径主砲', icon: 3 });
-  m.set('secondaryGun', { label: '副砲', icon: 4 });
-  m.set('antiAircraftGun', { label: '対空機銃・高射', icon: 15 });
-  m.set('torpedo', { label: '魚雷', icon: 5 });
-  m.set('asw', { label: '対潜', icon: 18 });
-  m.set('shell', { label: '強化弾', icon: 13 });
-  m.set('fighter', { label: '艦戦', icon: 6 });
-  m.set('diveBomber', { label: '艦爆', icon: 7 });
-  m.set('torpedoBomber', { label: '艦攻', icon: 8 });
-  m.set('aircraft', { label: '攻撃機', icon: 8 });
-  m.set('seaplane', { label: '水偵', icon: 10 });
-  m.set('seaplaneBomber', { label: '水爆', icon: 10 });
-  m.set('radar', { label: '電探', icon: 11 });
-  m.set('landbasedAircraft', { label: '陸上機', icon: 37 });
-  m.set('landingCraft', { label: '上陸用舟艇', icon: 20 });
-  m.set('bulge', { label: '機関・バルジ', icon: 23 });
-  m.set('searchlight', { label: '探照灯', icon: 24 });
-  m.set('etc', { label: 'その他', icon: 0 });
+const EQUIP_GROUPS: GroupSpec[] = [
+  { key: 'gun_main', label: '主砲',   icon: 3,  types: [1, 2, 3, 38] },
+  { key: 'gun_sub',  label: '副対空', icon: 4,  types: [4, 21, 36] },
+  { key: 'torpedo',  label: '魚雷',   icon: 5,  types: [5, 32] },
+  { key: 'planes',   label: '艦載',   icon: 6,  types: [6, 7, 8, 11, 25, 26, 45] },
+  { key: 'recon',    label: '偵察',   icon: 9,  types: [9, 10, 41, 49, 57] },
+  { key: 'radar',    label: '電探',   icon: 11, types: [12, 13, 27, 28, 58] },
+  { key: 'asw',      label: '対潜',   icon: 18, types: [14, 15, 40] },
+  { key: 'land',     label: '陸上',   icon: 37, types: [47, 48, 52, 53] },
+  { key: 'jet',      label: '噴式',   icon: 56, types: [54, 55, 56] },
+];
+
+const EQUIP_TYPE_TO_GROUP: Map<number, string> = (() => {
+  const m = new Map<number, string>();
+  for (const g of EQUIP_GROUPS) for (const t of g.types) m.set(t, g.key);
   return m;
 })();
 
-/** 分类按钮显示顺序（与 akashi-list 大致一致）。 */
+const GROUP_LABEL: Map<string, string> = (() => {
+  const m = new Map<string, string>();
+  for (const g of EQUIP_GROUPS) m.set(g.key, g.label);
+  m.set('other', '他');
+  return m;
+})();
+
+const GROUP_ICON: Map<string, number> = (() => {
+  const m = new Map<string, number>();
+  for (const g of EQUIP_GROUPS) m.set(g.key, g.icon);
+  m.set('other', 0);
+  return m;
+})();
+
 const CAT_ORDER: string[] = [
-  'lightGun', 'mediumGun', 'heavyGun', 'secondaryGun', 'antiAircraftGun',
-  'torpedo', 'asw', 'shell',
-  'fighter', 'diveBomber', 'torpedoBomber', 'aircraft',
-  'seaplane', 'seaplaneBomber', 'radar', 'landbasedAircraft',
-  'landingCraft', 'bulge', 'searchlight', 'etc',
+  'gun_main', 'gun_sub', 'torpedo', 'planes', 'recon', 'radar', 'asw', 'land', 'jet', 'other',
 ];
 
-const STAGE_LABELS: string[] = ['★0 ～ 5', '★6 ～ 9', 'MAX進化'];
+const STAGE_LABELS: string[] = ['★0 ～ 5', '★6 ～ 9', 'MAX'];
 
 const COLOR_BG_PAGE = '#1a1d27';
 const COLOR_BG_HEADER = '#0f1118';
@@ -108,11 +143,13 @@ const COLOR_BG_CHIP = '#1c1f2a';
 const COLOR_FG_CHIP = '#aab1bd';
 const COLOR_BORDER = '#272a36';
 const COLOR_SCREW = '#FFD54F';
+const COLOR_DEV = '#80CBC4';
 const COLOR_HELD = '#A5D6A7';
 const COLOR_DAY_ON = '#56d8e0';
 const COLOR_DAY_OFF = '#3a3f4c';
 const COLOR_TODAY = '#FFD54F';
 const COLOR_MUTED = '#5a6270';
+const COLOR_SECRETARY = '#B0BEC5';
 
 // ==================== 工具函数 ====================
 
@@ -121,18 +158,28 @@ function jstWeekday(): number {
   return new Date(Date.now() + 9 * 3600 * 1000).getUTCDay();
 }
 
-function catLabel(type: string): string {
-  const info = CAT_INFO.get(type);
-  return info !== undefined ? info.label : type;
+function groupForType(equipType: number): string {
+  return EQUIP_TYPE_TO_GROUP.get(equipType) ?? 'other';
 }
 
-function catIcon(type: string): number {
-  const info = CAT_INFO.get(type);
-  return info !== undefined ? info.icon : 0;
+function catLabel(group: string): string {
+  return GROUP_LABEL.get(group) ?? '他';
 }
 
-function screwText(v: number | null): string {
-  return v === null ? '—' : `${v}`;
+function catIcon(group: string): number {
+  return GROUP_ICON.get(group) ?? 0;
+}
+
+/** "通常 (確保)" 文本：确保值无效(<=0)或与通常相同时只显示通常值。 */
+function amountText(normal: number, ensure: number): string {
+  if (normal < 0) return '?';
+  return ensure > 0 && ensure !== normal ? `${normal} (${ensure})` : `${normal}`;
+}
+
+function consumedName(c: ConsumedItem): string {
+  const n = c.use ? getUseItemMasterName(c.id) : getSlotItemMasterName(c.id);
+  if (n.length > 0) return n;
+  return c.use ? `道具#${c.id}` : `装备#${c.id}`;
 }
 
 // ==================== 页面组件 ====================
@@ -151,14 +198,12 @@ export default struct RemodelInfoPage {
   @Local private todayOnly: boolean = true;
   @Local private expandedId: number = -1;
 
-  /** 解析后的原始数据（非响应式，状态变化时据此重建行）。 */
   private entries: ImprovementEntry[] = [];
   private loaded: boolean = false;
   private unsubscribe: (() => void) | null = null;
 
   aboutToAppear(): void {
     void this.loadData();
-    // 持有数量随 port / slot_item 全量刷新变化；订阅 ships / all 重建行。
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships') {
         this.rebuildRows();
@@ -190,13 +235,27 @@ export default struct RemodelInfoPage {
     this.rebuildRows();
   }
 
-  /** 统计每个 master id 的实际持有数量。 */
   private buildHeldIndex(): Map<number, number> {
     const out = new Map<number, number>();
     const state = getGameState().getState();
     state.slotItemIndex.forEach((masterId: number) => {
       out.set(masterId, (out.get(masterId) ?? 0) + 1);
     });
+    return out;
+  }
+
+  /** 解析秘书艦：合并各 req 组的 ship id，去重保序，解析艦名。 */
+  private resolveSecretaries(reqs: ReqGroup[]): NamedShip[] {
+    const seen = new Set<number>();
+    const out: NamedShip[] = [];
+    for (const r of reqs) {
+      for (const sid of r.ships) {
+        if (seen.has(sid)) continue;
+        seen.add(sid);
+        const nm = getShipMasterName(sid);
+        out.push({ id: sid, name: nm !== undefined && nm.length > 0 ? nm : `#${sid}` });
+      }
+    }
     return out;
   }
 
@@ -207,17 +266,23 @@ export default struct RemodelInfoPage {
     const rows: RemodelRow[] = [];
     const cats = new Set<string>();
     for (const e of this.entries) {
-      const iconType = getSlotItemMasterIconType(e.id) || catIcon(e.type);
+      const group = groupForType(getSlotItemMasterEquipType(e.id));
+      const iconType = getSlotItemMasterIconType(e.id) || catIcon(group);
       const masterName = getSlotItemMasterName(e.id);
-      cats.add(e.type);
+      const convName = e.convertTo > 0 ? getSlotItemMasterName(e.convertTo) : '';
+      cats.add(group);
       rows.push({
         id: e.id,
-        name: masterName.length > 0 ? masterName : e.name,
-        type: e.type,
+        name: masterName.length > 0 ? masterName : `#${e.id}`,
+        group,
         iconType,
-        kit: e.kit,
+        base: e.base ?? [],
+        stages: e.stages,
+        convertTo: e.convertTo,
+        convertToName: convName.length > 0 ? convName : (e.convertTo > 0 ? `#${e.convertTo}` : ''),
+        reqs: e.reqs,
         days: e.days,
-        secretaries: e.secretaries,
+        secretaries: this.resolveSecretaries(e.reqs),
         held: held.get(e.id) ?? 0,
         availToday: e.days.length === 7 ? e.days[today] : true,
       });
@@ -227,14 +292,13 @@ export default struct RemodelInfoPage {
     this.recompute();
   }
 
-  /** 依次应用 本日 / 搜索 / 分类 过滤，按 持有降序 + master id 排序。 */
   private recompute(): void {
     const q = this.searchText.trim().toLowerCase();
     const out: RemodelRow[] = [];
     for (const r of this.allRows) {
       if (this.todayOnly && !r.availToday) continue;
       if (q.length > 0 && r.name.toLowerCase().indexOf(q) < 0) continue;
-      if (this.typeFilter !== 'all' && r.type !== this.typeFilter) continue;
+      if (this.typeFilter !== 'all' && r.group !== this.typeFilter) continue;
       out.push(r);
     }
     out.sort((a, b) => (b.held - a.held) || (a.id - b.id));
@@ -264,7 +328,6 @@ export default struct RemodelInfoPage {
 
   // ==================== Builders ====================
 
-  /** 7 格曜日条：可改修高亮，今日加边框。 */
   @Builder
   private DayStrip(days: boolean[], today: number) {
     Row({ space: 2 }) {
@@ -328,7 +391,6 @@ export default struct RemodelInfoPage {
       }
       .width('100%')
 
-      // 分类按钮（带 icon）
       Scroll() {
         Row({ space: 6 }) {
           this.CatChip('all')
@@ -347,93 +409,208 @@ export default struct RemodelInfoPage {
     .border({ width: { bottom: 0.5 }, color: COLOR_BORDER })
   }
 
-  /** 展开区：段階消費表 + 秘书艦曜日明细。 */
+  /** 单个消费装备 chip：[icon][名称]×N。 */
+  @Builder
+  private ConsumedChip(c: ConsumedItem) {
+    Row({ space: 2 }) {
+      if (!c.use && getSlotItemMasterIconType(c.id) > 0) {
+        Image(equipLabel(getSlotItemMasterIconType(c.id), 0, c.id))
+          .width(16)
+          .height(16)
+      } else {
+        Text(c.use ? '資' : '装')
+          .fontSize(9)
+          .fontColor(COLOR_MUTED)
+          .width(16)
+          .height(16)
+          .textAlign(TextAlign.Center)
+          .backgroundColor('#222633')
+          .borderRadius(3)
+      }
+      Text(consumedName(c))
+        .fontSize(11)
+        .fontColor('#C8D0DA')
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(`×${c.count}`)
+        .fontSize(11)
+        .fontColor('#9aa3b0')
+    }
+  }
+
+  /** 段階消費表的一行。screw<=0 且无消费 视为「该段不存在」。 */
+  @Builder
+  private StageRow(label: string, st: Stage | null) {
+    Row() {
+      Text(label)
+        .fontSize(12)
+        .fontColor('#C8D0DA')
+        .width(58)
+      if (st === null || (st.screw <= 0 && st.dev <= 0 && st.consumed.length === 0)) {
+        Text('—').fontSize(12).fontColor(COLOR_MUTED).layoutWeight(1).textAlign(TextAlign.Center)
+      } else {
+        // 開発資材
+        Row({ space: 2 }) {
+          if (st.dev < 0) {
+            Text('?').fontSize(12).fontColor(COLOR_MUTED)
+          } else if (st.dev === 0 && st.devGS <= 0) {
+            Text('0').fontSize(12).fontColor(COLOR_MUTED)
+          } else {
+            Image(DEV_ICON).width(14).height(14)
+            Text(amountText(st.dev, st.devGS)).fontSize(12).fontColor(COLOR_DEV)
+          }
+        }
+        .width(78)
+        .justifyContent(FlexAlign.Center)
+        // 改修資材
+        Row({ space: 2 }) {
+          Image(SCREW_ICON).width(14).height(14)
+          Text(amountText(st.screw, st.screwGS)).fontSize(12).fontColor(COLOR_SCREW)
+        }
+        .width(72)
+        .justifyContent(FlexAlign.Center)
+        // 消費装備
+        Column({ space: 2 }) {
+          if (st.consumed.length === 0) {
+            Text('—').fontSize(12).fontColor(COLOR_MUTED)
+          } else {
+            ForEach(st.consumed, (c: ConsumedItem) => {
+              this.ConsumedChip(c)
+            }, (c: ConsumedItem) => `cs-${c.use ? 'u' : 's'}-${c.id}`)
+          }
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
+    }
+    .width('100%')
+    .padding({ top: 5, bottom: 5 })
+    .alignItems(VerticalAlign.Center)
+    .border({ width: { top: 0.5 }, color: '#20232e' })
+  }
+
+  /** 展开区：段階消費表 + 基础资源 + 秘书艦明细。 */
   @Builder
   private DetailPanel(row: RemodelRow, today: number) {
-    Column({ space: 8 }) {
-      // 标题栏：★ / 開発资材 / 改修资材 / 消費装备
+    Column({ space: 6 }) {
+      // 标题栏：★ / 開発資材 / 改修資材 / 消費装備
       Row() {
-        Text('★').fontSize(11).fontColor('#9aa3b0').width(64)
-        Text('開発資材').fontSize(11).fontColor('#9aa3b0').layoutWeight(1).textAlign(TextAlign.Center)
-        Text('改修資材').fontSize(11).fontColor('#9aa3b0').layoutWeight(1).textAlign(TextAlign.Center)
-        Text('消費装備').fontSize(11).fontColor('#9aa3b0').layoutWeight(1).textAlign(TextAlign.Center)
+        Text('★').fontSize(11).fontColor('#9aa3b0').width(58)
+        Text('開発資材').fontSize(11).fontColor('#9aa3b0').width(78).textAlign(TextAlign.Center)
+        Text('改修資材').fontSize(11).fontColor('#9aa3b0').width(72).textAlign(TextAlign.Center)
+        Text('消費装備').fontSize(11).fontColor('#9aa3b0').layoutWeight(1)
       }
       .width('100%')
-      .padding({ bottom: 4 })
-      .border({ width: { bottom: 0.5 }, color: COLOR_BORDER })
 
-      ForEach(STAGE_LABELS, (label: string, idx: number) => {
-        Row() {
-          Text(label)
-            .fontSize(12)
-            .fontColor('#C8D0DA')
-            .width(64)
-          // 開発資材（akashi 未提供）
-          Text('—')
-            .fontSize(12)
-            .fontColor(COLOR_MUTED)
-            .layoutWeight(1)
-            .textAlign(TextAlign.Center)
-          // 改修資材（ネジ）
-          Row({ space: 3 }) {
-            if (row.kit[idx] !== null && row.kit[idx] !== undefined) {
-              Image(SCREW_ICON)
-                .width(15)
-                .height(15)
-              Text(`×${screwText(row.kit[idx])}`)
-                .fontSize(13)
-                .fontColor(COLOR_SCREW)
-                .fontWeight(FontWeight.Medium)
-            } else {
-              Text('不可')
-                .fontSize(11)
-                .fontColor(COLOR_MUTED)
-            }
+      this.StageRow(STAGE_LABELS[0], row.stages.length > 0 ? row.stages[0] : null)
+      this.StageRow(STAGE_LABELS[1], row.stages.length > 1 ? row.stages[1] : null)
+      this.StageRow(STAGE_LABELS[2], row.stages.length > 2 ? row.stages[2] : null)
+
+      // MAX 改修更新先
+      if (row.convertTo > 0) {
+        Row({ space: 4 }) {
+          Text('改修更新').fontSize(11).fontColor('#9aa3b0').width(58)
+          if (getSlotItemMasterIconType(row.convertTo) > 0) {
+            Image(equipLabel(getSlotItemMasterIconType(row.convertTo), 0, row.convertTo))
+              .width(16).height(16)
           }
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-          // 消費装備（akashi 未提供）
-          Text('—')
+          Text(`→ ${row.convertToName}`)
             .fontSize(12)
-            .fontColor(COLOR_MUTED)
+            .fontColor('#C8B99A')
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
             .layoutWeight(1)
-            .textAlign(TextAlign.Center)
         }
         .width('100%')
-        .height(28)
+        .padding({ top: 4 })
         .alignItems(VerticalAlign.Center)
-      }, (label: string, idx: number) => `st-${idx}`)
+      }
 
-      // 秘书艦曜日明细
+      // 基础资源（燃弹钢铝）
+      if (row.base.length >= 4) {
+        Row({ space: 10 }) {
+          Text('基礎').fontSize(11).fontColor('#9aa3b0').width(58)
+          ForEach(row.base, (v: number, idx: number) => {
+            Row({ space: 2 }) {
+              Image(BASE_ICONS[idx]).width(13).height(13)
+              Text(`${v}`).fontSize(11).fontColor('#9aa3b0')
+            }
+          }, (v: number, idx: number) => `b-${idx}`)
+        }
+        .width('100%')
+        .padding({ top: 4 })
+      }
+
+      // 秘书艦
       Column({ space: 4 }) {
         Row() {
-          Text(`改修可能曜日（秘书艦候補 ${row.secretaries.length} 隻）`)
-            .fontSize(11)
-            .fontColor('#9aa3b0')
-            .layoutWeight(1)
+          Text('秘书艦').fontSize(11).fontColor('#9aa3b0').layoutWeight(1)
           this.DayStrip(row.days, today)
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
+
+        if (row.secretaries.length > 0) {
+          Flex({ wrap: FlexWrap.Wrap }) {
+            ForEach(row.secretaries, (s: NamedShip) => {
+              Text(s.name)
+                .fontSize(11)
+                .fontColor(COLOR_SECRETARY)
+                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                .margin({ right: 4, bottom: 4 })
+                .backgroundColor('#202634')
+                .borderRadius(4)
+            }, (s: NamedShip) => `sec-${s.id}`)
+          }
+          .width('100%')
+        } else {
+          Text('（秘书艦データなし）')
+            .fontSize(10)
+            .fontColor(COLOR_MUTED)
+            .width('100%')
+        }
       }
       .width('100%')
       .padding({ top: 6 })
       .border({ width: { top: 0.5 }, color: COLOR_BORDER })
 
-      Text('※ 開発資材・消費装備は akashi-list に含まれないため未表示。')
+      Text('※ ( )内は確保時の消費量。')
         .fontSize(10)
         .fontColor(COLOR_MUTED)
         .width('100%')
     }
     .width('100%')
-    .padding({ left: 14, right: 14, top: 10, bottom: 12 })
+    .padding({ left: 14, right: 14, top: 8, bottom: 12 })
     .backgroundColor('#11141c')
+  }
+
+  /** 折叠行的秘书艦摘要：最多 3 个艦名 + 余量；无名时回退到曜日条。 */
+  @Builder
+  private SecretarySummary(row: RemodelRow, today: number) {
+    if (row.secretaries.length > 0) {
+      Row({ space: 3 }) {
+        ForEach(row.secretaries.slice(0, 3), (s: NamedShip) => {
+          Text(s.name)
+            .fontSize(10)
+            .fontColor(COLOR_SECRETARY)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .constraintSize({ maxWidth: 64 })
+        }, (s: NamedShip) => `ss-${s.id}`)
+        if (row.secretaries.length > 3) {
+          Text(`他${row.secretaries.length - 3}`)
+            .fontSize(10)
+            .fontColor(COLOR_MUTED)
+        }
+      }
+    } else {
+      this.DayStrip(row.days, today)
+    }
   }
 
   @Builder
   private RemodelRowView(row: RemodelRow, today: number) {
     Column() {
-      // 未展开栏：[icon][名称] [×持有] [曜日可否]
       Row({ space: 8 }) {
         if (row.iconType > 0) {
           Image(equipLabel(row.iconType, 0, row.id))
@@ -449,20 +626,25 @@ export default struct RemodelInfoPage {
             .backgroundColor('#222633')
             .borderRadius(4)
         }
-        Text(row.name.length > 0 ? row.name : `#${row.id}`)
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor('#FFF')
-          .layoutWeight(1)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Column({ space: 2 }) {
+          Text(row.name.length > 0 ? row.name : `#${row.id}`)
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#FFF')
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+          this.SecretarySummary(row, today)
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
         Text(`×${row.held}`)
           .fontSize(13)
           .fontColor(row.held > 0 ? COLOR_HELD : COLOR_MUTED)
           .fontWeight(FontWeight.Medium)
           .width(38)
           .textAlign(TextAlign.End)
-        this.DayStrip(row.days, today)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
