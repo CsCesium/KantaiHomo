@@ -82,6 +82,7 @@ const REMODEL_RAWFILE = 'data/improvement.json';
 
 /** 收藏的装备 id 列表（JSON 数组）持久化到 KV。 */
 const FAV_KEY = 'remodel.favorites';
+const ADD_EQUIP_COMMAND = 'addEquip:';
 
 const RES_ICON_DIR = 'resource://RAWFILE/icons/res/';
 const DEV_ICON = `${RES_ICON_DIR}dev.png`;
@@ -97,6 +98,7 @@ const WEEK: string[] = ['日', '一', '二', '三', '四', '五', '六'];
 
 // 装备类型按普通装备 icon(api_type[3]) 细分。特殊图标变体（例如 10-11、17-2）不参与分类。
 interface GroupSpec { key: string; label: string; icon: number; }
+interface AddEquipPayload { clips?: Array<string | number>; }
 
 const ICON_GROUPS: GroupSpec[] = [
   { key: 'i-1', label: '小口径主炮', icon: 1 },
@@ -328,6 +330,49 @@ export default struct RemodelInfoPage {
     this.recompute();
   }
 
+  private parseAddEquipIds(text: string): number[] | null {
+    const trimmed = text.trim();
+    if (trimmed.indexOf(ADD_EQUIP_COMMAND) !== 0) return null;
+    let payload = trimmed.substring(ADD_EQUIP_COMMAND.length).trim();
+    if (payload.length <= 0) return [];
+    if ((payload.charAt(0) === '"' && payload.charAt(payload.length - 1) === '"') ||
+      (payload.charAt(0) === '\'' && payload.charAt(payload.length - 1) === '\'')) {
+      payload = payload.substring(1, payload.length - 1);
+      payload = payload.split('\\"').join('"');
+    }
+    try {
+      const obj = JSON.parse(payload) as AddEquipPayload;
+      const clips = obj.clips;
+      if (!Array.isArray(clips)) return [];
+      const ids: number[] = [];
+      for (const raw of clips) {
+        const id = typeof raw === 'number' ? raw : Number(String(raw).trim());
+        if (Number.isInteger(id) && id > 0) {
+          ids.push(id);
+        }
+      }
+      return ids;
+    } catch (e) {
+      console.info('[RemodelInfoPage] addEquip parse failed:', String(e));
+      return [];
+    }
+  }
+
+  private tryApplyAddEquipCommand(text: string): boolean {
+    const ids = this.parseAddEquipIds(text);
+    if (ids === null) return false;
+    if (ids.length <= 0) return false;
+    const next = new Set<number>(this.favorites);
+    for (const id of ids) {
+      next.add(id);
+    }
+    this.favorites = next;
+    void kvSet(FAV_KEY, JSON.stringify(Array.from(next)));
+    this.searchText = '';
+    this.recompute();
+    return true;
+  }
+
   private buildHeldIndex(): Map<number, number> {
     const out = new Map<number, number>();
     const state = getGameState().getState();
@@ -376,13 +421,11 @@ export default struct RemodelInfoPage {
     this.unimprovedMaterialHeld = this.buildUnimprovedMaterialHeldIndex();
     const today = jstWeekday();
     const rows: RemodelRow[] = [];
-    const cats = new Set<string>();
     for (const e of this.entries) {
       const iconType = getSlotItemMasterIconType(e.id);
       const group = iconGroupForIcon(iconType);
       const masterName = getSlotItemMasterName(e.id);
       const convName = e.convertTo > 0 ? getSlotItemMasterName(e.convertTo) : '';
-      cats.add(group);
       rows.push({
         id: e.id,
         name: masterName.length > 0 ? masterName : `#${e.id}`,
@@ -400,6 +443,15 @@ export default struct RemodelInfoPage {
       });
     }
     this.allRows = rows;
+    this.recompute();
+  }
+
+  private rebuildPresentCats(): void {
+    const cats = new Set<string>();
+    for (const row of this.allRows) {
+      if (this.todayOnly && !row.availToday) continue;
+      cats.add(row.group);
+    }
     const orderedCats = CAT_ORDER.filter((c) => cats.has(c));
     const extraCats: string[] = [];
     cats.forEach((c: string) => {
@@ -407,10 +459,13 @@ export default struct RemodelInfoPage {
     });
     extraCats.sort((a: string, b: string) => catIcon(a) - catIcon(b));
     this.presentCats = orderedCats.concat(extraCats);
-    this.recompute();
+    if (this.typeFilter !== 'all' && this.presentCats.indexOf(this.typeFilter) < 0) {
+      this.typeFilter = 'all';
+    }
   }
 
   private recompute(): void {
+    this.rebuildPresentCats();
     const q = this.searchText.trim().toLowerCase();
     const out: RemodelRow[] = [];
     for (const r of this.allRows) {
@@ -428,6 +483,7 @@ export default struct RemodelInfoPage {
   }
 
   private setSearch(v: string): void {
+    if (this.tryApplyAddEquipCommand(v)) return;
     if (v === this.searchText) return;
     this.searchText = v;
     this.recompute();
