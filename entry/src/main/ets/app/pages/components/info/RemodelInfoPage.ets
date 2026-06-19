@@ -67,7 +67,7 @@ interface RemodelRow {
   iconType: number;
   base: number[];
   stages: (Stage | null)[];
-  convertTo: number;
+  convertTo: number;吧你
   convertToName: string;
   reqs: ReqGroup[];
   days: boolean[];

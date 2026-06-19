@@ -52,6 +52,7 @@ export {
   patchDeckExpedition,
   patchDeckShip,
   updateQuests,
+  removeQuest,
   updateShips,
   patchShipsSupply,
   patchShipSlot,

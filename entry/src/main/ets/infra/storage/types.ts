@@ -314,6 +314,7 @@ export interface QuestRepository {
   list(): Promise<readonly QuestRow[]>;
   get(questId: number): Promise<QuestRow | null>;
   listByState(state: QuestStateDb): Promise<readonly QuestRow[]>;
+  delete(questId: number): Promise<void>;
 }
 
 // ==================== Kdock ====================

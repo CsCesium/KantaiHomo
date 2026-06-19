@@ -190,6 +190,10 @@ export class QuestRepositoryImpl implements QuestRepository {
   async listByState(state: QuestStateDb): Promise<readonly QuestRow[]> {
     return QuestDao.listByState(state);
   }
+
+  async delete(questId: number): Promise<void> {
+    await QuestDao.remove(questId);
+  }
 }
 
 // ==================== Kdock ====================

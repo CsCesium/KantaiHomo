@@ -9,6 +9,7 @@ import {
 import { promptAction } from '@kit.ArkUI';
 
 const QUEST_STATE_ACTIVE = 2;
+const QUEST_STATE_COMPLETE = 3;
 
 function questRowKey(quest: QuestSnapshot): string {
   return `quest-${quest.questId}-${quest.state}-${quest.progress ?? 0}-${quest.updatedAt}-${quest.capturedAt}`;
@@ -20,7 +21,7 @@ export default struct QuestPanel {
   @Param compact: boolean = false;
 
   private visibleQuests(): QuestSnapshot[] {
-    return this.quests.filter((q: QuestSnapshot) => q.state === QUEST_STATE_ACTIVE);
+    return this.quests.filter((q: QuestSnapshot) => q.state === QUEST_STATE_ACTIVE || q.state === QUEST_STATE_COMPLETE);
   }
 
   private categoryWidth(): number {

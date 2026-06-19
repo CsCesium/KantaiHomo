@@ -504,7 +504,7 @@ class GameStateManager {
    * 更新任务。
    *
    * questlist 在游戏内按分类/分页筛选时只返回局部列表，不能把响应当作全量任务覆盖。
-   * 面板只需要当前接取中的任务；接口明确返回为未接取/完成的任务要从缓存移除。
+   * state=3 表示已完成但尚未领取奖励，仍应显示；未接取状态才从缓存移除。
    */
   updateQuests(quests: Quest[]): void {
     const capturedAt = Date.now();
@@ -515,7 +515,7 @@ class GameStateManager {
         continue;
       }
 
-      if (quest.state === QuestState.ACTIVE) {
+      if (quest.state === QuestState.ACTIVE || quest.state === QuestState.COMPLETE) {
         incoming.set(quest.questId, this.questToSnapshot(quest, capturedAt));
       } else {
         inactiveIds.add(quest.questId);
@@ -554,6 +554,17 @@ class GameStateManager {
     this.state.quests = merged;
 
     this.state.lastUpdatedAt = capturedAt;
+    this.notifyListeners('quests');
+  }
+
+  removeQuest(questId: number): void {
+    const before = this.state.quests.length;
+    this.state.quests = this.state.quests.filter((quest: QuestSnapshot) => quest.questId !== questId);
+    if (this.state.quests.length === before) {
+      return;
+    }
+
+    this.state.lastUpdatedAt = Date.now();
     this.notifyListeners('quests');
   }
 
@@ -2036,6 +2047,7 @@ export const patchDeckExpedition = (deckId: number, missionId: number, returnTim
 export const patchDeckShip = (deckId: number, shipIdx: number, shipUid: number) =>
   gameStateManager.patchDeckShip(deckId, shipIdx, shipUid);
 export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(quests);
+export const removeQuest = (questId: number) => gameStateManager.removeQuest(questId);
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>
   gameStateManager.patchShipsSupply(updates);

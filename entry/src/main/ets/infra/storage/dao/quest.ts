@@ -47,3 +47,9 @@ export async function listByState(state: QuestStateDb): Promise<QuestRow[]> {
   const rs = await query(`SELECT * FROM quests WHERE state = ? ORDER BY questId ASC`, [state]);
   return readRows(rs, mapRow);
 }
+
+export async function remove(questId: number): Promise<void> {
+  await withTransaction(async (db) => {
+    await db.executeSql(`DELETE FROM quests WHERE questId = ?`, [questId]);
+  });
+}
