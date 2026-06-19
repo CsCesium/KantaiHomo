@@ -33,6 +33,9 @@ import {
 const COLOR_BG_PAGE = '#1a1d27';
 const COLOR_BG_HEADER = '#0f1118';
 const COLOR_BG_SECTION = '#14171f';
+const COLOR_BG_TOOLBAR = '#14171f';
+const COLOR_BG_CHIP = '#1c1f2a';
+const COLOR_FG_CHIP = '#aab1bd';
 const COLOR_BORDER = '#272a36';
 const COLOR_FG = '#C8D0DA';
 const COLOR_MUTED = '#5a6270';
@@ -51,7 +54,9 @@ export default struct SortieLogPage {
   @Event onClose: () => void;
 
   @Local private rows: BattleRecordRow[] = [];
+  @Local private visibleRows: BattleRecordRow[] = [];
   @Local private loading: boolean = true;
+  @Local private searchText: string = '';
 
   /** true 时显示详情；否则显示列表。 */
   @Local private detailOpen: boolean = false;
@@ -84,11 +89,47 @@ export default struct SortieLogPage {
     try {
       const list = await repos.battle.listRecent(LIST_LIMIT);
       this.rows = list.slice();
+      this.recomputeRows();
     } catch (e) {
       console.info('[SortieLogPage] load failed:', String(e));
       this.rows = [];
+      this.visibleRows = [];
     }
     this.loading = false;
+  }
+
+  private rowSearchText(row: BattleRecordRow): string {
+    const drop = row.dropShipName ?? '';
+    return [
+      formatDdHhMm(row.startedAt),
+      mapCode(row.mapAreaId, row.mapInfoNo),
+      areaName(row.mapAreaId),
+      cellLabel(row.cellId, row.isBoss === 1),
+      row.rank,
+      displayRank(row.rank),
+      drop,
+    ].join(' ').toLowerCase();
+  }
+
+  private recomputeRows(): void {
+    const q = this.searchText.trim().toLowerCase();
+    if (q.length === 0) {
+      this.visibleRows = this.rows.slice();
+      return;
+    }
+    const out: BattleRecordRow[] = [];
+    for (const row of this.rows) {
+      if (this.rowSearchText(row).indexOf(q) >= 0) {
+        out.push(row);
+      }
+    }
+    this.visibleRows = out;
+  }
+
+  private setSearch(v: string): void {
+    if (v === this.searchText) return;
+    this.searchText = v;
+    this.recomputeRows();
   }
 
   private openDetail(row: BattleRecordRow): void {
@@ -147,6 +188,87 @@ export default struct SortieLogPage {
   // ==================== 列表 ====================
 
   @Builder
+  private ListTitleBar() {
+    Row({ space: 8 }) {
+      Text('')
+        .width(34)
+
+      Text('时间')
+        .fontSize(11)
+        .fontColor(COLOR_SUB)
+        .fontWeight(FontWeight.Medium)
+        .width(62)
+        .textAlign(TextAlign.Center)
+
+      Text('海域')
+        .fontSize(11)
+        .fontColor(COLOR_SUB)
+        .fontWeight(FontWeight.Medium)
+        .layoutWeight(2)
+        .textAlign(TextAlign.Center)
+
+      Text('点位')
+        .fontSize(11)
+        .fontColor(COLOR_SUB)
+        .fontWeight(FontWeight.Medium)
+        .width(66)
+        .textAlign(TextAlign.Center)
+
+      Text('结果')
+        .fontSize(11)
+        .fontColor(COLOR_SUB)
+        .fontWeight(FontWeight.Medium)
+        .width(26)
+        .textAlign(TextAlign.Center)
+
+      Text('掉落')
+        .fontSize(11)
+        .fontColor(COLOR_SUB)
+        .fontWeight(FontWeight.Medium)
+        .layoutWeight(2)
+        .textAlign(TextAlign.Center)
+    }
+    .width('100%')
+    .height(30)
+    .padding({ left: 8, right: 12 })
+    .backgroundColor(COLOR_BG_SECTION)
+    .alignItems(VerticalAlign.Center)
+    .border({ width: { bottom: 0.5 }, color: COLOR_BORDER })
+  }
+
+  @Builder
+  private MatchBar() {
+    Row() {
+      TextInput({ text: this.searchText, placeholder: '匹配海域 / 点位 / 结果 / 掉落' })
+        .fontSize(13)
+        .fontColor(COLOR_FG)
+        .caretColor(COLOR_ACCENT)
+        .placeholderColor(COLOR_MUTED)
+        .placeholderFont({ size: 13 })
+        .backgroundColor('#0C1018')
+        .border({ width: 1, color: COLOR_BORDER })
+        .borderRadius(8)
+        .height(36)
+        .layoutWeight(1)
+        .onChange((v: string) => this.setSearch(v))
+      if (this.searchText.length > 0) {
+        Text('清')
+          .fontSize(12)
+          .fontColor(COLOR_FG_CHIP)
+          .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+          .margin({ left: 6 })
+          .backgroundColor(COLOR_BG_CHIP)
+          .borderRadius(8)
+          .onClick(() => this.setSearch(''))
+      }
+    }
+    .width('100%')
+    .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+    .backgroundColor(COLOR_BG_TOOLBAR)
+    .border({ width: { bottom: 0.5 }, color: COLOR_BORDER })
+  }
+
+  @Builder
   private ListRow(row: BattleRecordRow) {
     Row({ space: 8 }) {
       // 详情入口 icon（点击切换到详情页）
@@ -161,17 +283,12 @@ export default struct SortieLogPage {
       .border({ width: 0 })
       .onClick(() => this.openDetail(row))
 
-      // id（截短）
-      Text(`#${row.id.length > 6 ? row.id.slice(-6) : row.id}`)
-        .fontSize(11)
-        .fontColor(COLOR_MUTED)
-        .width(58)
-
       // 时间 dd/hh/mm
       Text(formatDdHhMm(row.startedAt))
         .fontSize(11)
         .fontColor(COLOR_SUB)
         .width(62)
+        .textAlign(TextAlign.Center)
 
       // 海域名 + 代号
       Column({ space: 1 }) {
@@ -185,7 +302,7 @@ export default struct SortieLogPage {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-      .alignItems(HorizontalAlign.Start)
+      .alignItems(HorizontalAlign.Center)
       .layoutWeight(2)
 
       // 地图点位（boss 括号标注）
@@ -211,7 +328,7 @@ export default struct SortieLogPage {
         .layoutWeight(2)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .textAlign(TextAlign.End)
+        .textAlign(TextAlign.Center)
     }
     .width('100%')
     .padding({ left: 8, right: 12, top: 8, bottom: 8 })
@@ -231,9 +348,14 @@ export default struct SortieLogPage {
         Text('暂无出击战斗记录').fontSize(13).fontColor(COLOR_MUTED)
       }
       .width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
+    } else if (this.visibleRows.length === 0) {
+      Column() {
+        Text('当前匹配下无出击战斗记录').fontSize(13).fontColor(COLOR_MUTED)
+      }
+      .width('100%').layoutWeight(1).justifyContent(FlexAlign.Center)
     } else {
       List() {
-        ForEach(this.rows, (row: BattleRecordRow) => {
+        ForEach(this.visibleRows, (row: BattleRecordRow) => {
           ListItem() {
             this.ListRow(row)
           }
@@ -594,7 +716,7 @@ export default struct SortieLogPage {
           .fontColor('#FFF')
           .layoutWeight(1)
         if (!this.detailOpen) {
-          Text(`${this.rows.length}`)
+          Text(`${this.visibleRows.length}/${this.rows.length}`)
             .fontSize(13)
             .fontColor('#888')
             .margin({ right: 12 })
@@ -617,6 +739,8 @@ export default struct SortieLogPage {
       if (this.detailOpen) {
         this.DetailView()
       } else {
+        this.ListTitleBar()
+        this.MatchBar()
         this.ListView()
       }
 
