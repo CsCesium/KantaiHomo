@@ -459,6 +459,8 @@ export interface BattleRecordRow {
   airBasesJson: string | null;
   hpStartJson: string;
   hpEndJson: string;
+  /** 合并后的 BattleSegment（逐次攻击 / 阶段 / 航空 meta）；旧记录为 null。 */
+  segmentJson: string | null;
 
   rank: string;
   mvp: number | null;

@@ -27,6 +27,7 @@ import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
 import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
 import RemodelInfoPage from "../../app/pages/components/info/RemodelInfoPage";
 import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
+import SortieLogPage from "../../app/pages/components/info/SortieLogPage";
 import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
 import { registerWebHostPageVisibleHandler } from "./pageVisibility";
 import {
@@ -116,6 +117,7 @@ export default struct WebHost {
   @State private equipInfoVisible: boolean = false;
   @State private expeditionInfoVisible: boolean = false;
   @State private remodelInfoVisible: boolean = false;
+  @State private sortieLogVisible: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
   private unsubSortieStartTaiha?: () => void;
@@ -936,6 +938,7 @@ export default struct WebHost {
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
               onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
+              onOpenSortieLog: () => { this.sortieLogVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               rotateEnabled: this.canToggleLrLayout(),
               panelActive: this.isFloatOverlayVisible(),
@@ -1021,6 +1024,7 @@ export default struct WebHost {
                 onOpenEquipInfo: () => { this.equipInfoVisible = true; },
                 onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
                 onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
+                onOpenSortieLog: () => { this.sortieLogVisible = true; },
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 rotateEnabled: this.canToggleLrLayout(),
                 panelActive: this.isFloatOverlayVisible(),
@@ -1055,6 +1059,7 @@ export default struct WebHost {
               onOpenEquipInfo: () => { this.equipInfoVisible = true; },
               onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
               onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
+              onOpenSortieLog: () => { this.sortieLogVisible = true; },
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               rotateEnabled: this.canToggleLrLayout(),
               panelActive: this.isFloatOverlayVisible(),
@@ -1117,6 +1122,13 @@ export default struct WebHost {
       if (this.expeditionInfoVisible) {
         ExpeditionInfoPage({
           onClose: () => { this.expeditionInfoVisible = false; },
+        })
+          .width('100%')
+          .height('100%')
+      }
+      if (this.sortieLogVisible) {
+        SortieLogPage({
+          onClose: () => { this.sortieLogVisible = false; },
         })
           .width('100%')
           .height('100%')

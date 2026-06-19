@@ -14,6 +14,7 @@ export default struct LeftButtonColumn {
   @Event onOpenEquipInfo: () => void;
   @Event onOpenExpeditionInfo: () => void;
   @Event onOpenRemodelInfo: () => void;
+  @Event onOpenSortieLog: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param rotateEnabled: boolean = true;
   @Param panelActive: boolean = false;
@@ -123,6 +124,7 @@ export default struct LeftButtonColumn {
       { value: '装备', action: () => this.onOpenEquipInfo?.() },
       { value: '改修', action: () => this.onOpenRemodelInfo?.() },
       { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
+      { value: '出击日志', action: () => this.onOpenSortieLog?.() },
     ])
   }
 

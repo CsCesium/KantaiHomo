@@ -27,6 +27,7 @@ const mapRow = (rs: relationalStore.ResultSet): BattleRecordRow => ({
   airBasesJson: str(rs, 'airBasesJson'),
   hpStartJson: str(rs, 'hpStartJson') ?? '{}',
   hpEndJson: str(rs, 'hpEndJson') ?? '{}',
+  segmentJson: str(rs, 'segmentJson'),
 
   rank: str(rs, 'rank') ?? '',
   mvp: int(rs, 'mvp'),
@@ -51,11 +52,11 @@ export async function insert(row: BattleRecordRow): Promise<void> {
         friendFormation, enemyFormation, engagement, airState,
         friendFleetJson, friendFleetEscortJson,
         enemyFleetJson, enemyFleetEscortJson,
-        airBasesJson, hpStartJson, hpEndJson,
+        airBasesJson, hpStartJson, hpEndJson, segmentJson,
         rank, mvp, mvpCombined,
         dropShipId, dropShipName, dropItemId, baseExp,
         startedAt, endedAt, createdAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         row.id, row.sortieId,
         row.mapAreaId, row.mapInfoNo, row.cellId, row.cellEventId, row.isBoss,
@@ -63,7 +64,7 @@ export async function insert(row: BattleRecordRow): Promise<void> {
         row.friendFormation, row.enemyFormation, row.engagement, row.airState,
         row.friendFleetJson, row.friendFleetEscortJson,
         row.enemyFleetJson, row.enemyFleetEscortJson,
-        row.airBasesJson, row.hpStartJson, row.hpEndJson,
+        row.airBasesJson, row.hpStartJson, row.hpEndJson, row.segmentJson,
         row.rank, row.mvp, row.mvpCombined,
         row.dropShipId, row.dropShipName, row.dropItemId, row.baseExp,
         row.startedAt, row.endedAt, row.createdAt || Date.now(),

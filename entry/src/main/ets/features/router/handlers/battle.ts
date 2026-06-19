@@ -573,6 +573,9 @@ class BattleHandler implements Handler {
       hpStart: context?.pendingBattle?.merged?.start ?? { friend: { main: { now: [], max: [] } }, enemy: { main: { now: [], max: [] } } },
       hpEnd: context?.pendingBattle?.merged?.end ?? { friend: { main: { now: [], max: [] } }, enemy: { main: { now: [], max: [] } } },
 
+      // 完整战斗过程段（供「出击日志」详情页逐次回放）
+      segment: context?.pendingBattle?.merged,
+
       // 结果
       rank: normalizedResult.rank,
       mvp: normalizedResult.mvp.main,
