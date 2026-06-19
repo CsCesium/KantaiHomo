@@ -9,6 +9,7 @@ import {
   EnemyFleetInfo,
   AirBaseSnapshot,
   BattleHpSnapshot,
+  BattleSegment,
   SortieRecord
 } from "../struct";
 
@@ -41,6 +42,7 @@ export function battleRecordToRow(record: BattleRecord): BattleRecordRow {
     airBasesJson: record.airBases ? JSON.stringify(record.airBases) : null,
     hpStartJson: JSON.stringify(record.hpStart),
     hpEndJson: JSON.stringify(record.hpEnd),
+    segmentJson: record.segment ? JSON.stringify(record.segment) : null,
 
     rank: record.rank,
     mvp: record.mvp ?? null,
@@ -88,6 +90,9 @@ export function rowToBattleRecord(row: BattleRecordRow): BattleRecord {
       : undefined,
     hpStart: safeParseJson<BattleHpSnapshot>(row.hpStartJson, defaultHpSnapshot()),
     hpEnd: safeParseJson<BattleHpSnapshot>(row.hpEndJson, defaultHpSnapshot()),
+    segment: row.segmentJson
+      ? safeParseJson<BattleSegment>(row.segmentJson, undefined)
+      : undefined,
 
     rank: row.rank,
     mvp: row.mvp ?? undefined,

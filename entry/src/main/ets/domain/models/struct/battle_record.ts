@@ -3,7 +3,7 @@
  * 完整记录一场战斗的所有信息
  */
 
-import type { BattleHpSnapshot, EnemyFleetInfo } from './battle';
+import type { BattleHpSnapshot, EnemyFleetInfo, BattleSegment } from './battle';
 export type { EnemyFleetInfo };
 
 // ==================== 快照类型 ====================
@@ -107,6 +107,10 @@ export interface BattleRecord {
   // HP 变化
   hpStart: BattleHpSnapshot;
   hpEnd: BattleHpSnapshot;
+
+  // 合并后的战斗过程段（昼夜各阶段 + 逐次攻击 + 航空/陆航 meta）
+  // 供「出击日志」详情页回放交战经过；升级前的旧记录可能缺省。
+  segment?: BattleSegment;
 
   // 战斗结果
   rank: string;           // S/A/B/C/D/E

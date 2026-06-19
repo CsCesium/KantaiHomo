@@ -19,6 +19,7 @@ export default struct ButtonRow {
   @Event onOpenEquipInfo: () => void;
   @Event onOpenRemodelInfo: () => void;
   @Event onOpenExpeditionInfo: () => void;
+  @Event onOpenSortieLog: () => void;
   @Param lrMode: 'portraitFit' | 'landscapeWithDashboard' = 'landscapeWithDashboard';
   @Param rotateEnabled: boolean = true;
   @Param panelActive: boolean = false;
@@ -126,6 +127,7 @@ export default struct ButtonRow {
       { value: '装备', action: () => this.onOpenEquipInfo?.() },
       { value: '改修', action: () => this.onOpenRemodelInfo?.() },
       { value: '远征', action: () => this.onOpenExpeditionInfo?.() },
+      { value: '出击日志', action: () => this.onOpenSortieLog?.() },
     ])
   }
 

@@ -24,6 +24,7 @@ import m010 from './010_create_k_dock';
 import m011 from './011_create_n_dock';
 import m012 from './012_create_battle'
 import m013 from './013_create_ship_graph'
+import m014 from './014_add_battle_segment'
 
 export const migrations: Migration[] = [
   m001,  // v1 - expeditions 表
@@ -39,6 +40,7 @@ export const migrations: Migration[] = [
   m011,  // v11 - ndocks 表
   m012,  // v12 - battle 表
   m013,  // v13 - ship_graph_mst 表
+  m014,  // v14 - battle_records.segmentJson 列
 ];
 
 // 导出单个 migration（可选用于测试）
