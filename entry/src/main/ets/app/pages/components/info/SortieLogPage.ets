@@ -233,8 +233,20 @@ export default struct SortieLogPage {
     .borderRadius(2)
   }
 
+  private hpChange(before: number, after: number): number {
+    return Math.max(0, before - after);
+  }
+
+  private hpDamageSegment(hpNow: number, hpMax: number, damage: number): number {
+    return Math.min(Math.max(0, damage), Math.max(0, hpMax - Math.max(0, hpNow)));
+  }
+
+  private hpRestSegment(hpNow: number, hpMax: number, damage: number): number {
+    return Math.max(0, hpMax - Math.max(0, hpNow) - this.hpDamageSegment(hpNow, hpMax, damage));
+  }
+
   @Builder
-  private StepHpBar(hpNow: number, hpMax: number) {
+  private StepHpBar(hpNow: number, hpMax: number, damage: number) {
     Stack({ alignContent: Alignment.Center }) {
       Row() {
         if (hpNow > 0) {
@@ -243,8 +255,14 @@ export default struct SortieLogPage {
             .height('100%')
             .backgroundColor(hpColor(hpNow, hpMax > 0 ? hpMax : 1))
         }
-        if (hpMax - Math.max(0, hpNow) > 0) {
-          Blank().layoutWeight(Math.max(0, hpMax - Math.max(0, hpNow)))
+        if (this.hpDamageSegment(hpNow, hpMax, damage) > 0) {
+          Column()
+            .layoutWeight(this.hpDamageSegment(hpNow, hpMax, damage))
+            .height('100%')
+            .backgroundColor(PanelColors.hpDamage)
+        }
+        if (this.hpRestSegment(hpNow, hpMax, damage) > 0) {
+          Blank().layoutWeight(this.hpRestSegment(hpNow, hpMax, damage))
         }
       }
       .width('100%')
@@ -269,7 +287,7 @@ export default struct SortieLogPage {
     Row({ space: 6 }) {
       if (step.hasAttackerHp) {
         Column() {
-          this.StepHpBar(step.attackerHpAfter, step.attackerHpMax)
+          this.StepHpBar(step.attackerHpAfter, step.attackerHpMax, 0)
         }
         .layoutWeight(1)
 
@@ -280,12 +298,12 @@ export default struct SortieLogPage {
           .textAlign(TextAlign.Center)
 
         Column() {
-          this.StepHpBar(step.hpAfter, step.hpMax)
+          this.StepHpBar(step.hpAfter, step.hpMax, this.hpChange(step.hpBefore, step.hpAfter))
         }
         .layoutWeight(1)
       } else {
         Column() {
-          this.StepHpBar(step.hpAfter, step.hpMax)
+          this.StepHpBar(step.hpAfter, step.hpMax, this.hpChange(step.hpBefore, step.hpAfter))
         }
         .layoutWeight(1)
       }

@@ -214,6 +214,7 @@ export interface EngagementStep {
   targetSide: StepSide;
   damage: number;
   critical: number;         // 0 miss / 1 命中 / 2 暴击
+  hpBefore: number;
   hpAfter: number;
   hpMax: number;
   sunk: boolean;
@@ -363,6 +364,7 @@ export function buildEngagementSteps(record: BattleRecord): EngagementStep[] {
           targetSide: t.side,
           damage: dmg,
           critical: hit.critical ?? 0,
+          hpBefore: before,
           hpAfter: after,
           hpMax: max,
           sunk: max > 0 && after <= 0,
