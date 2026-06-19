@@ -197,6 +197,7 @@ const COLOR_LEVEL = '#FFD54F';
 const COLOR_ALV = '#A5D6A7';
 const COLOR_SPARE = '#6A7280';
 const COLOR_EQUIPPED = '#90A0B0';
+const EQUIP_RENDER_BATCH_SIZE = 60;
 
 // ==================== Helpers ====================
 
@@ -328,6 +329,8 @@ export default struct EquipInfoPage {
 
   @Local private allEquips: EquipInfoItem[] = [];
   @Local private visibleEquips: EquipInfoItem[] = [];
+  @Local private renderedEquips: EquipInfoItem[] = [];
+  @Local private renderedEquipCount: number = 0;
   @Local private presentTypes: string[] = [];
 
   @Local private searchText: string = '';
@@ -435,6 +438,20 @@ export default struct EquipInfoPage {
     }
     out.sort((a, b) => compareEquips(a, b, this.sortKey));
     this.visibleEquips = out;
+    this.resetRenderedEquips();
+  }
+
+  private resetRenderedEquips(): void {
+    this.renderedEquipCount = Math.min(EQUIP_RENDER_BATCH_SIZE, this.visibleEquips.length);
+    this.renderedEquips = this.visibleEquips.slice(0, this.renderedEquipCount);
+  }
+
+  private loadMoreEquips(): void {
+    if (this.renderedEquipCount >= this.visibleEquips.length) {
+      return;
+    }
+    this.renderedEquipCount = Math.min(this.renderedEquipCount + EQUIP_RENDER_BATCH_SIZE, this.visibleEquips.length);
+    this.renderedEquips = this.visibleEquips.slice(0, this.renderedEquipCount);
   }
 
   private setSearch(v: string): void {
@@ -721,7 +738,7 @@ export default struct EquipInfoPage {
         .backgroundColor(COLOR_BG_PAGE)
       } else {
         List() {
-          ForEach(this.visibleEquips, (item: EquipInfoItem) => {
+          ForEach(this.renderedEquips, (item: EquipInfoItem) => {
             ListItem() {
               this.EquipInfoRow(item)
             }
@@ -730,6 +747,9 @@ export default struct EquipInfoPage {
         .width('100%')
         .layoutWeight(1)
         .backgroundColor(COLOR_BG_PAGE)
+        .onReachEnd(() => {
+          this.loadMoreEquips();
+        })
       }
 
       Text('右滑返回游戏')

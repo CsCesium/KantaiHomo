@@ -150,6 +150,7 @@ const COLOR_FG_CHIP_ACTIVE = '#56d8e0';
 const COLOR_BG_CHIP = '#1c1f2a';
 const COLOR_FG_CHIP = '#aab1bd';
 const COLOR_BORDER = '#272a36';
+const SHIP_RENDER_BATCH_SIZE = 40;
 
 // ==================== Pure helpers ====================
 
@@ -296,8 +297,10 @@ export default struct ShipInfoPage {
 
   /** 完整持有舰娘集合，由 GameState 派生；filter/sort 仅作用于该集合。 */
   @Local private allShips: ShipInfoItem[] = [];
-  /** 经 filter + sort 后的可见集合，喂给 List。 */
+  /** 经 filter + sort 后的完整可见集合。List 实际渲染 renderedShips。 */
   @Local private visibleShips: ShipInfoItem[] = [];
+  @Local private renderedShips: ShipInfoItem[] = [];
+  @Local private renderedShipCount: number = 0;
   @Local private presentTypes: string[] = [];
 
   @Local private searchText: string = '';
@@ -344,6 +347,20 @@ export default struct ShipInfoPage {
     }
     out.sort((a, b) => compareShips(a, b, this.sortKey));
     this.visibleShips = out;
+    this.resetRenderedShips();
+  }
+
+  private resetRenderedShips(): void {
+    this.renderedShipCount = Math.min(SHIP_RENDER_BATCH_SIZE, this.visibleShips.length);
+    this.renderedShips = this.visibleShips.slice(0, this.renderedShipCount);
+  }
+
+  private loadMoreShips(): void {
+    if (this.renderedShipCount >= this.visibleShips.length) {
+      return;
+    }
+    this.renderedShipCount = Math.min(this.renderedShipCount + SHIP_RENDER_BATCH_SIZE, this.visibleShips.length);
+    this.renderedShips = this.visibleShips.slice(0, this.renderedShipCount);
   }
 
   private rebuildPresentTypes(): void {
@@ -642,7 +659,7 @@ export default struct ShipInfoPage {
         .backgroundColor(COLOR_BG_PAGE)
       } else {
         List() {
-          ForEach(this.visibleShips, (item: ShipInfoItem) => {
+          ForEach(this.renderedShips, (item: ShipInfoItem) => {
             ListItem() {
               this.ShipInfoRow(item)
             }
@@ -651,6 +668,9 @@ export default struct ShipInfoPage {
         .width('100%')
         .layoutWeight(1)
         .backgroundColor(COLOR_BG_PAGE)
+        .onReachEnd(() => {
+          this.loadMoreShips();
+        })
       }
 
       // Footer hint
