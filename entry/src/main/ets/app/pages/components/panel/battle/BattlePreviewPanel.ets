@@ -2,7 +2,7 @@ import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel
 import { airStateName, airStateColor } from '../../../../../features/panel/airStateUi';
 import {
   subscribeGameState, getBattleStatus, getBattleResult, getShipMasterName, isShipMasterLandBased,
-  isShipEscaped,
+  isShipEscaped, getEscapedShipUids,
   BattleStatusSnapshot, BattleResultSnapshot, ShipBattleStatus, FleetBattleStatus,
   EnemyBattleStatus
 } from '../../../../../features/state';
@@ -160,6 +160,12 @@ function hasEnemyFleet(fleet: EnemyBattleStatus | null | undefined): boolean {
   return !!fleet && fleet.hpMax.some(hpMax => hpMax > 0);
 }
 
+function escapedRenderSuffix(): string {
+  const escaped = getEscapedShipUids();
+  if (escaped.length === 0) return 'esc-none';
+  return `esc-${escaped.join('-')}`;
+}
+
 // ── BattlePreviewPanel ────────────────────────────────────────────────────
 
 @ComponentV2
@@ -180,7 +186,7 @@ export default struct BattlePreviewPanel {
   aboutToAppear(): void {
     this.refreshBattleSnapshots();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
-      if (changeType === 'battle' || changeType === 'all') {
+      if (changeType === 'battle' || changeType === 'ships' || changeType === 'all') {
         this.refreshBattleSnapshots();
       }
     });
@@ -198,10 +204,11 @@ export default struct BattlePreviewPanel {
     const result = getBattleResult();
     this.statusSnap = status;
     this.resultSnap = result;
+    const escapeKey = escapedRenderSuffix();
 
     if (result) {
       this.aerialDetailOpen = false;
-      this.battleRenderKey = `result-${result.battleId}-${result.endedAt}`;
+      this.battleRenderKey = `result-${result.battleId}-${result.endedAt}-${escapeKey}`;
       this.viewFriendMain = cloneFleetBattleStatus(result.friendMain);
       this.viewFriendEscort = cloneOptionalFleetBattleStatus(result.friendEscort);
       this.viewEnemyMain = cloneEnemyBattleStatus(result.enemyMain);
@@ -211,7 +218,7 @@ export default struct BattlePreviewPanel {
     }
 
     if (status) {
-      this.battleRenderKey = `status-${status.battleId}-${status.battlePhase}-${status.calculatedAt}`;
+      this.battleRenderKey = `status-${status.battleId}-${status.battlePhase}-${status.calculatedAt}-${escapeKey}`;
       this.viewFriendMain = cloneFleetBattleStatus(status.friendMain);
       this.viewFriendEscort = cloneOptionalFleetBattleStatus(status.friendEscort);
       this.viewEnemyMain = cloneEnemyBattleStatus(status.enemyMain);
