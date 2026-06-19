@@ -9,7 +9,18 @@ const TAB_ASW = 2;
 const TAB_NIGHT = 3;
 const TAB_AACI = 4;
 
-const TAB_LABELS: string[] = ['昼战', '雷击', '对潜', '夜战', '对空CI'];
+interface ScenarioTab {
+  id: number;
+  label: string;
+}
+
+const TAB_ITEMS: ScenarioTab[] = [
+  { id: TAB_DAY, label: '昼战' },
+  { id: TAB_TORPEDO, label: '雷击' },
+  { id: TAB_ASW, label: '对潜' },
+  { id: TAB_NIGHT, label: '夜战' },
+  { id: TAB_AACI, label: '对空CI' },
+];
 
 const ACCENT_TAB = '#4a9eda';
 const ACCENT_TYPE_DAY = '#e5a04a';
@@ -48,11 +59,14 @@ export struct ShipScenarioPanel {
 
   private loadData(): void {
     this.data = this.uid > 0 ? buildShipScenarioData(this.uid) : null;
+    if (!this.hasTabContent(this.activeTab)) {
+      this.activeTab = this.firstVisibleTab();
+    }
   }
 
-  private currentAttacks(): ScenarioAttack[] {
+  private attacksForTab(tabId: number): ScenarioAttack[] {
     if (!this.data) return [];
-    switch (this.activeTab) {
+    switch (tabId) {
       case TAB_TORPEDO: return this.data.scenarios.torpedo;
       case TAB_ASW: return this.data.scenarios.asw;
       case TAB_NIGHT: return this.data.scenarios.night;
@@ -61,9 +75,32 @@ export struct ShipScenarioPanel {
     }
   }
 
+  private currentAttacks(): ScenarioAttack[] {
+    return this.attacksForTab(this.activeTab);
+  }
+
   private currentAacis(): ShipScenarioAaci[] {
     if (!this.data || this.activeTab !== TAB_AACI) return [];
     return this.data.aacis;
+  }
+
+  private hasTabContent(tabId: number): boolean {
+    if (!this.data) return false;
+    if (tabId === TAB_AACI) return this.data.aacis.length > 0;
+    return this.attacksForTab(tabId).length > 0;
+  }
+
+  private visibleTabs(): ScenarioTab[] {
+    const out: ScenarioTab[] = [];
+    for (const tab of TAB_ITEMS) {
+      if (this.hasTabContent(tab.id)) out.push(tab);
+    }
+    return out;
+  }
+
+  private firstVisibleTab(): number {
+    const tabs = this.visibleTabs();
+    return tabs.length > 0 ? tabs[0].id : TAB_DAY;
   }
 
   private isAaciTab(): boolean {
@@ -122,21 +159,21 @@ export struct ShipScenarioPanel {
 
   @Builder private TabBar() {
     Row({ space: 14 }) {
-      ForEach(TAB_LABELS, (label: string, idx: number) => {
+      ForEach(this.visibleTabs(), (tab: ScenarioTab) => {
         Column({ space: 2 }) {
-          Text(label)
+          Text(tab.label)
             .fontSize(12)
-            .fontWeight(this.activeTab === idx ? FontWeight.Medium : FontWeight.Normal)
-            .fontColor(this.activeTab === idx ? ACCENT_TAB : PanelColors.txtSub)
+            .fontWeight(this.activeTab === tab.id ? FontWeight.Medium : FontWeight.Normal)
+            .fontColor(this.activeTab === tab.id ? ACCENT_TAB : PanelColors.txtSub)
           Row()
             .width(24)
             .height(2)
             .borderRadius(1)
-            .backgroundColor(this.activeTab === idx ? ACCENT_TAB : Color.Transparent)
+            .backgroundColor(this.activeTab === tab.id ? ACCENT_TAB : Color.Transparent)
         }
         .alignItems(HorizontalAlign.Center)
-        .onClick(() => { this.activeTab = idx; })
-      }, (label: string, idx: number) => `scn-tab-${idx}`)
+        .onClick(() => { this.activeTab = tab.id; })
+      }, (tab: ScenarioTab) => `scn-tab-${tab.id}`)
     }
     .width('100%')
     .padding({ top: 2, bottom: 2 })
