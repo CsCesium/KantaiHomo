@@ -14,8 +14,19 @@ import {
 import { getGameState } from '../state';
 import type { GameState, ShipState } from '../state';
 import { SlotItemEquipType } from '../../domain/models';
+import { detectShipAaciDetails } from './shipCapabilityTags';
+import type { ShipCapabilityTagContext } from './shipCapabilityTags';
 
 /** Scenario data resolved for the panel, with header context. */
+export interface ShipScenarioAaci {
+  typeId: number;
+  description: string;
+  multiplier: number;
+  percentShootdown: number;
+  fixedShootdown: number;
+  priority: number;
+}
+
 export interface ShipScenarioData {
   shipName: string;
   level: number;
@@ -25,6 +36,7 @@ export interface ShipScenarioData {
   torpedo: number;
   asw: number;
   luck: number;
+  aacis: ShipScenarioAaci[];
   scenarios: ShipBattleScenarios;
 }
 
@@ -124,6 +136,38 @@ function fleetHasEquip(
   return false;
 }
 
+function buildAaciContext(ship: ShipState, st: Readonly<GameState>): ShipCapabilityTagContext {
+  return {
+    shipMasterId: ship.masterId,
+    stype: st.shipMasterStype.get(ship.masterId) ?? 0,
+    ctype: st.shipMasterCtype.get(ship.masterId) ?? 0,
+    aswCur: ship.aswCur,
+    slots: ship.slots.slice(0, ship.slotCount),
+    onslot: ship.onslot,
+    exSlot: ship.exSlot,
+    slotItemIndex: st.slotItemIndex,
+    slotItemEquipTypes: st.slotItemEquipTypes,
+    slotItemIconTypes: st.slotItemIconTypes,
+    slotItemLos: st.slotItemLos,
+    slotItemAa: st.slotItemAa,
+    slotItemAsw: st.slotItemAsw,
+    slotItemNames: st.slotItemNames,
+  };
+}
+
+function buildAaciDetails(ship: ShipState, st: Readonly<GameState>): ShipScenarioAaci[] {
+  return detectShipAaciDetails(buildAaciContext(ship, st)).map((aaci): ShipScenarioAaci => {
+    return {
+      typeId: Number(aaci.typeId),
+      description: aaci.info.description,
+      multiplier: aaci.info.variableBonus,
+      percentShootdown: aaci.info.variableBonus - 1,
+      fixedShootdown: aaci.info.fixedBonus,
+      priority: aaci.info.priority,
+    };
+  });
+}
+
 /**
  * Build the battle scenario table for a ship by uid.
  * Returns null when the ship is unknown.
@@ -170,6 +214,7 @@ export function buildShipScenarioData(uid: number): ShipScenarioData | null {
     torpedo: ship.torpCur,
     asw: ship.aswCur,
     luck: ship.luckCur,
+    aacis: buildAaciDetails(ship, st),
     scenarios: buildShipBattleScenarios(input),
   };
 }

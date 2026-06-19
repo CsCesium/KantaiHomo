@@ -1,4 +1,5 @@
 import { detectAacis } from '../calc/aaci';
+import type { DetectedAaci } from '../calc/aaci';
 import {
   SlotItemAircraftCategory,
   SlotItemBookCategory,
@@ -406,10 +407,9 @@ function supportsOpeningAsw(ctx: ShipCapabilityTagContext, equips: EquippedMaste
 
 export function buildShipCapabilityTags(ctx: ShipCapabilityTagContext): string[] {
   const equips = collectEquips(ctx);
-  const masters = collectMasters(equips);
   const tags: string[] = [];
 
-  if (detectAacis(ctx.shipMasterId, ctx.stype, ctx.ctype, masters).length > 0) {
+  if (detectShipAaciDetails(ctx).length > 0) {
     tags.push(AACI_TAG);
   }
   // if (supportsNightCutIn(ctx.stype, masters)) {
@@ -420,4 +420,8 @@ export function buildShipCapabilityTags(ctx: ShipCapabilityTagContext): string[]
   }
 
   return tags;
+}
+
+export function detectShipAaciDetails(ctx: ShipCapabilityTagContext): DetectedAaci[] {
+  return detectAacis(ctx.shipMasterId, ctx.stype, ctx.ctype, collectMasters(collectEquips(ctx)));
 }
