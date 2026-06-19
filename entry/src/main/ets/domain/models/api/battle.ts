@@ -185,20 +185,31 @@ export interface ApiHougekiFrameRaw {
 /** ---------- Opening torpedo / Torpedo (raigeki) ---------- */
 /**
  * Torpedo-like structure used by opening_atack and raigeki in many responses.
- * The "y" arrays are used by combined/escort side in many cases.
+ * `api_*rai` is a target index per attacker; `api_*dam` / `api_*ydam`
+ * is damage aligned to the same attacker index.
  */
 export interface ApiTorpedoRaw {
   api_frai: ApiNumArray;
   api_fcl: ApiNumArray;
   api_fdam: ApiHpArray;
 
-  api_fydam?: ApiHpArray; // friend escort damage (often length 7 dummy)
+  api_fydam?: ApiHpArray;
 
   api_erai: ApiNumArray;
   api_ecl: ApiNumArray;
   api_edam: ApiHpArray;
 
-  api_eydam?: ApiHpArray; // enemy escort damage (often length 7 dummy)
+  api_eydam?: ApiHpArray;
+
+  /** Newer opening torpedo payloads can contain multiple targets per attacker. */
+  api_frai_list_items?: ApiNumArray[];
+  api_fcl_list_items?: ApiNumArray[];
+  api_fdam_list_items?: ApiHpArray[];
+  api_fydam_list_items?: ApiHpArray[];
+  api_erai_list_items?: ApiNumArray[];
+  api_ecl_list_items?: ApiNumArray[];
+  api_edam_list_items?: ApiHpArray[];
+  api_eydam_list_items?: ApiHpArray[];
 }
 export interface ApiTorpedoFrameRaw {
   api_opening_flag?: number;

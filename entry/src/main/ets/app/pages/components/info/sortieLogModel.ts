@@ -205,8 +205,11 @@ export interface EngagementStep {
   phaseLabel: string;
   /** 该阶段的首条 → 渲染阶段分组标题。 */
   phaseHead: boolean;
-  attackerName: string;     // 攻击方舰名（航空 / 雷击等无单一攻击者时为空）
+  attackerName: string;     // 攻击方舰名（航空等无单一攻击者时为空）
   attackerSide: StepSide;
+  attackerHpAfter: number;
+  attackerHpMax: number;
+  hasAttackerHp: boolean;
   targetName: string;
   targetSide: StepSide;
   damage: number;
@@ -254,6 +257,12 @@ function maxHpFor(start: BattleHpSnapshot, ref: FleetRef): number {
   return arr[ref.idx] ?? 0;
 }
 
+function hpNowFor(hp: MutableHp, ref: FleetRef): number {
+  const arr = hpArrayFor(hp, ref);
+  if (ref.idx < 0 || ref.idx >= arr.length) return 0;
+  return Math.max(0, arr[ref.idx] ?? 0);
+}
+
 function refName(ref: FleetRef, friend: FleetNames, enemy: FleetNames): string {
   const names = ref.side === 'friend' ? friend : enemy;
   const arr = ref.fleet === 'escort' ? names.escort : names.main;
@@ -285,6 +294,23 @@ function enemyNames(record: BattleRecord): FleetNames {
   };
 }
 
+function fallbackAttackerName(phaseKind: string, side: StepSide): string {
+  switch (phaseKind) {
+    case 'airBase':
+    case 'air':
+    case 'supportAir':
+      return '';
+    case 'supportShelling':
+      return side === 'friend' ? '支援舰队' : '敌支援';
+    case 'openingTorpedo':
+    case 'torpedo':
+    case 'nightTorpedo':
+      return side === 'friend' ? '我方雷击' : '敌方雷击';
+    default:
+      return side === 'friend' ? '我方' : '敌方';
+  }
+}
+
 /**
  * 逐次回放：clone start HP，按 phase → event → hit 顺序扣血，
  * 每次命中产出一条 step（含命中后目标血量）。
@@ -303,19 +329,24 @@ export function buildEngagementSteps(record: BattleRecord): EngagementStep[] {
     const label = phaseLabel(phase.kind);
     for (const ev of phase.events) {
       const explicitAttacker = ev.attacker;
-      const attackerName = explicitAttacker ? refName(explicitAttacker, friend, enemy) : '';
       for (const hit of ev.hits) {
         const t = hit.target;
         const arr = hpArrayFor(hp, t);
         if (t.idx < 0 || t.idx >= arr.length) continue;
         const dmg = clampDmg(hit.damage);
         const before = arr[t.idx] ?? 0;
-        const after = Math.max(0, before - dmg);
-        arr[t.idx] = after;
 
         const attackerSide: StepSide = explicitAttacker
           ? explicitAttacker.side
           : (ev.attackerSide ?? (t.side === 'friend' ? 'enemy' : 'friend'));
+        const attackerName = explicitAttacker
+          ? refName(explicitAttacker, friend, enemy)
+          : fallbackAttackerName(phase.kind, attackerSide);
+        const attackerHpMax = explicitAttacker ? maxHpFor(seg.start, explicitAttacker) : 0;
+        const attackerHpAfter = explicitAttacker ? hpNowFor(hp, explicitAttacker) : 0;
+
+        const after = Math.max(0, before - dmg);
+        arr[t.idx] = after;
 
         const max = maxHpFor(seg.start, t);
         steps.push({
@@ -325,6 +356,9 @@ export function buildEngagementSteps(record: BattleRecord): EngagementStep[] {
           phaseHead: !headEmitted,
           attackerName,
           attackerSide,
+          attackerHpAfter,
+          attackerHpMax,
+          hasAttackerHp: !!explicitAttacker && attackerHpMax > 0,
           targetName: refName(t, friend, enemy),
           targetSide: t.side,
           damage: dmg,

@@ -312,14 +312,14 @@ function normalizeHpArray(arr?: Array<number | null> | null): number[] {
 }
 
 /**
- * 友方伤害数组（api_fdam / api_fydam）按舰队下标 0-indexed 排列：
+ * 航空 / 支援等「受伤方数组」里，友方伤害数组按舰队下标 0-indexed 排列：
  * 第一艘舰娘的伤害在 index 0，长度通常为 6，也可能为 7（末尾补 0）。
  * 不能像 normalizeHpArray 那样在 length===7 && nums[0]===0 时去头，否则
  * 一号位「这一阶段没吃伤」(d1=0) 时会把 d1 当成 dummy 截掉，导致
  * 「n+1 号位伤害贴到 n 号位、一号位伤害消失」的错位。
  *
- * 敌方伤害数组（api_edam 等）跟 api_ship_ke 一样在 index 0 有 dummy，
- * 仍然走 normalizeHpArray。
+ * 敌方受伤数组（api_edam 等）跟 api_ship_ke 一样在 index 0 有 dummy，
+ * 仍然走 normalizeHpArray。雷击阶段不使用这里的逻辑，雷击数组按攻击者索引排列。
  */
 function toFriendDamageArray(arr?: Array<number | null> | null): number[] {
   if (!Array.isArray(arr)) return [];
@@ -551,20 +551,45 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
 function mkTorpedoPhase(kind: BattlePhaseKind, seq: number, key: string, raw: ApiTorpedoRaw, start: BattleHpSnapshot): BattlePhase {
   const events: AttackEvent[] = [];
 
-  // Interpret as damage arrays directly (most robust):
-  // - api_fdam: damage to friend main
-  // - api_fydam: damage to friend escort
-  // - api_edam: damage to enemy main
-  // - api_eydam: damage to enemy escort
-  const hits: DamageInstance[] = [];
+  pushTorpedoEvents(
+    events,
+    'friend',
+    'enemy',
+    raw.api_frai,
+    raw.api_fydam ?? raw.api_fdam,
+    raw.api_fcl,
+    start
+  );
+  pushTorpedoEvents(
+    events,
+    'enemy',
+    'friend',
+    raw.api_erai,
+    raw.api_eydam ?? raw.api_edam,
+    raw.api_ecl,
+    start
+  );
 
-  pushDamageArrayToFleet(hits, 'friend', 'main', raw.api_fdam, start);
-  if (raw.api_fydam) pushDamageArrayToFleet(hits, 'friend', 'escort', raw.api_fydam, start);
-
-  pushDamageArrayToFleet(hits, 'enemy', 'main', raw.api_edam, start);
-  if (raw.api_eydam) pushDamageArrayToFleet(hits, 'enemy', 'escort', raw.api_eydam, start);
-
-  if (hits.length) events.push({ hits });
+  if (events.length === 0) {
+    pushTorpedoListItemEvents(
+      events,
+      'friend',
+      'enemy',
+      raw.api_frai_list_items,
+      raw.api_fydam_list_items ?? raw.api_fdam_list_items,
+      raw.api_fcl_list_items,
+      start
+    );
+    pushTorpedoListItemEvents(
+      events,
+      'enemy',
+      'friend',
+      raw.api_erai_list_items,
+      raw.api_eydam_list_items ?? raw.api_edam_list_items,
+      raw.api_ecl_list_items,
+      start
+    );
+  }
 
   return { kind, seq, rawKey: key, events };
 }
@@ -633,6 +658,115 @@ function resolveIndexToFleetRef(side: BattleSide, idx1: number, snap: BattleHpSn
 
   // out of range (e.g., dummy slot)
   return null;
+}
+
+/**
+ * Torpedo arrays use zero-based combined-fleet indices:
+ * main fleet first, then escort fleet; -1 means no target.
+ */
+function resolveCombinedIndexToFleetRef(side: BattleSide, idx0: number, snap: BattleHpSnapshot): FleetRef | null {
+  if (idx0 < 0) return null;
+
+  const mainLen = side === 'friend' ? snap.friend.main.now.length : snap.enemy.main.now.length;
+  const escLen = side === 'friend' ? (snap.friend.escort?.now.length ?? 0) : (snap.enemy.escort?.now.length ?? 0);
+
+  if (idx0 < mainLen) return { side, fleet: 'main', idx: idx0 };
+  if (escLen && idx0 < mainLen + escLen) return { side, fleet: 'escort', idx: idx0 - mainLen };
+
+  return null;
+}
+
+function toTorpedoIndexArray(arr?: Array<number | null> | null): number[] {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((v) => (typeof v === 'number' ? v : -1));
+}
+
+function toTorpedoDamageArray(arr?: Array<number | null> | null): number[] {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((v) => (typeof v === 'number' ? v : 0));
+}
+
+function pushTorpedoEvents(
+  events: AttackEvent[],
+  attackerSide: BattleSide,
+  targetSide: BattleSide,
+  rawTargets: Array<number | null> | null | undefined,
+  rawDamage: Array<number | null> | null | undefined,
+  rawCritical: Array<number | null> | null | undefined,
+  snap: BattleHpSnapshot
+) {
+  const targets = toTorpedoIndexArray(rawTargets);
+  const damages = toTorpedoDamageArray(rawDamage);
+  const criticals = toTorpedoIndexArray(rawCritical);
+  const n = Math.max(targets.length, damages.length, criticals.length);
+
+  for (let i = 0; i < n; i++) {
+    const attackerRef = resolveCombinedIndexToFleetRef(attackerSide, i, snap);
+    const targetRef = resolveCombinedIndexToFleetRef(targetSide, targets[i] ?? -1, snap);
+    if (!attackerRef || !targetRef) continue;
+
+    const dmg = clampDmg(damages[i] ?? 0);
+    if (dmg <= 0) continue;
+
+    const cl = criticals[i] ?? -1;
+    events.push({
+      attacker: attackerRef,
+      attackerSide,
+      attackerRawIndex: i,
+      hits: [{
+        target: targetRef,
+        damage: dmg,
+        critical: cl >= 0 ? cl : undefined,
+      }],
+    });
+  }
+}
+
+function pushTorpedoListItemEvents(
+  events: AttackEvent[],
+  attackerSide: BattleSide,
+  targetSide: BattleSide,
+  rawTargetRows: Array<Array<number | null> | null> | null | undefined,
+  rawDamageRows: Array<Array<number | null> | null> | null | undefined,
+  rawCriticalRows: Array<Array<number | null> | null> | null | undefined,
+  snap: BattleHpSnapshot
+) {
+  if (!Array.isArray(rawTargetRows)) return;
+
+  for (let i = 0; i < rawTargetRows.length; i++) {
+    const attackerRef = resolveCombinedIndexToFleetRef(attackerSide, i, snap);
+    if (!attackerRef) continue;
+
+    const targets = toTorpedoIndexArray(rawTargetRows[i]);
+    const damages = toTorpedoDamageArray(rawDamageRows?.[i]);
+    const criticals = toTorpedoIndexArray(rawCriticalRows?.[i]);
+    const n = Math.max(targets.length, damages.length, criticals.length);
+    const hits: DamageInstance[] = [];
+
+    for (let j = 0; j < n; j++) {
+      const targetRef = resolveCombinedIndexToFleetRef(targetSide, targets[j] ?? -1, snap);
+      if (!targetRef) continue;
+
+      const dmg = clampDmg(damages[j] ?? 0);
+      if (dmg <= 0) continue;
+
+      const cl = criticals[j] ?? -1;
+      hits.push({
+        target: targetRef,
+        damage: dmg,
+        critical: cl >= 0 ? cl : undefined,
+      });
+    }
+
+    if (hits.length) {
+      events.push({
+        attacker: attackerRef,
+        attackerSide,
+        attackerRawIndex: i,
+        hits,
+      });
+    }
+  }
 }
 
 function pushDamageArrayToFleet(

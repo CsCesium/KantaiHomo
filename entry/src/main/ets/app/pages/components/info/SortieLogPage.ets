@@ -233,6 +233,67 @@ export default struct SortieLogPage {
     .borderRadius(2)
   }
 
+  @Builder
+  private StepHpBar(hpNow: number, hpMax: number) {
+    Stack({ alignContent: Alignment.Center }) {
+      Row() {
+        if (hpNow > 0) {
+          Column()
+            .layoutWeight(Math.max(0, hpNow))
+            .height('100%')
+            .backgroundColor(hpColor(hpNow, hpMax > 0 ? hpMax : 1))
+        }
+        if (hpMax - Math.max(0, hpNow) > 0) {
+          Blank().layoutWeight(Math.max(0, hpMax - Math.max(0, hpNow)))
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(PanelColors.bgHpTrack)
+
+      Text(`${Math.max(0, hpNow)}/${Math.max(0, hpMax)}`)
+        .fontSize(9)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#FFFFFF')
+        .width('100%')
+        .textAlign(TextAlign.Center)
+    }
+    .width('100%')
+    .height(14)
+    .borderRadius(3)
+    .clip(true)
+  }
+
+  @Builder
+  private StepHpPair(step: EngagementStep) {
+    Row({ space: 6 }) {
+      if (step.hasAttackerHp) {
+        Column() {
+          this.StepHpBar(step.attackerHpAfter, step.attackerHpMax)
+        }
+        .layoutWeight(1)
+
+        Text('vs')
+          .fontSize(10)
+          .fontColor(COLOR_MUTED)
+          .width(20)
+          .textAlign(TextAlign.Center)
+
+        Column() {
+          this.StepHpBar(step.hpAfter, step.hpMax)
+        }
+        .layoutWeight(1)
+      } else {
+        Column() {
+          this.StepHpBar(step.hpAfter, step.hpMax)
+        }
+        .layoutWeight(1)
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
   // ==================== 列表 ====================
 
   @Builder
@@ -592,20 +653,8 @@ export default struct SortieLogPage {
         .width('100%')
         .alignItems(VerticalAlign.Center)
 
-        // line 2: target HP bar after the hit
-        Row({ space: 6 }) {
-          Column() {
-            this.HpBar(step.hpAfter, step.hpMax)
-          }
-          .layoutWeight(1)
-          Text(`${step.hpAfter}/${step.hpMax}`)
-            .fontSize(10)
-            .fontColor(COLOR_MUTED)
-            .width(58)
-            .textAlign(TextAlign.End)
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
+        // line 2: attacker HP vs target HP after the hit
+        this.StepHpPair(step)
       }
       .width('100%')
       .padding({ left: 12, right: 12, top: 5, bottom: 5 })
