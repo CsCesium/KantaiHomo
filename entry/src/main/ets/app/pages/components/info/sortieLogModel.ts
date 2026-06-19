@@ -404,11 +404,11 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
-/** dd/hh/mm —— 日 / 时 / 分（本地时区）。 */
-export function formatDdHhMm(ts: number): string {
-  if (!ts) return '--/--/--';
+/** MM/DD HH:mm（本地时区）。 */
+export function formatMmDdHhMm(ts: number): string {
+  if (!ts) return '--/-- --:--';
   const d = new Date(ts);
-  return `${pad2(d.getDate())}/${pad2(d.getHours())}/${pad2(d.getMinutes())}`;
+  return `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 /** 地图点位文本：boss 点用括号标注。 */

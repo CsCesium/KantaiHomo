@@ -22,7 +22,7 @@ import {
   PhaseSummary,
   mapCode,
   areaName,
-  formatDdHhMm,
+  formatMmDdHhMm,
   cellLabel,
   rankColor,
   displayRank,
@@ -112,7 +112,7 @@ export default struct SortieLogPage {
   private rowFieldText(row: BattleRecordRow, field: string): string {
     switch (field) {
       case 'time':
-        return formatDdHhMm(row.startedAt);
+        return formatMmDdHhMm(row.startedAt);
       case 'map':
         return `${mapCode(row.mapAreaId, row.mapInfoNo)} ${areaName(row.mapAreaId)}`;
       case 'cell':
@@ -331,8 +331,8 @@ export default struct SortieLogPage {
       .border({ width: 0 })
       .onClick(() => this.openDetail(row))
 
-      // 时间 dd/hh/mm
-      Text(formatDdHhMm(row.startedAt))
+      // 时间 MM/DD HH:mm
+      Text(formatMmDdHhMm(row.startedAt))
         .fontSize(11)
         .fontColor(COLOR_SUB)
         .width(62)
@@ -711,7 +711,7 @@ export default struct SortieLogPage {
       .alignItems(VerticalAlign.Center)
 
       Row({ space: 12 }) {
-        Text(formatDdHhMm(this.dStartedAt)).fontSize(11).fontColor(COLOR_MUTED)
+        Text(formatMmDdHhMm(this.dStartedAt)).fontSize(11).fontColor(COLOR_MUTED)
         Text(this.dDropName.length > 0 ? `捞船：${this.dDropName}` : '捞船：无')
           .fontSize(11)
           .fontColor(this.dDropName.length > 0 ? COLOR_FRIEND : COLOR_MUTED)
