@@ -101,22 +101,43 @@ export default struct SortieLogPage {
     this.loading = false;
   }
 
+  private searchNeedle(): string {
+    return this.searchText.trim().toLowerCase();
+  }
+
+  private textMatches(text: string, q: string): boolean {
+    return q.length > 0 && text.toLowerCase().indexOf(q) >= 0;
+  }
+
+  private rowFieldText(row: BattleRecordRow, field: string): string {
+    switch (field) {
+      case 'time':
+        return formatDdHhMm(row.startedAt);
+      case 'map':
+        return `${mapCode(row.mapAreaId, row.mapInfoNo)} ${areaName(row.mapAreaId)}`;
+      case 'cell':
+        return cellLabel(row.cellId, row.isBoss === 1);
+      case 'rank':
+        return `${row.rank} ${displayRank(row.rank)} ${this.rowResultLabel(row)}`;
+      case 'drop':
+        return row.dropShipName ?? '';
+      default:
+        return '';
+    }
+  }
+
   private rowSearchText(row: BattleRecordRow): string {
-    const drop = row.dropShipName ?? '';
     return [
-      formatDdHhMm(row.startedAt),
-      mapCode(row.mapAreaId, row.mapInfoNo),
-      areaName(row.mapAreaId),
-      cellLabel(row.cellId, row.isBoss === 1),
-      row.rank,
-      displayRank(row.rank),
-      this.rowResultLabel(row),
-      drop,
+      this.rowFieldText(row, 'time'),
+      this.rowFieldText(row, 'map'),
+      this.rowFieldText(row, 'cell'),
+      this.rowFieldText(row, 'rank'),
+      this.rowFieldText(row, 'drop'),
     ].join(' ').toLowerCase();
   }
 
   private recomputeRows(): void {
-    const q = this.searchText.trim().toLowerCase();
+    const q = this.searchNeedle();
     if (q.length === 0) {
       this.visibleRows = this.rows.slice();
       return;
@@ -174,6 +195,23 @@ export default struct SortieLogPage {
     return battleResultLabel(record.rank, isCompleteVictory(record));
   }
 
+  private matchCount(field: string): number {
+    const q = this.searchNeedle();
+    if (q.length === 0) return 0;
+    let count = 0;
+    for (const row of this.rows) {
+      if (this.textMatches(this.rowFieldText(row, field), q)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  private titleLabel(label: string, field: string): string {
+    const count = this.matchCount(field);
+    return count > 0 ? `${label}（${count}）` : label;
+  }
+
   // ==================== 通用血条 ====================
 
   @Builder
@@ -203,35 +241,35 @@ export default struct SortieLogPage {
       Text('')
         .width(34)
 
-      Text('时间')
+      Text(this.titleLabel('时间', 'time'))
         .fontSize(11)
         .fontColor(COLOR_SUB)
         .fontWeight(FontWeight.Medium)
         .width(62)
         .textAlign(TextAlign.Center)
 
-      Text('海域')
+      Text(this.titleLabel('海域', 'map'))
         .fontSize(11)
         .fontColor(COLOR_SUB)
         .fontWeight(FontWeight.Medium)
         .layoutWeight(2)
         .textAlign(TextAlign.Center)
 
-      Text('点位')
+      Text(this.titleLabel('点位', 'cell'))
         .fontSize(11)
         .fontColor(COLOR_SUB)
         .fontWeight(FontWeight.Medium)
         .width(66)
         .textAlign(TextAlign.Center)
 
-      Text('戦果')
+      Text(this.titleLabel('戦果', 'rank'))
         .fontSize(11)
         .fontColor(COLOR_SUB)
         .fontWeight(FontWeight.Medium)
         .width(84)
         .textAlign(TextAlign.Center)
 
-      Text('掉落')
+      Text(this.titleLabel('掉落', 'drop'))
         .fontSize(11)
         .fontColor(COLOR_SUB)
         .fontWeight(FontWeight.Medium)
