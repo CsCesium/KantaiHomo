@@ -26,6 +26,8 @@ import {
   cellLabel,
   rankColor,
   displayRank,
+  battleResultLabel,
+  isCompleteVictory,
 } from './sortieLogModel';
 
 // ==================== 调色板（沿用其它 info 页面） ====================
@@ -67,6 +69,7 @@ export default struct SortieLogPage {
   @Local private dCellId: number = 0;
   @Local private dIsBoss: boolean = false;
   @Local private dRank: string = '';
+  @Local private dCompleteVictory: boolean = false;
   @Local private dStartedAt: number = 0;
   @Local private dDropName: string = '';
 
@@ -107,6 +110,7 @@ export default struct SortieLogPage {
       cellLabel(row.cellId, row.isBoss === 1),
       row.rank,
       displayRank(row.rank),
+      this.rowResultLabel(row),
       drop,
     ].join(' ').toLowerCase();
   }
@@ -139,6 +143,7 @@ export default struct SortieLogPage {
     this.dCellId = record.cellId;
     this.dIsBoss = record.isBoss;
     this.dRank = record.rank;
+    this.dCompleteVictory = isCompleteVictory(record);
     this.dStartedAt = record.startedAt;
     this.dDropName = record.dropShipName ?? '';
     this.dFriendMain = fleetShipItems(record, false);
@@ -162,6 +167,11 @@ export default struct SortieLogPage {
     } else {
       this.onClose?.();
     }
+  }
+
+  private rowResultLabel(row: BattleRecordRow): string {
+    const record: BattleRecord = rowToBattleRecord(row);
+    return battleResultLabel(record.rank, isCompleteVictory(record));
   }
 
   // ==================== 通用血条 ====================
@@ -214,11 +224,11 @@ export default struct SortieLogPage {
         .width(66)
         .textAlign(TextAlign.Center)
 
-      Text('结果')
+      Text('戦果')
         .fontSize(11)
         .fontColor(COLOR_SUB)
         .fontWeight(FontWeight.Medium)
-        .width(26)
+        .width(84)
         .textAlign(TextAlign.Center)
 
       Text('掉落')
@@ -314,12 +324,14 @@ export default struct SortieLogPage {
         .textAlign(TextAlign.Center)
 
       // 战斗结果
-      Text(displayRank(row.rank))
-        .fontSize(16)
+      Text(this.rowResultLabel(row))
+        .fontSize(12)
         .fontWeight(FontWeight.Bold)
         .fontColor(rankColor(row.rank))
-        .width(26)
+        .width(84)
         .textAlign(TextAlign.Center)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
 
       // 捞船
       Text(row.dropShipName && row.dropShipName.length > 0 ? row.dropShipName : '—')
@@ -650,10 +662,12 @@ export default struct SortieLogPage {
           .fontColor(this.dIsBoss ? COLOR_BOSS : COLOR_SUB)
           .fontWeight(this.dIsBoss ? FontWeight.Bold : FontWeight.Regular)
         Blank().layoutWeight(1)
-        Text(displayRank(this.dRank))
-          .fontSize(24)
+        Text(battleResultLabel(this.dRank, this.dCompleteVictory))
+          .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor(rankColor(this.dRank))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

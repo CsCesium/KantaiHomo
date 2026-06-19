@@ -417,17 +417,48 @@ export function cellLabel(cellId: number, isBoss: boolean): string {
 }
 
 export function rankColor(rank: string): string {
-  switch (rank) {
-    case 'SS':
-    case 'S': return '#FFD700';
-    case 'A': return '#7ED957';
-    case 'B': return '#56d8e0';
-    case 'C': return '#FFB74D';
-    case 'D': return '#FF8A65';
-    default: return '#E57373';
-  }
+  if (displayRank(rank) === 'S') return '#FFD700';
+  if (rank === 'A') return '#ffdd1212';
+  if (rank === 'B') return '#ffcb6d22';
+  if (rank === 'C') return '#ff917c25';
+  if (rank === 'D') return '#ff198311';
+  return '#e53935';
 }
 
 export function displayRank(rank: string): string {
   return rank === 'SS' ? 'S' : rank;
+}
+
+function hpUnchanged(start: number[] | undefined, end: number[] | undefined): boolean {
+  const a = start ?? [];
+  const b = end ?? [];
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const before = a[i] ?? 0;
+    const after = b[i] ?? before;
+    if (after < before) return false;
+  }
+  return true;
+}
+
+export function isCompleteVictory(record: BattleRecord): boolean {
+  if (displayRank(record.rank) !== 'S') return false;
+  const start = record.hpStart?.friend;
+  const end = record.hpEnd?.friend;
+  if (!start || !end) return record.rank === 'SS';
+  return hpUnchanged(start.main?.now, end.main?.now)
+    && hpUnchanged(start.escort?.now, end.escort?.now);
+}
+
+export function battleResultLabel(rank: string, completeVictory: boolean = false): string {
+  const r = displayRank(rank);
+  switch (r) {
+    case 'S': return `${completeVictory || rank === 'SS' ? '完全勝利' : '勝利'}S`;
+    case 'A': return '勝利A';
+    case 'B': return '戦術的勝利B';
+    case 'C': return '戦術的敗北C';
+    case 'D': return '敗北D';
+    case 'E': return '敗北E';
+    default: return r;
+  }
 }
