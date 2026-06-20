@@ -384,6 +384,10 @@ export default struct SortieLogPage {
     return step.targetSide === side ? this.hpChange(step.hpBefore, step.hpAfter) : 0;
   }
 
+  private attackTypeColor(step: EngagementStep): string {
+    return step.attackType === 0 ? COLOR_MUTED : COLOR_ACCENT;
+  }
+
   @Builder
   private StepSideHpBar(step: EngagementStep, side: StepSide) {
     if (this.stepSideHasHp(step, side)) {
@@ -823,8 +827,9 @@ export default struct SortieLogPage {
           if (step.attackTypeLabel.length > 0) {
             Text(step.attackTypeLabel)
               .fontSize(10)
-              .fontColor(COLOR_ACCENT)
+              .fontColor(this.attackTypeColor(step))
               .fontWeight(FontWeight.Medium)
+              .constraintSize({ maxWidth: 86 })
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
           }

@@ -323,26 +323,73 @@ function attackTypeKey(phaseKind: string, code: number | undefined): string {
     : (DayAttackTypeMap[code] ?? '');
 }
 
-function attackTypeLabel(phaseKind: string, code: number | undefined): string {
-  const type = attackTypeKey(phaseKind, code);
-  switch (type) {
-    case 'Laser': return 'レーザー';
-    case 'Nelson': return 'Nelson Touch';
-    case 'Nagato': return '長門特殊';
-    case 'Mutsu': return '陸奥特殊';
-    case 'Colorado': return 'Colorado特殊';
-    case 'Kongo_Class_Kaini_C': return '僚舰夜战突击';
-    case 'Yamato_Double': return '大和特殊(2舰)';
-    case 'Yamato_Triple': return '大和特殊(3舰)';
-    case 'Baguette_Charge': return 'Richelieu特殊';
-    case 'QE_Touch': return 'Warspite特殊';
-    case 'Submarine_Special_Attack_2_3': return '潜水特殊(2-3)';
-    case 'Submarine_Special_Attack_3_4': return '潜水特殊(3-4)';
-    case 'Submarine_Special_Attack_2_4': return '潜水特殊(2-4)';
-    case 'Zuiyun_Night_Attack': return '瑞云夜战';
-    case 'Type_4_LC_Special_Attack': return '四式特攻';
+function isDayShellingPhase(phaseKind: string): boolean {
+  return phaseKind === 'shelling1' || phaseKind === 'shelling2' || phaseKind === 'shelling3';
+}
+
+function specialAttackLabel(code: number): string {
+  switch (code) {
+    case 100: return 'Nelson Touch';
+    case 101: return '長門特殊';
+    case 102: return '陸奥特殊';
+    case 103: return 'Colorado特殊';
+    case 104: return '僚舰夜战突击';
+    case 105: return 'Richelieu特殊';
+    case 106: return 'Warspite特殊';
+    case 200: return '夜瑞CI';
+    case 300: return '潜水特殊(2-3)';
+    case 301: return '潜水特殊(3-4)';
+    case 302: return '潜水特殊(2-4)';
+    case 400: return '大和特殊(3舰)';
+    case 401: return '大和特殊(2舰)';
+    case 1000: return '特四式特攻？';
     default: return '';
   }
+}
+
+function dayShellingAttackLabel(code: number): string {
+  const special = specialAttackLabel(code);
+  if (special.length > 0) return special;
+  switch (code) {
+    case 0: return '普通攻击';
+    case 1: return 'レーザー';
+    case 2: return '连击';
+    case 3: return '主副CI';
+    case 4: return '主电CI';
+    case 5: return '主彻CI';
+    case 6: return '主主CI';
+    case 7: return '战爆攻CI';
+    case 8: return '爆爆攻CI';
+    case 9: return '爆攻CI';
+    default: return '';
+  }
+}
+
+function nightShellingAttackLabel(code: number): string {
+  const special = specialAttackLabel(code);
+  if (special.length > 0) return special;
+  switch (code) {
+    case 0: return '普通攻击';
+    case 1: return '连击';
+    case 2: return '炮雷CI';
+    case 3: return '鱼雷CI';
+    case 4: return '主副CI';
+    case 5: return '主主CI';
+    case 6: return '夜间航空';
+    case 7: return '夜袭CI';
+    case 8: return '主鱼电CI';
+    case 9: return '鱼鱼水CI';
+    case 10: return '潜水CI';
+    case 11: return '潜水CI(后期)';
+    default: return '';
+  }
+}
+
+function attackTypeLabel(phaseKind: string, code: number | undefined): string {
+  if (typeof code !== 'number' || !Number.isFinite(code)) return '';
+  if (isDayShellingPhase(phaseKind)) return dayShellingAttackLabel(code);
+  if (phaseKind === 'nightShelling') return nightShellingAttackLabel(code);
+  return '';
 }
 
 function multiTargetAttackOrder(phaseKind: string, code: number | undefined): number[] | undefined {
