@@ -830,7 +830,7 @@ export default struct SortieLogPage {
   @Builder
   private BattleDetailSection() {
     if (this.dAerial.length > 0 || this.dLbas.length > 0) {
-      this.SectionTitle('航空站详情')
+      this.SectionTitle('航空战详情')
       Column({ space: 6 }) {
         ForEach(this.dAerial, (p: AerialCombatInfo, idx: number) => {
           this.AerialBlock(p, idx)
