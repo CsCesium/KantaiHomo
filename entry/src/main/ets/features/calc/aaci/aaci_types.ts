@@ -61,10 +61,10 @@ export enum AaciTypeId {
 
   // 鳥海改二/摩耶改二専用
   CHOUKAI_20 = 20, // 高角砲 + 対空電探
-  CHOUKAI_21 = 21, // 高角砲
 
   // 由良改二専用
   YURA_18 = 18,    // 高角砲 + 対空電探
+  YURA_FUBUKI_21 = 21, // 高角砲 + 対空電探
 
   // 磯風乙改/浜風乙改専用
   ISOKAZE_29 = 29, // 高角砲 + 対空電探 + 対空電探 (実質機銃2?)
@@ -92,6 +92,12 @@ export enum AaciTypeId {
 
   // 秋月型専用 (秋月砲改)
   AKIZUKI_48 = 48, // 10cm連装高角砲改+増設機銃(対水上電探搭載) + 対空電探 or 10cm連装高角砲改+増設機銃×2
+
+  // 吹雪改二/改三/改三護など
+  FUBUKI_49 = 49, // 特殊高角砲×2 + 対空電探(素対空4以上)
+  FUBUKI_50 = 50, // 10cm連装高角砲改系×2 + 対空電探(素対空4以上) + 94式高射装置
+  FUBUKI_51 = 51, // 10cm連装高角砲改系 + 対空電探(素対空4以上) + 機銃(素対空5以上)
+  FUBUKI_52 = 52, // 10cm連装高角砲改×2 + 94式高射装置
 
   // イギリス艦専用 (汎用)
   BRITISH_32 = 32, // QF 2ポンド8連装ポンポン砲 + 16inch Mk.I三連装砲改
@@ -121,6 +127,8 @@ export enum AaciShipRestriction {
   GENERIC = 'generic',
   /** 秋月型のみ */
   AKIZUKI_CLASS = 'akizuki',
+  /** 秋月型/吹雪改三護 */
+  AKIZUKI_OR_FUBUKI_GO = 'akizuki_or_fubuki_go',
   /** 摩耶改二のみ */
   MAYA_K2 = 'maya_k2',
   /** 伊勢型改二のみ */
@@ -141,12 +149,16 @@ export enum AaciShipRestriction {
   KASUMI_K2B = 'kasumi_k2b',
   /** 由良改二のみ */
   YURA_K2 = 'yura_k2',
+  /** 由良改二/吹雪改三/吹雪改三護 */
+  YURA_FUBUKI_KAI3 = 'yura_fubuki_kai3',
   /** 鳥海改二/摩耶改二 */
   CHOUKAI_MAYA_K2 = 'choukai_maya_k2',
   /** 磯風乙改/浜風乙改 */
   ISOKAZE_HAMAKAZE_B = 'isokaze_hamakaze_b',
   /** Fletcher級 */
   FLETCHER_CLASS = 'fletcher',
+  /** Fletcher級/吹雪改三護 */
+  FLETCHER_OR_FUBUKI_GO = 'fletcher_or_fubuki_go',
   /** Atlanta */
   ATLANTA = 'atlanta',
   /** 大和型改二 */
@@ -161,6 +173,8 @@ export enum AaciShipRestriction {
   TATSUTA_K2 = 'tatsuta_k2',
   /** Gotland改/andra */
   GOTLAND_K = 'gotland_k',
+  /** 吹雪改二/改三/改三護および特型・夕雲型改二グループ */
+  FUBUKI_AACI_GROUP = 'fubuki_aaci_group',
 }
 
 // ==================== AACI ====================
@@ -181,8 +195,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.7,
     baseRate: 0.58,
     priority: 95,
-    description: '秋月型: 高角砲 + 対空電探',
-    shipRestriction: AaciShipRestriction.AKIZUKI_CLASS,
+    description: '秋月型: 高角砲 + 対空電探 / 吹雪改三護: 特殊高角砲 + 対空電探',
+    shipRestriction: AaciShipRestriction.AKIZUKI_OR_FUBUKI_GO,
   }],
   [AaciTypeId.AKIZUKI_3, {
     id: AaciTypeId.AKIZUKI_3,
@@ -198,11 +212,49 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
   [AaciTypeId.AKIZUKI_48, {
     id: AaciTypeId.AKIZUKI_48,
     fixedBonus: 8,
-    variableBonus: 1.7,
+    variableBonus: 1.75,
     baseRate: 0.65,
     priority: 105,
-    description: '秋月型: 10cm連装高角砲改+増設機銃 + 対空電探 or ×2',
-    shipRestriction: AaciShipRestriction.AKIZUKI_CLASS,
+    description: '秋月型改/改二・吹雪改三護: 10cm連装高角砲改+高射装置改×2 + 対空電探',
+    shipRestriction: AaciShipRestriction.AKIZUKI_OR_FUBUKI_GO,
+  }],
+
+  // 吹雪改二/改三/改三護など
+  [AaciTypeId.FUBUKI_50, {
+    id: AaciTypeId.FUBUKI_50,
+    fixedBonus: 7,
+    variableBonus: 1.5,
+    baseRate: 0.55,
+    priority: 96,
+    description: '吹雪型/夕雲型改二等: 10cm連装高角砲改系×2 + 対空電探 + 94式高射装置',
+    shipRestriction: AaciShipRestriction.FUBUKI_AACI_GROUP,
+  }],
+  [AaciTypeId.FUBUKI_49, {
+    id: AaciTypeId.FUBUKI_49,
+    fixedBonus: 5,
+    variableBonus: 1.5,
+    baseRate: 0.55,
+    priority: 85,
+    description: '吹雪型/夕雲型改二等: 特殊高角砲×2 + 対空電探',
+    shipRestriction: AaciShipRestriction.FUBUKI_AACI_GROUP,
+  }],
+  [AaciTypeId.FUBUKI_51, {
+    id: AaciTypeId.FUBUKI_51,
+    fixedBonus: 5,
+    variableBonus: 1.35,
+    baseRate: 0.45,
+    priority: 82,
+    description: '吹雪型/夕雲型改二等: 10cm連装高角砲改系 + 対空電探 + 機銃',
+    shipRestriction: AaciShipRestriction.FUBUKI_AACI_GROUP,
+  }],
+  [AaciTypeId.FUBUKI_52, {
+    id: AaciTypeId.FUBUKI_52,
+    fixedBonus: 4,
+    variableBonus: 1.4,
+    baseRate: 0.50,
+    priority: 77,
+    description: '吹雪型/夕雲型改二等: 10cm連装高角砲改×2 + 94式高射装置',
+    shipRestriction: AaciShipRestriction.FUBUKI_AACI_GROUP,
   }],
 
   // 摩耶改二専用 (最強クラス)
@@ -270,8 +322,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.6,
     baseRate: 0.60,
     priority: 98,
-    description: 'Fletcher級: 5inch Mk.30改+GFCS×2',
-    shipRestriction: AaciShipRestriction.FLETCHER_CLASS,
+    description: 'Fletcher級/吹雪改三護: 5inch Mk.30改+GFCS×2',
+    shipRestriction: AaciShipRestriction.FLETCHER_OR_FUBUKI_GO,
   }],
   [AaciTypeId.FLETCHER_35, {
     id: AaciTypeId.FLETCHER_35,
@@ -279,8 +331,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.55,
     baseRate: 0.55,
     priority: 92,
-    description: 'Fletcher級: Mk.30改+GFCS + Mk.30(改)',
-    shipRestriction: AaciShipRestriction.FLETCHER_CLASS,
+    description: 'Fletcher級/吹雪改三護: Mk.30改+GFCS + Mk.30(改)',
+    shipRestriction: AaciShipRestriction.FLETCHER_OR_FUBUKI_GO,
   }],
   [AaciTypeId.FLETCHER_36, {
     id: AaciTypeId.FLETCHER_36,
@@ -288,8 +340,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.55,
     baseRate: 0.55,
     priority: 91,
-    description: 'Fletcher級: Mk.30(改)×2 + GFCS',
-    shipRestriction: AaciShipRestriction.FLETCHER_CLASS,
+    description: 'Fletcher級/吹雪改三護: Mk.30(改)×2 + GFCS',
+    shipRestriction: AaciShipRestriction.FLETCHER_OR_FUBUKI_GO,
   }],
   [AaciTypeId.FLETCHER_37, {
     id: AaciTypeId.FLETCHER_37,
@@ -502,14 +554,14 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     description: '鳥海改二/摩耶改二: 高角砲 + 対空電探',
     shipRestriction: AaciShipRestriction.CHOUKAI_MAYA_K2,
   }],
-  [AaciTypeId.CHOUKAI_21, {
-    id: AaciTypeId.CHOUKAI_21,
-    fixedBonus: 3,
-    variableBonus: 1.25,
+  [AaciTypeId.YURA_FUBUKI_21, {
+    id: AaciTypeId.YURA_FUBUKI_21,
+    fixedBonus: 5,
+    variableBonus: 1.45,
     baseRate: 0.60,
-    priority: 69,
-    description: '鳥海改二/摩耶改二: 高角砲',
-    shipRestriction: AaciShipRestriction.CHOUKAI_MAYA_K2,
+    priority: 87,
+    description: '由良改二/吹雪改三/改三護: 高角砲 + 対空電探',
+    shipRestriction: AaciShipRestriction.YURA_FUBUKI_KAI3,
   }],
 
   // 皐月改二/文月改二専用

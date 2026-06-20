@@ -23,6 +23,7 @@ import {
   isHighAngleGun,
   hasEquipment,
   isAirRadar,
+  isAirRadarAtLeast,
   isSpecialAAGun,
   isAtlantaGFCSMount,
   isAtlantaCentralizedGun,
@@ -39,9 +40,21 @@ import {
   isBuiltInAAFD,
   isSpecialHighAngleGun,
   isPomPomGun,
-  is16inchMkIGunKai
+  is16inchMkIGunKai,
+  is10cmHighAngleGunKai,
+  is10cmHighAngleGunKaiDirectorKai,
+  isType94AADirector,
+  isAAGunAtLeast
 } from "./equip_helper";
-import { isChoukaiOrMayaK2, isIsokazeOrHamakazeB, isTenryuK2, isUitOrI504 } from "./ship_helper";
+import {
+  isChoukaiOrMayaK2,
+  isFubukiAaciGroup,
+  isFubukiKai3,
+  isFubukiKai3Go,
+  isIsokazeOrHamakazeB,
+  isTenryuK2,
+  isUitOrI504
+} from "./ship_helper";
 
 // ==================== Type Detect ====================
 export interface DetectedAaci {
@@ -75,14 +88,12 @@ function checkAkizukiAaciConditions(
 
   const haGunCount = countEquipment(equips, isHighAngleGun);
   const hasRadar = hasEquipment(equips, isAirRadar);
-  const hasAkizukiGunKai = hasEquipment(equips, m => m.id === 467); // 10cm連装高角砲改+増設機銃(対水上電探搭載)
+  const akizukiGunKaiDirectorCount = countEquipment(equips, is10cmHighAngleGunKaiDirectorKai);
+  const hasAa4Radar = hasEquipment(equips, m => isAirRadarAtLeast(m, 4));
 
-  // 48種: 10cm連装高角砲改+増設機銃(対水上電探搭載) + 対空電探 or ×2
-  if (hasAkizukiGunKai) {
-    const akizukiGunKaiCount = countEquipment(equips, m => m.id === 467);
-    if (hasRadar || akizukiGunKaiCount >= 2) {
-      result.push(AaciTypeId.AKIZUKI_48);
-    }
+  // 48種: 10cm連装高角砲改+高射装置改×2 + 対空電探(素対空4以上)
+  if (akizukiGunKaiDirectorCount >= 2 && hasAa4Radar) {
+    result.push(AaciTypeId.AKIZUKI_48);
   }
 
   // 1種: 高角砲×2 + 対空電探
@@ -193,6 +204,90 @@ function checkFletcherAaciConditions(
   // 37種: Mk.30(改)×2
   if (mk30KaiCount >= 2) {
     result.push(AaciTypeId.FLETCHER_37);
+  }
+
+  return result;
+}
+
+/**
+ * 吹雪改三護が共有する秋月型/Fletcher級 AACI の装備条件
+ */
+function checkFubukiKai3GoSharedAaciConditions(
+  equips: SlotItemMaster[]
+): AaciTypeId[] {
+  const result: AaciTypeId[] = [];
+
+  const specialHaGunCount = countEquipment(equips, isSpecialHighAngleGun);
+  const hasRadar = hasEquipment(equips, isAirRadar);
+  const akizukiGunKaiDirectorCount = countEquipment(equips, is10cmHighAngleGunKaiDirectorKai);
+  const hasAa4Radar = hasEquipment(equips, m => isAirRadarAtLeast(m, 4));
+  const mk30KaiGfcsCount = countEquipment(equips, isMk30KaiGFCS);
+  const mk30KaiCount = countEquipment(equips, isMk30Kai);
+  const hasGFCS = hasEquipment(equips, m => m.id === 307);
+
+  // 2種: 特殊高角砲 + 対空電探
+  if (specialHaGunCount >= 1 && hasRadar) {
+    result.push(AaciTypeId.AKIZUKI_2);
+  }
+
+  // 48種: 10cm連装高角砲改+高射装置改×2 + 対空電探(素対空4以上)
+  if (akizukiGunKaiDirectorCount >= 2 && hasAa4Radar) {
+    result.push(AaciTypeId.AKIZUKI_48);
+  }
+
+  // 34種: Mk.30改+GFCS×2
+  if (mk30KaiGfcsCount >= 2) {
+    result.push(AaciTypeId.FLETCHER_34);
+  }
+
+  // 35種: Mk.30改+GFCS + Mk.30(改)
+  if (mk30KaiGfcsCount >= 1 && mk30KaiCount >= 1) {
+    result.push(AaciTypeId.FLETCHER_35);
+  }
+
+  // 36種: Mk.30(改)×2 + GFCS
+  if (mk30KaiCount >= 2 && hasGFCS) {
+    result.push(AaciTypeId.FLETCHER_36);
+  }
+
+  return result;
+}
+
+/**
+ * 吹雪改二/改三/改三護などの新規 AACI の装備条件
+ */
+function checkFubukiGroupAaciConditions(
+  equips: SlotItemMaster[]
+): AaciTypeId[] {
+  const result: AaciTypeId[] = [];
+
+  const specialHaGunCount = countEquipment(equips, isSpecialHighAngleGun);
+  const hasAa4Radar = hasEquipment(equips, m => isAirRadarAtLeast(m, 4));
+  const kaiGunCount = countEquipment(equips, is10cmHighAngleGunKai);
+  const plainKaiGunCount = countEquipment(equips, m =>
+    is10cmHighAngleGunKai(m) && !is10cmHighAngleGunKaiDirectorKai(m)
+  );
+  const hasType94Aafd = hasEquipment(equips, isType94AADirector);
+  const hasAa5MachineGun = hasEquipment(equips, m => isAAGunAtLeast(m, 5));
+
+  // 49種: 特殊高角砲×2 + 対空電探(素対空4以上)
+  if (specialHaGunCount >= 2 && hasAa4Radar) {
+    result.push(AaciTypeId.FUBUKI_49);
+  }
+
+  // 50種: 10cm連装高角砲改系×2 + 対空電探(素対空4以上) + 94式高射装置
+  if (kaiGunCount >= 2 && hasAa4Radar && hasType94Aafd) {
+    result.push(AaciTypeId.FUBUKI_50);
+  }
+
+  // 51種: 10cm連装高角砲改系 + 対空電探(素対空4以上) + 機銃(素対空5以上)
+  if (kaiGunCount >= 1 && hasAa4Radar && hasAa5MachineGun) {
+    result.push(AaciTypeId.FUBUKI_51);
+  }
+
+  // 52種: 10cm連装高角砲改×2 + 94式高射装置
+  if (plainKaiGunCount >= 2 && hasType94Aafd) {
+    result.push(AaciTypeId.FUBUKI_52);
   }
 
   return result;
@@ -463,18 +558,13 @@ function checkChoukaiMayaK2AaciConditions(
     result.push(AaciTypeId.CHOUKAI_20);
   }
 
-  // 21種: 高角砲
-  if (hasHaGun) {
-    result.push(AaciTypeId.CHOUKAI_21);
-  }
-
   return result;
 }
 
 /**
- * 由良改二専用 AACI の装備条件
+ * 由良改二/吹雪改三/吹雪改三護専用 AACI の装備条件
  */
-function checkYuraK2AaciConditions(
+function checkYuraFubukiKai3AaciConditions(
   equips: SlotItemMaster[]
 ): AaciTypeId[] {
   const result: AaciTypeId[] = [];
@@ -482,9 +572,9 @@ function checkYuraK2AaciConditions(
   const hasHaGun = hasEquipment(equips, isHighAngleGun);
   const hasRadar = hasEquipment(equips, isAirRadar);
 
-  // 18種: 高角砲 + 対空電探
+  // 21種: 高角砲 + 対空電探
   if (hasHaGun && hasRadar) {
-    result.push(AaciTypeId.YURA_18);
+    result.push(AaciTypeId.YURA_FUBUKI_21);
   }
 
   return result;
@@ -610,6 +700,14 @@ export function detectAacis(
     detected.push(...checkFletcherAaciConditions(equips));
   }
 
+  if (isFubukiKai3Go(shipMasterId)) {
+    detected.push(...checkFubukiKai3GoSharedAaciConditions(equips));
+  }
+
+  if (isFubukiAaciGroup(shipMasterId)) {
+    detected.push(...checkFubukiGroupAaciConditions(equips));
+  }
+
   if (isYamatoK2(shipMasterId)) {
     detected.push(...checkYamatoK2AaciConditions(equips));
   }
@@ -646,8 +744,8 @@ export function detectAacis(
     detected.push(...checkChoukaiMayaK2AaciConditions(equips));
   }
 
-  if (isYuraK2(shipMasterId)) {
-    detected.push(...checkYuraK2AaciConditions(equips));
+  if (isYuraK2(shipMasterId) || isFubukiKai3(shipMasterId)) {
+    detected.push(...checkYuraFubukiKai3AaciConditions(equips));
   }
 
   if (isIsokazeOrHamakazeB(shipMasterId)) {

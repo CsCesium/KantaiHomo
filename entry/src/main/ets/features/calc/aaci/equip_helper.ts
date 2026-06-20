@@ -60,12 +60,22 @@ export function isAirRadar(master: SlotItemMaster): boolean {
   ]);
   return radarTypes.has(master.type.equipType) && master.stats.aa >= 2;
 }
+
+export function isAirRadarAtLeast(master: SlotItemMaster, aa: number): boolean {
+  return isAirRadar(master) && master.stats.aa >= aa;
+}
+
 /**
  * 対空機銃
  */
 export function isAAGun(master: SlotItemMaster): boolean {
   return master.type.equipType === SlotItemEquipType.AAGun;
 }
+
+export function isAAGunAtLeast(master: SlotItemMaster, aa: number): boolean {
+  return isAAGun(master) && master.stats.aa >= aa;
+}
+
 /**
  * 特殊機銃
  * 機銃(対空9以上)
@@ -109,6 +119,30 @@ export function isAkizukiGun(master: SlotItemMaster): boolean {
     467,  // 10cm連装高角砲改+増設機銃(対水上電探搭載)
   ]);
   return akizukiGunIds.has(master.id);
+}
+
+function hasNameFragment(master: SlotItemMaster, fragment: string): boolean {
+  return master.name.indexOf(fragment) >= 0;
+}
+
+function is10cmHighAngleGunKaiName(master: SlotItemMaster): boolean {
+  const hasKaiName = hasNameFragment(master, '10cm連装高角砲改')
+    || hasNameFragment(master, '10cm连装高角炮改');
+  const isMachineGunMount = hasNameFragment(master, '増設機銃')
+    || hasNameFragment(master, '增设机枪');
+  return hasKaiName && !isMachineGunMount;
+}
+
+export function is10cmHighAngleGunKai(master: SlotItemMaster): boolean {
+  return is10cmHighAngleGunKaiName(master);
+}
+
+export function is10cmHighAngleGunKaiDirectorKai(master: SlotItemMaster): boolean {
+  return is10cmHighAngleGunKaiName(master) && hasNameFragment(master, '高射装置改');
+}
+
+export function isType94AADirector(master: SlotItemMaster): boolean {
+  return master.id === 121 || hasNameFragment(master, '94式高射装置');
 }
 
 export function isRocketLauncherK2(master: SlotItemMaster): boolean {
