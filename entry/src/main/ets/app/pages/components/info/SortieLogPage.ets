@@ -644,7 +644,7 @@ export default struct SortieLogPage {
         if (e.level > 0) {
           Text(`Lv.${e.level}`).fontSize(11).fontColor(COLOR_MUTED)
         }
-        Text(`${e.hpStart}→${e.hpEnd}/${e.hpMax}`)
+        Text(`${e.hpEnd}/${e.hpMax}`)
           .fontSize(11)
           .fontColor(hpColor(e.hpEnd, e.hpMax > 0 ? e.hpMax : 1))
       }

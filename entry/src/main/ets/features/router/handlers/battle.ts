@@ -2,8 +2,10 @@ import { AnyBattleEvt, BattleDayPayload, BattleNightPayload, BattleResultPayload
 import {
   BattleSegment,
   BattlePrediction,
+  BattleHpFleet,
   mergeBattleSegments,
   BattleRecord,
+  EnemyFleetInfo,
   generateBattleId,
   battleRecordToRow,
   createBattleContext,
@@ -343,6 +345,15 @@ function resolvePendingEscapeUids(
   return uids;
 }
 
+function enemyInfoWithResultHp(info: EnemyFleetInfo | undefined, hp: BattleHpFleet | undefined): EnemyFleetInfo | undefined {
+  if (!info) return undefined;
+  return {
+    ...info,
+    hpNow: hp?.now ? hp.now.slice() : info.hpNow.slice(),
+    hpMax: hp?.max ? hp.max.slice() : info.hpMax.slice(),
+  };
+}
+
 class BattleHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     const e = ev as AnyBattleEvt;
@@ -538,6 +549,16 @@ class BattleHandler implements Handler {
     // 2. 构建战斗记录
     const now = Date.now();
     const battleId = generateBattleId();
+    const mergedSegment = context?.pendingBattle?.merged;
+    const enemyMainAtResult = enemyInfoWithResultHp(
+      context?.pendingBattle?.enemyFleet,
+      mergedSegment?.end.enemy.main,
+    ) ?? { shipIds: [], levels: [], hpNow: [], hpMax: [] };
+    const enemyEscortAtResult = enemyInfoWithResultHp(
+      context?.pendingBattle?.enemyFleetEscort,
+      mergedSegment?.end.enemy.escort,
+    );
+
     const record: BattleRecord = {
       id: battleId,
       sortieId: context?.sortieId ?? '',
@@ -554,27 +575,27 @@ class BattleHandler implements Handler {
       isPractice,
 
       // 阵型
-      friendFormation: context?.pendingBattle?.merged?.meta.formation?.friend,
-      enemyFormation: context?.pendingBattle?.merged?.meta.formation?.enemy,
-      engagement: context?.pendingBattle?.merged?.meta.formation?.engagement,
+      friendFormation: mergedSegment?.meta.formation?.friend,
+      enemyFormation: mergedSegment?.meta.formation?.enemy,
+      engagement: mergedSegment?.meta.formation?.engagement,
 
       // 舰队快照
       friendFleet: context?.fleetSnapshot ?? { deckId: 0, name: '', ships: [], capturedAt: 0 },
       friendFleetEscort: context?.fleetSnapshotEscort,
 
       // 敌方信息
-      enemyFleet: context?.pendingBattle?.enemyFleet ?? { shipIds: [], levels: [], hpNow: [], hpMax: [] },
-      enemyFleetEscort: context?.pendingBattle?.enemyFleetEscort,
+      enemyFleet: enemyMainAtResult,
+      enemyFleetEscort: enemyEscortAtResult,
 
       // 基地航空队
       airBases: context?.airBases,
 
       // HP
-      hpStart: context?.pendingBattle?.merged?.start ?? { friend: { main: { now: [], max: [] } }, enemy: { main: { now: [], max: [] } } },
-      hpEnd: context?.pendingBattle?.merged?.end ?? { friend: { main: { now: [], max: [] } }, enemy: { main: { now: [], max: [] } } },
+      hpStart: mergedSegment?.start ?? { friend: { main: { now: [], max: [] } }, enemy: { main: { now: [], max: [] } } },
+      hpEnd: mergedSegment?.end ?? { friend: { main: { now: [], max: [] } }, enemy: { main: { now: [], max: [] } } },
 
       // 完整战斗过程段（供「出击日志」详情页逐次回放）
-      segment: context?.pendingBattle?.merged,
+      segment: mergedSegment,
 
       // 结果
       rank: normalizedResult.rank,

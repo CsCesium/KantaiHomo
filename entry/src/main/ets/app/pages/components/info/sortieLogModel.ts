@@ -161,7 +161,7 @@ export function enemyMainViews(record: BattleRecord): EnemyShipView[] {
   const seg = record.segment;
   const startNow = seg?.start.enemy.main.now ?? record.enemyFleet.hpNow ?? [];
   const startMax = seg?.start.enemy.main.max ?? record.enemyFleet.hpMax ?? [];
-  const endNow = seg?.end.enemy.main.now ?? record.hpEnd?.enemy?.main?.now ?? startNow;
+  const endNow = record.hpEnd?.enemy?.main?.now ?? seg?.end.enemy.main.now ?? record.enemyFleet.hpNow ?? startNow;
   return enemyShipViews(record.enemyFleet.shipIds, record.enemyFleet.levels, startNow, startMax, endNow);
 }
 
@@ -171,7 +171,7 @@ export function enemyEscortViews(record: BattleRecord): EnemyShipView[] {
   const seg = record.segment;
   const startNow = seg?.start.enemy.escort?.now ?? esc.hpNow ?? [];
   const startMax = seg?.start.enemy.escort?.max ?? esc.hpMax ?? [];
-  const endNow = seg?.end.enemy.escort?.now ?? startNow;
+  const endNow = record.hpEnd?.enemy?.escort?.now ?? seg?.end.enemy.escort?.now ?? esc.hpNow ?? startNow;
   return enemyShipViews(esc.shipIds, esc.levels, startNow, startMax, endNow);
 }
 
