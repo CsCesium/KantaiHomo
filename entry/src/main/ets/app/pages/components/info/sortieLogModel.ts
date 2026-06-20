@@ -24,6 +24,11 @@ import {
   BattleHpSnapshot,
   FleetRef,
 } from '../../../../domain/models';
+import {
+  DayAttackTypeMap,
+  MultiTargetAttackOrder,
+  NightAttackTypeMap,
+} from '../../../../features/simulator/type';
 
 // ==================== 我方舰娘：快照 → ShipItem ====================
 
@@ -212,6 +217,8 @@ export interface EngagementStep {
   hasAttackerHp: boolean;
   targetName: string;
   targetSide: StepSide;
+  attackType: number;
+  attackTypeLabel: string;
   damage: number;
   critical: number;         // 0 miss / 1 命中 / 2 暴击
   hpBefore: number;
@@ -299,6 +306,80 @@ function displayAttackerRef(
   return stored;
 }
 
+function combinedIndexForRef(ref: FleetRef, start: BattleHpSnapshot): number {
+  const main = ref.side === 'friend' ? start.friend.main : start.enemy.main;
+  const mainLen = main.now.length;
+  return ref.fleet === 'escort' ? mainLen + ref.idx : ref.idx;
+}
+
+function isNightAttackPhase(phaseKind: string): boolean {
+  return phaseKind === 'nightShelling' || phaseKind === 'nightTorpedo';
+}
+
+function attackTypeKey(phaseKind: string, code: number | undefined): string {
+  if (typeof code !== 'number' || !Number.isFinite(code)) return '';
+  return isNightAttackPhase(phaseKind)
+    ? (NightAttackTypeMap[code] ?? '')
+    : (DayAttackTypeMap[code] ?? '');
+}
+
+function attackTypeLabel(phaseKind: string, code: number | undefined): string {
+  const type = attackTypeKey(phaseKind, code);
+  switch (type) {
+    case 'Laser': return 'レーザー';
+    case 'Nelson': return 'Nelson Touch';
+    case 'Nagato': return '長門特殊';
+    case 'Mutsu': return '陸奥特殊';
+    case 'Colorado': return 'Colorado特殊';
+    case 'Kongo_Class_Kaini_C': return '僚舰夜战突击';
+    case 'Yamato_Double': return '大和特殊(2舰)';
+    case 'Yamato_Triple': return '大和特殊(3舰)';
+    case 'Baguette_Charge': return 'Richelieu特殊';
+    case 'QE_Touch': return 'Warspite特殊';
+    case 'Submarine_Special_Attack_2_3': return '潜水特殊(2-3)';
+    case 'Submarine_Special_Attack_3_4': return '潜水特殊(3-4)';
+    case 'Submarine_Special_Attack_2_4': return '潜水特殊(2-4)';
+    case 'Zuiyun_Night_Attack': return '瑞云夜战';
+    case 'Type_4_LC_Special_Attack': return '四式特攻';
+    default: return '';
+  }
+}
+
+function multiTargetAttackOrder(phaseKind: string, code: number | undefined): number[] | undefined {
+  const type = attackTypeKey(phaseKind, code);
+  if (type.length === 0) return undefined;
+  return (MultiTargetAttackOrder as Record<string, number[] | undefined>)[type];
+}
+
+function displayHitAttackerRef(
+  phaseKind: string,
+  attackType: number | undefined,
+  hitIndex: number,
+  rawIndex: number | undefined,
+  base: FleetRef | undefined,
+  start: BattleHpSnapshot,
+): FleetRef | undefined {
+  if (!base) return undefined;
+  const order = multiTargetAttackOrder(phaseKind, attackType);
+  if (!order || order.length === 0) return base;
+
+  let idx0 = typeof rawIndex === 'number' && Number.isFinite(rawIndex) && rawIndex >= 0
+    ? Math.floor(rawIndex)
+    : combinedIndexForRef(base, start);
+  idx0 += order[hitIndex] ?? 0;
+
+  if (
+    phaseKind === 'nightShelling'
+      && base.side === 'friend'
+      && (start.friend.escort?.now.length ?? 0) > 0
+      && idx0 < start.friend.main.now.length
+  ) {
+    idx0 += start.friend.main.now.length;
+  }
+
+  return zeroBasedRef(base.side, idx0, start) ?? base;
+}
+
 function refName(ref: FleetRef, friend: FleetNames, enemy: FleetNames): string {
   const names = ref.side === 'friend' ? friend : enemy;
   const arr = ref.fleet === 'escort' ? names.escort : names.main;
@@ -364,7 +445,8 @@ export function buildEngagementSteps(record: BattleRecord): EngagementStep[] {
     let headEmitted = false;
     const label = phaseLabel(phase.kind);
     for (const ev of phase.events) {
-      for (const hit of ev.hits) {
+      for (let hitIndex = 0; hitIndex < ev.hits.length; hitIndex++) {
+        const hit = ev.hits[hitIndex];
         const t = hit.target;
         const arr = hpArrayFor(hp, t);
         if (t.idx < 0 || t.idx >= arr.length) continue;
@@ -374,11 +456,19 @@ export function buildEngagementSteps(record: BattleRecord): EngagementStep[] {
         const storedAttackerSide: StepSide = ev.attacker
           ? ev.attacker.side
           : (ev.attackerSide ?? (t.side === 'friend' ? 'enemy' : 'friend'));
-        const explicitAttacker = displayAttackerRef(
+        const baseAttacker = displayAttackerRef(
           phase.kind,
           ev.attackerRawIndex,
           storedAttackerSide,
           ev.attacker,
+          seg.start,
+        );
+        const explicitAttacker = displayHitAttackerRef(
+          phase.kind,
+          ev.attackType,
+          hit.hitIndex ?? hitIndex,
+          ev.attackerRawIndex,
+          baseAttacker,
           seg.start,
         );
         const attackerSide: StepSide = explicitAttacker ? explicitAttacker.side : storedAttackerSide;
@@ -404,6 +494,8 @@ export function buildEngagementSteps(record: BattleRecord): EngagementStep[] {
           hasAttackerHp: !!explicitAttacker && attackerHpMax > 0,
           targetName: refName(t, friend, enemy),
           targetSide: t.side,
+          attackType: ev.attackType ?? 0,
+          attackTypeLabel: attackTypeLabel(phase.kind, ev.attackType),
           damage: dmg,
           critical: hit.critical ?? 0,
           hpBefore: before,

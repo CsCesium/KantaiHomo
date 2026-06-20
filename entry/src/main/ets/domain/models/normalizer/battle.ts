@@ -504,6 +504,7 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
   const atE = Array.isArray(raw.api_at_eflag) ? raw.api_at_eflag : [];
   const atList = Array.isArray(raw.api_at_list) ? raw.api_at_list : [];
   const atType = Array.isArray(raw.api_at_type) ? raw.api_at_type : [];
+  const spList = Array.isArray(raw.api_sp_list) ? raw.api_sp_list : [];
   const dfList = Array.isArray(raw.api_df_list) ? raw.api_df_list : [];
   const dmgList = Array.isArray(raw.api_damage) ? raw.api_damage : [];
   const clList = Array.isArray(raw.api_cl_list) ? raw.api_cl_list : [];
@@ -531,7 +532,12 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
       const dval = clampDmg(dmg[j] ?? 0);
       if (dval <= 0) continue;
 
-      hits.push({ target: tRef, damage: dval, critical: typeof cl[j] === 'number' ? (cl[j] as number) : undefined });
+      hits.push({
+        target: tRef,
+        damage: dval,
+        critical: typeof cl[j] === 'number' ? (cl[j] as number) : undefined,
+        hitIndex: j,
+      });
     }
 
     if (hits.length) {
@@ -539,7 +545,9 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
         attacker: attackerRef ?? undefined,
         attackerSide,
         attackerRawIndex: attackerIdx0,
-        attackType: typeof atType[i] === 'number' ? atType[i] : undefined,
+        attackType: typeof spList[i] === 'number' && spList[i] > 0
+          ? spList[i]
+          : (typeof atType[i] === 'number' ? atType[i] : undefined),
         hits,
       });
     }

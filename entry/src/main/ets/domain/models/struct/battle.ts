@@ -42,6 +42,7 @@ export interface DamageInstance {
   target: FleetRef;
   damage: number;
   critical?: number; // 0 miss, 1 hit, 2 crit (depends on phase)
+  hitIndex?: number; // original index within the API hit list, before zero-damage hits are filtered
 }
 
 export interface AttackEvent {

@@ -19,6 +19,7 @@ import {
   buildPhaseSummaries,
   EnemyShipView,
   EngagementStep,
+  StepSide,
   PhaseSummary,
   mapCode,
   areaName,
@@ -343,30 +344,77 @@ export default struct SortieLogPage {
   }
 
   @Builder
+  private StepHpEmptyBar() {
+    Blank()
+      .width('100%')
+      .height(14)
+  }
+
+  private stepArrow(step: EngagementStep): string {
+    if (step.attackerSide === 'friend' && step.targetSide === 'enemy') return '→';
+    if (step.attackerSide === 'enemy' && step.targetSide === 'friend') return '←';
+    return 'vs';
+  }
+
+  private stepSideName(step: EngagementStep, side: StepSide): string {
+    const fallback = side === 'friend' ? '我方' : '敌方';
+    if (step.attackerSide === side) return step.attackerName.length > 0 ? step.attackerName : fallback;
+    if (step.targetSide === side) return step.targetName.length > 0 ? step.targetName : fallback;
+    return fallback;
+  }
+
+  private stepSideHasHp(step: EngagementStep, side: StepSide): boolean {
+    if (step.attackerSide === side) return step.hasAttackerHp;
+    return step.targetSide === side && step.hpMax > 0;
+  }
+
+  private stepSideHpAfter(step: EngagementStep, side: StepSide): number {
+    if (step.attackerSide === side) return step.attackerHpAfter;
+    if (step.targetSide === side) return step.hpAfter;
+    return 0;
+  }
+
+  private stepSideHpMax(step: EngagementStep, side: StepSide): number {
+    if (step.attackerSide === side) return step.attackerHpMax;
+    if (step.targetSide === side) return step.hpMax;
+    return 0;
+  }
+
+  private stepSideDamage(step: EngagementStep, side: StepSide): number {
+    return step.targetSide === side ? this.hpChange(step.hpBefore, step.hpAfter) : 0;
+  }
+
+  @Builder
+  private StepSideHpBar(step: EngagementStep, side: StepSide) {
+    if (this.stepSideHasHp(step, side)) {
+      this.StepHpBar(
+        this.stepSideHpAfter(step, side),
+        this.stepSideHpMax(step, side),
+        this.stepSideDamage(step, side),
+      )
+    } else {
+      this.StepHpEmptyBar()
+    }
+  }
+
+  @Builder
   private StepHpPair(step: EngagementStep) {
     Row({ space: 6 }) {
-      if (step.hasAttackerHp) {
-        Column() {
-          this.StepHpBar(step.attackerHpAfter, step.attackerHpMax, 0)
-        }
-        .layoutWeight(1)
-
-        Text('vs')
-          .fontSize(10)
-          .fontColor(COLOR_MUTED)
-          .width(20)
-          .textAlign(TextAlign.Center)
-
-        Column() {
-          this.StepHpBar(step.hpAfter, step.hpMax, this.hpChange(step.hpBefore, step.hpAfter))
-        }
-        .layoutWeight(1)
-      } else {
-        Column() {
-          this.StepHpBar(step.hpAfter, step.hpMax, this.hpChange(step.hpBefore, step.hpAfter))
-        }
-        .layoutWeight(1)
+      Column() {
+        this.StepSideHpBar(step, 'friend')
       }
+      .layoutWeight(1)
+
+      Text(this.stepArrow(step))
+        .fontSize(11)
+        .fontColor(COLOR_MUTED)
+        .width(20)
+        .textAlign(TextAlign.Center)
+
+      Column() {
+        this.StepSideHpBar(step, 'enemy')
+      }
+      .layoutWeight(1)
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
@@ -757,21 +805,29 @@ export default struct SortieLogPage {
       }
 
       Column({ space: 2 }) {
-        // line 1: attacker → target  -dmg [暴击] [撃沈]
+        // line 1: friend →/← enemy  -dmg [暴击] [撃沈]
         Row({ space: 5 }) {
-          Text(step.attackerName.length > 0 ? step.attackerName : '—')
+          Text(this.stepSideName(step, 'friend'))
             .fontSize(12)
-            .fontColor(step.attackerSide === 'friend' ? COLOR_FRIEND : COLOR_ENEMY)
+            .fontColor(COLOR_FRIEND)
             .constraintSize({ maxWidth: '34%' })
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text('→').fontSize(11).fontColor(COLOR_MUTED)
-          Text(step.targetName)
+          Text(this.stepArrow(step)).fontSize(11).fontColor(COLOR_MUTED)
+          Text(this.stepSideName(step, 'enemy'))
             .fontSize(12)
-            .fontColor(step.targetSide === 'friend' ? COLOR_FRIEND : COLOR_ENEMY)
+            .fontColor(COLOR_ENEMY)
             .layoutWeight(1)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
+          if (step.attackTypeLabel.length > 0) {
+            Text(step.attackTypeLabel)
+              .fontSize(10)
+              .fontColor(COLOR_ACCENT)
+              .fontWeight(FontWeight.Medium)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
           if (step.critical === 2) {
             Text('暴击').fontSize(10).fontColor(COLOR_BOSS).fontWeight(FontWeight.Bold)
           }
