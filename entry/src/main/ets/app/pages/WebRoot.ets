@@ -1,6 +1,7 @@
 //only for solve warning
 import router from '@ohos.router';
 import WebHost from '../../infra/web/WebHost';
+import { isLauncherSwipeBlocked } from '../../infra/web/launcherSwipeGuard';
 import { notifyWebHostPageVisible } from '../../infra/web/pageVisibility';
 
 @Entry
@@ -11,6 +12,9 @@ struct WebRoot {
   }
 
   onBackPress(): boolean {
+    if (isLauncherSwipeBlocked()) {
+      return true;
+    }
     router.pushUrl({
       url: 'app/pages/Launcher',
       params: { resumeGame: true }

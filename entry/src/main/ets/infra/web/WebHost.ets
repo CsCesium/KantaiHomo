@@ -30,6 +30,7 @@ import ShipInfoPage from "../../app/pages/components/info/ShipInfoPage";
 import SortieLogPage from "../../app/pages/components/info/SortieLogPage";
 import { APP_STORAGE_SESSION_LOGOUT_REV } from "./session/logout";
 import { registerWebHostPageVisibleHandler } from "./pageVisibility";
+import { setLauncherSwipeBlocked } from "./launcherSwipeGuard";
 import {
   APP_STORAGE_APP_VOLUME_MUTED,
   subscribeAppVolumeMuted,
@@ -398,6 +399,7 @@ export default struct WebHost {
       sidebarWidthVp: nextSidebarWidthVp,
     };
     this.panelConfig = decidePanelLayout(finalDecision, heightVp);
+    this.syncLauncherSwipeBlocked();
 
     const landscapeOnly: boolean = this.shouldUseLandscapeOnlyRotation();
     void this.host.applyOrientationByMode(
@@ -545,6 +547,7 @@ export default struct WebHost {
     }
     this.overlayForced = true;
     this.battlePreviewAutoOverlayActive = false;
+    this.syncLauncherSwipeBlocked();
   }
 
   private closeFloatOverlayPanel(): void {
@@ -554,6 +557,7 @@ export default struct WebHost {
       this.battlePreviewAutoOverlayActive = false;
     }
     this.overlayForced = false;
+    this.syncLauncherSwipeBlocked();
   }
 
   private updateBattlePreviewAutoOverlay(): void {
@@ -563,6 +567,7 @@ export default struct WebHost {
       }
       this.battlePreviewAutoOverlayActive = false;
       this.battlePreviewAutoOverlaySuppressed = false;
+      this.syncLauncherSwipeBlocked();
       return;
     }
 
@@ -572,6 +577,7 @@ export default struct WebHost {
       }
       this.battlePreviewAutoOverlayActive = false;
       this.battlePreviewAutoOverlaySuppressed = false;
+      this.syncLauncherSwipeBlocked();
       return;
     }
 
@@ -582,6 +588,7 @@ export default struct WebHost {
         this.overlayForced = false;
       }
       this.battlePreviewAutoOverlayActive = false;
+      this.syncLauncherSwipeBlocked();
       return;
     }
 
@@ -589,6 +596,7 @@ export default struct WebHost {
       this.overlayForced = true;
       this.battlePreviewAutoOverlayActive = true;
     }
+    this.syncLauncherSwipeBlocked();
   }
 
   private isFloatOverlayVisible(): boolean {
@@ -596,6 +604,68 @@ export default struct WebHost {
       return false;
     }
     return !this.battlePreviewAutoOverlayActive || this.autoBattlePreviewFloatOverlay;
+  }
+
+  private hasInfoOverlayVisible(): boolean {
+    return this.shipInfoVisible ||
+      this.equipInfoVisible ||
+      this.remodelInfoVisible ||
+      this.expeditionInfoVisible ||
+      this.sortieLogVisible;
+  }
+
+  private syncLauncherSwipeBlocked(): void {
+    setLauncherSwipeBlocked(this.isFloatOverlayVisible() || this.hasInfoOverlayVisible());
+  }
+
+  private openShipInfo(): void {
+    this.shipInfoVisible = true;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private openEquipInfo(): void {
+    this.equipInfoVisible = true;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private openRemodelInfo(): void {
+    this.remodelInfoVisible = true;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private openExpeditionInfo(): void {
+    this.expeditionInfoVisible = true;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private openSortieLog(): void {
+    this.sortieLogVisible = true;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private closeShipInfo(): void {
+    this.shipInfoVisible = false;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private closeEquipInfo(): void {
+    this.equipInfoVisible = false;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private closeRemodelInfo(): void {
+    this.remodelInfoVisible = false;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private closeExpeditionInfo(): void {
+    this.expeditionInfoVisible = false;
+    this.syncLauncherSwipeBlocked();
+  }
+
+  private closeSortieLog(): void {
+    this.sortieLogVisible = false;
+    this.syncLauncherSwipeBlocked();
   }
 
   aboutToAppear() {
@@ -647,6 +717,7 @@ export default struct WebHost {
   }
 
   aboutToDisappear() {
+    setLauncherSwipeBlocked(false);
     this.host.unbindDisplay();
 
     if (this.unsubSortieStartTaiha) {
@@ -934,11 +1005,11 @@ export default struct WebHost {
               onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => this.toggleFloatOverlayPanel(),
               onToggleBattlePreview: () => this.toggleBattlePreview(),
-              onOpenShipInfo: () => { this.shipInfoVisible = true; },
-              onOpenEquipInfo: () => { this.equipInfoVisible = true; },
-              onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
-              onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
-              onOpenSortieLog: () => { this.sortieLogVisible = true; },
+              onOpenShipInfo: () => this.openShipInfo(),
+              onOpenEquipInfo: () => this.openEquipInfo(),
+              onOpenRemodelInfo: () => this.openRemodelInfo(),
+              onOpenExpeditionInfo: () => this.openExpeditionInfo(),
+              onOpenSortieLog: () => this.openSortieLog(),
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               rotateEnabled: this.canToggleLrLayout(),
               panelActive: this.isFloatOverlayVisible(),
@@ -1020,11 +1091,11 @@ export default struct WebHost {
                 onToggleLrMode: () => this.toggleLrLayout(),
                 onTogglePanel: () => this.toggleFloatOverlayPanel(),
                 onToggleBattlePreview: () => this.toggleBattlePreview(),
-                onOpenShipInfo: () => { this.shipInfoVisible = true; },
-                onOpenEquipInfo: () => { this.equipInfoVisible = true; },
-                onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
-                onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
-                onOpenSortieLog: () => { this.sortieLogVisible = true; },
+                onOpenShipInfo: () => this.openShipInfo(),
+                onOpenEquipInfo: () => this.openEquipInfo(),
+                onOpenRemodelInfo: () => this.openRemodelInfo(),
+                onOpenExpeditionInfo: () => this.openExpeditionInfo(),
+                onOpenSortieLog: () => this.openSortieLog(),
                 lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
                 rotateEnabled: this.canToggleLrLayout(),
                 panelActive: this.isFloatOverlayVisible(),
@@ -1055,11 +1126,11 @@ export default struct WebHost {
               onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => this.toggleFloatOverlayPanel(),
               onToggleBattlePreview: () => this.toggleBattlePreview(),
-              onOpenShipInfo: () => { this.shipInfoVisible = true; },
-              onOpenEquipInfo: () => { this.equipInfoVisible = true; },
-              onOpenRemodelInfo: () => { this.remodelInfoVisible = true; },
-              onOpenExpeditionInfo: () => { this.expeditionInfoVisible = true; },
-              onOpenSortieLog: () => { this.sortieLogVisible = true; },
+              onOpenShipInfo: () => this.openShipInfo(),
+              onOpenEquipInfo: () => this.openEquipInfo(),
+              onOpenRemodelInfo: () => this.openRemodelInfo(),
+              onOpenExpeditionInfo: () => this.openExpeditionInfo(),
+              onOpenSortieLog: () => this.openSortieLog(),
               lrMode: this.lrLayoutForced ? 'portraitFit' : 'landscapeWithDashboard',
               rotateEnabled: this.canToggleLrLayout(),
               panelActive: this.isFloatOverlayVisible(),
@@ -1100,35 +1171,35 @@ export default struct WebHost {
       // session stay mounted underneath; closing returns to the live game.
       if (this.shipInfoVisible) {
         ShipInfoPage({
-          onClose: () => { this.shipInfoVisible = false; },
+          onClose: () => this.closeShipInfo(),
         })
           .width('100%')
           .height('100%')
       }
       if (this.equipInfoVisible) {
         EquipInfoPage({
-          onClose: () => { this.equipInfoVisible = false; },
+          onClose: () => this.closeEquipInfo(),
         })
           .width('100%')
           .height('100%')
       }
       if (this.remodelInfoVisible) {
         RemodelInfoPage({
-          onClose: () => { this.remodelInfoVisible = false; },
+          onClose: () => this.closeRemodelInfo(),
         })
           .width('100%')
           .height('100%')
       }
       if (this.expeditionInfoVisible) {
         ExpeditionInfoPage({
-          onClose: () => { this.expeditionInfoVisible = false; },
+          onClose: () => this.closeExpeditionInfo(),
         })
           .width('100%')
           .height('100%')
       }
       if (this.sortieLogVisible) {
         SortieLogPage({
-          onClose: () => { this.sortieLogVisible = false; },
+          onClose: () => this.closeSortieLog(),
         })
           .width('100%')
           .height('100%')
