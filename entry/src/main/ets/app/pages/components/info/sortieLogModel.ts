@@ -264,6 +264,41 @@ function hpNowFor(hp: MutableHp, ref: FleetRef): number {
   return Math.max(0, arr[ref.idx] ?? 0);
 }
 
+function zeroBasedRef(side: StepSide, idx0: number, start: BattleHpSnapshot): FleetRef | undefined {
+  if (!Number.isFinite(idx0) || idx0 < 0) return undefined;
+  const main = side === 'friend' ? start.friend.main : start.enemy.main;
+  const escort = side === 'friend' ? start.friend.escort : start.enemy.escort;
+  const mainLen = main.now.length;
+  const escortLen = escort?.now.length ?? 0;
+  if (idx0 < mainLen) return { side, fleet: 'main', idx: idx0 };
+  if (escortLen > 0 && idx0 < mainLen + escortLen) {
+    return { side, fleet: 'escort', idx: idx0 - mainLen };
+  }
+  return undefined;
+}
+
+function isIndexedAttackerPhase(kind: string): boolean {
+  return kind === 'openingASW'
+    || kind === 'shelling1'
+    || kind === 'shelling2'
+    || kind === 'shelling3'
+    || kind === 'nightShelling';
+}
+
+function displayAttackerRef(
+  phaseKind: string,
+  rawIndex: number | undefined,
+  side: StepSide | undefined,
+  stored: FleetRef | undefined,
+  start: BattleHpSnapshot,
+): FleetRef | undefined {
+  if (isIndexedAttackerPhase(phaseKind) && side && typeof rawIndex === 'number') {
+    const ref = zeroBasedRef(side, rawIndex, start);
+    if (ref) return ref;
+  }
+  return stored;
+}
+
 function refName(ref: FleetRef, friend: FleetNames, enemy: FleetNames): string {
   const names = ref.side === 'friend' ? friend : enemy;
   const arr = ref.fleet === 'escort' ? names.escort : names.main;
@@ -329,7 +364,6 @@ export function buildEngagementSteps(record: BattleRecord): EngagementStep[] {
     let headEmitted = false;
     const label = phaseLabel(phase.kind);
     for (const ev of phase.events) {
-      const explicitAttacker = ev.attacker;
       for (const hit of ev.hits) {
         const t = hit.target;
         const arr = hpArrayFor(hp, t);
@@ -337,9 +371,17 @@ export function buildEngagementSteps(record: BattleRecord): EngagementStep[] {
         const dmg = clampDmg(hit.damage);
         const before = arr[t.idx] ?? 0;
 
-        const attackerSide: StepSide = explicitAttacker
-          ? explicitAttacker.side
+        const storedAttackerSide: StepSide = ev.attacker
+          ? ev.attacker.side
           : (ev.attackerSide ?? (t.side === 'friend' ? 'enemy' : 'friend'));
+        const explicitAttacker = displayAttackerRef(
+          phase.kind,
+          ev.attackerRawIndex,
+          storedAttackerSide,
+          ev.attacker,
+          seg.start,
+        );
+        const attackerSide: StepSide = explicitAttacker ? explicitAttacker.side : storedAttackerSide;
         const attackerName = explicitAttacker
           ? refName(explicitAttacker, friend, enemy)
           : fallbackAttackerName(phase.kind, attackerSide);

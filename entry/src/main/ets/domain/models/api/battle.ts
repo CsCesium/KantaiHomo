@@ -163,9 +163,9 @@ export interface ApiSupportFrameRaw {
 /** ---------- Opening ASW / Shelling (hougeki) ---------- */
 export interface ApiHougekiRaw {
   api_at_eflag: number[]; // 0 friend, 1 enemy
-  api_at_list: number[];  // attacker index (1-based; combined can be 1..12)
+  api_at_list: number[];  // attacker index (0-based; combined can be 0..11)
   api_at_type?: number[]; // attack type codes
-  api_df_list: number[][]; // defender list per attack (1-based)
+  api_df_list: number[][]; // defender list per attack (0-based)
   api_damage: number[][];  // damage list aligned with df_list
   api_cl_list?: number[][]; // crit list aligned with df_list
   api_si_list?: any; // equipment ids etc (varies)

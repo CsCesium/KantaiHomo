@@ -515,8 +515,8 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
     const attackerSide: BattleSide = attackerIsEnemy ? 'enemy' : 'friend';
     const defenderSide: BattleSide = attackerIsEnemy ? 'friend' : 'enemy';
 
-    const attackerIdx1 = atList[i] ?? 0;
-    const attackerRef = resolveIndexToFleetRef(attackerSide, attackerIdx1, start);
+    const attackerIdx0 = atList[i] ?? -1;
+    const attackerRef = resolveZeroBasedIndexToFleetRef(attackerSide, attackerIdx0, start);
 
     const df = dfList[i] ?? [];
     const dmg = dmgList[i] ?? [];
@@ -524,8 +524,8 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
 
     const hits: DamageInstance[] = [];
     for (let j = 0; j < df.length; j++) {
-      const tIdx1 = df[j] ?? 0;
-      const tRef = resolveIndexToFleetRef(defenderSide, tIdx1, start);
+      const tIdx0 = df[j] ?? -1;
+      const tRef = resolveZeroBasedIndexToFleetRef(defenderSide, tIdx0, start);
       if (!tRef) continue;
 
       const dval = clampDmg(dmg[j] ?? 0);
@@ -538,7 +538,7 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
       events.push({
         attacker: attackerRef ?? undefined,
         attackerSide,
-        attackerRawIndex: attackerIdx1,
+        attackerRawIndex: attackerIdx0,
         attackType: typeof atType[i] === 'number' ? atType[i] : undefined,
         hits,
       });
@@ -641,30 +641,10 @@ function deepCloneHp(s: BattleHpSnapshot): BattleHpSnapshot {
 /** ---------- Helpers: mapping indices to fleets ---------- */
 
 /**
- * Kancolle indices are 1-based.
- * For combined situations:
- * - 1..mainLen => main
- * - mainLen+1..mainLen+escortLen => escort
- */
-function resolveIndexToFleetRef(side: BattleSide, idx1: number, snap: BattleHpSnapshot): FleetRef | null {
-  if (!idx1 || idx1 <= 0) return null;
-  const idx0 = idx1 - 1;
-
-  const mainLen = side === 'friend' ? snap.friend.main.now.length : snap.enemy.main.now.length;
-  const escLen = side === 'friend' ? (snap.friend.escort?.now.length ?? 0) : (snap.enemy.escort?.now.length ?? 0);
-
-  if (idx0 < mainLen) return { side, fleet: 'main', idx: idx0 };
-  if (escLen && idx0 < mainLen + escLen) return { side, fleet: 'escort', idx: idx0 - mainLen };
-
-  // out of range (e.g., dummy slot)
-  return null;
-}
-
-/**
- * Torpedo arrays use zero-based combined-fleet indices:
+ * Hougeki / torpedo arrays use zero-based combined-fleet indices:
  * main fleet first, then escort fleet; -1 means no target.
  */
-function resolveCombinedIndexToFleetRef(side: BattleSide, idx0: number, snap: BattleHpSnapshot): FleetRef | null {
+function resolveZeroBasedIndexToFleetRef(side: BattleSide, idx0: number, snap: BattleHpSnapshot): FleetRef | null {
   if (idx0 < 0) return null;
 
   const mainLen = side === 'friend' ? snap.friend.main.now.length : snap.enemy.main.now.length;
@@ -701,8 +681,8 @@ function pushTorpedoEvents(
   const n = Math.max(targets.length, damages.length, criticals.length);
 
   for (let i = 0; i < n; i++) {
-    const attackerRef = resolveCombinedIndexToFleetRef(attackerSide, i, snap);
-    const targetRef = resolveCombinedIndexToFleetRef(targetSide, targets[i] ?? -1, snap);
+    const attackerRef = resolveZeroBasedIndexToFleetRef(attackerSide, i, snap);
+    const targetRef = resolveZeroBasedIndexToFleetRef(targetSide, targets[i] ?? -1, snap);
     if (!attackerRef || !targetRef) continue;
 
     const dmg = clampDmg(damages[i] ?? 0);
@@ -734,7 +714,7 @@ function pushTorpedoListItemEvents(
   if (!Array.isArray(rawTargetRows)) return;
 
   for (let i = 0; i < rawTargetRows.length; i++) {
-    const attackerRef = resolveCombinedIndexToFleetRef(attackerSide, i, snap);
+    const attackerRef = resolveZeroBasedIndexToFleetRef(attackerSide, i, snap);
     if (!attackerRef) continue;
 
     const targets = toTorpedoIndexArray(rawTargetRows[i]);
@@ -744,7 +724,7 @@ function pushTorpedoListItemEvents(
     const hits: DamageInstance[] = [];
 
     for (let j = 0; j < n; j++) {
-      const targetRef = resolveCombinedIndexToFleetRef(targetSide, targets[j] ?? -1, snap);
+      const targetRef = resolveZeroBasedIndexToFleetRef(targetSide, targets[j] ?? -1, snap);
       if (!targetRef) continue;
 
       const dmg = clampDmg(damages[j] ?? 0);

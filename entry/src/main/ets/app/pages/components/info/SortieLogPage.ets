@@ -58,7 +58,11 @@ export default struct SortieLogPage {
   @Local private rows: BattleRecordRow[] = [];
   @Local private visibleRows: BattleRecordRow[] = [];
   @Local private loading: boolean = true;
-  @Local private searchText: string = '';
+  @Local private searchTimeText: string = '';
+  @Local private searchMapText: string = '';
+  @Local private searchCellText: string = '';
+  @Local private searchRankText: string = '';
+  @Local private searchDropText: string = '';
 
   /** true 时显示详情；否则显示列表。 */
   @Local private detailOpen: boolean = false;
@@ -101,12 +105,33 @@ export default struct SortieLogPage {
     this.loading = false;
   }
 
-  private searchNeedle(): string {
-    return this.searchText.trim().toLowerCase();
+  private fieldNeedle(field: string): string {
+    switch (field) {
+      case 'time':
+        return this.searchTimeText.trim().toLowerCase();
+      case 'map':
+        return this.searchMapText.trim().toLowerCase();
+      case 'cell':
+        return this.searchCellText.trim().toLowerCase();
+      case 'rank':
+        return this.searchRankText.trim().toLowerCase();
+      case 'drop':
+        return this.searchDropText.trim().toLowerCase();
+      default:
+        return '';
+    }
   }
 
   private textMatches(text: string, q: string): boolean {
     return q.length > 0 && text.toLowerCase().indexOf(q) >= 0;
+  }
+
+  private hasAnySearch(): boolean {
+    return this.fieldNeedle('time').length > 0
+      || this.fieldNeedle('map').length > 0
+      || this.fieldNeedle('cell').length > 0
+      || this.fieldNeedle('rank').length > 0
+      || this.fieldNeedle('drop').length > 0;
   }
 
   private rowFieldText(row: BattleRecordRow, field: string): string {
@@ -126,34 +151,68 @@ export default struct SortieLogPage {
     }
   }
 
-  private rowSearchText(row: BattleRecordRow): string {
-    return [
-      this.rowFieldText(row, 'time'),
-      this.rowFieldText(row, 'map'),
-      this.rowFieldText(row, 'cell'),
-      this.rowFieldText(row, 'rank'),
-      this.rowFieldText(row, 'drop'),
-    ].join(' ').toLowerCase();
+  private rowMatchesField(row: BattleRecordRow, field: string): boolean {
+    const q = this.fieldNeedle(field);
+    return q.length === 0 || this.rowFieldText(row, field).toLowerCase().indexOf(q) >= 0;
+  }
+
+  private rowMatchesFilters(row: BattleRecordRow): boolean {
+    return this.rowMatchesField(row, 'time')
+      && this.rowMatchesField(row, 'map')
+      && this.rowMatchesField(row, 'cell')
+      && this.rowMatchesField(row, 'rank')
+      && this.rowMatchesField(row, 'drop');
   }
 
   private recomputeRows(): void {
-    const q = this.searchNeedle();
-    if (q.length === 0) {
+    if (!this.hasAnySearch()) {
       this.visibleRows = this.rows.slice();
       return;
     }
     const out: BattleRecordRow[] = [];
     for (const row of this.rows) {
-      if (this.rowSearchText(row).indexOf(q) >= 0) {
+      if (this.rowMatchesFilters(row)) {
         out.push(row);
       }
     }
     this.visibleRows = out;
   }
 
-  private setSearch(v: string): void {
-    if (v === this.searchText) return;
-    this.searchText = v;
+  private setFieldSearch(field: string, value: string): void {
+    switch (field) {
+      case 'time':
+        if (value === this.searchTimeText) return;
+        this.searchTimeText = value;
+        break;
+      case 'map':
+        if (value === this.searchMapText) return;
+        this.searchMapText = value;
+        break;
+      case 'cell':
+        if (value === this.searchCellText) return;
+        this.searchCellText = value;
+        break;
+      case 'rank':
+        if (value === this.searchRankText) return;
+        this.searchRankText = value;
+        break;
+      case 'drop':
+        if (value === this.searchDropText) return;
+        this.searchDropText = value;
+        break;
+      default:
+        return;
+    }
+    this.recomputeRows();
+  }
+
+  private clearSearches(): void {
+    if (!this.hasAnySearch()) return;
+    this.searchTimeText = '';
+    this.searchMapText = '';
+    this.searchCellText = '';
+    this.searchRankText = '';
+    this.searchDropText = '';
     this.recomputeRows();
   }
 
@@ -196,7 +255,7 @@ export default struct SortieLogPage {
   }
 
   private matchCount(field: string): number {
-    const q = this.searchNeedle();
+    const q = this.fieldNeedle(field);
     if (q.length === 0) return 0;
     let count = 0;
     for (const row of this.rows) {
@@ -208,8 +267,9 @@ export default struct SortieLogPage {
   }
 
   private titleLabel(label: string, field: string): string {
+    if (this.fieldNeedle(field).length === 0) return label;
     const count = this.matchCount(field);
-    return count > 0 ? `${label}（${count}）` : label;
+    return `${label}（${count}）`;
   }
 
   // ==================== 通用血条 ====================
@@ -365,32 +425,90 @@ export default struct SortieLogPage {
 
   @Builder
   private MatchBar() {
-    Row() {
-      TextInput({ text: this.searchText, placeholder: '匹配海域 / 点位 / 结果 / 掉落' })
-        .fontSize(13)
-        .fontColor(COLOR_FG)
-        .caretColor(COLOR_ACCENT)
-        .placeholderColor(COLOR_MUTED)
-        .placeholderFont({ size: 13 })
-        .backgroundColor('#0C1018')
-        .border({ width: 1, color: COLOR_BORDER })
-        .borderRadius(8)
-        .height(36)
-        .layoutWeight(1)
-        .onChange((v: string) => this.setSearch(v))
-      if (this.searchText.length > 0) {
+    Row({ space: 8 }) {
+      if (this.hasAnySearch()) {
         Text('清')
           .fontSize(12)
           .fontColor(COLOR_FG_CHIP)
-          .padding({ left: 10, right: 10, top: 8, bottom: 8 })
-          .margin({ left: 6 })
+          .width(34)
+          .height(30)
+          .textAlign(TextAlign.Center)
           .backgroundColor(COLOR_BG_CHIP)
-          .borderRadius(8)
-          .onClick(() => this.setSearch(''))
+          .borderRadius(6)
+          .onClick(() => this.clearSearches())
+      } else {
+        Text('')
+          .width(34)
+          .height(30)
       }
+
+      TextInput({ text: this.searchTimeText, placeholder: '时间' })
+        .fontSize(10)
+        .fontColor(COLOR_FG)
+        .caretColor(COLOR_ACCENT)
+        .placeholderColor(COLOR_MUTED)
+        .placeholderFont({ size: 10 })
+        .backgroundColor('#0C1018')
+        .border({ width: 1, color: COLOR_BORDER })
+        .borderRadius(6)
+        .height(30)
+        .width(62)
+        .onChange((v: string) => this.setFieldSearch('time', v))
+
+      TextInput({ text: this.searchMapText, placeholder: '海域' })
+        .fontSize(10)
+        .fontColor(COLOR_FG)
+        .caretColor(COLOR_ACCENT)
+        .placeholderColor(COLOR_MUTED)
+        .placeholderFont({ size: 10 })
+        .backgroundColor('#0C1018')
+        .border({ width: 1, color: COLOR_BORDER })
+        .borderRadius(6)
+        .height(30)
+        .layoutWeight(2)
+        .onChange((v: string) => this.setFieldSearch('map', v))
+
+      TextInput({ text: this.searchCellText, placeholder: '点位' })
+        .fontSize(10)
+        .fontColor(COLOR_FG)
+        .caretColor(COLOR_ACCENT)
+        .placeholderColor(COLOR_MUTED)
+        .placeholderFont({ size: 10 })
+        .backgroundColor('#0C1018')
+        .border({ width: 1, color: COLOR_BORDER })
+        .borderRadius(6)
+        .height(30)
+        .width(66)
+        .onChange((v: string) => this.setFieldSearch('cell', v))
+
+      TextInput({ text: this.searchRankText, placeholder: '戦果' })
+        .fontSize(10)
+        .fontColor(COLOR_FG)
+        .caretColor(COLOR_ACCENT)
+        .placeholderColor(COLOR_MUTED)
+        .placeholderFont({ size: 10 })
+        .backgroundColor('#0C1018')
+        .border({ width: 1, color: COLOR_BORDER })
+        .borderRadius(6)
+        .height(30)
+        .width(84)
+        .onChange((v: string) => this.setFieldSearch('rank', v))
+
+      TextInput({ text: this.searchDropText, placeholder: '掉落' })
+        .fontSize(10)
+        .fontColor(COLOR_FG)
+        .caretColor(COLOR_ACCENT)
+        .placeholderColor(COLOR_MUTED)
+        .placeholderFont({ size: 10 })
+        .backgroundColor('#0C1018')
+        .border({ width: 1, color: COLOR_BORDER })
+        .borderRadius(6)
+        .height(30)
+        .layoutWeight(2)
+        .onChange((v: string) => this.setFieldSearch('drop', v))
     }
     .width('100%')
-    .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+    .padding({ left: 8, right: 12, top: 6, bottom: 6 })
     .backgroundColor(COLOR_BG_TOOLBAR)
     .border({ width: { bottom: 0.5 }, color: COLOR_BORDER })
   }
