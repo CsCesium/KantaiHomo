@@ -12,6 +12,8 @@ import AerialCombatPanel from './AerialCombatPanel';
 // ── pure helpers (no ArkUI APIs) ──────────────────────────────────────────
 
 const BATTLE_SHIP_ROW_H = 32;
+const AIR_DETAIL_TOUCH_MIN_W = 48;
+const AIR_DETAIL_TOUCH_MIN_H = 32;
 
 function rankColor(rank: string): string {
   if (displayRank(rank) === 'S') return '#FFD700';
@@ -498,20 +500,22 @@ export default struct BattlePreviewPanel {
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
 
-        // Right: air state tag (双击弹出航空战详情) + AACI
+        // Right: air state tag (单击较大的透明热区弹出航空战详情) + AACI
         Row({ space: 4 }) {
           if (snap.airState) {
-            Text(airStateName(snap.airState))
-              .fontSize(PanelDimens.fontSm)
-              .fontColor(airStateColor(snap.airState))
-              .fontWeight(FontWeight.Medium)
-              .padding({ left: 4, right: 4, top: 1, bottom: 1 })
-              .backgroundColor(PanelColors.bgTabInactive)
-              .borderRadius(2)
-              .gesture(
-                TapGesture({ count: 2 })
-                  .onAction(() => { this.aerialDetailOpen = !this.aerialDetailOpen; })
-              )
+            Row() {
+              Text(airStateName(snap.airState))
+                .fontSize(PanelDimens.fontSm)
+                .fontColor(airStateColor(snap.airState))
+                .fontWeight(FontWeight.Medium)
+                .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+                .backgroundColor(PanelColors.bgTabInactive)
+                .borderRadius(2)
+            }
+            .constraintSize({ minWidth: AIR_DETAIL_TOUCH_MIN_W, minHeight: AIR_DETAIL_TOUCH_MIN_H })
+            .justifyContent(FlexAlign.Center)
+            .alignItems(VerticalAlign.Center)
+            .onClick(() => { this.aerialDetailOpen = !this.aerialDetailOpen; })
           }
 
           if (snap.aaciTriggered) {
