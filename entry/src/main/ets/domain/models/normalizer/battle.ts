@@ -134,25 +134,14 @@ function normalizeDestructionBattle(apiPath: string, d: ApiDestructionBattleRaw,
 function buildMeta(apiPath: string, d: any, now: number) {
   const formation = parseFormation(d?.api_formation);
 
-  // Extract air state and plane counts from kouku stage1 (may be kouku or kouku2 for combined)
-  const stage1 = d?.api_kouku?.api_stage1 ?? d?.api_kouku2?.api_stage1;
-  const airState: number | undefined = typeof stage1?.api_disp_seiku === 'number' ? stage1.api_disp_seiku : undefined;
-  const friendPlaneMax: number | undefined = typeof stage1?.api_f_count === 'number' ? stage1.api_f_count : undefined;
-  const friendPlaneLost: number | undefined = typeof stage1?.api_f_lostcount === 'number' ? stage1.api_f_lostcount : undefined;
-  const friendPlaneNow: number | undefined = (friendPlaneMax !== undefined && friendPlaneLost !== undefined)
-    ? Math.max(0, friendPlaneMax - friendPlaneLost)
-    : undefined;
-  const enemyPlaneMax: number | undefined = typeof stage1?.api_e_count === 'number' ? stage1.api_e_count : undefined;
-  const enemyPlaneLost: number | undefined = typeof stage1?.api_e_lostcount === 'number' ? stage1.api_e_lostcount : undefined;
-  const enemyPlaneNow: number | undefined = (enemyPlaneMax !== undefined && enemyPlaneLost !== undefined)
-    ? Math.max(0, enemyPlaneMax - enemyPlaneLost)
-    : undefined;
-
   const aerialPhases: AerialCombatInfo[] = [];
   const kouku1 = parseAerialCombat(d?.api_kouku);
   if (kouku1) aerialPhases.push(kouku1);
   const kouku2 = parseAerialCombat(d?.api_kouku2);
   if (kouku2) aerialPhases.push(kouku2);
+  const headlineAerial = kouku1 ?? kouku2;
+  const planeSummary = summarizeAerialPlanes(headlineAerial);
+  const airState = headlineAerial?.airState;
 
   const meta = {
     apiPath,
@@ -163,10 +152,10 @@ function buildMeta(apiPath: string, d: any, now: number) {
     stageFlag: Array.isArray(d?.api_stage_flag) ? d.api_stage_flag : undefined,
     smokeType: typeof d?.api_smoke_type === 'number' ? d.api_smoke_type : undefined,
     airState,
-    friendPlaneNow,
-    friendPlaneMax,
-    enemyPlaneNow,
-    enemyPlaneMax,
+    friendPlaneNow: planeSummary.friendPlaneNow,
+    friendPlaneMax: planeSummary.friendPlaneMax,
+    enemyPlaneNow: planeSummary.enemyPlaneNow,
+    enemyPlaneMax: planeSummary.enemyPlaneMax,
     aerialPhases: aerialPhases.length ? aerialPhases : undefined,
     lbasWaves: parseLbasWaves(d?.api_air_base_attack),
     balloonCell: typeof d?.api_balloon_cell === 'number' ? d.api_balloon_cell : undefined,
@@ -176,6 +165,27 @@ function buildMeta(apiPath: string, d: any, now: number) {
 }
 
 /** ---------- Aerial combat info extraction ---------- */
+
+function stageFriendRemaining(stage: AerialStageInfo | undefined): number | undefined {
+  if (!stage) return undefined;
+  return Math.max(0, stage.friendCount - stage.friendLost);
+}
+
+function stageEnemyRemaining(stage: AerialStageInfo | undefined): number | undefined {
+  if (!stage) return undefined;
+  return Math.max(0, stage.enemyCount - stage.enemyLost);
+}
+
+function summarizeAerialPlanes(aerial: AerialCombatInfo | undefined) {
+  const first = aerial?.stage1 ?? aerial?.stage2;
+  const last = aerial?.stage2 ?? aerial?.stage1;
+  return {
+    friendPlaneNow: stageFriendRemaining(last),
+    friendPlaneMax: first?.friendCount,
+    enemyPlaneNow: stageEnemyRemaining(last),
+    enemyPlaneMax: first?.enemyCount,
+  };
+}
 
 function parseAerialStage(s: any): AerialStageInfo | undefined {
   if (!s || typeof s !== 'object') return undefined;

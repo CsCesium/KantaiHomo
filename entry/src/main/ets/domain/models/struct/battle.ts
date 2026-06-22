@@ -144,13 +144,13 @@ export interface BattleMeta {
 
   /** 制空状態 (1=確保, 2=優勢, 3=均衡, 4=劣勢, 5=喪失) */
   airState?: number;
-  /** 友方残機数 (after air battle) */
+  /** 友方残機数 (after the last available aerial stage) */
   friendPlaneNow?: number;
-  /** 友方初期機数 (before air battle) */
+  /** 友方初期機数 (from the first available aerial stage) */
   friendPlaneMax?: number;
-  /** 敌方残機数 (after air battle stage1) */
+  /** 敌方残機数 (after the last available aerial stage) */
   enemyPlaneNow?: number;
-  /** 敌方初期機数 (before air battle) */
+  /** 敌方初期機数 (from the first available aerial stage) */
   enemyPlaneMax?: number;
 
   /** 主舰队航空战情报（api_kouku / api_kouku2 各一项，含 S1/S2、触接、对空CI） */
