@@ -125,6 +125,18 @@ function hasNameFragment(master: SlotItemMaster, fragment: string): boolean {
   return master.name.indexOf(fragment) >= 0;
 }
 
+export function isC3HMainGun(master: SlotItemMaster): boolean {
+  return master.id === 529
+    || hasNameFragment(master, '12.7cm連装砲C型改三H')
+    || hasNameFragment(master, '12.7cm连装炮C型改三H');
+}
+
+export function is25mmAAGunZoubi(master: SlotItemMaster): boolean {
+  return master.id === 505
+    || hasNameFragment(master, '25mm対空機銃増備')
+    || hasNameFragment(master, '25mm对空机枪增备');
+}
+
 function is10cmHighAngleGunKaiName(master: SlotItemMaster): boolean {
   const hasKaiName = hasNameFragment(master, '10cm連装高角砲改')
     || hasNameFragment(master, '10cm连装高角炮改');

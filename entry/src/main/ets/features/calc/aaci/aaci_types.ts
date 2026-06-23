@@ -90,6 +90,9 @@ export enum AaciTypeId {
   // 榛名改二乙専用
   HARUNA_46 = 46,  // 35.6cm連装砲(ダズル迷彩)改三/四 + 機銃 + 対空電探
 
+  // 白露型 C3H 専用
+  SHIRATSUYU_C3H_47 = 47, // 12.7cm連装砲C型改三H + C3H/25mm対空機銃増備/対空電探
+
   // 秋月型専用 (秋月砲改)
   AKIZUKI_48 = 48, // 10cm連装高角砲改+増設機銃(対水上電探搭載) + 対空電探 or 10cm連装高角砲改+増設機銃×2
 
@@ -175,6 +178,8 @@ export enum AaciShipRestriction {
   GOTLAND_K = 'gotland_k',
   /** 吹雪改二/改三/改三護および特型・夕雲型改二グループ */
   FUBUKI_AACI_GROUP = 'fubuki_aaci_group',
+  /** 白露改二/時雨改二・改三/村雨改二/春雨改二 */
+  SHIRATSUYU_C3H_GROUP = 'shiratsuyu_c3h_group',
 }
 
 // ==================== AACI ====================
@@ -391,6 +396,17 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     priority: 101,
     description: '榛名改二乙: ダズル砲改三/四 + 機銃 + 対空電探',
     shipRestriction: AaciShipRestriction.HARUNA_K2B,
+  }],
+
+  // 白露型 C3H 専用
+  [AaciTypeId.SHIRATSUYU_C3H_47, {
+    id: AaciTypeId.SHIRATSUYU_C3H_47,
+    fixedBonus: 2,
+    variableBonus: 1.3,
+    baseRate: 0.40,
+    priority: 60,
+    description: '白露改二/時雨改二・改三/村雨改二/春雨改二: 12.7cm連装砲C型改三H + C3H/25mm対空機銃増備/対空電探',
+    shipRestriction: AaciShipRestriction.SHIRATSUYU_C3H_GROUP,
   }],
 
   // 戦艦三式弾

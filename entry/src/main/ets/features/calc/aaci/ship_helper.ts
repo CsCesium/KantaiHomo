@@ -119,6 +119,15 @@ export const FUBUKI_AACI_GROUP_IDS: Set<number> = new Set([
   1040, // 吹雪改三護(六式)
 ]);
 
+/** 白露型 C3H 対空CI対応艦 */
+export const SHIRATSUYU_C3H_AACI_GROUP_IDS: Set<number> = new Set([
+  497,  // 白露改二
+  145,  // 時雨改二
+  961,  // 時雨改三
+  498,  // 村雨改二
+  975,  // 春雨改二
+]);
+
 /** 磯風乙改 */
 export const ISOKAZE_B_IDS: Set<number> = new Set([
   557,  // 磯風乙改
@@ -310,6 +319,13 @@ export function isFubukiAaciGroup(shipMasterId: number): boolean {
 }
 
 /**
+ * 白露型 C3H 対空CI対応艦かどうか
+ */
+export function isShiratsuyuC3HAaciGroup(shipMasterId: number): boolean {
+  return SHIRATSUYU_C3H_AACI_GROUP_IDS.has(shipMasterId);
+}
+
+/**
  * 磯風乙改/浜風乙改かどうか
  */
 export function isIsokazeOrHamakazeB(shipMasterId: number): boolean {
@@ -429,6 +445,8 @@ export function matchesShipRestriction(
       return isGotlandK(shipMasterId);
     case AaciShipRestriction.FUBUKI_AACI_GROUP:
       return isFubukiAaciGroup(shipMasterId);
+    case AaciShipRestriction.SHIRATSUYU_C3H_GROUP:
+      return isShiratsuyuC3HAaciGroup(shipMasterId);
     default:
       return false;
   }

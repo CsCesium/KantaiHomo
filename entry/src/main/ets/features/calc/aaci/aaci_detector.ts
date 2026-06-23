@@ -44,7 +44,9 @@ import {
   is10cmHighAngleGunKai,
   is10cmHighAngleGunKaiDirectorKai,
   isType94AADirector,
-  isAAGunAtLeast
+  isAAGunAtLeast,
+  isC3HMainGun,
+  is25mmAAGunZoubi
 } from "./equip_helper";
 import {
   isChoukaiOrMayaK2,
@@ -52,6 +54,7 @@ import {
   isFubukiKai3,
   isFubukiKai3Go,
   isIsokazeOrHamakazeB,
+  isShiratsuyuC3HAaciGroup,
   isTenryuK2,
   isUitOrI504
 } from "./ship_helper";
@@ -288,6 +291,26 @@ function checkFubukiGroupAaciConditions(
   // 52種: 10cm連装高角砲改×2 + 94式高射装置
   if (plainKaiGunCount >= 2 && hasType94Aafd) {
     result.push(AaciTypeId.FUBUKI_52);
+  }
+
+  return result;
+}
+
+/**
+ * 白露改二/時雨改二・改三/村雨改二/春雨改二 C3H AACI の装備条件
+ */
+function checkShiratsuyuC3HAaciConditions(
+  equips: SlotItemMaster[]
+): AaciTypeId[] {
+  const result: AaciTypeId[] = [];
+
+  const c3hCount = countEquipment(equips, isC3HMainGun);
+  const has25mmZoubi = hasEquipment(equips, is25mmAAGunZoubi);
+  const hasAa4Radar = hasEquipment(equips, m => isAirRadarAtLeast(m, 4));
+
+  // 47種: 12.7cm連装砲C型改三H + C3H/25mm対空機銃増備/対空電探(素対空4以上)
+  if (c3hCount >= 1 && (c3hCount >= 2 || has25mmZoubi || hasAa4Radar)) {
+    result.push(AaciTypeId.SHIRATSUYU_C3H_47);
   }
 
   return result;
@@ -706,6 +729,10 @@ export function detectAacis(
 
   if (isFubukiAaciGroup(shipMasterId)) {
     detected.push(...checkFubukiGroupAaciConditions(equips));
+  }
+
+  if (isShiratsuyuC3HAaciGroup(shipMasterId)) {
+    detected.push(...checkShiratsuyuC3HAaciConditions(equips));
   }
 
   if (isYamatoK2(shipMasterId)) {
