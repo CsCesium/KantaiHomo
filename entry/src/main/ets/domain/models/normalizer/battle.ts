@@ -141,7 +141,11 @@ function buildMeta(apiPath: string, d: any, now: number) {
   if (kouku2) aerialPhases.push(kouku2);
   const headlineAerial = kouku1 ?? kouku2;
   const planeSummary = summarizeAerialPlanes(headlineAerial);
-  const airState = headlineAerial?.airState;
+  const lbasWaves = parseLbasWaves(d?.api_air_base_attack);
+  // 基地空袭（api_destruction_battle）通常没有 api_kouku，制空状态只存在于
+  // api_air_base_attack[*].api_stage1。普通航空战仍优先展示舰队航空战制空。
+  const lbasAirState = lbasWaves?.find((wave: LbasWaveInfo) => wave.airState !== undefined)?.airState;
+  const airState = headlineAerial?.airState ?? lbasAirState;
 
   const meta = {
     apiPath,
@@ -157,7 +161,7 @@ function buildMeta(apiPath: string, d: any, now: number) {
     enemyPlaneNow: planeSummary.enemyPlaneNow,
     enemyPlaneMax: planeSummary.enemyPlaneMax,
     aerialPhases: aerialPhases.length ? aerialPhases : undefined,
-    lbasWaves: parseLbasWaves(d?.api_air_base_attack),
+    lbasWaves,
     balloonCell: typeof d?.api_balloon_cell === 'number' ? d.api_balloon_cell : undefined,
     atollCell: typeof d?.api_atoll_cell === 'number' ? d.api_atoll_cell : undefined,
   };
@@ -166,24 +170,27 @@ function buildMeta(apiPath: string, d: any, now: number) {
 
 /** ---------- Aerial combat info extraction ---------- */
 
-function stageFriendRemaining(stage: AerialStageInfo | undefined): number | undefined {
-  if (!stage) return undefined;
-  return Math.max(0, stage.friendCount - stage.friendLost);
-}
-
-function stageEnemyRemaining(stage: AerialStageInfo | undefined): number | undefined {
-  if (!stage) return undefined;
-  return Math.max(0, stage.enemyCount - stage.enemyLost);
-}
-
 function summarizeAerialPlanes(aerial: AerialCombatInfo | undefined) {
   const first = aerial?.stage1 ?? aerial?.stage2;
-  const last = aerial?.stage2 ?? aerial?.stage1;
+  if (!first) {
+    return {
+      friendPlaneNow: undefined,
+      friendPlaneMax: undefined,
+      enemyPlaneNow: undefined,
+      enemyPlaneMax: undefined,
+    };
+  }
+
+  // S1 是全部参战机的制空争夺；S2 只包含进入攻击阶段的攻击机。
+  // 因此不能把 S2 的 count-lost 当作「总残机」（那会漏掉战斗机）。
+  // 总残机应从 S1 总数依次扣除 S1 与 S2 的损失数。
+  const friendStage2Lost = aerial?.stage1 ? (aerial.stage2?.friendLost ?? 0) : 0;
+  const enemyStage2Lost = aerial?.stage1 ? (aerial.stage2?.enemyLost ?? 0) : 0;
   return {
-    friendPlaneNow: stageFriendRemaining(last),
-    friendPlaneMax: first?.friendCount,
-    enemyPlaneNow: stageEnemyRemaining(last),
-    enemyPlaneMax: first?.enemyCount,
+    friendPlaneNow: Math.max(0, first.friendCount - first.friendLost - friendStage2Lost),
+    friendPlaneMax: first.friendCount,
+    enemyPlaneNow: Math.max(0, first.enemyCount - first.enemyLost - enemyStage2Lost),
+    enemyPlaneMax: first.enemyCount,
   };
 }
 

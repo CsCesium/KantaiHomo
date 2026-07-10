@@ -6,7 +6,7 @@ export interface MapGaugeRaw {
   mapId: number;
   cleared: boolean;
   defeatCount: number;
-  /** 1 = HP gauge, 2 = TP gauge, null = no gauge */
+  /** 1 = 击破次数, 2 = HP, 3 = TP, null = no gauge */
   gaugeType: number | null;
   gaugeNum: number;
   hpNow: number | null;

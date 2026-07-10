@@ -25,13 +25,20 @@ export function normalizeQuest(raw: ApiQuestListItemRaw, now: number = Date.now(
   };
 }
 
-export function normalizeQuestListPage(raw: ApiQuestListRespRaw, now: number = Date.now()): QuestListPage {
+export function normalizeQuestListPage(raw: ApiQuestListRespRaw, now: number = Date.now(), tabId?: number): QuestListPage {
+  const quests: Quest[] = [];
+  for (const item of raw.api_list ?? []) {
+    if (item === null || item === -1) continue;
+    quests.push(normalizeQuest(item, now));
+  }
+
   return {
     count: raw.api_count ?? 0,
     completedKind: raw.api_completed_kind ?? 0,
     pageCount: raw.api_page_count ?? 0,
     page: raw.api_disp_page ?? 1,
-    quests: (raw.api_list ?? []).map((q) => normalizeQuest(q, now)),
+    tabId,
+    quests,
     updatedAt: now,
   };
 }

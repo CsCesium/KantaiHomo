@@ -457,13 +457,13 @@ export interface BattleStatusSnapshot {
   // 航空状态
   /** 制空状態 (1=確保, 2=優勢, 3=均衡, 4=劣勢, 5=喪失) */
   airState?: number;
-  /** 友方残機数（航空战最终阶段后） */
+  /** 友方参战机残机数（S1 总数扣除 S1/S2 损失） */
   friendPlaneNow?: number;
-  /** 友方初期機数（航空战首个阶段） */
+  /** 友方参战机初期数（航空战首个阶段） */
   friendPlaneMax?: number;
-  /** 敌方残機数（航空战最终阶段后） */
+  /** 敌方参战机残机数（S1 总数扣除 S1/S2 损失） */
   enemyPlaneNow?: number;
-  /** 敌方初期機数（航空战首个阶段） */
+  /** 敌方参战机初期数（航空战首个阶段） */
   enemyPlaneMax?: number;
   /** 対空CI発動 */
   aaciTriggered?: boolean;

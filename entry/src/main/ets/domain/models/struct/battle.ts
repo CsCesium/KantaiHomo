@@ -144,13 +144,13 @@ export interface BattleMeta {
 
   /** 制空状態 (1=確保, 2=優勢, 3=均衡, 4=劣勢, 5=喪失) */
   airState?: number;
-  /** 友方残機数 (after the last available aerial stage) */
+  /** 友方参战机残机数（S1 总数扣除 S1/S2 损失；S2 count 本身只含攻击机） */
   friendPlaneNow?: number;
-  /** 友方初期機数 (from the first available aerial stage) */
+  /** 友方参战机初期数（来自首个可用阶段） */
   friendPlaneMax?: number;
-  /** 敌方残機数 (after the last available aerial stage) */
+  /** 敌方参战机残机数（S1 总数扣除 S1/S2 损失） */
   enemyPlaneNow?: number;
-  /** 敌方初期機数 (from the first available aerial stage) */
+  /** 敌方参战机初期数（来自首个可用阶段） */
   enemyPlaneMax?: number;
 
   /** 主舰队航空战情报（api_kouku / api_kouku2 各一项，含 S1/S2、触接、对空CI） */
@@ -195,6 +195,9 @@ export function mergeBattleSegments(a: BattleSegment, b: BattleSegment, opt: Mer
       apiPath: `${a.meta.apiPath}+${b.meta.apiPath}`,
       deckId: a.meta.deckId ?? b.meta.deckId,
       formation: a.meta.formation ?? b.meta.formation,
+      airState: a.meta.airState ?? b.meta.airState,
+      friendPlaneNow: a.meta.friendPlaneNow ?? b.meta.friendPlaneNow,
+      friendPlaneMax: a.meta.friendPlaneMax ?? b.meta.friendPlaneMax,
       enemyPlaneNow: a.meta.enemyPlaneNow ?? b.meta.enemyPlaneNow,
       enemyPlaneMax: a.meta.enemyPlaneMax ?? b.meta.enemyPlaneMax,
       aerialPhases: a.meta.aerialPhases ?? b.meta.aerialPhases,

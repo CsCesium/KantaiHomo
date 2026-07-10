@@ -1,6 +1,6 @@
 import type { MapInfoUpdateEvent, MapGaugeRaw } from '../../../domain/events/mapinfo';
 import type { MapGaugeSnapshot } from '../../state/type';
-import { updateMapGauges, getDecks, getDeckShips } from '../../state';
+import { updateMapGauges, getMapGauges, getDecks, getDeckShips } from '../../state';
 import { publishAlert } from '../../alerts/bus';
 import { registerHandler } from '../persist/registry';
 import type { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -12,7 +12,25 @@ class MapInfoHandler implements Handler {
     const now = Date.now();
 
     const snapshots: MapGaugeSnapshot[] = gauges.map(g => ({ ...g, capturedAt: now }));
-    updateMapGauges(snapshots);
+    if (e.endpoint === '/api_req_map/select_eventmap_rank') {
+      // 难度选择响应只包含一个海域，不能覆盖掉其它海域的血条。
+      const merged = [...getMapGauges()];
+      for (const patch of snapshots) {
+        const previous = merged.find((g: MapGaugeSnapshot) => g.mapId === patch.mapId);
+        const next: MapGaugeSnapshot = {
+          ...patch,
+          gaugeType: patch.gaugeType ?? previous?.gaugeType ?? null,
+          gaugeNum: patch.gaugeNum > 0 ? patch.gaugeNum : (previous?.gaugeNum ?? 1),
+        };
+        for (let i = merged.length - 1; i >= 0; i--) {
+          if (merged[i].mapId === patch.mapId) merged.splice(i, 1);
+        }
+        merged.push(next);
+      }
+      updateMapGauges(merged);
+    } else {
+      updateMapGauges(snapshots);
+    }
 
     this.checkFleetStatus();
   }

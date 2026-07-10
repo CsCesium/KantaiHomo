@@ -537,7 +537,7 @@ export default struct BattlePreviewPanel {
       .padding({ left: 10, right: 10 })
       .alignItems(VerticalAlign.Center)
 
-      // Row 2: formation info + 剩余机数（我方绿 / 敌方红）
+      // Row 2: formation info + 全部参战机残机数（我方绿 / 敌方红）
       Row({ space: 6 }) {
         Text(formationName(snap.friendFormation))
           .fontSize(PanelDimens.fontSm)
@@ -552,12 +552,12 @@ export default struct BattlePreviewPanel {
         Blank().layoutWeight(1)
 
         if (snap.friendPlaneMax !== undefined && snap.friendPlaneMax > 0) {
-          Text(`我 ${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
+          Text(`我方残机 ${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.hpOk)
         }
         if (snap.enemyPlaneMax !== undefined && snap.enemyPlaneMax > 0) {
-          Text(`敌 ${snap.enemyPlaneNow ?? 0}/${snap.enemyPlaneMax}`)
+          Text(`敌方残机 ${snap.enemyPlaneNow ?? 0}/${snap.enemyPlaneMax}`)
             .fontSize(PanelDimens.fontSm)
             .fontColor(PanelColors.hpCrit)
         }

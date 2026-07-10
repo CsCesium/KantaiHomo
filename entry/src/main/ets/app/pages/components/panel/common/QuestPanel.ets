@@ -9,7 +9,6 @@ import {
 import { promptAction } from '@kit.ArkUI';
 
 const QUEST_STATE_ACTIVE = 2;
-const QUEST_STATE_COMPLETE = 3;
 
 function questRowKey(quest: QuestSnapshot): string {
   return `quest-${quest.questId}-${quest.state}-${quest.progress ?? 0}-${quest.updatedAt}-${quest.capturedAt}`;
@@ -21,7 +20,7 @@ export default struct QuestPanel {
   @Param compact: boolean = false;
 
   private visibleQuests(): QuestSnapshot[] {
-    return this.quests.filter((q: QuestSnapshot) => q.state === QUEST_STATE_ACTIVE || q.state === QUEST_STATE_COMPLETE);
+    return this.quests.filter((q: QuestSnapshot) => q.state === QUEST_STATE_ACTIVE);
   }
 
   private categoryWidth(): number {
@@ -125,11 +124,11 @@ export default struct QuestPanel {
 
   @Builder private EmptyQuestState(): void {
     Column() {
-      Text('没有任务数据')
+      Text('当前没有已接取任务')
         .fontSize(this.emptyTitleFontSize())
         .fontColor(PanelColors.txtMuted)
         .margin({ top: this.compact ? 16 : 24 })
-      Text('打开任务列表以获得数据')
+      Text('打开任务列表或接取任务以更新')
         .fontSize(PanelDimens.fontSm)
         .fontColor(PanelColors.txtFainter)
         .margin({ top: 6 })
