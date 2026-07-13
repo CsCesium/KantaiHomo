@@ -79,6 +79,15 @@ function isNightBattleData(x: any): x is ApiNightBattleDataRaw {
   return !!x && typeof x === 'object' && !!x.api_hougeki && !!x.api_hougeki.api_damage;
 }
 
+function resolveNightActiveDeck(apiPath: string, d: any): number[] | undefined {
+  if (Array.isArray(d?.api_active_deck) && d.api_active_deck.length >= 2) {
+    return d.api_active_deck;
+  }
+  if (apiPath.includes('api_req_combined_battle/ec_')) return [1, 2];
+  if (apiPath.includes('api_req_combined_battle/')) return [2, 1];
+  return undefined;
+}
+
 /** ---------- Day / Night / Destruction ---------- */
 
 function normalizeDayBattle(apiPath: string, d: ApiDayBattleDataRaw, now: number): BattleSegment {
@@ -95,10 +104,11 @@ function normalizeDayBattle(apiPath: string, d: ApiDayBattleDataRaw, now: number
 
 function normalizeNightBattle(apiPath: string, d: ApiNightBattleDataRaw, now: number): BattleSegment {
   const meta = buildMeta(apiPath, d, now);
-  const start = buildHpSnapshot(d);
-  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
+  const activeDeck = resolveNightActiveDeck(apiPath, d);
+  const start = buildHpSnapshot(d, activeDeck);
+  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start, activeDeck);
 
-  const phases = extractNightPhases(d, start);
+  const phases = extractNightPhases(d, start, activeDeck);
   const end = applyPhases(start, phases);
 
   return { meta, start, phases, end, enemyMain, enemyEscort, createdAt: now };
@@ -106,10 +116,11 @@ function normalizeNightBattle(apiPath: string, d: ApiNightBattleDataRaw, now: nu
 
 function normalizeNightToDayBattle(apiPath: string, d: ApiNightBattleDataRaw & ApiDayBattleDataRaw, now: number): BattleSegment {
   const meta = buildMeta(apiPath, d, now);
-  const start = buildHpSnapshot(d);
-  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
+  const activeDeck = resolveNightActiveDeck(apiPath, d);
+  const start = buildHpSnapshot(d, activeDeck);
+  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start, activeDeck);
 
-  const nightPhases = extractNightPhases(d, start);
+  const nightPhases = extractNightPhases(d, start, activeDeck);
   const dayPhases = extractDayPhases(d, start);
   const phases = [...nightPhases, ...dayPhases].map((p, i) => ({ ...p, seq: i + 1 }));
   const end = applyPhases(start, phases);
@@ -268,11 +279,31 @@ function parseFormation(arr?: number[]): BattleFormation | undefined {
   return { friend: arr[0], enemy: arr[1], engagement: arr[2] };
 }
 
-function buildEnemyInfo(d: any, hpSnap: BattleHpSnapshot): { enemyMain?: EnemyFleetInfo; enemyEscort?: EnemyFleetInfo } {
+function buildEnemyInfo(
+  d: any,
+  hpSnap: BattleHpSnapshot,
+  activeDeck?: readonly number[],
+): { enemyMain?: EnemyFleetInfo; enemyEscort?: EnemyFleetInfo } {
   const mainKe   = toNumArray(d?.api_ship_ke);
   const mainLv   = toNumArray(d?.api_ship_lv);
   const escortKe = toNumArray(d?.api_ship_ke_combined);
   const escortLv = toNumArray(d?.api_ship_lv_combined);
+
+  // Some combined night packets expose only the active enemy fleet through
+  // the non-combined fields. Preserve its escort identity instead of
+  // incorrectly recording it as the enemy main fleet.
+  if (activeDeck?.[1] === 2 && !escortKe && mainKe) {
+    return {
+      enemyEscort: {
+        shipIds: mainKe,
+        levels: mainLv ?? [],
+        slots: d?.api_eSlot ?? undefined,
+        params: d?.api_eParam ?? undefined,
+        hpNow: hpSnap.enemy.escort?.now ?? [],
+        hpMax: hpSnap.enemy.escort?.max ?? [],
+      },
+    };
+  }
 
   const enemyMain: EnemyFleetInfo | undefined = mainKe ? {
     shipIds: mainKe,
@@ -295,16 +326,31 @@ function buildEnemyInfo(d: any, hpSnap: BattleHpSnapshot): { enemyMain?: EnemyFl
   return { enemyMain, enemyEscort };
 }
 
-function buildHpSnapshot(d: any): BattleHpSnapshot {
-  const friendMainNow = normalizeHpArray(d?.api_f_nowhps);
-  const friendMainMax = normalizeHpArray(d?.api_f_maxhps);
-  const friendEscortNow = normalizeHpArray(d?.api_f_nowhps_combined);
-  const friendEscortMax = normalizeHpArray(d?.api_f_maxhps_combined);
+function buildHpSnapshot(d: any, activeDeck?: readonly number[]): BattleHpSnapshot {
+  let friendMainNow = normalizeHpArray(d?.api_f_nowhps);
+  let friendMainMax = normalizeHpArray(d?.api_f_maxhps);
+  let friendEscortNow = normalizeHpArray(d?.api_f_nowhps_combined);
+  let friendEscortMax = normalizeHpArray(d?.api_f_maxhps_combined);
 
-  const enemyMainNow = normalizeHpArray(d?.api_e_nowhps);
-  const enemyMainMax = normalizeHpArray(d?.api_e_maxhps);
-  const enemyEscortNow = normalizeHpArray(d?.api_e_nowhps_combined);
-  const enemyEscortMax = normalizeHpArray(d?.api_e_maxhps_combined);
+  let enemyMainNow = normalizeHpArray(d?.api_e_nowhps);
+  let enemyMainMax = normalizeHpArray(d?.api_e_maxhps);
+  let enemyEscortNow = normalizeHpArray(d?.api_e_nowhps_combined);
+  let enemyEscortMax = normalizeHpArray(d?.api_e_maxhps_combined);
+
+  // Combined night-only packets may put the active escort fleet in the plain
+  // api_*_nowhps fields and omit api_*_nowhps_combined altogether.
+  if (activeDeck?.[0] === 2 && friendEscortNow.length === 0 && friendEscortMax.length === 0) {
+    friendEscortNow = friendMainNow;
+    friendEscortMax = friendMainMax;
+    friendMainNow = [];
+    friendMainMax = [];
+  }
+  if (activeDeck?.[1] === 2 && enemyEscortNow.length === 0 && enemyEscortMax.length === 0) {
+    enemyEscortNow = enemyMainNow;
+    enemyEscortMax = enemyMainMax;
+    enemyMainNow = [];
+    enemyMainMax = [];
+  }
 
   const snap: BattleHpSnapshot = {
     friend: {
@@ -405,10 +451,14 @@ function extractDayPhases(d: ApiDayBattleDataRaw, start: BattleHpSnapshot): Batt
   return phases;
 }
 
-function extractNightPhases(d: ApiNightBattleDataRaw, start: BattleHpSnapshot): BattlePhase[] {
+function extractNightPhases(
+  d: ApiNightBattleDataRaw,
+  start: BattleHpSnapshot,
+  activeDeck?: readonly number[],
+): BattlePhase[] {
   const phases: BattlePhase[] = [];
   let seq = 1;
-  phases.push(mkHougekiPhase('nightShelling', seq++, 'api_hougeki', d.api_hougeki, start));
+  phases.push(mkHougekiPhase('nightShelling', seq++, 'api_hougeki', d.api_hougeki, start, activeDeck));
   return phases;
 }
 
@@ -516,7 +566,14 @@ function mkSupportHouraiPhase(seq: number, key: string, raw: ApiSupportHouraiRaw
   return { kind: 'supportShelling', seq, rawKey: key, events };
 }
 
-function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: ApiHougekiRaw, start: BattleHpSnapshot): BattlePhase {
+function mkHougekiPhase(
+  kind: BattlePhaseKind,
+  seq: number,
+  key: string,
+  raw: ApiHougekiRaw,
+  start: BattleHpSnapshot,
+  activeDeck?: readonly number[],
+): BattlePhase {
   const events: AttackEvent[] = [];
   const atE = Array.isArray(raw.api_at_eflag) ? raw.api_at_eflag : [];
   const atList = Array.isArray(raw.api_at_list) ? raw.api_at_list : [];
@@ -534,7 +591,7 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
     const defenderSide: BattleSide = attackerIsEnemy ? 'friend' : 'enemy';
 
     const attackerIdx0 = atList[i] ?? -1;
-    const attackerRef = resolveZeroBasedIndexToFleetRef(attackerSide, attackerIdx0, start);
+    const attackerRef = resolveBattleIndexToFleetRef(attackerSide, attackerIdx0, start, activeDeck);
 
     const df = dfList[i] ?? [];
     const dmg = dmgList[i] ?? [];
@@ -543,7 +600,7 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
     const hits: DamageInstance[] = [];
     for (let j = 0; j < df.length; j++) {
       const tIdx0 = df[j] ?? -1;
-      const tRef = resolveZeroBasedIndexToFleetRef(defenderSide, tIdx0, start);
+      const tRef = resolveBattleIndexToFleetRef(defenderSide, tIdx0, start, activeDeck);
       if (!tRef) continue;
 
       const dval = clampDmg(dmg[j] ?? 0);
@@ -679,6 +736,25 @@ function resolveZeroBasedIndexToFleetRef(side: BattleSide, idx0: number, snap: B
   if (escLen && idx0 < mainLen + escLen) return { side, fleet: 'escort', idx: idx0 - mainLen };
 
   return null;
+}
+
+function resolveBattleIndexToFleetRef(
+  side: BattleSide,
+  idx0: number,
+  snap: BattleHpSnapshot,
+  activeDeck?: readonly number[],
+): FleetRef | null {
+  if (idx0 < 0) return null;
+  const selectedDeck = side === 'friend' ? activeDeck?.[0] : activeDeck?.[1];
+  if (selectedDeck === 1) {
+    const main = side === 'friend' ? snap.friend.main : snap.enemy.main;
+    return idx0 < main.now.length ? { side, fleet: 'main', idx: idx0 } : null;
+  }
+  if (selectedDeck === 2) {
+    const escort = side === 'friend' ? snap.friend.escort : snap.enemy.escort;
+    return escort && idx0 < escort.now.length ? { side, fleet: 'escort', idx: idx0 } : null;
+  }
+  return resolveZeroBasedIndexToFleetRef(side, idx0, snap);
 }
 
 function toTorpedoIndexArray(arr?: Array<number | null> | null): number[] {

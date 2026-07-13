@@ -180,7 +180,7 @@ class SortieHandler implements Handler {
   /**
    * 出击瞬间基于 GameState 检查整个出击编队是否存在大破舰
    *
-   * 跳过主队旗舰（i=0，旗舰不会击沉），联合舰队护卫队所有舰位都参与检查
+   * 主队与护卫队均跳过旗舰（i=0，旗舰不会击沉）
    */
   private checkSortieStartTaiha(deckId: number, combinedType: number): void {
     const risky: { uid: number; name: string; hpNow: number; hpMax: number }[] = [];
@@ -197,7 +197,7 @@ class SortieHandler implements Handler {
 
     if (combinedType > 0) {
       const escort = getDeckShips(2);
-      for (let i = 0; i < escort.length; i++) {
+      for (let i = 1; i < escort.length; i++) {
         const s = escort[i];
         if (!s.isTaiha) continue;
         if (s.hpNow <= 0) continue;

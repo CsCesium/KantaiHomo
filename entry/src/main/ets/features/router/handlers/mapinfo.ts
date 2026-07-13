@@ -1,6 +1,6 @@
 import type { MapInfoUpdateEvent, MapGaugeRaw } from '../../../domain/events/mapinfo';
 import type { MapGaugeSnapshot } from '../../state/type';
-import { updateMapGauges, getMapGauges, getDecks, getDeckShips } from '../../state';
+import { updateMapGauges, getMapGauges, getDecks, getDeckShips, getCombinedFleetType } from '../../state';
 import { publishAlert } from '../../alerts/bus';
 import { registerHandler } from '../persist/registry';
 import type { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -40,6 +40,7 @@ class MapInfoHandler implements Handler {
     const unsuppliedDecks: number[] = [];
     const idleDecks: number[] = [];
     const fleet1LowCondShipUids: number[] = [];
+    const combinedType = getCombinedFleetType();
 
     for (const deck of decks) {
       const onExpedition = deck.expeditionReturnTime !== null &&
@@ -61,8 +62,11 @@ class MapInfoHandler implements Handler {
           }
         }
 
-        // Decks 2-4 should ideally be on expedition
-        if (deck.deckId >= 2) {
+        // Decks 2-4 should ideally be on expedition. Fleet 2 is an active
+        // escort fleet while a combined fleet is formed, so it must not be
+        // reported as an idle expedition fleet.
+        const isCombinedEscort = combinedType > 0 && deck.deckId === 2;
+        if (deck.deckId >= 2 && !isCombinedEscort) {
           idleDecks.push(deck.deckId);
         }
       }

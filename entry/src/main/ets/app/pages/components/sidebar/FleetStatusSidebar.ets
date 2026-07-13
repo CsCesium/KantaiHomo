@@ -1,5 +1,6 @@
 import {
   getDeckShips,
+  getCombinedFleetType,
   isShipEscaped,
   getShipSpecialEquip,
   subscribeGameState,
@@ -43,7 +44,7 @@ function shipEntryKey(entry: ShipEntry): string {
  * sortie_next / port 阶段刷新的真实值。
  *
  * 舰队选择：优先出击舰队（getSortieContext().deckId），无出击时回退第一舰队。
- * 联合舰队出击时，双击侧边栏可在第一（主力）与第二（护卫）舰队间切换。
+ * 港内已编成联合舰队或联合舰队出击时，可点击标题（或双击侧栏）切换主力/护卫。
  */
 @ComponentV2
 export default struct FleetStatusSidebar {
@@ -80,7 +81,8 @@ export default struct FleetStatusSidebar {
   private refreshEntries(): void {
     const ctx = getSortieContext();
     this.inSortie = ctx !== null;
-    const combined = ctx !== null && ctx.combinedType > 0;
+    const combinedType = ctx ? ctx.combinedType : getCombinedFleetType();
+    const combined = combinedType > 0;
     this.isCombined = combined;
 
     // 离开联合出击时重置护卫标志
@@ -100,17 +102,30 @@ export default struct FleetStatusSidebar {
     }));
   }
 
+  private toggleCombinedFleet(): void {
+    if (!this.isCombined) return;
+    this.showingEscort = !this.showingEscort;
+    this.refreshEntries();
+  }
+
   build() {
     Column() {
       if (this.isCombined) {
-        Text(this.showingEscort ? '伴随艦隊' : '主力部隊')
-          .fontSize(11)
-          .fontColor(this.showingEscort ? '#FFD700' : '#FFFFFF')
-          .fontWeight(FontWeight.Bold)
-          .textAlign(TextAlign.Center)
-          .width(this.sidebarWidth)
-          .height(16)
-          .opacity(0.85)
+        Row() {
+          Text(this.showingEscort ? '伴随艦隊' : '主力部隊')
+            .fontSize(11)
+            .fontColor(this.showingEscort ? '#FFD700' : '#FFFFFF')
+            .fontWeight(FontWeight.Bold)
+          Text('⇄')
+            .fontSize(10)
+            .fontColor('#B0BEC5')
+            .margin({ left: 2 })
+        }
+        .justifyContent(FlexAlign.Center)
+        .width(this.sidebarWidth)
+        .height(18)
+        .opacity(0.9)
+        .onClick(() => this.toggleCombinedFleet())
       }
       if (this.entries.length > 0) {
         ForEach(
@@ -136,12 +151,7 @@ export default struct FleetStatusSidebar {
     .padding({ top: 4, bottom: 4 })
     .gesture(
       TapGesture({ count: 2 })
-        .onAction(() => {
-          if (this.isCombined) {
-            this.showingEscort = !this.showingEscort;
-            this.refreshEntries();
-          }
-        })
+        .onAction(() => this.toggleCombinedFleet())
     )
   }
 }

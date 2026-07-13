@@ -23,7 +23,7 @@ import { ApiDump } from "../../../infra/web/types";
 import { parseSvdata, parseFormBody, extractApiPath, matchAnyPattern } from "../../utils/common";
 import { ParserCtx, mkEvt } from "./common";
 import { buildFallbackPrediction } from "../../simulator/snapshot_to_domain";
-import { getDeck, getDeckShips, getSlotItemMasterId, getLbas } from "../../state/game_state";
+import { getDeck, getDeckShips, getSlotItemMasterId, getLbas, getCombinedFleetType } from "../../state/game_state";
 import type { ShipState } from "../../state/type";
 
 const PATTERNS = {
@@ -117,6 +117,9 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
 
   const params = parseFormBody(dump.requestBody);
   const deckId = params.getInt('api_deck_id', 1);
+  // A formed combined fleet always sorties from deck 1. Decks 3/4 can still
+  // make normal sorties while a combined fleet exists at port.
+  const combinedType = deckId === 1 ? getCombinedFleetType() : 0;
 
   const apiData = raw.api_data ?? raw;
   const normalized = normalizeSortieCell(apiData);
@@ -130,6 +133,9 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
     ships: [],
     capturedAt: ctx.ts,
   };
+  const fleetSnapshotEscort = combinedType > 0
+    ? (captureFleetSnapshotFromGameState(2, ctx.ts) ?? undefined)
+    : undefined;
 
   const event: SortieStartEvent = mkEvt(
     ctx,
@@ -141,8 +147,9 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
       cellId: normalized.cellId,
       cell: normalized,
       deckId,
-      combinedType: 0, // 由 Handler 从内存状态获取
+      combinedType,
       fleetSnapshot,
+      fleetSnapshotEscort,
     }
   );
 

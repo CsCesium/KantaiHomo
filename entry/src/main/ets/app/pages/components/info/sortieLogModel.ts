@@ -299,6 +299,10 @@ function displayAttackerRef(
   stored: FleetRef | undefined,
   start: BattleHpSnapshot,
 ): FleetRef | undefined {
+  // The normalizer has already resolved api_active_deck for combined night
+  // battles. Reinterpreting the raw local index as a flattened 1+2 fleet index
+  // would move escort attackers back onto the main fleet.
+  if (isNightAttackPhase(phaseKind) && stored) return stored;
   if (isIndexedAttackerPhase(phaseKind) && side && typeof rawIndex === 'number') {
     const ref = zeroBasedRef(side, rawIndex, start);
     if (ref) return ref;

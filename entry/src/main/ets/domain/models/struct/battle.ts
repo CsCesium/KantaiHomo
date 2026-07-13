@@ -189,6 +189,21 @@ export interface MergeBattleOptions {
 
 export function mergeBattleSegments(a: BattleSegment, b: BattleSegment, opt: MergeBattleOptions = {}): BattleSegment {
   const keepStart = opt.keepStartFromFirst ?? true;
+
+  const mergeFleet = (first: BattleHpFleet | undefined, second: BattleHpFleet | undefined): BattleHpFleet | undefined => {
+    if (second && (second.now.length > 0 || second.max.length > 0)) return second;
+    return first;
+  };
+  const mergedEnd: BattleHpSnapshot = {
+    friend: {
+      main: mergeFleet(a.end.friend.main, b.end.friend.main) ?? { now: [], max: [] },
+      escort: mergeFleet(a.end.friend.escort, b.end.friend.escort),
+    },
+    enemy: {
+      main: mergeFleet(a.end.enemy.main, b.end.enemy.main) ?? { now: [], max: [] },
+      escort: mergeFleet(a.end.enemy.escort, b.end.enemy.escort),
+    },
+  };
   const merged: BattleSegment = {
     meta: {
       ...a.meta,
@@ -205,7 +220,9 @@ export function mergeBattleSegments(a: BattleSegment, b: BattleSegment, opt: Mer
     },
     start: keepStart ? a.start : b.start,
     phases: [...a.phases, ...b.phases].map((p, i) => ({ ...p, seq: i + 1 })),
-    end: b.end,
+    // Night packets frequently contain only the active deck. Keep the other
+    // fleets at their day-battle end HP instead of dropping or relabelling them.
+    end: mergedEnd,
     enemyMain:   b.enemyMain   ?? a.enemyMain,
     enemyEscort: b.enemyEscort ?? a.enemyEscort,
     createdAt: Math.min(a.createdAt, b.createdAt),

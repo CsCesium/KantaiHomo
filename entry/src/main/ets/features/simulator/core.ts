@@ -341,12 +341,27 @@ function simulateShelling(
   enemyEscort: (SimShip|null)[]|null|undefined,
   hougeki: unknown,
   subtype?: StageType,
+  activeDeck?: readonly number[],
 ): SimStage | null {
   if (!isRecord(hougeki)) return null;
   const mf=mainFleet??[], ef=escortFleet??[], emf=enemyFleet??[], eef=enemyEscort??[];
   const isNight = subtype === StageType.Night;
   const mRange = mf.length, eRange = emf.length;
+  const hasSideFlags = Array.isArray(hougeki.api_at_eflag);
+  const friendActiveDeck = hasSideFlags ? activeDeck?.[0] : undefined;
+  const enemyActiveDeck = hasSideFlags ? activeDeck?.[1] : undefined;
   const list: SimAttack[] = [];
+
+  const resolveShip = (
+    main: (SimShip|null)[],
+    escort: (SimShip|null)[],
+    index: number,
+    selectedDeck: number | undefined,
+  ): SimShip | null | undefined => {
+    if (selectedDeck === 1) return main[index];
+    if (selectedDeck === 2) return escort[index];
+    return index < main.length ? main[index] : escort[index - main.length];
+  };
 
   for (const [i, rawAt] of ((hougeki.api_at_list ?? []) as number[]).entries()) {
     if (rawAt === -1) continue;
@@ -372,11 +387,11 @@ function simulateShelling(
       }
 
       const fromShip = fromEnemy
-        ? (at < eRange ? emf[at] : eef[at - eRange])
-        : (at < mRange ? mf[at]  : ef[at - mRange]);
+        ? resolveShip(emf, eef, at, enemyActiveDeck)
+        : resolveShip(mf, ef, at, friendActiveDeck);
       const toShip   = fromEnemy
-        ? (df < mRange ? mf[df]  : ef[df - mRange])
-        : (df < eRange ? emf[df] : eef[df - eRange]);
+        ? resolveShip(mf, ef, df, friendActiveDeck)
+        : resolveShip(emf, eef, df, enemyActiveDeck);
 
       let damage: number[] = [], total = 0;
       for (let dmg of (hougeki.api_damage as number[][])[i]) {
@@ -399,7 +414,7 @@ function simulateShelling(
         let fromEnemy: boolean;
 
         // Tanaka bug fix: combined night battle sp attack wrong attacker index
-        if (isNight && ef.length && at < mRange) at += mRange;
+        if (isNight && ef.length && friendActiveDeck === undefined && at < mRange) at += mRange;
 
         if (Array.isArray(hougeki.api_at_eflag)) {
           fromEnemy = (hougeki.api_at_eflag as number[])[i] === 1;
@@ -410,11 +425,11 @@ function simulateShelling(
         }
 
         const fromShip = fromEnemy
-          ? (at < eRange ? emf[at] : eef[at - eRange])
-          : (at < mRange ? mf[at]  : ef[at - mRange]);
+          ? resolveShip(emf, eef, at, enemyActiveDeck)
+          : resolveShip(mf, ef, at, friendActiveDeck);
         const toShip   = fromEnemy
-          ? (df < mRange ? mf[df]  : ef[df - mRange])
-          : (df < eRange ? emf[df] : eef[df - eRange]);
+          ? resolveShip(mf, ef, df, friendActiveDeck)
+          : resolveShip(emf, eef, df, enemyActiveDeck);
 
         let dmg = (hougeki.api_damage as number[][])[i][j] ?? 0;
         dmg = Math.floor(Math.max(0, dmg));
@@ -429,6 +444,19 @@ function simulateShelling(
   return new SimStage({ type: StageType.Shelling, attacks: list, subtype });
 }
 
+function resolveNightActiveDeck(
+  packet: Record<string, unknown>,
+  fleetType: number,
+  enemyType: number,
+): readonly number[] {
+  if (Array.isArray(packet.api_active_deck)) {
+    return packet.api_active_deck as number[];
+  }
+  // Combined-fleet night combat defaults to the escort fleet. Enemy combined
+  // battles use the enemy escort in the same way.
+  return [fleetType === 0 ? 1 : 2, enemyType === 0 ? 1 : 2];
+}
+
 function simulateNight(
   fleetType:   number,
   mainFleet:   (SimShip|null)[]|null|undefined,
@@ -439,7 +467,16 @@ function simulateNight(
   hougeki:     unknown,
   packet:      Record<string, unknown>,
 ): SimStage | null {
-  const stage = simulateShelling(mainFleet, escortFleet, enemyFleet, enemyEscort, hougeki, StageType.Night);
+  const activeDeck = resolveNightActiveDeck(packet, fleetType, enemyType);
+  const stage = simulateShelling(
+    mainFleet,
+    escortFleet,
+    enemyFleet,
+    enemyEscort,
+    hougeki,
+    StageType.Night,
+    activeDeck,
+  );
   if (stage == null) return null;
 
   let oursFleet   = fleetType === 0 ? (mainFleet   ?? []) : (escortFleet ?? []);
@@ -919,11 +956,12 @@ export class BattleSimulator {
 
   private _prcsNight(packet: Record<string, unknown>, _path: string): void {
     const { fleetType, mainFleet:mf, escortFleet:ef, friendFleet:ff, enemyType:et, enemyFleet:emf, enemyEscort:eef, stages } = this;
+    const activeDeck = resolveNightActiveDeck(packet, fleetType, et);
     // Night-to-day support
     stages.push(simulateSupport(emf, eef, packet.api_n_support_info, packet.api_n_support_flag));
     // Night-to-day combat
-    stages.push(simulateShelling(mf, ef, emf, eef, packet.api_n_hougeki1, StageType.Night));
-    stages.push(simulateShelling(mf, ef, emf, eef, packet.api_n_hougeki2, StageType.Night));
+    stages.push(simulateShelling(mf, ef, emf, eef, packet.api_n_hougeki1, StageType.Night, activeDeck));
+    stages.push(simulateShelling(mf, ef, emf, eef, packet.api_n_hougeki2, StageType.Night, activeDeck));
     // NPC friend support
     const friendly = isRecord(packet.api_friendly_battle) ? (packet.api_friendly_battle as Record<string,unknown>).api_hougeki : undefined;
     stages.push(simulateShelling(ff, null, emf, eef, friendly, StageType.Night));

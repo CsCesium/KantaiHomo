@@ -354,6 +354,22 @@ function enemyInfoWithResultHp(info: EnemyFleetInfo | undefined, hp: BattleHpFle
   };
 }
 
+function fleetSnapshotWithBattleHp(
+  snapshot: FleetSnapshot | undefined,
+  hp: BattleHpFleet | undefined,
+): FleetSnapshot | undefined {
+  if (!snapshot) return undefined;
+  if (!hp || (hp.now.length === 0 && hp.max.length === 0)) return snapshot;
+  return {
+    ...snapshot,
+    ships: snapshot.ships.map((ship, i) => ({
+      ...ship,
+      hpNow: hp.now[i] ?? ship.hpNow,
+      hpMax: hp.max[i] ?? ship.hpMax,
+    })),
+  };
+}
+
 class BattleHandler implements Handler {
   async handle(ev: HandlerEvent, deps: PersistDeps): Promise<void> {
     const e = ev as AnyBattleEvt;
@@ -432,10 +448,8 @@ class BattleHandler implements Handler {
         context.pendingBattle.isAirRaid = isAirRaid;
 
         // 填充敌方舰队信息（供 UI 显示敌舰 ID）
-        if (segment.enemyMain) {
-          context.pendingBattle.enemyFleet = segment.enemyMain;
-          context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
-        }
+        if (segment.enemyMain) context.pendingBattle.enemyFleet = segment.enemyMain;
+        if (segment.enemyEscort) context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
 
         if (!isPractice) {
           markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context, false));
@@ -511,10 +525,8 @@ class BattleHandler implements Handler {
 
         // 开幕夜战(sp_midnight)无前置昼战，pendingBattle.enemyFleet 此时仍未填充。
         // 即便普通夜战，刷新一次也能保证敌舰列表与最新 segment 一致。
-        if (segment.enemyMain) {
-          context.pendingBattle.enemyFleet = segment.enemyMain;
-          context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
-        }
+        if (segment.enemyMain) context.pendingBattle.enemyFleet = segment.enemyMain;
+        if (segment.enemyEscort) context.pendingBattle.enemyFleetEscort = segment.enemyEscort;
 
         if (!isPractice) {
           markSpecialAttackTriggeredShips(collectTriggeredSpecialAttackUids(apiData, context, true));
@@ -558,6 +570,14 @@ class BattleHandler implements Handler {
       context?.pendingBattle?.enemyFleetEscort,
       mergedSegment?.end.enemy.escort,
     );
+    const friendFleetAtBattleStart = fleetSnapshotWithBattleHp(
+      context?.fleetSnapshot,
+      mergedSegment?.start.friend.main,
+    ) ?? { deckId: 0, name: '', ships: [], capturedAt: 0 };
+    const friendEscortAtBattleStart = fleetSnapshotWithBattleHp(
+      context?.fleetSnapshotEscort,
+      mergedSegment?.start.friend.escort,
+    );
 
     const record: BattleRecord = {
       id: battleId,
@@ -578,10 +598,11 @@ class BattleHandler implements Handler {
       friendFormation: mergedSegment?.meta.formation?.friend,
       enemyFormation: mergedSegment?.meta.formation?.enemy,
       engagement: mergedSegment?.meta.formation?.engagement,
+      airState: mergedSegment?.meta.airState,
 
       // 舰队快照
-      friendFleet: context?.fleetSnapshot ?? { deckId: 0, name: '', ships: [], capturedAt: 0 },
-      friendFleetEscort: context?.fleetSnapshotEscort,
+      friendFleet: friendFleetAtBattleStart,
+      friendFleetEscort: friendEscortAtBattleStart,
 
       // 敌方信息
       enemyFleet: enemyMainAtResult,
@@ -679,6 +700,7 @@ class BattleHandler implements Handler {
         // 联合舰队时检查护卫舰队
         if (context && context.combinedType > 0) {
           const escortPred = prediction?.friendEscort ?? [];
+          // 护卫舰队旗舰同样不会击沉，从 1 开始检查进击风险。
           for (let i = 1; i < escortPred.length; i++) {
             const ship = escortPred[i];
             if (!ship || ship.hpMax <= 0 || ship.isSunk || isShipEscaped(ship.uid)) continue;
