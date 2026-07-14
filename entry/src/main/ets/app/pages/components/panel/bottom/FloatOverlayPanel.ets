@@ -14,6 +14,8 @@ import {
   getSortieResourceGains,
   SortieResourceGains,
   isShipEscaped,
+  STRIKING_FORCE_FLEET_INDEX,
+  isFullStrikingForce,
 } from '../../../../../features/state';
 import type { LbasBase } from '../../../../../domain/models/struct/lbas';
 import {
@@ -262,7 +264,7 @@ export default struct FloatOverlayPanel {
 
   aboutToAppear(): void {
     this.refreshSettings();
-    this.loadState();
+    this.loadState(true);
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
@@ -291,7 +293,7 @@ export default struct FloatOverlayPanel {
     }
   }
 
-  private loadState(): void {
+  private loadState(preferStrikingForce: boolean = false): void {
     const manager = getGameState();
     const st = manager.getState();
     const admiral = st.admiral;
@@ -299,6 +301,9 @@ export default struct FloatOverlayPanel {
     this.materials = getMaterials();
     this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
+    if (preferStrikingForce && isFullStrikingForce(this.decks)) {
+      this.activeFleet = STRIKING_FORCE_FLEET_INDEX;
+    }
     this.admiralName = admiral?.nickname || '--';
     this.admiralRank = formatAdmiralRank(admiral?.rank);
     this.admiralExperience = admiral ? `${admiral.experience}` : '--';

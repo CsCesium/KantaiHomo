@@ -1,6 +1,14 @@
 import type { MapInfoUpdateEvent, MapGaugeRaw } from '../../../domain/events/mapinfo';
 import type { MapGaugeSnapshot } from '../../state/type';
-import { updateMapGauges, getMapGauges, getDecks, getDeckShips, getCombinedFleetType } from '../../state';
+import {
+  updateMapGauges,
+  getMapGauges,
+  getDecks,
+  getDeckShips,
+  getCombinedFleetType,
+  STRIKING_FORCE_DECK_ID,
+  isFullStrikingForce,
+} from '../../state';
 import { publishAlert } from '../../alerts/bus';
 import { registerHandler } from '../persist/registry';
 import type { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -41,6 +49,7 @@ class MapInfoHandler implements Handler {
     const idleDecks: number[] = [];
     const fleet1LowCondShipUids: number[] = [];
     const combinedType = getCombinedFleetType();
+    const hasStrikingForce = isFullStrikingForce(decks);
 
     for (const deck of decks) {
       const onExpedition = deck.expeditionReturnTime !== null &&
@@ -63,10 +72,12 @@ class MapInfoHandler implements Handler {
         }
 
         // Decks 2-4 should ideally be on expedition. Fleet 2 is an active
-        // escort fleet while a combined fleet is formed, so it must not be
-        // reported as an idle expedition fleet.
+        // escort fleet while a combined fleet is formed, and a seven-ship
+        // fleet 3 is an active striking force. Neither should be reported as
+        // an idle expedition fleet.
         const isCombinedEscort = combinedType > 0 && deck.deckId === 2;
-        if (deck.deckId >= 2 && !isCombinedEscort) {
+        const isStrikingForce = hasStrikingForce && deck.deckId === STRIKING_FORCE_DECK_ID;
+        if (deck.deckId >= 2 && !isCombinedEscort && !isStrikingForce) {
           idleDecks.push(deck.deckId);
         }
       }
