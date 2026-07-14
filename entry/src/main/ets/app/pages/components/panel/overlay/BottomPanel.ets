@@ -372,6 +372,7 @@ export default struct BottomPanel {
   private calcFleetLoSTotal(deckId: number): number {
     const ships = getDeckShips(deckId);
     return ships.reduce((sum: number, ship: ShipState): number => {
+      if (isShipEscaped(ship.uid)) return sum;
       return sum + Math.max(0, ship.scoutCur || 0);
     }, 0);
   }
