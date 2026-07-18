@@ -23,10 +23,12 @@ import {
   NIGHT_BATTLE_CAP,
   TORPEDO_BATTLE_CAP,
   antiSubmarineBasePower,
+  carrierNightBasePower,
   criticalPower,
   dayCarrierBasePower,
   daySurfaceBasePower,
   finalAttackPower,
+  finalPreCapModifierAttackPower,
   nightBasePower,
   torpedoBasePower,
 } from './attack_power';
@@ -74,8 +76,18 @@ interface EquipCounts {
   jetFighter: number;
   /** Embarked 噴式戦闘爆撃機 */
   jetFighterBomber: number;
-  /** Embarked night fighters/attackers */
+  /** Embarked proper night fighters/attackers/dive bombers (enables night air attack) */
   nightPlane: number;
+  /** Embarked proper night fighters */
+  nightFighter: number;
+  /** Embarked proper night torpedo bombers */
+  nightAttacker: number;
+  /** Embarked proper night dive bombers */
+  nightDiveBomber: number;
+  /** All embarked aircraft that participate in carrier night attack power */
+  carrierNightPlane: number;
+  /** Embarked Suisei Model 12 with Type 31 photoelectric-fuze bombs */
+  photoNightBomber: number;
   /** Embarked 試製 夜間瑞雲 (攻撃装備) */
   nightZuiun: number;
   /** Σ equipment 対潜, including equipment that only affects displayed ASW */
@@ -98,6 +110,15 @@ interface EquipCounts {
 }
 
 const NIGHT_ZUIUN_MASTER_ID = 490;
+const PHOTOELECTRIC_SUISEI_MASTER_ID = 320;
+const NIGHT_DIVE_BOMBER_MASTER_IDS: ReadonlySet<number> = new Set([552, 557, 558]);
+const REDUCED_MODIFIER_NIGHT_PLANE_MASTER_IDS: ReadonlySet<number> = new Set([
+  154, // 零戦62型(爆戦/岩井隊)
+  242, // Swordfish
+  243, // Swordfish Mk.II(熟練)
+  244, // Swordfish Mk.III(熟練)
+  PHOTOELECTRIC_SUISEI_MASTER_ID,
+]);
 const NARROW_DEPTH_CHARGE_MASTER_IDS: ReadonlySet<number> = new Set([226, 227, 378, 439, 488]);
 const DEPTH_CHARGE_PROJECTOR_MASTER_IDS: ReadonlySet<number> = new Set([44, 45, 287, 288, 377, 472, 569]);
 const UNCONDITIONAL_NIGHT_CARRIER_IDS: ReadonlySet<number> = new Set([
@@ -152,6 +173,18 @@ function isNightZuiunEquip(equip: ScenarioEquip): boolean {
   return equip.masterId === NIGHT_ZUIUN_MASTER_ID
     || equip.name.indexOf('夜間瑞雲') >= 0
     || equip.name.indexOf('夜间瑞云') >= 0;
+}
+
+function isFullModifierNightPlane(equip: ScenarioEquip): boolean {
+  return equip.iconType === SlotItemIconId.NightFighter
+    || equip.iconType === SlotItemIconId.NightAttacker
+    || NIGHT_DIVE_BOMBER_MASTER_IDS.has(equip.masterId);
+}
+
+function isCarrierNightPowerPlane(equip: ScenarioEquip): boolean {
+  return equip.onslot > 0
+    && (isFullModifierNightPlane(equip)
+      || REDUCED_MODIFIER_NIGHT_PLANE_MASTER_IDS.has(equip.masterId));
 }
 
 function isSonar(t: number): boolean {
@@ -228,7 +261,8 @@ function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
     mainGun: 0, secondaryGun: 0, torpedo: 0, radar: 0, surfaceRadar: 0,
     apShell: 0, lookout: 0, spottingPlane: 0, carrierFighter: 0,
     carrierDiveBomber: 0, carrierTorpedoBomber: 0, jetFighter: 0, jetFighterBomber: 0,
-    nightPlane: 0, nightZuiun: 0,
+    nightPlane: 0, nightFighter: 0, nightAttacker: 0, nightDiveBomber: 0,
+    carrierNightPlane: 0, photoNightBomber: 0, nightZuiun: 0,
     aswEquipTotal: 0, aswPowerEquipTotal: 0, aswConditionAircraft: 0, aswAircraft: 0,
     sonar: 0, smallSonar: 0, largeSonar: 0, depthCharge: 0, depthChargeProjector: 0, mortar: 0,
     depthChargeAny: 0, bombTotal: 0,
@@ -281,9 +315,14 @@ function countEquips(equips: ReadonlyArray<ScenarioEquip>): EquipCounts {
     if (embarked && t === SlotItemEquipType.JetFighterBomber) {
       counts.jetFighterBomber += 1;
     }
-    if (embarked && (eq.iconType === SlotItemIconId.NightFighter || eq.iconType === SlotItemIconId.NightAttacker)) {
+    if (embarked && isFullModifierNightPlane(eq)) {
       counts.nightPlane += 1;
     }
+    if (embarked && eq.iconType === SlotItemIconId.NightFighter) counts.nightFighter += 1;
+    if (embarked && eq.iconType === SlotItemIconId.NightAttacker) counts.nightAttacker += 1;
+    if (embarked && NIGHT_DIVE_BOMBER_MASTER_IDS.has(eq.masterId)) counts.nightDiveBomber += 1;
+    if (isCarrierNightPowerPlane(eq)) counts.carrierNightPlane += 1;
+    if (embarked && eq.masterId === PHOTOELECTRIC_SUISEI_MASTER_ID) counts.photoNightBomber += 1;
     if (embarked && isNightZuiunEquip(eq)) {
       counts.nightZuiun += 1;
     }
@@ -344,7 +383,7 @@ const NIGHT_ATTACK_LABEL = new Map<NightCutInType, string>([
   [NightCutInType.NightZuiunCI, '夜瑞CI'],
 ]);
 
-/** Post-cap power modifier and hit count per night attack type. */
+/** Pre-cap power modifier and hit count per night attack type. */
 const NIGHT_ATTACK_POWER = new Map<NightCutInType, { modifier: number; hits: number }>([
   [NightCutInType.DoubleAttack, { modifier: 1.2, hits: 2 }],
   [NightCutInType.MainTorpRadarCI, { modifier: 1.3, hits: 2 }],
@@ -353,8 +392,6 @@ const NIGHT_ATTACK_POWER = new Map<NightCutInType, { modifier: number; hits: num
   [NightCutInType.MainGunCI, { modifier: 2.0, hits: 1 }],
   [NightCutInType.MainSecondaryCI, { modifier: 1.75, hits: 1 }],
   [NightCutInType.MainTorpCI, { modifier: 1.3, hits: 2 }],
-  // 夜襲CI has several variants (×1.18~1.25, up to 3 hits); use a single estimate.
-  [NightCutInType.CarrierNightCI, { modifier: 1.25, hits: 2 }],
 ]);
 
 function canUseNightZuiunAttack(shipType: ShipType): boolean {
@@ -370,9 +407,25 @@ function nightZuiunModifier(counts: EquipCounts): number {
     + (counts.surfaceRadar > 0 ? 4 : 0)) / 100;
 }
 
+/** Highest-priority carrier night cut-in modifier enabled by the loadout. */
+function carrierNightCiModifier(counts: EquipCounts): number {
+  if (counts.nightFighter >= 2 && counts.nightAttacker >= 1) return 1.25;
+  if (counts.nightFighter >= 1 && counts.nightAttacker >= 1) return 1.2;
+
+  const properPlaneWithoutPhoto = counts.nightFighter + counts.nightAttacker + counts.nightDiveBomber;
+  if (counts.photoNightBomber >= 1 && properPlaneWithoutPhoto >= 1) return 1.2;
+  if (counts.nightDiveBomber >= 1 && counts.nightFighter + counts.nightAttacker >= 1) return 1.2;
+
+  if (counts.nightFighter >= 1 && counts.carrierNightPlane >= 3) return 1.18;
+  return 1.0;
+}
+
 function nightAttackPower(type: NightCutInType, counts: EquipCounts): { modifier: number; hits: number } {
   if (type === NightCutInType.NightZuiunCI) {
     return { modifier: nightZuiunModifier(counts), hits: 2 };
+  }
+  if (type === NightCutInType.CarrierNightCI) {
+    return { modifier: carrierNightCiModifier(counts), hits: 1 };
   }
   return NIGHT_ATTACK_POWER.get(type)!;
 }
@@ -468,8 +521,11 @@ function detectNightAttacks(input: ShipScenarioInput, counts: EquipCounts): Nigh
   const types: NightCutInType[] = [];
 
   if (isCarrierType(shipType)) {
-    if (counts.nightPlane > 0) types.push(NightCutInType.CarrierNightCI);
-    if (types.length > 0 || !isUnconditionalNightCarrier(input)) return types;
+    if (counts.nightPlane > 0) {
+      if (carrierNightCiModifier(counts) > 1.0) types.push(NightCutInType.CarrierNightCI);
+      return types;
+    }
+    if (!isUnconditionalNightCarrier(input)) return types;
   }
 
   if (shipType === ShipType.DD) {
@@ -513,6 +569,41 @@ function makeAttack(
 ): ScenarioAttack {
   const normal = finalAttackPower(basePower, cap, modifier);
   return { id, label, hits, rate, normal, critical: criticalPower(normal), modifier };
+}
+
+function makeNightAttack(
+  id: string,
+  label: string,
+  hits: number,
+  rate: number,
+  basePower: number,
+  modifier: number,
+): ScenarioAttack {
+  const normal = finalPreCapModifierAttackPower(basePower, NIGHT_BATTLE_CAP, modifier);
+  return { id, label, hits, rate, normal, critical: criticalPower(normal), modifier };
+}
+
+function carrierIntrinsicFirepower(input: ShipScenarioInput): number {
+  let equipmentFirepower = 0;
+  for (const equip of input.equips) equipmentFirepower += equip.firepower;
+  return Math.max(0, input.firepower - equipmentFirepower);
+}
+
+function buildCarrierNightBasePower(input: ShipScenarioInput): number {
+  return carrierNightBasePower(
+    carrierIntrinsicFirepower(input),
+    input.equips
+      .filter(isCarrierNightPowerPlane)
+      .map(equip => ({
+        firepower: equip.firepower,
+        torpedo: equip.torpedo,
+        bomb: equip.bomb,
+        asw: equip.asw,
+        level: equip.level,
+        onslot: equip.onslot,
+        fullNightModifier: isFullModifierNightPlane(equip),
+      })),
+  );
 }
 
 function buildDayScenarios(input: ShipScenarioInput, counts: EquipCounts): ScenarioAttack[] {
@@ -590,7 +681,9 @@ function buildNightScenarios(input: ShipScenarioInput, counts: EquipCounts): Sce
   if (carrier && counts.nightPlane <= 0 && !isUnconditionalNightCarrier(input)) return [];
   if (input.firepower + input.torpedo <= 0) return [];
 
-  const basePower = nightBasePower(input.firepower, input.torpedo, nightImprovementBonus(input.equips));
+  const basePower = carrier && counts.nightPlane > 0
+    ? buildCarrierNightBasePower(input)
+    : nightBasePower(input.firepower, input.torpedo, nightImprovementBonus(input.equips));
   const types = detectNightAttacks(input, counts);
   const damageState = getDamageState(input.hpNow, Math.max(1, input.hpMax));
 
@@ -617,16 +710,16 @@ function buildNightScenarios(input: ShipScenarioInput, counts: EquipCounts): Sce
       },
     });
     const rate = remaining * (result.rate / 100);
-    attacks.push(makeAttack(
+    attacks.push(makeNightAttack(
       type, NIGHT_ATTACK_LABEL.get(type) ?? type, power.hits, rate,
-      basePower, NIGHT_BATTLE_CAP, power.modifier,
+      basePower, power.modifier,
     ));
     remaining -= rate;
   }
 
-  attacks.push(makeAttack(
+  attacks.push(makeNightAttack(
     'night_normal', '普通攻击', 1, remaining,
-    basePower, NIGHT_BATTLE_CAP, 1.0,
+    basePower, 1.0,
   ));
   return attacks;
 }
