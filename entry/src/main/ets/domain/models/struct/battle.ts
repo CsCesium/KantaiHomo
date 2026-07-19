@@ -157,6 +157,8 @@ export interface BattleMeta {
   aerialPhases?: AerialCombatInfo[];
   /** 陆航攻击各波次情报 (api_air_base_attack) */
   lbasWaves?: LbasWaveInfo[];
+  /** 基地空袭受损种类 (api_lost_kind: 1=资源, 2=资源+航空队, 3=航空队, 4=无损) */
+  airRaidDamageKind?: number;
 
   /** optional: for later advanced UI */
   balloonCell?: number;

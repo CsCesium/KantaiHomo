@@ -45,6 +45,20 @@ function engagementColor(e: number | undefined): string {
   return PanelColors.txtSub;
 }
 
+function airRaidDamageName(kind: number | undefined): string {
+  if (kind === 1) return '资源损失';
+  if (kind === 2) return '资源·航空队损失';
+  if (kind === 3) return '航空队损失';
+  if (kind === 4) return '无损害';
+  return '';
+}
+
+function airRaidDamageColor(kind: number | undefined): string {
+  if (kind === 4) return PanelColors.hpOk;
+  if (kind === 2) return PanelColors.hpCrit;
+  return PanelColors.hpWarn;
+}
+
 function phaseName(phase: 'day' | 'night' | 'day_to_night'): string {
   if (phase === 'night') return '开幕夜戦';
   if (phase === 'day_to_night') return '夜戦';
@@ -345,8 +359,10 @@ export default struct BattlePreviewPanel {
         ship.hpAfter,
         ship.hpMax,
         ship.damageReceived,
-        ship.damageDealt > 0 ? `${ship.damageDealt}` : '',
-        PanelColors.stat,
+        landBased
+          ? (ship.damageReceived > 0 ? `-${ship.damageReceived}` : '')
+          : (ship.damageDealt > 0 ? `${ship.damageDealt}` : ''),
+        landBased ? PanelColors.hpCrit : PanelColors.stat,
         isShipEscaped(ship.uid)
       )
     }
@@ -496,6 +512,16 @@ export default struct BattlePreviewPanel {
               .fontColor(engagementColor(snap.engagement))
               .fontWeight(FontWeight.Medium)
           }
+
+          if (snap.enemyNightFleet) {
+            Text(snap.enemyNightFleet === 'main' ? '夜戦·主力' : '夜戦·護衛')
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(snap.enemyNightFleet === 'main' ? '#FFD700' : PanelColors.txtSub)
+              .fontWeight(FontWeight.Medium)
+              .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+              .backgroundColor(PanelColors.bgTabInactive)
+              .borderRadius(2)
+          }
         }
         .justifyContent(FlexAlign.Center)
         .alignItems(VerticalAlign.Center)
@@ -548,6 +574,16 @@ export default struct BattlePreviewPanel {
         Text(formationName(snap.enemyFormation))
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtSub)
+
+        if (snap.isAirRaid && airRaidDamageName(snap.airRaidDamageKind) !== '') {
+          Text(airRaidDamageName(snap.airRaidDamageKind))
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(airRaidDamageColor(snap.airRaidDamageKind))
+            .fontWeight(FontWeight.Medium)
+            .padding({ left: 4, right: 4, top: 1, bottom: 1 })
+            .backgroundColor(PanelColors.bgTabInactive)
+            .borderRadius(2)
+        }
 
         Blank().layoutWeight(1)
 

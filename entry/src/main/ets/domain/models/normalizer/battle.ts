@@ -173,6 +173,7 @@ function buildMeta(apiPath: string, d: any, now: number) {
     enemyPlaneMax: planeSummary.enemyPlaneMax,
     aerialPhases: aerialPhases.length ? aerialPhases : undefined,
     lbasWaves,
+    airRaidDamageKind: typeof d?.api_lost_kind === 'number' ? d.api_lost_kind : undefined,
     balloonCell: typeof d?.api_balloon_cell === 'number' ? d.api_balloon_cell : undefined,
     atollCell: typeof d?.api_atoll_cell === 'number' ? d.api_atoll_cell : undefined,
   };
@@ -244,7 +245,7 @@ function parseAerialCombat(kouku: any): AerialCombatInfo | undefined {
   if (!stage1 && !stage2) return undefined;
   const touch = parseTouchPlane(kouku.api_stage1?.api_touch_plane);
   return {
-    airState: typeof kouku.api_stage1?.api_disp_seiku === 'number' ? kouku.api_stage1.api_disp_seiku : undefined,
+    airState: normalizeAirState(kouku.api_stage1?.api_disp_seiku),
     stage1,
     stage2,
     touchFriend: touch.friend,
@@ -253,10 +254,30 @@ function parseAerialCombat(kouku: any): AerialCombatInfo | undefined {
   };
 }
 
-function parseLbasWaves(arr: any): LbasWaveInfo[] | undefined {
-  if (!Array.isArray(arr) || arr.length === 0) return undefined;
+function normalizeAirBaseAttacks(raw: any): ApiAirBaseAttackRaw[] {
+  if (Array.isArray(raw)) {
+    return raw.filter((item: any) => !!item && typeof item === 'object') as ApiAirBaseAttackRaw[];
+  }
+  // api_destruction_battle uses a single object, while normal battle APIs use
+  // an array. Treat both shapes as ordered waves from this point onward.
+  return raw && typeof raw === 'object' ? [raw as ApiAirBaseAttackRaw] : [];
+}
+
+/** Convert api_disp_seiku (0,1,2,3,4) to the UI/storage enum (3,1,2,4,5). */
+function normalizeAirState(raw: any): number | undefined {
+  if (typeof raw !== 'number') return undefined;
+  if (raw === 0) return 3;
+  if (raw === 1 || raw === 2) return raw;
+  if (raw === 3 || raw === 4) return raw + 1;
+  // Keep an already-normalized loss value for imported/legacy payloads.
+  return raw === 5 ? 5 : undefined;
+}
+
+function parseLbasWaves(raw: any): LbasWaveInfo[] | undefined {
+  const attacks = normalizeAirBaseAttacks(raw);
+  if (attacks.length === 0) return undefined;
   const waves: LbasWaveInfo[] = [];
-  for (const w of arr) {
+  for (const w of attacks) {
     if (!w || typeof w !== 'object') continue;
     const touch = parseTouchPlane(w.api_stage1?.api_touch_plane);
     waves.push({
@@ -264,7 +285,7 @@ function parseLbasWaves(arr: any): LbasWaveInfo[] | undefined {
       squadronCounts: Array.isArray(w.api_squadron_plane)
         ? w.api_squadron_plane.map((s: any) => (typeof s?.api_count === 'number' ? s.api_count : 0))
         : [],
-      airState: typeof w.api_stage1?.api_disp_seiku === 'number' ? w.api_stage1.api_disp_seiku : undefined,
+      airState: normalizeAirState(w.api_stage1?.api_disp_seiku),
       stage1: parseAerialStage(w.api_stage1),
       stage2: parseAerialStage(w.api_stage2),
       touchFriend: touch.friend,
@@ -410,10 +431,9 @@ function extractDayPhases(d: ApiDayBattleDataRaw, start: BattleHpSnapshot): Batt
   if (d.api_n_raigeki) phases.push(mkTorpedoPhase('nightTorpedo', seq++, 'api_n_raigeki', d.api_n_raigeki, start));
 
   // Land base air
-  if (Array.isArray(d.api_air_base_attack)) {
-    for (let i = 0; i < d.api_air_base_attack.length; i++) {
-      phases.push(mkAirBasePhase(seq++, `api_air_base_attack[${i}]`, d.api_air_base_attack[i], start));
-    }
+  const airBaseAttacks = normalizeAirBaseAttacks(d.api_air_base_attack);
+  for (let i = 0; i < airBaseAttacks.length; i++) {
+    phases.push(mkAirBasePhase(seq++, `api_air_base_attack[${i}]`, airBaseAttacks[i], start));
   }
 
   // Air battle
@@ -466,10 +486,9 @@ function extractDestructionPhases(d: ApiDestructionBattleRaw, start: BattleHpSna
   const phases: BattlePhase[] = [];
   let seq = 1;
 
-  if (Array.isArray(d.api_air_base_attack)) {
-    for (let i = 0; i < d.api_air_base_attack.length; i++) {
-      phases.push(mkAirBasePhase(seq++, `api_air_base_attack[${i}]`, d.api_air_base_attack[i], start));
-    }
+  const airBaseAttacks = normalizeAirBaseAttacks(d.api_air_base_attack);
+  for (let i = 0; i < airBaseAttacks.length; i++) {
+    phases.push(mkAirBasePhase(seq++, `api_air_base_attack${airBaseAttacks.length > 1 ? `[${i}]` : ''}`, airBaseAttacks[i], start, true));
   }
 
   if (d.api_kouku) phases.push(mkKoukuPhase(seq++, 'api_kouku', d.api_kouku, start));
@@ -491,14 +510,24 @@ function extractDestructionPhases(d: ApiDestructionBattleRaw, start: BattleHpSna
 }
 /** ---------- Phase builders ---------- */
 
-function mkAirBasePhase(seq: number, key: string, raw: ApiAirBaseAttackRaw, start: BattleHpSnapshot): BattlePhase {
+function mkAirBasePhase(
+  seq: number,
+  key: string,
+  raw: ApiAirBaseAttackRaw,
+  start: BattleHpSnapshot,
+  isBaseDefense: boolean = false,
+): BattlePhase {
   const events: AttackEvent[] = [];
 
-  // stage3 (main)
-  pushStage3DamageEvents(events, raw.api_stage3, start, /*friendDam=*/false, /*enemyDam=*/true, 'enemy', 'main');
-
-  // stage3_combined (escort side)
-  pushStage3DamageEvents(events, raw.api_stage3_combined, start, false, true, 'enemy', 'escort');
+  if (isBaseDefense) {
+    // In api_destruction_battle, api_fdam is indexed by land-base rid and is
+    // the damage dealt to our bases. There is no fleet escort split here.
+    pushStage3DamageEvents(events, raw.api_stage3, start, true, false, 'both', 'main');
+  } else {
+    // Normal land-base sorties damage the enemy main / escort fleets.
+    pushStage3DamageEvents(events, raw.api_stage3, start, false, true, 'enemy', 'main');
+    pushStage3DamageEvents(events, raw.api_stage3_combined, start, false, true, 'enemy', 'escort');
+  }
 
   return { kind: 'airBase', seq, rawKey: key, events };
 }

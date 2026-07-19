@@ -182,7 +182,7 @@ function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnyBattleModuleEvt[] {
       // - friend 一侧是基地（不是舰娘），用 getLbas() 的 name 填充
       // - rank 用空袭专用公式（无伤为 S，按损耗率分级）
       // - 不喂模拟器：模拟器 mainFleet 是出击舰队的舰娘，与基地空袭语义不符
-      const prediction = buildAirRaidPrediction(destructionSegment);
+      const prediction = buildAirRaidPrediction(destructionSegment, cell.mapAreaId);
 
       const airRaidEvent: BattleDayEvent = mkEvt(
         ctx,
@@ -210,8 +210,11 @@ function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnyBattleModuleEvt[] {
  * - enemyMain 表示来袭航空编队，名称由 UI 端按 master id 解析
  * - rank 按基地总损耗率分级，与 simulator/core.ts:simulateAirRaidBattleRank 一致
  */
-function buildAirRaidPrediction(segment: BattleSegment): BattlePrediction {
-  const bases = getLbas();
+function buildAirRaidPrediction(segment: BattleSegment, mapAreaId: number): BattlePrediction {
+  const allBases = getLbas();
+  const areaBases = allBases.filter(base => base.areaId === mapAreaId);
+  // Prefer the sortie area's bases; fall back only for older snapshots without areaId.
+  const bases = (areaBases.length > 0 ? areaBases : allBases).slice().sort((a, b) => a.baseId - b.baseId);
 
   function buildPred(
     side: 'friend' | 'enemy',
@@ -247,7 +250,7 @@ function buildAirRaidPrediction(segment: BattleSegment): BattlePrediction {
   }
 
   const friendMain = buildPred('friend', (i) => {
-    const base = bases[i];
+    const base = bases.find(item => item.baseId === i + 1) ?? bases[i];
     return { uid: base?.baseId ?? (i + 1), name: base?.name || `第${i + 1}基地` };
   });
   const enemyMain = buildPred('enemy', (_i) => ({ uid: 0, name: '' }));

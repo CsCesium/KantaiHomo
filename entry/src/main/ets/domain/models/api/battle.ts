@@ -268,7 +268,13 @@ export interface ApiNightBattleDataRaw extends ApiBasicBattleFrameRaw, Partial<A
 
 /** ---------- Destruction battle (embedded in api_req_map/next) ---------- */
 export interface ApiDestructionBattleRaw extends ApiBasicBattleFrameRaw, ApiSupportFrameRaw, ApiHougekiFrameRaw, ApiBattleMetaRaw {
-  api_air_base_attack?: ApiAirBaseAttackRaw[];
+  /**
+   * Unlike normal LBAS sorties, a base-defense battle returns one aerial
+   * combat object here instead of an array of attack waves.
+   */
+  api_air_base_attack?: ApiAirBaseAttackRaw | ApiAirBaseAttackRaw[];
+  /** 1=resources, 2=resources+squadrons, 3=squadrons, 4=no damage */
+  api_lost_kind?: number;
   api_kouku?: ApiKoukuRaw | null;
   api_raigeki?: ApiTorpedoRaw | null;
 }

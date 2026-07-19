@@ -15,6 +15,7 @@ import {
   BattleResultSnapshot
 } from "./type";
 import { getShipSpecialEquip, isShipEscaped } from "./game_state";
+import { predictEnemyNightFleet } from './enemy_night_fleet';
 
 
 function isEscapedPrediction(pred: ShipPrediction): boolean {
@@ -169,6 +170,7 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
     battleApiPath: battleContext.merged?.meta.apiPath,
     isPractice: battleContext.isPractice,
     isAirRaid,
+    airRaidDamageKind: battleContext.merged?.meta.airRaidDamageKind,
     combinedType: sortieContext.combinedType,
 
     // 阵型
@@ -186,6 +188,9 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
     enemyMain: buildEnemyBattleStatus(battleContext.enemyFleet, prediction.enemyMain),
     enemyEscort: battleContext.enemyFleetEscort && prediction.enemyEscort
       ? buildEnemyBattleStatus(battleContext.enemyFleetEscort, prediction.enemyEscort)
+      : undefined,
+    enemyNightFleet: battlePhase === 'day' && battleContext.enemyFleetEscort
+      ? predictEnemyNightFleet(prediction.enemyEscort)
       : undefined,
 
     // 预测结果
