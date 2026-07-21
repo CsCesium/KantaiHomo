@@ -473,9 +473,14 @@ class BattleHandler implements Handler {
     const { apiPath, segment, apiData, isPractice } = payload;
     let { prediction } = payload;
 
-    // 夜战累计到当前 simulator（不 reset），保证 hpAfter 是昼夜累计后的真值。
-    // simulator 如果还没被昼战 init，会在这里从当前 GameState 初始化一份 fleet。
-    const simPred = predictFromSimulator(apiPath, apiData, /*resetFirst*/ false);
+    // 只有同一场战斗已经收到昼战段时，夜战才允许续接当前 simulator。
+    // 开幕夜战（以及刷新后直接收到的夜战）必须新建 simulator，否则会把上一场
+    // 夜战留下的 HP/伤害累计带进当前记录。新 simulator 会再以本包的 api_f_*hps
+    // 对齐当前参战舰队 HP，避免刷新后的 GameState 快照滞后。
+    const contextBeforeNight = getSortieContext();
+    const continuesDayBattle = !!contextBeforeNight?.pendingBattle?.daySegment
+      && !contextBeforeNight.pendingBattle.isAirRaid;
+    const simPred = predictFromSimulator(apiPath, apiData, /*resetFirst*/ !continuesDayBattle);
     if (simPred) prediction = simPred;
 
     // 演习直入夜战(api_req_practice/midnight_battle 罕见但可能)：合成上下文。

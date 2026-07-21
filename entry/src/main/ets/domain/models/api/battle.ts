@@ -162,7 +162,8 @@ export interface ApiSupportFrameRaw {
 
 /** ---------- Opening ASW / Shelling (hougeki) ---------- */
 export interface ApiHougekiRaw {
-  api_at_eflag: number[]; // 0 friend, 1 enemy
+  /** Newer packets: 0 friend, 1 enemy. Legacy night packets may omit it. */
+  api_at_eflag?: number[];
   api_at_list: number[];  // attacker index (0-based; combined can be 0..11)
   api_at_type?: number[]; // attack type codes
   api_sp_list?: number[]; // night/special attack type codes

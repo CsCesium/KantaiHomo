@@ -29,6 +29,18 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
+function normalizeBattleHpValues(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const values = value.map((v: unknown): number => typeof v === 'number' ? v : Number(v));
+  if (
+    (values.length === 7 || values.length === 13)
+      && (values[0] === 0 || values[0] === -1)
+  ) {
+    return values.slice(1);
+  }
+  return values;
+}
+
 function requiredEnemySunkForRankA(enemyCount: number): number {
   if (enemyCount <= 1) return enemyCount + 1;
   return Math.floor(enemyCount * 2 / 3);
@@ -348,8 +360,12 @@ function simulateShelling(
   const isNight = subtype === StageType.Night;
   const mRange = mf.length, eRange = emf.length;
   const hasSideFlags = Array.isArray(hougeki.api_at_eflag);
-  const friendActiveDeck = hasSideFlags ? activeDeck?.[0] : undefined;
-  const enemyActiveDeck = hasSideFlags ? activeDeck?.[1] : undefined;
+  // api_active_deck determines which fleet the side-local night indexes point
+  // into, independently of whether this packet has the newer api_at_eflag.
+  // Legacy combined-night packets encode the side via the 0..5 / 6..11
+  // ranges, but the resulting local index still belongs to the active escort.
+  const friendActiveDeck = activeDeck?.[0];
+  const enemyActiveDeck = activeDeck?.[1];
   const list: SimAttack[] = [];
 
   const resolveShip = (
@@ -358,8 +374,16 @@ function simulateShelling(
     index: number,
     selectedDeck: number | undefined,
   ): SimShip | null | undefined => {
-    if (selectedDeck === 1) return main[index];
-    if (selectedDeck === 2) return escort[index];
+    // Combined-night packets exist in both side-local (0..5) and flattened
+    // (main 0..5, escort 6..11) forms, even when api_at_eflag is present.
+    // api_active_deck tells us the destination fleet; collapse a flattened
+    // index back to that fleet's local slot before lookup.
+    const deckRange = Math.max(main.length, escort.length);
+    const localIndex = selectedDeck !== undefined && deckRange > 0 && index >= deckRange
+      ? index - deckRange
+      : index;
+    if (selectedDeck === 1) return main[localIndex];
+    if (selectedDeck === 2) return escort[localIndex];
     return index < main.length ? main[index] : escort[index - main.length];
   };
 
@@ -378,7 +402,7 @@ function simulateShelling(
       let at = rawAt;
       let fromEnemy: boolean;
 
-      if (Array.isArray(hougeki.api_at_eflag)) {
+      if (hasSideFlags && typeof (hougeki.api_at_eflag as unknown[])[i] === 'number') {
         fromEnemy = (hougeki.api_at_eflag as number[])[i] === 1;
       } else {
         fromEnemy = df < mRange;
@@ -416,7 +440,7 @@ function simulateShelling(
         // Tanaka bug fix: combined night battle sp attack wrong attacker index
         if (isNight && ef.length && friendActiveDeck === undefined && at < mRange) at += mRange;
 
-        if (Array.isArray(hougeki.api_at_eflag)) {
+        if (hasSideFlags && typeof (hougeki.api_at_eflag as unknown[])[i] === 'number') {
           fromEnemy = (hougeki.api_at_eflag as number[])[i] === 1;
         } else {
           fromEnemy = df < mRange;
@@ -676,6 +700,7 @@ export class BattleSimulator {
   private _isAirRaid       = false;
   private _isEngaged       = false;
   private _isNightOnlyMVP  = false;
+  private _hasInitialPlayerHp = false;
 
   private useMasterData: boolean;
   private masterData?:   MasterDataProvider;
@@ -802,6 +827,74 @@ export class BattleSimulator {
     return fleet;
   }
 
+  /**
+   * GameState can lag behind the battle response after a refresh.  The first
+   * packet is authoritative for the participating fleet's starting HP, so use
+   * it to initialise both nowHP and initHP before applying any phases.
+   */
+  private _syncInitialPlayerHp(packet: Record<string, unknown>, path: string): void {
+    if (this._hasInitialPlayerHp) return;
+    this._hasInitialPlayerHp = true;
+
+    let mainNow = normalizeBattleHpValues(packet.api_f_nowhps);
+    let mainMax = normalizeBattleHpValues(packet.api_f_maxhps);
+    let escortNow = normalizeBattleHpValues(packet.api_f_nowhps_combined);
+    let escortMax = normalizeBattleHpValues(packet.api_f_maxhps_combined);
+
+    const mainLength = this.mainFleet?.length ?? 0;
+    const hasEscort = (this.escortFleet?.length ?? 0) > 0;
+
+    // Some payload variants flatten both fleets into api_f_*hps.
+    if (hasEscort && (!escortNow || escortNow.length === 0) && (mainNow?.length ?? 0) > mainLength) {
+      escortNow = mainNow!.slice(mainLength);
+      mainNow = mainNow!.slice(0, mainLength);
+    }
+    if (hasEscort && (!escortMax || escortMax.length === 0) && (mainMax?.length ?? 0) > mainLength) {
+      escortMax = mainMax!.slice(mainLength);
+      mainMax = mainMax!.slice(0, mainLength);
+    }
+
+    const isNight = NIGHT_BATTLE_PATHS.includes(path)
+      || path === '/kcsapi/api_req_combined_battle/ec_night_to_day';
+    const activeDeck = isNight ? resolveNightActiveDeck(packet, this.fleetType, this.enemyType) : undefined;
+
+    // Older combined-night responses expose only the active escort through the
+    // plain api_f_*hps keys rather than the *_combined keys.
+    if (activeDeck?.[0] === 2 && hasEscort && (!escortNow || escortNow.length === 0)) {
+      escortNow = mainNow;
+      mainNow = undefined;
+    }
+    if (activeDeck?.[0] === 2 && hasEscort && (!escortMax || escortMax.length === 0)) {
+      escortMax = mainMax;
+      mainMax = undefined;
+    }
+
+    this._syncInitialFleetHp(this.mainFleet, mainNow, mainMax);
+    this._syncInitialFleetHp(this.escortFleet, escortNow, escortMax);
+  }
+
+  private _syncInitialFleetHp(
+    fleet: (SimShip | null)[] | undefined,
+    nowValues: number[] | undefined,
+    maxValues: number[] | undefined,
+  ): void {
+    if (!fleet) return;
+    const count = Math.min(fleet.length, Math.max(nowValues?.length ?? 0, maxValues?.length ?? 0));
+    for (let i = 0; i < count; i++) {
+      const ship = fleet[i];
+      if (!ship) continue;
+      const maxHP = maxValues?.[i];
+      if (typeof maxHP === 'number' && Number.isFinite(maxHP) && maxHP > 0) {
+        ship.maxHP = maxHP;
+      }
+      const nowHP = nowValues?.[i];
+      if (typeof nowHP === 'number' && Number.isFinite(nowHP) && nowHP >= 0) {
+        ship.nowHP = nowHP;
+        ship.initHP = nowHP;
+      }
+    }
+  }
+
   // ── simulate ─────────────────────────────────────────────────────────────────
 
   simulate(packet: Record<string, unknown>): void {
@@ -855,6 +948,7 @@ export class BattleSimulator {
     }
 
     this.enemyType = (path.includes('ec_') || path.includes('each_')) ? 1 : 0;
+    this._syncInitialPlayerHp(packet, path);
 
     if (isRecord(packet.api_friendly_info)) {
       const info = packet.api_friendly_info as Record<string, unknown>;

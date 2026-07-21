@@ -615,20 +615,47 @@ function mkHougekiPhase(
   const n = Math.max(atE.length, atList.length, dfList.length, dmgList.length);
 
   for (let i = 0; i < n; i++) {
-    const attackerIsEnemy = (atE[i] ?? 0) === 1;
+    const df = dfList[i] ?? [];
+    const hasExplicitSide = typeof atE[i] === 'number';
+    const legacySideOffset = Math.max(
+      start.friend.main.now.length,
+      start.friend.escort?.now.length ?? 0,
+    );
+    let firstLegacyTarget = -1;
+    for (const targetIndex of df) {
+      if (typeof targetIndex === 'number' && targetIndex >= 0) {
+        firstLegacyTarget = targetIndex;
+        break;
+      }
+    }
+
+    // New packets provide api_at_eflag and use side-local indexes.  Older
+    // night packets encode friend/enemy in the index range instead: friend
+    // 0..5, enemy 6..11.  Infer the attacker from the defender range so enemy
+    // attacks are not silently classified as friendly attacks.
+    const attackerIsEnemy = hasExplicitSide
+      ? atE[i] === 1
+      : (firstLegacyTarget >= 0
+        ? firstLegacyTarget < legacySideOffset
+        : (atList[i] ?? -1) >= legacySideOffset);
     const attackerSide: BattleSide = attackerIsEnemy ? 'enemy' : 'friend';
     const defenderSide: BattleSide = attackerIsEnemy ? 'friend' : 'enemy';
 
-    const attackerIdx0 = atList[i] ?? -1;
+    let attackerIdx0 = atList[i] ?? -1;
+    if (!hasExplicitSide && attackerIdx0 >= legacySideOffset) {
+      attackerIdx0 -= legacySideOffset;
+    }
     const attackerRef = resolveBattleIndexToFleetRef(attackerSide, attackerIdx0, start, activeDeck);
 
-    const df = dfList[i] ?? [];
     const dmg = dmgList[i] ?? [];
     const cl = clList[i] ?? [];
 
     const hits: DamageInstance[] = [];
     for (let j = 0; j < df.length; j++) {
-      const tIdx0 = df[j] ?? -1;
+      let tIdx0 = df[j] ?? -1;
+      if (!hasExplicitSide && !attackerIsEnemy && tIdx0 >= legacySideOffset) {
+        tIdx0 -= legacySideOffset;
+      }
       const tRef = resolveBattleIndexToFleetRef(defenderSide, tIdx0, start, activeDeck);
       if (!tRef) continue;
 
@@ -775,13 +802,20 @@ function resolveBattleIndexToFleetRef(
 ): FleetRef | null {
   if (idx0 < 0) return null;
   const selectedDeck = side === 'friend' ? activeDeck?.[0] : activeDeck?.[1];
+  const main = side === 'friend' ? snap.friend.main : snap.enemy.main;
+  const escort = side === 'friend' ? snap.friend.escort : snap.enemy.escort;
+  const deckRange = Math.max(main.now.length, escort?.now.length ?? 0);
+  // api_at_eflag does not guarantee local indexes: combined-night packets may
+  // still address the escort as 6..11. activeDeck supplies the target fleet,
+  // so collapse that flattened index to its local slot before resolving it.
+  const localIdx = selectedDeck !== undefined && deckRange > 0 && idx0 >= deckRange
+    ? idx0 - deckRange
+    : idx0;
   if (selectedDeck === 1) {
-    const main = side === 'friend' ? snap.friend.main : snap.enemy.main;
-    return idx0 < main.now.length ? { side, fleet: 'main', idx: idx0 } : null;
+    return localIdx < main.now.length ? { side, fleet: 'main', idx: localIdx } : null;
   }
   if (selectedDeck === 2) {
-    const escort = side === 'friend' ? snap.friend.escort : snap.enemy.escort;
-    return escort && idx0 < escort.now.length ? { side, fleet: 'escort', idx: idx0 } : null;
+    return escort && localIdx < escort.now.length ? { side, fleet: 'escort', idx: localIdx } : null;
   }
   return resolveZeroBasedIndexToFleetRef(side, idx0, snap);
 }
