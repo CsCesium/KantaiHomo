@@ -5,7 +5,11 @@ import {
   finalPreCapModifierAttackPower,
 } from '../main/ets/features/calc/damage/attack_power';
 import { buildShipBattleScenarios } from '../main/ets/features/calc/damage/scenario_builder';
-import type { ScenarioEquip, ShipScenarioInput } from '../main/ets/features/calc/damage/damage_types';
+import {
+  DayAttackType,
+  type ScenarioEquip,
+  type ShipScenarioInput,
+} from '../main/ets/features/calc/damage/damage_types';
 import { ShipType, SlotItemEquipType, SlotItemIconId } from '../main/ets/domain/models';
 
 function makeSurfaceInput(stype: ShipType, hpNow: number): ShipScenarioInput {
@@ -66,6 +70,34 @@ function makeCarrierInput(stype: ShipType): ShipScenarioInput {
   input.firepower = 102;
   input.torpedo = 9;
   input.equips = [makeNightAttacker()];
+  return input;
+}
+
+function makeCarrierAircraft(
+  equipType: SlotItemEquipType,
+  name: string,
+  onslot: number,
+): ScenarioEquip {
+  return {
+    masterId: 1000 + equipType,
+    name,
+    equipType,
+    iconType: SlotItemIconId.JetKikkaKai,
+    firepower: 0,
+    torpedo: 0,
+    bomb: equipType === SlotItemEquipType.JetFighterBomber ? 11 : 0,
+    asw: 0,
+    los: 0,
+    level: 0,
+    onslot,
+  };
+}
+
+function makeJetCarrierInput(equips: ScenarioEquip[]): ShipScenarioInput {
+  const input = makeSurfaceInput(ShipType.CVB, 100);
+  input.firepower = 70;
+  input.torpedo = 0;
+  input.equips = equips;
   return input;
 }
 
@@ -146,6 +178,42 @@ export default function damageTest(): void {
       const armoredCarrier = buildShipBattleScenarios(makeCarrierInput(ShipType.CVB));
       expect(armoredCarrier.day.length > 0).assertTrue();
       expect(armoredCarrier.night.length > 0).assertTrue();
+    });
+
+    it('detects jet carrier cut-ins from embarked jet aircraft', 0, () => {
+      const jetFighter = makeCarrierAircraft(
+        SlotItemEquipType.JetFighter,
+        'Jet Fighter',
+        18,
+      );
+      const jetBomber = makeCarrierAircraft(
+        SlotItemEquipType.JetFighterBomber,
+        'Jet Fighter-Bomber',
+        18,
+      );
+
+      const jetFb = buildShipBattleScenarios(makeJetCarrierInput([jetFighter, jetBomber]));
+      expect(jetFb.day.length).assertEqual(2);
+      expect(jetFb.day[0].id).assertEqual(DayAttackType.CarrierJetFB);
+      expect(jetFb.day[1].id).assertEqual(DayAttackType.Normal);
+
+      const jetFbb = buildShipBattleScenarios(makeJetCarrierInput([
+        jetFighter,
+        jetBomber,
+        makeCarrierAircraft(SlotItemEquipType.JetFighterBomber, 'Second Jet Fighter-Bomber', 12),
+      ]));
+      expect(jetFbb.day.length).assertEqual(3);
+      expect(jetFbb.day[0].id).assertEqual(DayAttackType.CarrierJetFBB);
+      expect(jetFbb.day[1].id).assertEqual(DayAttackType.CarrierJetFB);
+      expect(jetFbb.day[2].id).assertEqual(DayAttackType.Normal);
+    });
+
+    it('does not use an empty jet slot for carrier attacks', 0, () => {
+      const scenarios = buildShipBattleScenarios(makeJetCarrierInput([
+        makeCarrierAircraft(SlotItemEquipType.JetFighter, 'Jet Fighter', 18),
+        makeCarrierAircraft(SlotItemEquipType.JetFighterBomber, 'Empty Jet Fighter-Bomber', 0),
+      ]));
+      expect(scenarios.day.length).assertEqual(0);
     });
   });
 }

@@ -523,8 +523,6 @@ function detectDaySpottingAttacks(counts: EquipCounts): DayAttackType[] {
 
 /** Carrier cut-ins (戦爆連合), ordered by selection priority. */
 function detectCarrierDayAttacks(counts: EquipCounts): DayAttackType[] {
-  if (counts.carrierDiveBomber <= 0 || counts.carrierTorpedoBomber <= 0) return [];
-
   const types: DayAttackType[] = [];
   const hasOrdinaryBA = counts.carrierDiveBomber >= 1 && counts.carrierTorpedoBomber >= 1;
   const hasJetOnlyBombers = counts.carrierDiveBomber === 0 && counts.carrierTorpedoBomber === 0;
