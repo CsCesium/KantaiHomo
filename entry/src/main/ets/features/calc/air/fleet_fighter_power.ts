@@ -34,6 +34,7 @@ import {
   getSlotItemMasterAa,
   getSlotItemMasterEquipType,
   getSlotItemMasterName,
+  isShipEscaped,
 } from '../../state';
 
 // ==================== Type Definitions ====================
@@ -166,7 +167,7 @@ export function getFleetEquipInfo(deckId: number): FleetEquipInfo | null {
 
   const ships: ShipEquipInfo[] = [];
   for (const shipUid of deck.shipUids) {
-    if (shipUid <= 0) continue;
+    if (shipUid <= 0 || isShipEscaped(shipUid)) continue;
     const shipInfo = getShipEquipInfo(shipUid);
     if (shipInfo) ships.push(shipInfo);
   }
