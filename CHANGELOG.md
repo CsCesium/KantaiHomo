@@ -2,6 +2,46 @@
 
 English | [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.1.0 - 2026-06-21
+
+Compared with `v1.0.2`.
+
+### Added
+
+- Sortie log information page, accessible from the game control buttons, with
+  recent battle records and filters for time, map, cell, rank, and drop ship.
+- Battle detail replay backed by persisted `BattleSegment` data, including phase
+  summaries, per-hit attacker/target, damage, critical state, HP bars, aerial
+  combat details, and land-based air waves.
+- Storage migration `014_add_battle_segment` to persist `segmentJson` for new
+  battle records. Older records remain readable with summary-only details.
+- AACI tab in the ship battle scenario panel, showing detected anti-air cut-ins
+  with priority, multiplier, percent shootdown, and fixed shootdown values.
+- Quest reward-claim parsing through the new `QUEST_CLAIMED` event so claimed
+  quests are removed from local state and storage.
+
+### Changed
+
+- Battle normalization now preserves shelling special attack codes from
+  `api_sp_list` and handles zero-based shelling/torpedo indices, including
+  torpedo list-item formats.
+- Battle result records now use merged battle-segment HP for enemy fleets at
+  result time, improving post-battle enemy HP display.
+- Ship and equipment information pages now render rows in batches to reduce
+  initial page construction cost for large inventories.
+- Battle preview aerial detail opens with a larger single-tap touch target and
+  refreshes when escaped-ship state changes.
+- Floating panels and full-screen information pages now block accidental
+  launcher back-swipe navigation while they are open.
+- Packaged equipment improvement data was refreshed.
+
+### Fixed
+
+- Completed-but-unclaimed quests remain visible until their reward is claimed,
+  then disappear from state and storage.
+- Morale color handling now treats `cond = 50` as high morale.
+- Fixed typos and minor UI wording issues around the new 1.1.0 flows.
+
 ## 1.0.2 - 2026-06-17
 
 Compared with `v1.0.1`.

@@ -13,7 +13,7 @@ This is an unofficial project and is not affiliated with DMM, C2, or KADOKAWA.
 
 - HarmonyOS app for phone, tablet, and 2in1 devices.
 - Bundle name: `io.github.cesium.kchomo`.
-- Current configured app version: `1.0.2`.
+- Current configured app version: `1.1.0`.
 - Default game URL: `https://play.games.dmm.com/game/kancolle`.
 - Built with ArkTS, ArkWeb, Hvigor, and HarmonyOS SDK 6.x.
 
@@ -25,14 +25,15 @@ This is an unofficial project and is not affiliated with DMM, C2, or KADOKAWA.
   fleet state icons, side fleet status, bottom panel, and floating overlay.
 - Local game data pipeline: XHR/Fetch hooks parse game API responses, normalize
   domain models, and persist ships, equipment, fleets, resources, quests,
-  expeditions, repairs, arsenal events, battles, maps, and battle records.
+  expeditions, repairs, arsenal events, battles, maps, battle records, and
+  battle segments.
 - Live companion panels for fleet HP/status, equipment, resources, quests,
   expedition checks, repair docks, land-based air corps, map gauges, air power,
   aerial combat details, transport points, LoS, battle preview, battle result,
-  and ship battle scenarios.
-- Information pages and static data for ship, equipment, equipment improvement
-  recipes, expedition, equipment classification, and expedition requirement
-  rules.
+  ship battle scenarios, and AACI detection.
+- Information pages for ship, equipment, sortie logs, and equipment improvement
+  recipes, plus static data for expedition, equipment classification, and
+  expedition requirement rules.
 - Alerts for night battle prompts, sortie advance risk, practice/battle
   result taiha warnings, expedition returns, repair completion, development,
   construction, and equipment improvement results, with vibration, system
