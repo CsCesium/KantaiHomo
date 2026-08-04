@@ -14,6 +14,8 @@ import {
   getSortieResourceGains,
   SortieResourceGains,
   isShipEscaped,
+  STRIKING_FORCE_FLEET_INDEX,
+  isFullStrikingForce,
 } from '../../../../../features/state';
 import type { LbasBase } from '../../../../../domain/models/struct/lbas';
 import {
@@ -51,6 +53,11 @@ const RESOURCE_BAR_NARROW_H = 36;
 interface FleetTpCalcValues {
   s: number;
   a: number;
+}
+
+interface AirPowerCalcValues {
+  min: number;
+  max: number;
 }
 
 interface FleetLoSCalcValues {
@@ -224,6 +231,7 @@ export default struct BottomPanel {
   @Local sortieGains: SortieResourceGains | null = null;
   @Local decks: DeckSnapshot[] = [];
   @Local airPower: number = 0;
+  @Local airPowerMax: number = 0;
   @Local fleetLoS: number = 0;
   @Local fleetLoSTotal: number = 0;
   @Local fleetLoS33x1: number = 0;
@@ -260,7 +268,7 @@ export default struct BottomPanel {
 
   aboutToAppear(): void {
     this.refreshSettings();
-    this.loadState();
+    this.loadState(true);
     this.unsubscribe = subscribeGameState((changeType, _state) => {
       if (changeType === 'all' || changeType === 'ships' ||
           changeType === 'decks' || changeType === 'materials' ||
@@ -289,7 +297,7 @@ export default struct BottomPanel {
     }
   }
 
-  private loadState(): void {
+  private loadState(preferStrikingForce: boolean = false): void {
     const manager = getGameState();
     const st = manager.getState();
     const admiral = st.admiral;
@@ -297,6 +305,9 @@ export default struct BottomPanel {
     this.materials = getMaterials();
     this.sortieGains = getSortieResourceGains();
     this.decks = [...getDecks()];
+    if (preferStrikingForce && isFullStrikingForce(this.decks)) {
+      this.activeFleet = STRIKING_FORCE_FLEET_INDEX;
+    }
     this.mapGauges = getMapGauges()
       .filter((g: MapGaugeSnapshot) => shouldDisplayMapGauge(g))
       .sort(compareMapGaugeDisplayOrder);
@@ -344,6 +355,7 @@ export default struct BottomPanel {
 
   private resetCalcStats(): void {
     this.airPower = 0;
+    this.airPowerMax = 0;
     this.fleetLoS = 0;
     this.fleetLoSTotal = 0;
     this.fleetLoS33x1 = 0;
@@ -355,18 +367,29 @@ export default struct BottomPanel {
     this.showLoSDetail = false;
   }
 
-  private async calcAirPowerValue(deckId: number): Promise<number> {
+  private async calcAirPowerValue(deckId: number): Promise<AirPowerCalcValues> {
     try {
       const fpResult = await getFleetFighterPower(deckId);
-      return fpResult?.totalFighterPower ?? 0;
+      return {
+        min: fpResult?.totalFighterPowerMin ?? 0,
+        max: fpResult?.totalFighterPowerMax ?? 0,
+      };
     } catch (_e) {
-      return 0;
+      return { min: 0, max: 0 };
     }
+  }
+
+  private airPowerText(): string {
+    if (this.airPowerMax <= 0) return '--';
+    return this.airPower === this.airPowerMax
+      ? `${this.airPower}`
+      : `${this.airPower}~${this.airPowerMax}`;
   }
 
   private calcFleetLoSTotal(deckId: number): number {
     const ships = getDeckShips(deckId);
     return ships.reduce((sum: number, ship: ShipState): number => {
+      if (isShipEscaped(ship.uid)) return sum;
       return sum + Math.max(0, ship.scoutCur || 0);
     }, 0);
   }
@@ -419,7 +442,8 @@ export default struct BottomPanel {
     if (seq !== this.calcStatsSeq || this.activeFleet >= 4 || this.activeFleet + 1 !== deckId) {
       return;
     }
-    this.airPower = nextAirPower;
+    this.airPower = nextAirPower.min;
+    this.airPowerMax = nextAirPower.max;
     this.fleetLoS = nextFleetLoS.score;
     this.fleetLoSTotal = nextFleetLoS.total;
     this.fleetLoS33x1 = nextFleetLoS.coeff1;
@@ -775,7 +799,7 @@ export default struct BottomPanel {
     if (this.activeFleet < 4) {
       Scroll() {
         Row({ space: 8 }) {
-          this.FleetStat('制空', (): string => this.airPower > 0 ? `${this.airPower}` : '--')
+          this.FleetStat('制空', (): string => this.airPowerText())
           this.FleetStat('速度', (): string => formatFleetSpeed(this.fleetSpeed))
           this.FleetStat('输送', (): string => this.fleetTpS > 0 ? `S${Math.floor(this.fleetTpS)}/A${Math.floor(this.fleetTpA)}` : '--')
           this.FleetLoSStat()

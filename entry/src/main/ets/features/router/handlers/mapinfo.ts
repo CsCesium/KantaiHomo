@@ -1,6 +1,14 @@
 import type { MapInfoUpdateEvent, MapGaugeRaw } from '../../../domain/events/mapinfo';
 import type { MapGaugeSnapshot } from '../../state/type';
-import { updateMapGauges, getDecks, getDeckShips } from '../../state';
+import {
+  updateMapGauges,
+  getMapGauges,
+  getDecks,
+  getDeckShips,
+  getCombinedFleetType,
+  STRIKING_FORCE_DECK_ID,
+  isFullStrikingForce,
+} from '../../state';
 import { publishAlert } from '../../alerts/bus';
 import { registerHandler } from '../persist/registry';
 import type { Handler, HandlerEvent, PersistDeps } from '../persist/type';
@@ -12,7 +20,25 @@ class MapInfoHandler implements Handler {
     const now = Date.now();
 
     const snapshots: MapGaugeSnapshot[] = gauges.map(g => ({ ...g, capturedAt: now }));
-    updateMapGauges(snapshots);
+    if (e.endpoint === '/api_req_map/select_eventmap_rank') {
+      // 难度选择响应只包含一个海域，不能覆盖掉其它海域的血条。
+      const merged = [...getMapGauges()];
+      for (const patch of snapshots) {
+        const previous = merged.find((g: MapGaugeSnapshot) => g.mapId === patch.mapId);
+        const next: MapGaugeSnapshot = {
+          ...patch,
+          gaugeType: patch.gaugeType ?? previous?.gaugeType ?? null,
+          gaugeNum: patch.gaugeNum > 0 ? patch.gaugeNum : (previous?.gaugeNum ?? 1),
+        };
+        for (let i = merged.length - 1; i >= 0; i--) {
+          if (merged[i].mapId === patch.mapId) merged.splice(i, 1);
+        }
+        merged.push(next);
+      }
+      updateMapGauges(merged);
+    } else {
+      updateMapGauges(snapshots);
+    }
 
     this.checkFleetStatus();
   }
@@ -22,6 +48,8 @@ class MapInfoHandler implements Handler {
     const unsuppliedDecks: number[] = [];
     const idleDecks: number[] = [];
     const fleet1LowCondShipUids: number[] = [];
+    const combinedType = getCombinedFleetType();
+    const hasStrikingForce = isFullStrikingForce(decks);
 
     for (const deck of decks) {
       const onExpedition = deck.expeditionReturnTime !== null &&
@@ -43,8 +71,13 @@ class MapInfoHandler implements Handler {
           }
         }
 
-        // Decks 2-4 should ideally be on expedition
-        if (deck.deckId >= 2) {
+        // Decks 2-4 should ideally be on expedition. Fleet 2 is an active
+        // escort fleet while a combined fleet is formed, and a seven-ship
+        // fleet 3 is an active striking force. Neither should be reported as
+        // an idle expedition fleet.
+        const isCombinedEscort = combinedType > 0 && deck.deckId === 2;
+        const isStrikingForce = hasStrikingForce && deck.deckId === STRIKING_FORCE_DECK_ID;
+        if (deck.deckId >= 2 && !isCombinedEscort && !isStrikingForce) {
           idleDecks.push(deck.deckId);
         }
       }

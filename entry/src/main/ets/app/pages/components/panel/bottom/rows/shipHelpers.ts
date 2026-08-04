@@ -39,7 +39,7 @@ export function getMapGaugeInfo(gauge: MapGaugeSnapshot): MapGaugeInfo {
   const isDefeatGauge = gauge.hpMax === null && gauge.requiredDefeats !== null;
   return {
     label: `${areaNo}-${mapNo}`,
-    gaugeLabel: isDefeatGauge ? '回' : (gauge.gaugeType === 2 ? 'TP' : 'HP'),
+    gaugeLabel: isDefeatGauge ? '回' : (gauge.gaugeType === 3 ? 'TP' : 'HP'),
     hpNow,
     hpMax,
     ratio,

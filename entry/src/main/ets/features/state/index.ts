@@ -52,6 +52,7 @@ export {
   patchDeckExpedition,
   patchDeckShip,
   updateQuests,
+  setQuestState,
   removeQuest,
   updateShips,
   patchShipsSupply,
@@ -155,6 +156,12 @@ export {
   updateMapGauges,
   getMapGauges,
 } from './game_state';
+
+export {
+  STRIKING_FORCE_DECK_ID,
+  STRIKING_FORCE_FLEET_INDEX,
+  isFullStrikingForce,
+} from './strikingForce';
 
 // ========== State Extractor 导出 ==========
 

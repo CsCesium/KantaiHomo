@@ -15,6 +15,7 @@ import {
   BattleResultSnapshot
 } from "./type";
 import { getShipSpecialEquip, isShipEscaped } from "./game_state";
+import { predictEnemyNightFleet } from './enemy_night_fleet';
 
 
 function isEscapedPrediction(pred: ShipPrediction): boolean {
@@ -25,7 +26,7 @@ function isEscapedPrediction(pred: ShipPrediction): boolean {
  * 从 ShipPrediction 构建 ShipBattleStatus
  *
  * hasSinkRisk: 大破 + 非旗舰 + 无应急修理（女神/応急修理要員）。基地空袭不会沉船，
- * 因此 isAirRaid 时恒为 false；旗舰（index === 0）受保护也恒为 false。
+ * 因此 isAirRaid 时恒为 false；主舰队与护卫舰队旗舰均不会击沉。
  */
 function buildShipBattleStatus(pred: ShipPrediction, index: number, isAirRaid: boolean): ShipBattleStatus {
   const hpPercent = pred.hpMax > 0 ? Math.round((pred.hpAfter / pred.hpMax) * 100) : 0;
@@ -126,8 +127,8 @@ function getTaihaShips(predictions: ShipPrediction[]): { uid: number; name: stri
 function hasSunkRiskNonFlagship(friendMain: ShipPrediction[], friendEscort?: ShipPrediction[]): boolean {
   // 主力舰队跳过旗舰(index 0)
   const mainRisk = friendMain.slice(1).some(p => p.isSunk && !isEscapedPrediction(p));
-  // 护卫舰队全部检查
-  const escortRisk = friendEscort?.some(p => p.isSunk && !isEscapedPrediction(p)) ?? false;
+  // 护卫舰队同样跳过旗舰(index 0)
+  const escortRisk = friendEscort?.slice(1).some(p => p.isSunk && !isEscapedPrediction(p)) ?? false;
   return mainRisk || escortRisk;
 }
 
@@ -169,6 +170,7 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
     battleApiPath: battleContext.merged?.meta.apiPath,
     isPractice: battleContext.isPractice,
     isAirRaid,
+    airRaidDamageKind: battleContext.merged?.meta.airRaidDamageKind,
     combinedType: sortieContext.combinedType,
 
     // 阵型
@@ -186,6 +188,9 @@ export function buildBattleStatusSnapshot(options: BuildBattleStatusOptions): Ba
     enemyMain: buildEnemyBattleStatus(battleContext.enemyFleet, prediction.enemyMain),
     enemyEscort: battleContext.enemyFleetEscort && prediction.enemyEscort
       ? buildEnemyBattleStatus(battleContext.enemyFleetEscort, prediction.enemyEscort)
+      : undefined,
+    enemyNightFleet: battlePhase === 'day' && battleContext.enemyFleetEscort
+      ? predictEnemyNightFleet(prediction.enemyEscort)
       : undefined,
 
     // 预测结果

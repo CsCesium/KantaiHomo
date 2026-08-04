@@ -36,14 +36,14 @@ export default struct AerialCombatPanel {
     return ids.map((id: number): string => this.planeName(id)).join(' / ');
   }
 
-  /** 单阶段机数行：我方(绿) / 敌方(红)，剩余机/初期机 */
+  /** 单阶段机数行：我方(绿) / 敌方(红)，该阶段剩余机/阶段开始机 */
   @Builder StageRow(label: string, stage: AerialStageInfo | undefined) {
     if (stage) {
       Row({ space: 8 }) {
         Text(label)
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtMuted)
-          .width(26)
+          .width(42)
         Text(`我 ${Math.max(0, stage.friendCount - stage.friendLost)}/${stage.friendCount}`)
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.hpOk)
@@ -100,8 +100,8 @@ export default struct AerialCombatPanel {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      this.StageRow('S1', p.stage1)
-      this.StageRow('S2', p.stage2)
+      this.StageRow('S1制空', p.stage1)
+      this.StageRow('S2攻机', p.stage2)
       this.TouchRow(p.touchFriend ?? 0, p.touchEnemy ?? 0)
 
       if (p.airFire) {
@@ -182,8 +182,8 @@ export default struct AerialCombatPanel {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      this.StageRow('S1', w.stage1)
-      this.StageRow('S2', w.stage2)
+      this.StageRow('S1制空', w.stage1)
+      this.StageRow('S2攻机', w.stage2)
       if ((w.touchFriend ?? 0) > 0 || (w.touchEnemy ?? 0) > 0) {
         this.TouchRow(w.touchFriend ?? 0, w.touchEnemy ?? 0)
       }

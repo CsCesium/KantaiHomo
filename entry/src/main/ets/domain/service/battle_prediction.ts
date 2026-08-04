@@ -228,9 +228,9 @@ export function checkTaihaAdvanceRisk(prediction: BattlePrediction): {
     }
   }
 
-  // 检查护卫舰队
+  // 检查护卫舰队（同样跳过不会击沉的旗舰）
   if (prediction.friendEscort) {
-    for (let i = 0; i < prediction.friendEscort.length; i++) {
+    for (let i = 1; i < prediction.friendEscort.length; i++) {
       const ship = prediction.friendEscort[i];
       if (ship && ship.isTaiha && !ship.isSunk) {
         riskyShips.push({

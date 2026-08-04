@@ -73,14 +73,27 @@ export interface ApiMapinfoItemRaw {
   api_gauge_type?: number;
   api_gauge_num?: number;
   api_eventmap?: {
-    api_now_maphp: number;
-    api_max_maphp: number;
+    api_now_maphp?: number;
+    api_max_maphp?: number;
     api_state: number;
     api_selected_rank?: number;
     api_gauge_type?: number;
     api_gauge_num?: number;
   };
   api_s_no?: number;
+}
+
+/** api_req_map/select_eventmap_rank 响应 */
+export interface ApiSelectEventMapRankRespRaw {
+  /** 现代活动海域返回当前多段血条的完整数据 */
+  api_maphp?: {
+    api_now_maphp: number;
+    api_max_maphp: number;
+    api_gauge_type?: number;
+    api_gauge_num?: number;
+  };
+  /** 部分旧活动只返回新难度的最大血量 */
+  api_max_maphp?: number;
 }
 
 export interface ApiMapinfoRespRaw {

@@ -28,6 +28,7 @@ export type EventType =
   // Quest
     | 'QUEST_LIST'
     | 'QUEST_CLAIMED'
+    | 'QUEST_STATE_CHANGED'
   // Sortie
     | 'SORTIE_START'
     | 'SORTIE_NEXT'

@@ -79,6 +79,15 @@ function isNightBattleData(x: any): x is ApiNightBattleDataRaw {
   return !!x && typeof x === 'object' && !!x.api_hougeki && !!x.api_hougeki.api_damage;
 }
 
+function resolveNightActiveDeck(apiPath: string, d: any): number[] | undefined {
+  if (Array.isArray(d?.api_active_deck) && d.api_active_deck.length >= 2) {
+    return d.api_active_deck;
+  }
+  if (apiPath.includes('api_req_combined_battle/ec_')) return [1, 2];
+  if (apiPath.includes('api_req_combined_battle/')) return [2, 1];
+  return undefined;
+}
+
 /** ---------- Day / Night / Destruction ---------- */
 
 function normalizeDayBattle(apiPath: string, d: ApiDayBattleDataRaw, now: number): BattleSegment {
@@ -95,10 +104,11 @@ function normalizeDayBattle(apiPath: string, d: ApiDayBattleDataRaw, now: number
 
 function normalizeNightBattle(apiPath: string, d: ApiNightBattleDataRaw, now: number): BattleSegment {
   const meta = buildMeta(apiPath, d, now);
-  const start = buildHpSnapshot(d);
-  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
+  const activeDeck = resolveNightActiveDeck(apiPath, d);
+  const start = buildHpSnapshot(d, activeDeck);
+  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start, activeDeck);
 
-  const phases = extractNightPhases(d, start);
+  const phases = extractNightPhases(d, start, activeDeck);
   const end = applyPhases(start, phases);
 
   return { meta, start, phases, end, enemyMain, enemyEscort, createdAt: now };
@@ -106,10 +116,11 @@ function normalizeNightBattle(apiPath: string, d: ApiNightBattleDataRaw, now: nu
 
 function normalizeNightToDayBattle(apiPath: string, d: ApiNightBattleDataRaw & ApiDayBattleDataRaw, now: number): BattleSegment {
   const meta = buildMeta(apiPath, d, now);
-  const start = buildHpSnapshot(d);
-  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start);
+  const activeDeck = resolveNightActiveDeck(apiPath, d);
+  const start = buildHpSnapshot(d, activeDeck);
+  const { enemyMain, enemyEscort } = buildEnemyInfo(d, start, activeDeck);
 
-  const nightPhases = extractNightPhases(d, start);
+  const nightPhases = extractNightPhases(d, start, activeDeck);
   const dayPhases = extractDayPhases(d, start);
   const phases = [...nightPhases, ...dayPhases].map((p, i) => ({ ...p, seq: i + 1 }));
   const end = applyPhases(start, phases);
@@ -134,25 +145,18 @@ function normalizeDestructionBattle(apiPath: string, d: ApiDestructionBattleRaw,
 function buildMeta(apiPath: string, d: any, now: number) {
   const formation = parseFormation(d?.api_formation);
 
-  // Extract air state and plane counts from kouku stage1 (may be kouku or kouku2 for combined)
-  const stage1 = d?.api_kouku?.api_stage1 ?? d?.api_kouku2?.api_stage1;
-  const airState: number | undefined = typeof stage1?.api_disp_seiku === 'number' ? stage1.api_disp_seiku : undefined;
-  const friendPlaneMax: number | undefined = typeof stage1?.api_f_count === 'number' ? stage1.api_f_count : undefined;
-  const friendPlaneLost: number | undefined = typeof stage1?.api_f_lostcount === 'number' ? stage1.api_f_lostcount : undefined;
-  const friendPlaneNow: number | undefined = (friendPlaneMax !== undefined && friendPlaneLost !== undefined)
-    ? Math.max(0, friendPlaneMax - friendPlaneLost)
-    : undefined;
-  const enemyPlaneMax: number | undefined = typeof stage1?.api_e_count === 'number' ? stage1.api_e_count : undefined;
-  const enemyPlaneLost: number | undefined = typeof stage1?.api_e_lostcount === 'number' ? stage1.api_e_lostcount : undefined;
-  const enemyPlaneNow: number | undefined = (enemyPlaneMax !== undefined && enemyPlaneLost !== undefined)
-    ? Math.max(0, enemyPlaneMax - enemyPlaneLost)
-    : undefined;
-
   const aerialPhases: AerialCombatInfo[] = [];
   const kouku1 = parseAerialCombat(d?.api_kouku);
   if (kouku1) aerialPhases.push(kouku1);
   const kouku2 = parseAerialCombat(d?.api_kouku2);
   if (kouku2) aerialPhases.push(kouku2);
+  const headlineAerial = kouku1 ?? kouku2;
+  const planeSummary = summarizeAerialPlanes(headlineAerial);
+  const lbasWaves = parseLbasWaves(d?.api_air_base_attack);
+  // 基地空袭（api_destruction_battle）通常没有 api_kouku，制空状态只存在于
+  // api_air_base_attack[*].api_stage1。普通航空战仍优先展示舰队航空战制空。
+  const lbasAirState = lbasWaves?.find((wave: LbasWaveInfo) => wave.airState !== undefined)?.airState;
+  const airState = headlineAerial?.airState ?? lbasAirState;
 
   const meta = {
     apiPath,
@@ -163,12 +167,13 @@ function buildMeta(apiPath: string, d: any, now: number) {
     stageFlag: Array.isArray(d?.api_stage_flag) ? d.api_stage_flag : undefined,
     smokeType: typeof d?.api_smoke_type === 'number' ? d.api_smoke_type : undefined,
     airState,
-    friendPlaneNow,
-    friendPlaneMax,
-    enemyPlaneNow,
-    enemyPlaneMax,
+    friendPlaneNow: planeSummary.friendPlaneNow,
+    friendPlaneMax: planeSummary.friendPlaneMax,
+    enemyPlaneNow: planeSummary.enemyPlaneNow,
+    enemyPlaneMax: planeSummary.enemyPlaneMax,
     aerialPhases: aerialPhases.length ? aerialPhases : undefined,
-    lbasWaves: parseLbasWaves(d?.api_air_base_attack),
+    lbasWaves,
+    airRaidDamageKind: typeof d?.api_lost_kind === 'number' ? d.api_lost_kind : undefined,
     balloonCell: typeof d?.api_balloon_cell === 'number' ? d.api_balloon_cell : undefined,
     atollCell: typeof d?.api_atoll_cell === 'number' ? d.api_atoll_cell : undefined,
   };
@@ -176,6 +181,30 @@ function buildMeta(apiPath: string, d: any, now: number) {
 }
 
 /** ---------- Aerial combat info extraction ---------- */
+
+function summarizeAerialPlanes(aerial: AerialCombatInfo | undefined) {
+  const first = aerial?.stage1 ?? aerial?.stage2;
+  if (!first) {
+    return {
+      friendPlaneNow: undefined,
+      friendPlaneMax: undefined,
+      enemyPlaneNow: undefined,
+      enemyPlaneMax: undefined,
+    };
+  }
+
+  // S1 是全部参战机的制空争夺；S2 只包含进入攻击阶段的攻击机。
+  // 因此不能把 S2 的 count-lost 当作「总残机」（那会漏掉战斗机）。
+  // 总残机应从 S1 总数依次扣除 S1 与 S2 的损失数。
+  const friendStage2Lost = aerial?.stage1 ? (aerial.stage2?.friendLost ?? 0) : 0;
+  const enemyStage2Lost = aerial?.stage1 ? (aerial.stage2?.enemyLost ?? 0) : 0;
+  return {
+    friendPlaneNow: Math.max(0, first.friendCount - first.friendLost - friendStage2Lost),
+    friendPlaneMax: first.friendCount,
+    enemyPlaneNow: Math.max(0, first.enemyCount - first.enemyLost - enemyStage2Lost),
+    enemyPlaneMax: first.enemyCount,
+  };
+}
 
 function parseAerialStage(s: any): AerialStageInfo | undefined {
   if (!s || typeof s !== 'object') return undefined;
@@ -216,7 +245,7 @@ function parseAerialCombat(kouku: any): AerialCombatInfo | undefined {
   if (!stage1 && !stage2) return undefined;
   const touch = parseTouchPlane(kouku.api_stage1?.api_touch_plane);
   return {
-    airState: typeof kouku.api_stage1?.api_disp_seiku === 'number' ? kouku.api_stage1.api_disp_seiku : undefined,
+    airState: normalizeAirState(kouku.api_stage1?.api_disp_seiku),
     stage1,
     stage2,
     touchFriend: touch.friend,
@@ -225,10 +254,30 @@ function parseAerialCombat(kouku: any): AerialCombatInfo | undefined {
   };
 }
 
-function parseLbasWaves(arr: any): LbasWaveInfo[] | undefined {
-  if (!Array.isArray(arr) || arr.length === 0) return undefined;
+function normalizeAirBaseAttacks(raw: any): ApiAirBaseAttackRaw[] {
+  if (Array.isArray(raw)) {
+    return raw.filter((item: any) => !!item && typeof item === 'object') as ApiAirBaseAttackRaw[];
+  }
+  // api_destruction_battle uses a single object, while normal battle APIs use
+  // an array. Treat both shapes as ordered waves from this point onward.
+  return raw && typeof raw === 'object' ? [raw as ApiAirBaseAttackRaw] : [];
+}
+
+/** Convert api_disp_seiku (0,1,2,3,4) to the UI/storage enum (3,1,2,4,5). */
+function normalizeAirState(raw: any): number | undefined {
+  if (typeof raw !== 'number') return undefined;
+  if (raw === 0) return 3;
+  if (raw === 1 || raw === 2) return raw;
+  if (raw === 3 || raw === 4) return raw + 1;
+  // Keep an already-normalized loss value for imported/legacy payloads.
+  return raw === 5 ? 5 : undefined;
+}
+
+function parseLbasWaves(raw: any): LbasWaveInfo[] | undefined {
+  const attacks = normalizeAirBaseAttacks(raw);
+  if (attacks.length === 0) return undefined;
   const waves: LbasWaveInfo[] = [];
-  for (const w of arr) {
+  for (const w of attacks) {
     if (!w || typeof w !== 'object') continue;
     const touch = parseTouchPlane(w.api_stage1?.api_touch_plane);
     waves.push({
@@ -236,7 +285,7 @@ function parseLbasWaves(arr: any): LbasWaveInfo[] | undefined {
       squadronCounts: Array.isArray(w.api_squadron_plane)
         ? w.api_squadron_plane.map((s: any) => (typeof s?.api_count === 'number' ? s.api_count : 0))
         : [],
-      airState: typeof w.api_stage1?.api_disp_seiku === 'number' ? w.api_stage1.api_disp_seiku : undefined,
+      airState: normalizeAirState(w.api_stage1?.api_disp_seiku),
       stage1: parseAerialStage(w.api_stage1),
       stage2: parseAerialStage(w.api_stage2),
       touchFriend: touch.friend,
@@ -251,11 +300,31 @@ function parseFormation(arr?: number[]): BattleFormation | undefined {
   return { friend: arr[0], enemy: arr[1], engagement: arr[2] };
 }
 
-function buildEnemyInfo(d: any, hpSnap: BattleHpSnapshot): { enemyMain?: EnemyFleetInfo; enemyEscort?: EnemyFleetInfo } {
+function buildEnemyInfo(
+  d: any,
+  hpSnap: BattleHpSnapshot,
+  activeDeck?: readonly number[],
+): { enemyMain?: EnemyFleetInfo; enemyEscort?: EnemyFleetInfo } {
   const mainKe   = toNumArray(d?.api_ship_ke);
   const mainLv   = toNumArray(d?.api_ship_lv);
   const escortKe = toNumArray(d?.api_ship_ke_combined);
   const escortLv = toNumArray(d?.api_ship_lv_combined);
+
+  // Some combined night packets expose only the active enemy fleet through
+  // the non-combined fields. Preserve its escort identity instead of
+  // incorrectly recording it as the enemy main fleet.
+  if (activeDeck?.[1] === 2 && !escortKe && mainKe) {
+    return {
+      enemyEscort: {
+        shipIds: mainKe,
+        levels: mainLv ?? [],
+        slots: d?.api_eSlot ?? undefined,
+        params: d?.api_eParam ?? undefined,
+        hpNow: hpSnap.enemy.escort?.now ?? [],
+        hpMax: hpSnap.enemy.escort?.max ?? [],
+      },
+    };
+  }
 
   const enemyMain: EnemyFleetInfo | undefined = mainKe ? {
     shipIds: mainKe,
@@ -278,16 +347,31 @@ function buildEnemyInfo(d: any, hpSnap: BattleHpSnapshot): { enemyMain?: EnemyFl
   return { enemyMain, enemyEscort };
 }
 
-function buildHpSnapshot(d: any): BattleHpSnapshot {
-  const friendMainNow = normalizeHpArray(d?.api_f_nowhps);
-  const friendMainMax = normalizeHpArray(d?.api_f_maxhps);
-  const friendEscortNow = normalizeHpArray(d?.api_f_nowhps_combined);
-  const friendEscortMax = normalizeHpArray(d?.api_f_maxhps_combined);
+function buildHpSnapshot(d: any, activeDeck?: readonly number[]): BattleHpSnapshot {
+  let friendMainNow = normalizeHpArray(d?.api_f_nowhps);
+  let friendMainMax = normalizeHpArray(d?.api_f_maxhps);
+  let friendEscortNow = normalizeHpArray(d?.api_f_nowhps_combined);
+  let friendEscortMax = normalizeHpArray(d?.api_f_maxhps_combined);
 
-  const enemyMainNow = normalizeHpArray(d?.api_e_nowhps);
-  const enemyMainMax = normalizeHpArray(d?.api_e_maxhps);
-  const enemyEscortNow = normalizeHpArray(d?.api_e_nowhps_combined);
-  const enemyEscortMax = normalizeHpArray(d?.api_e_maxhps_combined);
+  let enemyMainNow = normalizeHpArray(d?.api_e_nowhps);
+  let enemyMainMax = normalizeHpArray(d?.api_e_maxhps);
+  let enemyEscortNow = normalizeHpArray(d?.api_e_nowhps_combined);
+  let enemyEscortMax = normalizeHpArray(d?.api_e_maxhps_combined);
+
+  // Combined night-only packets may put the active escort fleet in the plain
+  // api_*_nowhps fields and omit api_*_nowhps_combined altogether.
+  if (activeDeck?.[0] === 2 && friendEscortNow.length === 0 && friendEscortMax.length === 0) {
+    friendEscortNow = friendMainNow;
+    friendEscortMax = friendMainMax;
+    friendMainNow = [];
+    friendMainMax = [];
+  }
+  if (activeDeck?.[1] === 2 && enemyEscortNow.length === 0 && enemyEscortMax.length === 0) {
+    enemyEscortNow = enemyMainNow;
+    enemyEscortMax = enemyMainMax;
+    enemyMainNow = [];
+    enemyMainMax = [];
+  }
 
   const snap: BattleHpSnapshot = {
     friend: {
@@ -347,10 +431,9 @@ function extractDayPhases(d: ApiDayBattleDataRaw, start: BattleHpSnapshot): Batt
   if (d.api_n_raigeki) phases.push(mkTorpedoPhase('nightTorpedo', seq++, 'api_n_raigeki', d.api_n_raigeki, start));
 
   // Land base air
-  if (Array.isArray(d.api_air_base_attack)) {
-    for (let i = 0; i < d.api_air_base_attack.length; i++) {
-      phases.push(mkAirBasePhase(seq++, `api_air_base_attack[${i}]`, d.api_air_base_attack[i], start));
-    }
+  const airBaseAttacks = normalizeAirBaseAttacks(d.api_air_base_attack);
+  for (let i = 0; i < airBaseAttacks.length; i++) {
+    phases.push(mkAirBasePhase(seq++, `api_air_base_attack[${i}]`, airBaseAttacks[i], start));
   }
 
   // Air battle
@@ -388,10 +471,14 @@ function extractDayPhases(d: ApiDayBattleDataRaw, start: BattleHpSnapshot): Batt
   return phases;
 }
 
-function extractNightPhases(d: ApiNightBattleDataRaw, start: BattleHpSnapshot): BattlePhase[] {
+function extractNightPhases(
+  d: ApiNightBattleDataRaw,
+  start: BattleHpSnapshot,
+  activeDeck?: readonly number[],
+): BattlePhase[] {
   const phases: BattlePhase[] = [];
   let seq = 1;
-  phases.push(mkHougekiPhase('nightShelling', seq++, 'api_hougeki', d.api_hougeki, start));
+  phases.push(mkHougekiPhase('nightShelling', seq++, 'api_hougeki', d.api_hougeki, start, activeDeck));
   return phases;
 }
 
@@ -399,10 +486,9 @@ function extractDestructionPhases(d: ApiDestructionBattleRaw, start: BattleHpSna
   const phases: BattlePhase[] = [];
   let seq = 1;
 
-  if (Array.isArray(d.api_air_base_attack)) {
-    for (let i = 0; i < d.api_air_base_attack.length; i++) {
-      phases.push(mkAirBasePhase(seq++, `api_air_base_attack[${i}]`, d.api_air_base_attack[i], start));
-    }
+  const airBaseAttacks = normalizeAirBaseAttacks(d.api_air_base_attack);
+  for (let i = 0; i < airBaseAttacks.length; i++) {
+    phases.push(mkAirBasePhase(seq++, `api_air_base_attack${airBaseAttacks.length > 1 ? `[${i}]` : ''}`, airBaseAttacks[i], start, true));
   }
 
   if (d.api_kouku) phases.push(mkKoukuPhase(seq++, 'api_kouku', d.api_kouku, start));
@@ -424,14 +510,24 @@ function extractDestructionPhases(d: ApiDestructionBattleRaw, start: BattleHpSna
 }
 /** ---------- Phase builders ---------- */
 
-function mkAirBasePhase(seq: number, key: string, raw: ApiAirBaseAttackRaw, start: BattleHpSnapshot): BattlePhase {
+function mkAirBasePhase(
+  seq: number,
+  key: string,
+  raw: ApiAirBaseAttackRaw,
+  start: BattleHpSnapshot,
+  isBaseDefense: boolean = false,
+): BattlePhase {
   const events: AttackEvent[] = [];
 
-  // stage3 (main)
-  pushStage3DamageEvents(events, raw.api_stage3, start, /*friendDam=*/false, /*enemyDam=*/true, 'enemy', 'main');
-
-  // stage3_combined (escort side)
-  pushStage3DamageEvents(events, raw.api_stage3_combined, start, false, true, 'enemy', 'escort');
+  if (isBaseDefense) {
+    // In api_destruction_battle, api_fdam is indexed by land-base rid and is
+    // the damage dealt to our bases. There is no fleet escort split here.
+    pushStage3DamageEvents(events, raw.api_stage3, start, true, false, 'both', 'main');
+  } else {
+    // Normal land-base sorties damage the enemy main / escort fleets.
+    pushStage3DamageEvents(events, raw.api_stage3, start, false, true, 'enemy', 'main');
+    pushStage3DamageEvents(events, raw.api_stage3_combined, start, false, true, 'enemy', 'escort');
+  }
 
   return { kind: 'airBase', seq, rawKey: key, events };
 }
@@ -499,7 +595,14 @@ function mkSupportHouraiPhase(seq: number, key: string, raw: ApiSupportHouraiRaw
   return { kind: 'supportShelling', seq, rawKey: key, events };
 }
 
-function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: ApiHougekiRaw, start: BattleHpSnapshot): BattlePhase {
+function mkHougekiPhase(
+  kind: BattlePhaseKind,
+  seq: number,
+  key: string,
+  raw: ApiHougekiRaw,
+  start: BattleHpSnapshot,
+  activeDeck?: readonly number[],
+): BattlePhase {
   const events: AttackEvent[] = [];
   const atE = Array.isArray(raw.api_at_eflag) ? raw.api_at_eflag : [];
   const atList = Array.isArray(raw.api_at_list) ? raw.api_at_list : [];
@@ -512,21 +615,48 @@ function mkHougekiPhase(kind: BattlePhaseKind, seq: number, key: string, raw: Ap
   const n = Math.max(atE.length, atList.length, dfList.length, dmgList.length);
 
   for (let i = 0; i < n; i++) {
-    const attackerIsEnemy = (atE[i] ?? 0) === 1;
+    const df = dfList[i] ?? [];
+    const hasExplicitSide = typeof atE[i] === 'number';
+    const legacySideOffset = Math.max(
+      start.friend.main.now.length,
+      start.friend.escort?.now.length ?? 0,
+    );
+    let firstLegacyTarget = -1;
+    for (const targetIndex of df) {
+      if (typeof targetIndex === 'number' && targetIndex >= 0) {
+        firstLegacyTarget = targetIndex;
+        break;
+      }
+    }
+
+    // New packets provide api_at_eflag and use side-local indexes.  Older
+    // night packets encode friend/enemy in the index range instead: friend
+    // 0..5, enemy 6..11.  Infer the attacker from the defender range so enemy
+    // attacks are not silently classified as friendly attacks.
+    const attackerIsEnemy = hasExplicitSide
+      ? atE[i] === 1
+      : (firstLegacyTarget >= 0
+        ? firstLegacyTarget < legacySideOffset
+        : (atList[i] ?? -1) >= legacySideOffset);
     const attackerSide: BattleSide = attackerIsEnemy ? 'enemy' : 'friend';
     const defenderSide: BattleSide = attackerIsEnemy ? 'friend' : 'enemy';
 
-    const attackerIdx0 = atList[i] ?? -1;
-    const attackerRef = resolveZeroBasedIndexToFleetRef(attackerSide, attackerIdx0, start);
+    let attackerIdx0 = atList[i] ?? -1;
+    if (!hasExplicitSide && attackerIdx0 >= legacySideOffset) {
+      attackerIdx0 -= legacySideOffset;
+    }
+    const attackerRef = resolveBattleIndexToFleetRef(attackerSide, attackerIdx0, start, activeDeck);
 
-    const df = dfList[i] ?? [];
     const dmg = dmgList[i] ?? [];
     const cl = clList[i] ?? [];
 
     const hits: DamageInstance[] = [];
     for (let j = 0; j < df.length; j++) {
-      const tIdx0 = df[j] ?? -1;
-      const tRef = resolveZeroBasedIndexToFleetRef(defenderSide, tIdx0, start);
+      let tIdx0 = df[j] ?? -1;
+      if (!hasExplicitSide && !attackerIsEnemy && tIdx0 >= legacySideOffset) {
+        tIdx0 -= legacySideOffset;
+      }
+      const tRef = resolveBattleIndexToFleetRef(defenderSide, tIdx0, start, activeDeck);
       if (!tRef) continue;
 
       const dval = clampDmg(dmg[j] ?? 0);
@@ -662,6 +792,32 @@ function resolveZeroBasedIndexToFleetRef(side: BattleSide, idx0: number, snap: B
   if (escLen && idx0 < mainLen + escLen) return { side, fleet: 'escort', idx: idx0 - mainLen };
 
   return null;
+}
+
+function resolveBattleIndexToFleetRef(
+  side: BattleSide,
+  idx0: number,
+  snap: BattleHpSnapshot,
+  activeDeck?: readonly number[],
+): FleetRef | null {
+  if (idx0 < 0) return null;
+  const selectedDeck = side === 'friend' ? activeDeck?.[0] : activeDeck?.[1];
+  const main = side === 'friend' ? snap.friend.main : snap.enemy.main;
+  const escort = side === 'friend' ? snap.friend.escort : snap.enemy.escort;
+  const deckRange = Math.max(main.now.length, escort?.now.length ?? 0);
+  // api_at_eflag does not guarantee local indexes: combined-night packets may
+  // still address the escort as 6..11. activeDeck supplies the target fleet,
+  // so collapse that flattened index to its local slot before resolving it.
+  const localIdx = selectedDeck !== undefined && deckRange > 0 && idx0 >= deckRange
+    ? idx0 - deckRange
+    : idx0;
+  if (selectedDeck === 1) {
+    return localIdx < main.now.length ? { side, fleet: 'main', idx: localIdx } : null;
+  }
+  if (selectedDeck === 2) {
+    return escort && localIdx < escort.now.length ? { side, fleet: 'escort', idx: localIdx } : null;
+  }
+  return resolveZeroBasedIndexToFleetRef(side, idx0, snap);
 }
 
 function toTorpedoIndexArray(arr?: Array<number | null> | null): number[] {

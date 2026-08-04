@@ -15,7 +15,6 @@ import {
   sortieRecordToRow,
   getFullEventDesc,
   isBattleEventId,
-  isBattleEvent,
   createBattleContext,
   safeParseJsonArray
 } from '../../../domain/models';
@@ -181,7 +180,7 @@ class SortieHandler implements Handler {
   /**
    * 出击瞬间基于 GameState 检查整个出击编队是否存在大破舰
    *
-   * 跳过主队旗舰（i=0，旗舰不会击沉），联合舰队护卫队所有舰位都参与检查
+   * 主队与护卫队均跳过旗舰（i=0，旗舰不会击沉）
    */
   private checkSortieStartTaiha(deckId: number, combinedType: number): void {
     const risky: { uid: number; name: string; hpNow: number; hpMax: number }[] = [];
@@ -198,7 +197,7 @@ class SortieHandler implements Handler {
 
     if (combinedType > 0) {
       const escort = getDeckShips(2);
-      for (let i = 0; i < escort.length; i++) {
+      for (let i = 1; i < escort.length; i++) {
         const s = escort[i];
         if (!s.isTaiha) continue;
         if (s.hpNow <= 0) continue;
@@ -278,12 +277,15 @@ class SortieHandler implements Handler {
       addSortieResourceGains(cell.resourceGains);
     }
 
-    console.info('[sortie] moved to cell:', currentCell.cellId, 'event:', currentCell.eventId, 'boss:', currentCell.isBoss);
+    const eventDesc = getFullEventDesc(currentCell.eventId, currentCell.eventKind);
+    console.info('[sortie] moved to cell:', currentCell.cellId,
+      'event:', currentCell.eventId, 'kind:', currentCell.eventKind,
+      'type:', eventDesc, 'boss:', currentCell.isBoss);
 
     // 2. 发布 SortieNextAlert（所有节点类型均触发，含战斗节点）
     // 尝试从 /next 响应的 api_e_deck_info 中提取敌方旗舰名称（仅战斗节点有效）
     let enemyFlagshipName: string | undefined;
-    if (isBattleEventId(currentCell.eventId)) {
+    if (isBattleEventId(currentCell.eventId, currentCell.eventKind)) {
       try {
         const extras = cell.extras as Record<string, unknown> | undefined;
         const firstId = getFirstEnemyShipIdFromNextExtras(extras);
@@ -304,7 +306,7 @@ class SortieHandler implements Handler {
       eventId: currentCell.eventId,
       eventKind: currentCell.eventKind,
       isBoss: currentCell.isBoss ?? false,
-      eventDesc: getFullEventDesc(currentCell.eventId, currentCell.eventKind),
+      eventDesc,
       deckId: context.deckId,
       combinedType: context.combinedType,
       fleetName: context.fleetSnapshot.name,
@@ -315,12 +317,12 @@ class SortieHandler implements Handler {
     publishAlert(sortieNextAlert);
 
     // 3. 检查大破状态（仅在战斗节点前检查，使用上次战斗结算保存的大破信息）
-    if (isBattleEventId(currentCell.eventId)) {
+    if (isBattleEventId(currentCell.eventId, currentCell.eventKind)) {
       this.checkTaihaAndAlert();
     }
 
     // 4. 检查是否是战斗节点，创建战斗上下文
-    if (isBattleEventId(currentCell.eventId)) {
+    if (isBattleEventId(currentCell.eventId, currentCell.eventKind)) {
       context.pendingBattle = createBattleContext(currentCell, false, context.combinedType > 0);
       console.info('[sortie] battle context created');
     }

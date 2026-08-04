@@ -5,7 +5,7 @@ import { DumpPipeline, ParseResult, registerPipeline } from '../pipeline';
 
 export const mapinfoPipeline: DumpPipeline = {
   name: 'mapinfo',
-  match: (url) => url.includes('/api_get_member/mapinfo'),
+  match: (url) => url.includes('/api_get_member/mapinfo') || url.includes('/api_req_map/select_eventmap_rank'),
 
   parse: (dump: ApiDump): ParseResult | null => {
     const evts = parseMapInfo(dump);

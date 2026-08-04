@@ -162,7 +162,8 @@ export interface ApiSupportFrameRaw {
 
 /** ---------- Opening ASW / Shelling (hougeki) ---------- */
 export interface ApiHougekiRaw {
-  api_at_eflag: number[]; // 0 friend, 1 enemy
+  /** Newer packets: 0 friend, 1 enemy. Legacy night packets may omit it. */
+  api_at_eflag?: number[];
   api_at_list: number[];  // attacker index (0-based; combined can be 0..11)
   api_at_type?: number[]; // attack type codes
   api_sp_list?: number[]; // night/special attack type codes
@@ -268,7 +269,13 @@ export interface ApiNightBattleDataRaw extends ApiBasicBattleFrameRaw, Partial<A
 
 /** ---------- Destruction battle (embedded in api_req_map/next) ---------- */
 export interface ApiDestructionBattleRaw extends ApiBasicBattleFrameRaw, ApiSupportFrameRaw, ApiHougekiFrameRaw, ApiBattleMetaRaw {
-  api_air_base_attack?: ApiAirBaseAttackRaw[];
+  /**
+   * Unlike normal LBAS sorties, a base-defense battle returns one aerial
+   * combat object here instead of an array of attack waves.
+   */
+  api_air_base_attack?: ApiAirBaseAttackRaw | ApiAirBaseAttackRaw[];
+  /** 1=resources, 2=resources+squadrons, 3=squadrons, 4=no damage */
+  api_lost_kind?: number;
   api_kouku?: ApiKoukuRaw | null;
   api_raigeki?: ApiTorpedoRaw | null;
 }

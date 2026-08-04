@@ -503,36 +503,31 @@ class GameStateManager {
   /**
    * 更新任务。
    *
-   * questlist 在游戏内按分类/分页筛选时只返回局部列表，不能把响应当作全量任务覆盖。
-   * state=3 表示已完成但尚未领取奖励，仍应显示；未接取状态才从缓存移除。
+   * questlist 按 tab 返回局部列表，因此普通响应合并缓存；tab=0（全部）响应可全量覆盖。
+   * 缓存保留未接取/已完成任务，供 start/stop 接口即时切换状态；面板只展示 ACTIVE。
    */
-  updateQuests(quests: Quest[]): void {
+  updateQuests(quests: Quest[], replaceAll: boolean = false): void {
     const capturedAt = Date.now();
     const incoming = new Map<number, QuestSnapshot>();
-    const inactiveIds = new Set<number>();
     for (const quest of quests) {
       if (quest.questId <= 0) {
         continue;
       }
-
-      if (quest.state === QuestState.ACTIVE || quest.state === QuestState.COMPLETE) {
-        incoming.set(quest.questId, this.questToSnapshot(quest, capturedAt));
-      } else {
-        inactiveIds.add(quest.questId);
-      }
+      incoming.set(quest.questId, this.questToSnapshot(quest, capturedAt));
     }
 
-    if (incoming.size === 0 && inactiveIds.size === 0) {
+    if (replaceAll) {
+      this.state.quests = Array.from(incoming.values());
+      this.state.lastUpdatedAt = capturedAt;
+      this.notifyListeners('quests');
       return;
     }
+
+    if (incoming.size === 0) return;
 
     const merged: QuestSnapshot[] = [];
     const seen = new Set<number>();
     for (const existing of this.state.quests) {
-      if (inactiveIds.has(existing.questId)) {
-        continue;
-      }
-
       const next = incoming.get(existing.questId);
       if (next) {
         merged.push(next);
@@ -553,6 +548,20 @@ class GameStateManager {
 
     this.state.quests = merged;
 
+    this.state.lastUpdatedAt = capturedAt;
+    this.notifyListeners('quests');
+  }
+
+  /** 接取/停止接口只返回成功标记，在已有任务快照上即时更新状态。 */
+  setQuestState(questId: number, state: QuestState): void {
+    const capturedAt = Date.now();
+    let changed = false;
+    this.state.quests = this.state.quests.map((quest: QuestSnapshot): QuestSnapshot => {
+      if (quest.questId !== questId || quest.state === state) return quest;
+      changed = true;
+      return { ...quest, state, updatedAt: capturedAt, capturedAt };
+    });
+    if (!changed) return;
     this.state.lastUpdatedAt = capturedAt;
     this.notifyListeners('quests');
   }
@@ -2046,7 +2055,8 @@ export const patchDeckExpedition = (deckId: number, missionId: number, returnTim
   gameStateManager.patchDeckExpedition(deckId, missionId, returnTime);
 export const patchDeckShip = (deckId: number, shipIdx: number, shipUid: number) =>
   gameStateManager.patchDeckShip(deckId, shipIdx, shipUid);
-export const updateQuests = (quests: Quest[]) => gameStateManager.updateQuests(quests);
+export const updateQuests = (quests: Quest[], replaceAll?: boolean) => gameStateManager.updateQuests(quests, replaceAll);
+export const setQuestState = (questId: number, state: QuestState) => gameStateManager.setQuestState(questId, state);
 export const removeQuest = (questId: number) => gameStateManager.removeQuest(questId);
 export const updateShips = (ships: Ship[]) => gameStateManager.updateShips(ships);
 export const patchShipsSupply = (updates: ReadonlyArray<{ uid: number; fuel: number; ammo: number; onslot: number[] }>) =>

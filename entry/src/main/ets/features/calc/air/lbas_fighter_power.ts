@@ -60,10 +60,14 @@ export const LBAS_FIGHTER_POWER_TYPES: Set<SlotItemEquipType> = new Set([
   SlotItemEquipType.CarrierFighter,       // Carrier-based Fighter
   SlotItemEquipType.CarrierDiveBomber,    // Carrier-based Dive Bomber
   SlotItemEquipType.CarrierTorpedoBomber, // Carrier-based Torpedo Bomber
+  SlotItemEquipType.CarrierRecon,         // Carrier-based Recon
+  SlotItemEquipType.SeaplaneRecon,        // Seaplane Recon
   SlotItemEquipType.SeaplaneBomber,       // Seaplane Bomber
   SlotItemEquipType.SeaplaneFighter,      // Seaplane Fighter
   SlotItemEquipType.Interceptor,          // Land-based Interceptor
   SlotItemEquipType.LandAttacker,         // Land-based Attack Aircraft
+  SlotItemEquipType.HeavyBomber,          // Heavy Bomber
+  SlotItemEquipType.LargeFlyingBoat,      // Large Flying Boat
   SlotItemEquipType.JetFighter,           // Jet Fighter
   SlotItemEquipType.JetFighterBomber,     // Jet Fighter-Bomber
   SlotItemEquipType.JetAttacker,          // Jet Attacker
@@ -87,38 +91,33 @@ export const HEAVY_BOMBER_TYPES: Set<SlotItemEquipType> = new Set([
   SlotItemEquipType.HeavyBomber,          // Heavy Bomber
 ]);
 
-// ==================== Defense Recon Bonus ====================
+// ==================== Recon Bonus ====================
 
-/** Defense mode recon bonus multipliers (masterId -> multiplier) */
-export const LBAS_RECON_BONUS_MAP: Map<number, number> = new Map([
-  // Saiun series
-  [54, 1.30],   // Saiun
-  [316, 1.24], // Saiun (4th Recon Squad)
+/** Get the sortie fighter-power multiplier supplied by land-based reconnaissance. */
+export function getLbasSortieReconBonus(equipType: SlotItemEquipType, los: number): number {
+  if (equipType !== SlotItemEquipType.LandRecon) return 1.0;
+  if (los >= 9) return 1.18;
+  if (los >= 8) return 1.15;
+  return 1.0;
+}
 
-  // Type 2 Carrier Recon series
-  [61, 1.20],   // Type 2 Carrier Recon
-
-  // Prototype Keiun
-  [151, 1.24], // Prototype Keiun (Carrier Recon)
-
-  // Type 2 Land-based Recon series
-  [311, 1.18], // Type 2 Land-based Recon
-  [312, 1.24], // Type 2 Land-based Recon (Skilled)
-
-  // Seaplane Recon series
-  [25, 1.10],  // Type 0 Recon Seaplane
-  [59, 1.13],  // Type 0 Observation Seaplane
-  [163, 1.16], // Ro.43 Recon Seaplane
-  [118, 1.16], // Shiun
-
-  // Large Flying Boats
-  [138, 1.18], // Type 2 Flying Boat
-  [178, 1.15], // PBY-5A Catalina
-]);
-
-/** Get defense recon bonus multiplier */
-export function getLbasReconBonus(masterId: number): number {
-  return LBAS_RECON_BONUS_MAP.get(masterId) ?? 1.0;
+/** Get the air-defense fighter-power multiplier supplied by reconnaissance. */
+export function getLbasDefenseReconBonus(equipType: SlotItemEquipType, los: number): number {
+  if (equipType === SlotItemEquipType.CarrierRecon) {
+    return los >= 9 ? 1.30 : 1.20;
+  }
+  if (equipType === SlotItemEquipType.LandRecon) {
+    if (los >= 9) return 1.23;
+    if (los >= 8) return 1.18;
+    return 1.0;
+  }
+  if (equipType === SlotItemEquipType.SeaplaneRecon ||
+    equipType === SlotItemEquipType.LargeFlyingBoat) {
+    if (los >= 9) return 1.16;
+    if (los >= 8) return 1.13;
+    return 1.10;
+  }
+  return 1.0;
 }
 
 // ==================== Type Definitions ====================
@@ -153,6 +152,8 @@ export interface LbasSquadronFighterPower {
   interception: number;
   /** Anti-bomber value (for interceptors) */
   antiBomber: number;
+  /** Line of sight value (for reconnaissance multipliers) */
+  los: number;
   /** Improvement level */
   level: number;
   /** Proficiency (0-7) */
@@ -162,8 +163,16 @@ export interface LbasSquadronFighterPower {
 
   /** Sortie fighter power */
   sortieFighterPower: number;
+  /** Minimum sortie fighter power */
+  sortieFighterPowerMin: number;
+  /** Maximum sortie fighter power */
+  sortieFighterPowerMax: number;
   /** Defense fighter power (without recon bonus) */
   defenseFighterPower: number;
+  /** Minimum defense fighter power (without recon bonus) */
+  defenseFighterPowerMin: number;
+  /** Maximum defense fighter power (without recon bonus) */
+  defenseFighterPowerMax: number;
 }
 
 /** Fighter power info for one air corps */
@@ -183,10 +192,20 @@ export interface LbasAirCorpsFighterPower {
 
   /** Total sortie fighter power */
   totalSortieFighterPower: number;
+  /** Minimum total sortie fighter power */
+  totalSortieFighterPowerMin: number;
+  /** Maximum total sortie fighter power */
+  totalSortieFighterPowerMax: number;
   /** Total defense fighter power (with recon bonus) */
   totalDefenseFighterPower: number;
+  /** Minimum total defense fighter power (with recon bonus) */
+  totalDefenseFighterPowerMin: number;
+  /** Maximum total defense fighter power (with recon bonus) */
+  totalDefenseFighterPowerMax: number;
   /** Recon bonus multiplier */
   reconBonus: number;
+  /** Land-based reconnaissance multiplier used on sortie */
+  sortieReconBonus: number;
 }
 
 /** Fighter power info for all LBAS */
@@ -220,6 +239,16 @@ export function isHeavyBomber(equipType: SlotItemEquipType): boolean {
  */
 export function isInterceptor(equipType: SlotItemEquipType): boolean {
   return INTERCEPTOR_TYPES.has(equipType);
+}
+
+/** api_houk is interception only for land-based fighter/interceptor equipment. */
+function getInterception(master: SlotItemMaster): number {
+  return isInterceptor(master.type.equipType) ? master.stats.evasion : 0;
+}
+
+/** api_houm is anti-bomber only for land-based fighter/interceptor equipment. */
+function getAntiBomber(master: SlotItemMaster): number {
+  return isInterceptor(master.type.equipType) ? master.stats.hit : 0;
 }
 
 /**
@@ -262,7 +291,7 @@ export function calcLbasSortieFighterPower(
   }
 
   const baseAA = master.stats.aa;
-  const interception = master.stats.evasion; // Interception stat
+  const interception = getInterception(master);
 
   // Improvement bonus
   const improvementBonus = calcImprovementBonus(equipType, master.id, level);
@@ -276,6 +305,29 @@ export function calcLbasSortieFighterPower(
   const profBonus = aceBonus + internalBonus;
 
   return Math.floor(effectiveAA * Math.sqrt(slotSize) + profBonus);
+}
+
+/** Calculate the possible LBAS sortie fighter-power range for a displayed proficiency level. */
+export function calcLbasSortieFighterPowerRange(
+  master: SlotItemMaster,
+  slotSize: number,
+  level: number = 0,
+  proficiency: number = 7,
+): { min: number; max: number } {
+  const equipType = master.type.equipType;
+  if (!isLbasAirCombatEquip(equipType) || slotSize <= 0) {
+    return { min: 0, max: 0 };
+  }
+
+  const effectiveAA = master.stats.aa +
+    calcImprovementBonus(equipType, master.id, level) +
+    getInterception(master) * 1.5;
+  const aceBonus = getAceBonus(equipType, proficiency);
+  const base = effectiveAA * Math.sqrt(slotSize) + aceBonus;
+  return {
+    min: Math.floor(base + calcInternalProficiencyBonus(proficiency, true)),
+    max: Math.floor(base + calcInternalProficiencyBonus(proficiency, false)),
+  };
 }
 
 /**
@@ -296,8 +348,8 @@ export function calcLbasDefenseFighterPower(
   }
 
   const baseAA = master.stats.aa;
-  const interception = master.stats.evasion; // Interception stat
-  const antiBomber = master.stats.hit;       // Anti-bomber stat
+  const interception = getInterception(master);
+  const antiBomber = getAntiBomber(master);
 
   // Improvement bonus
   const improvementBonus = calcImprovementBonus(equipType, master.id, level);
@@ -311,6 +363,30 @@ export function calcLbasDefenseFighterPower(
   const profBonus = aceBonus + internalBonus;
 
   return Math.floor(effectiveAA * Math.sqrt(slotSize) + profBonus);
+}
+
+/** Calculate the possible LBAS defense fighter-power range for a displayed proficiency level. */
+export function calcLbasDefenseFighterPowerRange(
+  master: SlotItemMaster,
+  slotSize: number,
+  level: number = 0,
+  proficiency: number = 7,
+): { min: number; max: number } {
+  const equipType = master.type.equipType;
+  if (!isLbasAirCombatEquip(equipType) || slotSize <= 0) {
+    return { min: 0, max: 0 };
+  }
+
+  const effectiveAA = master.stats.aa +
+    calcImprovementBonus(equipType, master.id, level) +
+    getInterception(master) +
+    getAntiBomber(master) * 2;
+  const aceBonus = getAceBonus(equipType, proficiency);
+  const base = effectiveAA * Math.sqrt(slotSize) + aceBonus;
+  return {
+    min: Math.floor(base + calcInternalProficiencyBonus(proficiency, true)),
+    max: Math.floor(base + calcInternalProficiencyBonus(proficiency, false)),
+  };
 }
 
 /**
@@ -327,6 +403,8 @@ export function calcLbasSquadronFighterPower(
 
   const sortieFP = calcLbasSortieFighterPower(master, slotSize, level, proficiency);
   const defenseFP = calcLbasDefenseFighterPower(master, slotSize, level, proficiency);
+  const sortieRange = calcLbasSortieFighterPowerRange(master, slotSize, level, proficiency);
+  const defenseRange = calcLbasDefenseFighterPowerRange(master, slotSize, level, proficiency);
 
   return {
     masterId: master.id,
@@ -334,13 +412,18 @@ export function calcLbasSquadronFighterPower(
     equipType,
     slotSize,
     baseAA: master.stats.aa,
-    interception: master.stats.evasion,
-    antiBomber: master.stats.hit,
+    interception: getInterception(master),
+    antiBomber: getAntiBomber(master),
+    los: master.stats.los,
     level,
     proficiency,
     distance: master.distance ?? 0,
     sortieFighterPower: sortieFP,
+    sortieFighterPowerMin: sortieRange.min,
+    sortieFighterPowerMax: sortieRange.max,
     defenseFighterPower: defenseFP,
+    defenseFighterPowerMin: defenseRange.min,
+    defenseFighterPowerMax: defenseRange.max,
   };
 }
 
@@ -411,28 +494,46 @@ export function calcLbasAirCorpsFighterPower(
     }))
   );
 
-  // Find max recon bonus
-  let maxReconBonus = 1.0;
+  // Find the strongest applicable reconnaissance multiplier.
+  let maxSortieReconBonus = 1.0;
+  let maxDefenseReconBonus = 1.0;
   for (const squadron of squadrons) {
-    if (isLbasReconType(squadron.equipType)) {
-      const bonus = getLbasReconBonus(squadron.masterId);
-      if (bonus > maxReconBonus) {
-        maxReconBonus = bonus;
+    if (squadron.slotSize > 0 && isLbasReconType(squadron.equipType)) {
+      const sortieBonus = getLbasSortieReconBonus(squadron.equipType, squadron.los);
+      const defenseBonus = getLbasDefenseReconBonus(squadron.equipType, squadron.los);
+      if (sortieBonus > maxSortieReconBonus) {
+        maxSortieReconBonus = sortieBonus;
+      }
+      if (defenseBonus > maxDefenseReconBonus) {
+        maxDefenseReconBonus = defenseBonus;
       }
     }
   }
 
   // Calculate total fighter power
   let totalSortie = 0;
+  let totalSortieMin = 0;
+  let totalSortieMax = 0;
   let totalDefense = 0;
+  let totalDefenseMin = 0;
+  let totalDefenseMax = 0;
 
   for (const squadron of squadrons) {
     totalSortie += squadron.sortieFighterPower;
+    totalSortieMin += squadron.sortieFighterPowerMin;
+    totalSortieMax += squadron.sortieFighterPowerMax;
     totalDefense += squadron.defenseFighterPower;
+    totalDefenseMin += squadron.defenseFighterPowerMin;
+    totalDefenseMax += squadron.defenseFighterPowerMax;
   }
 
-  // Apply recon bonus to defense
-  totalDefense = Math.floor(totalDefense * maxReconBonus);
+  // Apply reconnaissance multipliers after summing and flooring each squadron.
+  totalSortie = Math.floor(totalSortie * maxSortieReconBonus);
+  totalSortieMin = Math.floor(totalSortieMin * maxSortieReconBonus);
+  totalSortieMax = Math.floor(totalSortieMax * maxSortieReconBonus);
+  totalDefense = Math.floor(totalDefense * maxDefenseReconBonus);
+  totalDefenseMin = Math.floor(totalDefenseMin * maxDefenseReconBonus);
+  totalDefenseMax = Math.floor(totalDefenseMax * maxDefenseReconBonus);
 
   return {
     airCorpsId,
@@ -442,8 +543,13 @@ export function calcLbasAirCorpsFighterPower(
     distance: distanceInfo.baseDistance,
     extendedDistance: distanceInfo.extendedDistance,
     totalSortieFighterPower: totalSortie,
+    totalSortieFighterPowerMin: totalSortieMin,
+    totalSortieFighterPowerMax: totalSortieMax,
     totalDefenseFighterPower: totalDefense,
-    reconBonus: maxReconBonus,
+    totalDefenseFighterPowerMin: totalDefenseMin,
+    totalDefenseFighterPowerMax: totalDefenseMax,
+    reconBonus: maxDefenseReconBonus,
+    sortieReconBonus: maxSortieReconBonus,
   };
 }
 
@@ -511,11 +617,11 @@ export const COMMON_RECON_BONUS = {
   /** Type 2 Land-based Recon */
   TYPE_2_LAND_RECON: { masterId: 311, bonus: 1.18 },
   /** Type 2 Land-based Recon (Skilled) */
-  TYPE_2_LAND_RECON_SKILLED: { masterId: 312, bonus: 1.24 },
+  TYPE_2_LAND_RECON_SKILLED: { masterId: 312, bonus: 1.23 },
   /** Prototype Keiun (Carrier Recon) */
-  PROTOTYPE_KEIUN: { masterId: 151, bonus: 1.24 },
+  PROTOTYPE_KEIUN: { masterId: 151, bonus: 1.30 },
   /** Type 2 Flying Boat */
-  TYPE_2_FLYING_BOAT: { masterId: 138, bonus: 1.18 },
+  TYPE_2_FLYING_BOAT: { masterId: 138, bonus: 1.16 },
   /** PBY-5A Catalina */
-  PBY_CATALINA: { masterId: 178, bonus: 1.15 },
+  PBY_CATALINA: { masterId: 178, bonus: 1.16 },
 };

@@ -52,6 +52,14 @@ export function finalAttackPower(basePower: number, cap: number, modifier: numbe
   return Math.floor(applySoftCap(basePower, cap) * modifier);
 }
 
+/**
+ * Final attack power for attack-type modifiers that are applied before the
+ * soft cap (for example night battle cut-ins and double attacks).
+ */
+export function finalPreCapModifierAttackPower(basePower: number, cap: number, modifier: number): number {
+  return Math.floor(applySoftCap(basePower * modifier, cap));
+}
+
 /** Critical (爆击) power for a final per-hit power. */
 export function criticalPower(finalPower: number): number {
   return Math.floor(finalPower * CRITICAL_MODIFIER);
@@ -109,12 +117,50 @@ export function antiSubmarineBasePower(
     + (aircraftAttack ? 8 : 13);
 }
 
-/**
- * Night battle basic power for surface ships (and the panel's estimate for
- * night-capable carriers; the exact carrier night formula needs per-plane
- * night stats which are not tracked).
- * @param improvement 改修強化値 (nightImprovementBonus)
- */
+/** Night battle basic power for surface ships. */
 export function nightBasePower(firepower: number, torpedo: number, improvement: number = 0): number {
   return firepower + torpedo + improvement;
+}
+
+/** Per-slot input for the carrier night air attack formula. */
+export interface CarrierNightPlanePowerInput {
+  firepower: number;
+  torpedo: number;
+  bomb: number;
+  asw: number;
+  /** Equipment improvement level (0..10), not aircraft proficiency. */
+  level: number;
+  /** Current aircraft count in the slot. */
+  onslot: number;
+  /** True for proper night fighters/attackers/dive bombers (A=3, B=0.45). */
+  fullNightModifier: boolean;
+}
+
+/**
+ * Carrier night air attack basic power.
+ *
+ * Only the carrier's intrinsic firepower and embarked night-capable planes
+ * participate. Proper night planes use A=3/B=0.45; Swordfish variants, Iwai
+ * fighter-bomber and the photoelectric-fuze Suisei use A=0/B=0.30.
+ */
+export function carrierNightBasePower(
+  shipBaseFirepower: number,
+  planes: ReadonlyArray<CarrierNightPlanePowerInput>,
+  contactBonus: number = 0,
+): number {
+  let power = shipBaseFirepower + contactBonus;
+  for (const plane of planes) {
+    if (plane.onslot <= 0) continue;
+    const stats = plane.firepower + plane.torpedo + plane.bomb + plane.asw;
+    const slotRoot = Math.sqrt(plane.onslot);
+    const slotModifier = plane.fullNightModifier
+      ? 3 * plane.onslot + 0.45 * stats * slotRoot
+      : 0.3 * stats * slotRoot;
+    power += plane.firepower
+      + plane.torpedo
+      + plane.bomb
+      + slotModifier
+      + Math.sqrt(Math.max(0, plane.level));
+  }
+  return power;
 }

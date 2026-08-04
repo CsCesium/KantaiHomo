@@ -22,7 +22,16 @@ import {
   getDeck,
   getShip,
   getGameState,
+  getEscapedShipUids,
 } from "../../state";
+
+function getCurrentRetreatedShipUids(): Set<number> {
+  const retreatedShipUids = new Set<number>();
+  for (const uid of getEscapedShipUids()) {
+    retreatedShipUids.add(uid);
+  }
+  return retreatedShipUids;
+}
 
 /** Ship info needed for LoS calculation */
 interface ShipLoSData {
@@ -113,7 +122,7 @@ async function getHQLevel(): Promise<number> {
  */
 export async function getFleetLoS(
   deckId: number,
-  retreatedShipUids: Set<number> = new Set(),
+  retreatedShipUids: Set<number> = getCurrentRetreatedShipUids(),
 ): Promise<FleetLoSResult | null> {
   const deck = getDeck(deckId);
   if (!deck) return null;
@@ -152,7 +161,7 @@ export async function getFleetLoS(
  * Calculate LoS for all 4 fleets
  */
 export async function getAllFleetsLoS(
-  retreatedShipUids: Set<number> = new Set(),
+  retreatedShipUids: Set<number> = getCurrentRetreatedShipUids(),
 ): Promise<FleetLoSResult[]> {
   const results: FleetLoSResult[] = [];
 
@@ -182,7 +191,7 @@ export async function calcSingleFleetLoS(
   branchCoefficient: number = DEFAULT_BRANCH_COEFFICIENT,
   hqLevel?: number,
   hqPenaltyCoefficient: HQLevelCoefficient = HQLevelCoefficient.Standard,
-  retreatedShipUids: Set<number> = new Set(),
+  retreatedShipUids: Set<number> = getCurrentRetreatedShipUids(),
 ): Promise<LoSCalculationResult | null> {
   const fleetLoS = await getFleetLoS(deckId, retreatedShipUids);
   if (!fleetLoS) return null;
@@ -199,7 +208,7 @@ export async function calcCombinedFleetLoS(
   branchCoefficient: number = DEFAULT_BRANCH_COEFFICIENT,
   hqLevel?: number,
   hqPenaltyCoefficient: HQLevelCoefficient = HQLevelCoefficient.Standard,
-  retreatedShipUids: Set<number> = new Set(),
+  retreatedShipUids: Set<number> = getCurrentRetreatedShipUids(),
 ): Promise<LoSCalculationResult | null> {
   const mainFleet = await getFleetLoS(1, retreatedShipUids);
   const escortFleet = await getFleetLoS(2, retreatedShipUids);
@@ -219,7 +228,7 @@ export async function calcFleetLoSForNode(
   mapId: string,
   node: string,
   hqLevel?: number,
-  retreatedShipUids: Set<number> = new Set(),
+  retreatedShipUids: Set<number> = getCurrentRetreatedShipUids(),
   isCombinedFleet: boolean = false,
 ): Promise<LoSCalculationResult | null> {
   const level = hqLevel ?? await getHQLevel();
@@ -245,7 +254,7 @@ export async function calcFleetLoSMultiCoeff(
   coefficients: number[] = [1, 2, 3, 4],
   hqLevel?: number,
   hqPenaltyCoefficient: HQLevelCoefficient = HQLevelCoefficient.Standard,
-  retreatedShipUids: Set<number> = new Set(),
+  retreatedShipUids: Set<number> = getCurrentRetreatedShipUids(),
 ): Promise<Map<number, number> | null> {
   const fleetLoS = await getFleetLoS(deckId, retreatedShipUids);
   if (!fleetLoS) return null;
@@ -320,7 +329,7 @@ export async function simulateFleetLoS(
   modifications: LoSSimulationInput[],
   branchCoefficient: number = DEFAULT_BRANCH_COEFFICIENT,
   hqLevel?: number,
-  retreatedShipUids: Set<number> = new Set(),
+  retreatedShipUids: Set<number> = getCurrentRetreatedShipUids(),
 ): Promise<LoSCalculationResult | null> {
   const deck = getDeck(deckId);
   if (!deck) return null;
@@ -395,7 +404,7 @@ export interface LoSDisplayResult {
 export async function getLoSDisplayResult(
   deckId: number,
   hqLevel?: number,
-  retreatedShipUids: Set<number> = new Set(),
+  retreatedShipUids: Set<number> = getCurrentRetreatedShipUids(),
 ): Promise<LoSDisplayResult | null> {
   const fleetLoS = await getFleetLoS(deckId, retreatedShipUids);
   if (!fleetLoS) return null;

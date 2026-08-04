@@ -23,7 +23,7 @@ import { ApiDump } from "../../../infra/web/types";
 import { parseSvdata, parseFormBody, extractApiPath, matchAnyPattern } from "../../utils/common";
 import { ParserCtx, mkEvt } from "./common";
 import { buildFallbackPrediction } from "../../simulator/snapshot_to_domain";
-import { getDeck, getDeckShips, getSlotItemMasterId, getLbas } from "../../state/game_state";
+import { getDeck, getDeckShips, getSlotItemMasterId, getLbas, getCombinedFleetType } from "../../state/game_state";
 import type { ShipState } from "../../state/type";
 
 const PATTERNS = {
@@ -117,6 +117,9 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
 
   const params = parseFormBody(dump.requestBody);
   const deckId = params.getInt('api_deck_id', 1);
+  // A formed combined fleet always sorties from deck 1. Decks 3/4 can still
+  // make normal sorties while a combined fleet exists at port.
+  const combinedType = deckId === 1 ? getCombinedFleetType() : 0;
 
   const apiData = raw.api_data ?? raw;
   const normalized = normalizeSortieCell(apiData);
@@ -130,6 +133,9 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
     ships: [],
     capturedAt: ctx.ts,
   };
+  const fleetSnapshotEscort = combinedType > 0
+    ? (captureFleetSnapshotFromGameState(2, ctx.ts) ?? undefined)
+    : undefined;
 
   const event: SortieStartEvent = mkEvt(
     ctx,
@@ -141,8 +147,9 @@ function parseMapStart(dump: ApiDump, ctx: ParserCtx): AnySortieEvt[] {
       cellId: normalized.cellId,
       cell: normalized,
       deckId,
-      combinedType: 0, // 由 Handler 从内存状态获取
+      combinedType,
       fleetSnapshot,
+      fleetSnapshotEscort,
     }
   );
 
@@ -175,7 +182,7 @@ function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnyBattleModuleEvt[] {
       // - friend 一侧是基地（不是舰娘），用 getLbas() 的 name 填充
       // - rank 用空袭专用公式（无伤为 S，按损耗率分级）
       // - 不喂模拟器：模拟器 mainFleet 是出击舰队的舰娘，与基地空袭语义不符
-      const prediction = buildAirRaidPrediction(destructionSegment);
+      const prediction = buildAirRaidPrediction(destructionSegment, cell.mapAreaId);
 
       const airRaidEvent: BattleDayEvent = mkEvt(
         ctx,
@@ -203,8 +210,11 @@ function parseMapNext(dump: ApiDump, ctx: ParserCtx): AnyBattleModuleEvt[] {
  * - enemyMain 表示来袭航空编队，名称由 UI 端按 master id 解析
  * - rank 按基地总损耗率分级，与 simulator/core.ts:simulateAirRaidBattleRank 一致
  */
-function buildAirRaidPrediction(segment: BattleSegment): BattlePrediction {
-  const bases = getLbas();
+function buildAirRaidPrediction(segment: BattleSegment, mapAreaId: number): BattlePrediction {
+  const allBases = getLbas();
+  const areaBases = allBases.filter(base => base.areaId === mapAreaId);
+  // Prefer the sortie area's bases; fall back only for older snapshots without areaId.
+  const bases = (areaBases.length > 0 ? areaBases : allBases).slice().sort((a, b) => a.baseId - b.baseId);
 
   function buildPred(
     side: 'friend' | 'enemy',
@@ -240,7 +250,7 @@ function buildAirRaidPrediction(segment: BattleSegment): BattlePrediction {
   }
 
   const friendMain = buildPred('friend', (i) => {
-    const base = bases[i];
+    const base = bases.find(item => item.baseId === i + 1) ?? bases[i];
     return { uid: base?.baseId ?? (i + 1), name: base?.name || `第${i + 1}基地` };
   });
   const enemyMain = buildPred('enemy', (_i) => ({ uid: 0, name: '' }));

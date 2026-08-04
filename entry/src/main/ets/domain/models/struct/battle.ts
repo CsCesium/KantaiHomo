@@ -144,19 +144,21 @@ export interface BattleMeta {
 
   /** 制空状態 (1=確保, 2=優勢, 3=均衡, 4=劣勢, 5=喪失) */
   airState?: number;
-  /** 友方残機数 (after air battle) */
+  /** 友方参战机残机数（S1 总数扣除 S1/S2 损失；S2 count 本身只含攻击机） */
   friendPlaneNow?: number;
-  /** 友方初期機数 (before air battle) */
+  /** 友方参战机初期数（来自首个可用阶段） */
   friendPlaneMax?: number;
-  /** 敌方残機数 (after air battle stage1) */
+  /** 敌方参战机残机数（S1 总数扣除 S1/S2 损失） */
   enemyPlaneNow?: number;
-  /** 敌方初期機数 (before air battle) */
+  /** 敌方参战机初期数（来自首个可用阶段） */
   enemyPlaneMax?: number;
 
   /** 主舰队航空战情报（api_kouku / api_kouku2 各一项，含 S1/S2、触接、对空CI） */
   aerialPhases?: AerialCombatInfo[];
   /** 陆航攻击各波次情报 (api_air_base_attack) */
   lbasWaves?: LbasWaveInfo[];
+  /** 基地空袭受损种类 (api_lost_kind: 1=资源, 2=资源+航空队, 3=航空队, 4=无损) */
+  airRaidDamageKind?: number;
 
   /** optional: for later advanced UI */
   balloonCell?: number;
@@ -189,12 +191,30 @@ export interface MergeBattleOptions {
 
 export function mergeBattleSegments(a: BattleSegment, b: BattleSegment, opt: MergeBattleOptions = {}): BattleSegment {
   const keepStart = opt.keepStartFromFirst ?? true;
+
+  const mergeFleet = (first: BattleHpFleet | undefined, second: BattleHpFleet | undefined): BattleHpFleet | undefined => {
+    if (second && (second.now.length > 0 || second.max.length > 0)) return second;
+    return first;
+  };
+  const mergedEnd: BattleHpSnapshot = {
+    friend: {
+      main: mergeFleet(a.end.friend.main, b.end.friend.main) ?? { now: [], max: [] },
+      escort: mergeFleet(a.end.friend.escort, b.end.friend.escort),
+    },
+    enemy: {
+      main: mergeFleet(a.end.enemy.main, b.end.enemy.main) ?? { now: [], max: [] },
+      escort: mergeFleet(a.end.enemy.escort, b.end.enemy.escort),
+    },
+  };
   const merged: BattleSegment = {
     meta: {
       ...a.meta,
       apiPath: `${a.meta.apiPath}+${b.meta.apiPath}`,
       deckId: a.meta.deckId ?? b.meta.deckId,
       formation: a.meta.formation ?? b.meta.formation,
+      airState: a.meta.airState ?? b.meta.airState,
+      friendPlaneNow: a.meta.friendPlaneNow ?? b.meta.friendPlaneNow,
+      friendPlaneMax: a.meta.friendPlaneMax ?? b.meta.friendPlaneMax,
       enemyPlaneNow: a.meta.enemyPlaneNow ?? b.meta.enemyPlaneNow,
       enemyPlaneMax: a.meta.enemyPlaneMax ?? b.meta.enemyPlaneMax,
       aerialPhases: a.meta.aerialPhases ?? b.meta.aerialPhases,
@@ -202,7 +222,9 @@ export function mergeBattleSegments(a: BattleSegment, b: BattleSegment, opt: Mer
     },
     start: keepStart ? a.start : b.start,
     phases: [...a.phases, ...b.phases].map((p, i) => ({ ...p, seq: i + 1 })),
-    end: b.end,
+    // Night packets frequently contain only the active deck. Keep the other
+    // fleets at their day-battle end HP instead of dropping or relabelling them.
+    end: mergedEnd,
     enemyMain:   b.enemyMain   ?? a.enemyMain,
     enemyEscort: b.enemyEscort ?? a.enemyEscort,
     createdAt: Math.min(a.createdAt, b.createdAt),

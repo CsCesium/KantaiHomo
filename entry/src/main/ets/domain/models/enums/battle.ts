@@ -164,18 +164,24 @@ export enum NightAttackType {
   CUTIN_MAIN_SUB = 4,
   /** 主砲カットイン (主雷) */
   CUTIN_MAIN_TORP = 5,
-  /** 空母夜間航空攻撃 */
+  /** 空母夜間航空カットイン */
   CARRIER_NIGHT = 6,
-  /** 夜間触接 + 空母夜間航空攻撃 */
-  CARRIER_NIGHT_CONTACT = 7,
   /** 駆逐カットイン (主魚電) */
-  CUTIN_DD_MAIN_TORP_RADAR = 8,
+  CUTIN_DD_MAIN_TORP_RADAR = 7,
   /** 駆逐カットイン (魚見電) */
-  CUTIN_DD_TORP_LOOKOUT_RADAR = 9,
-  /** 潜水艦カットイン (後期雷) */
-  CUTIN_SUB_LATE_TORP = 10,
-  /** 潜水艦カットイン (後期雷雷) */
-  CUTIN_SUB_LATE_TORP_2 = 11,
+  CUTIN_DD_TORP_LOOKOUT_RADAR = 8,
+  /** 駆逐カットイン (魚水魚) */
+  CUTIN_DD_TORP_TORP_LOOKOUT = 9,
+  /** 駆逐カットイン (魚水ド) */
+  CUTIN_DD_TORP_DRUM_LOOKOUT = 10,
+  /** 駆逐カットイン (主魚電・複数ヒット) */
+  CUTIN_DD_MAIN_TORP_RADAR_MULTI_HIT = 11,
+  /** 駆逐カットイン (魚見電・複数ヒット) */
+  CUTIN_DD_TORP_LOOKOUT_RADAR_MULTI_HIT = 12,
+  /** 駆逐カットイン (魚水魚・複数ヒット) */
+  CUTIN_DD_TORP_TORP_LOOKOUT_MULTI_HIT = 13,
+  /** 駆逐カットイン (魚水ド・複数ヒット) */
+  CUTIN_DD_TORP_DRUM_LOOKOUT_MULTI_HIT = 14,
 
   /** Nelson Touch */
   SPECIAL_NELSON = 100,

@@ -201,13 +201,19 @@ export default struct LbasPanel {
   }
 
   private sortiePowerText(base: LbasBase): string {
-    const power = this.calcBase(base).totalSortieFighterPower;
-    return power > 0 ? `${power}` : '--';
+    const calc = this.calcBase(base);
+    const min = calc.totalSortieFighterPowerMin;
+    const max = calc.totalSortieFighterPowerMax;
+    if (max <= 0) return '--';
+    return min === max ? `${min}` : `${min}~${max}`;
   }
 
   private defensePowerText(base: LbasBase): string {
-    const power = this.calcBase(base).totalDefenseFighterPower;
-    return power > 0 ? `${power}` : '--';
+    const calc = this.calcBase(base);
+    const min = calc.totalDefenseFighterPowerMin;
+    const max = calc.totalDefenseFighterPowerMax;
+    if (max <= 0) return '--';
+    return min === max ? `${min}` : `${min}~${max}`;
   }
 
   private squadronSlotWidth(base: LbasBase): number {

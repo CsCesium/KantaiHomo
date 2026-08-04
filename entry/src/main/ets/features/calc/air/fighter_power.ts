@@ -19,6 +19,7 @@ export const FIGHTER_POWER_EQUIP_TYPES: Set<SlotItemEquipType> = new Set([
   SlotItemEquipType.SeaplaneFighter,      // Seaplane Fighter
   SlotItemEquipType.Interceptor,          // Land-based Interceptor
   SlotItemEquipType.LandAttacker,         // Land-based Attack Aircraft
+  SlotItemEquipType.HeavyBomber,          // Heavy Bomber
   SlotItemEquipType.JetFighter,           // Jet Fighter
   SlotItemEquipType.JetFighterBomber,     // Jet Fighter-Bomber
   SlotItemEquipType.JetAttacker,          // Jet Attacker
@@ -41,17 +42,25 @@ export const ATTACKER_BOMBER_TYPES: Set<SlotItemEquipType> = new Set([
   SlotItemEquipType.CarrierDiveBomber,    // Carrier-based Dive Bomber
   SlotItemEquipType.CarrierTorpedoBomber, // Carrier-based Torpedo Bomber
   SlotItemEquipType.LandAttacker,         // Land-based Attack Aircraft
+  SlotItemEquipType.HeavyBomber,          // Heavy Bomber
   SlotItemEquipType.JetFighterBomber,     // Jet Fighter-Bomber
   SlotItemEquipType.JetFighter,           // Jet Fighter
   SlotItemEquipType.JetAttacker,          // Jet Attacker
 ]);
 
-/** Fighter-Bomber types (Improvement coefficient 0.25) - identified by masterId */
+/** Fighter-Bomber equipment whose improvement contributes to fighter power. */
 export const BAKUSEN_MASTER_IDS: Set<number> = new Set([
   60,   // Type 0 Fighter Model 62 (Fighter-bomber)
   154,  // Type 0 Fighter Model 62 (Fighter-bomber / Iwai Squadron)
   219,  // Type 0 Fighter Model 63 (Fighter-bomber)
   447,  // Type 0 Fighter Model 64 (Compound)
+  487,  // Type 0 Fighter Model 64 (Skilled Fighter-bomber)
+]);
+
+/** Equipment-specific linear improvement coefficients that override type rules. */
+export const SPECIAL_IMPROVEMENT_COEFFICIENTS: Map<number, number> = new Map([
+  [486, 0.3], // Type 0 Fighter Model 64 (Air Superiority Fighter Specification)
+  [487, 0.3], // Type 0 Fighter Model 64 (Skilled Fighter-bomber)
 ]);
 
 // ==================== Proficiency Constants ====================
@@ -64,7 +73,7 @@ export const PROFICIENCY_INTERNAL_MIN: number[] = [
   40,   // level 3
   55,   // level 4
   70,   // level 5
-  80,   // level 6
+  85,   // level 6
   100,  // level 7 (MAX)
 ];
 
@@ -75,7 +84,7 @@ export const PROFICIENCY_INTERNAL_MAX: number[] = [
   39,   // level 2
   54,   // level 3
   69,   // level 4
-  79,   // level 5
+  84,   // level 5
   99,   // level 6
   120,  // level 7 (MAX)
 ];
@@ -255,8 +264,10 @@ export function isBakusen(masterId: number): boolean {
 /**
  * Calculate improvement bonus
  *
- * Fighter/Seaplane Fighter: 0.2 * sqrt(level)
- * Fighter-Bomber: 0.25 * sqrt(level)
+ * Fighter/Seaplane Fighter/Interceptor: 0.2 * level
+ * Fighter-Bomber: 0.25 * level
+ * Special Model 64 aircraft: 0.3 * level
+ * Land Attacker/Heavy Bomber: 0.5 * sqrt(level)
  * Others: 0
  */
 export function calcImprovementBonus(
@@ -266,16 +277,25 @@ export function calcImprovementBonus(
 ): number {
   if (level <= 0) return 0;
 
-  const sqrtLevel = Math.sqrt(level);
+  const specialCoefficient = SPECIAL_IMPROVEMENT_COEFFICIENTS.get(masterId);
+  if (specialCoefficient !== undefined) {
+    return specialCoefficient * level;
+  }
 
-  // Fighter/Seaplane Fighter
+  // Fighter/Seaplane Fighter/Interceptor
   if (isFighterType(equipType)) {
-    return 0.2 * sqrtLevel;
+    return 0.2 * level;
   }
 
   // Fighter-Bomber
   if (isBakusen(masterId)) {
-    return 0.25 * sqrtLevel;
+    return 0.25 * level;
+  }
+
+  // Land Attacker/Heavy Bomber
+  if (equipType === SlotItemEquipType.LandAttacker ||
+    equipType === SlotItemEquipType.HeavyBomber) {
+    return 0.5 * Math.sqrt(level);
   }
 
   return 0;
@@ -427,8 +447,8 @@ export function calcFighterPowerSimple(
  *
  * Air Supremacy: friendly >= enemy * 3
  * Air Superiority: friendly >= enemy * 1.5
- * Air Parity: friendly > enemy * 2/3
- * Air Denial: friendly > enemy * 1/3
+ * Air Parity: friendly >= enemy * 2/3
+ * Air Denial: friendly >= enemy * 1/3
  * Air Incapability: otherwise
  */
 export function determineAirState(friendFP: number, enemyFP: number): AirState {
@@ -440,15 +460,15 @@ export function determineAirState(friendFP: number, enemyFP: number): AirState {
     return AirState.Supremacy;
   }
 
-  if (friendFP >= enemyFP * 1.5) {
+  if (friendFP * 2 >= enemyFP * 3) {
     return AirState.Superiority;
   }
 
-  if (friendFP * 3 > enemyFP * 2) {  // friendFP > enemyFP * 2/3
+  if (friendFP * 3 >= enemyFP * 2) {
     return AirState.Parity;
   }
 
-  if (friendFP * 3 > enemyFP) {  // friendFP > enemyFP * 1/3
+  if (friendFP * 3 >= enemyFP) {
     return AirState.Denial;
   }
 
@@ -464,11 +484,12 @@ export function calcAirStateThresholds(enemyFP: number): {
   parity: number;
   denial: number;
 } {
+  const enemy = Math.max(0, enemyFP);
   return {
-    supremacy: Math.ceil(enemyFP * 3),      // Air Supremacy
-    superiority: Math.ceil(enemyFP * 1.5),  // Air Superiority
-    parity: Math.ceil(enemyFP * 2 / 3) + 1, // Air Parity (> 2/3)
-    denial: Math.ceil(enemyFP / 3) + 1,     // Air Denial (> 1/3)
+    supremacy: enemy * 3,
+    superiority: Math.ceil(enemy * 3 / 2),
+    parity: Math.ceil(enemy * 2 / 3),
+    denial: Math.ceil(enemy / 3),
   };
 }
 

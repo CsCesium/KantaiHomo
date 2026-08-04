@@ -421,6 +421,8 @@ export interface BattleStatusSnapshot {
   isPractice: boolean;
   /** 是否基地空袭（friend/enemy 双方都是路基/航空编队，使用混乱/损害/损壊/破壊术语） */
   isAirRaid: boolean;
+  /** 基地空袭受损种类 (1=资源, 2=资源+航空队, 3=航空队, 4=无损) */
+  airRaidDamageKind?: number;
   /** 联合舰队类型 (0=非联合) */
   combinedType: number;
 
@@ -443,6 +445,8 @@ export interface BattleStatusSnapshot {
   enemyMain: EnemyBattleStatus;
   /** 敌护卫舰队 */
   enemyEscort?: EnemyBattleStatus;
+  /** 敌联合舰队入夜时预计接战对象 */
+  enemyNightFleet?: 'main' | 'escort';
 
   // 预测结果
   /** 预测等级 S/A/B/C/D/E */
@@ -457,13 +461,13 @@ export interface BattleStatusSnapshot {
   // 航空状态
   /** 制空状態 (1=確保, 2=優勢, 3=均衡, 4=劣勢, 5=喪失) */
   airState?: number;
-  /** 友方残機数 */
+  /** 友方参战机残机数（S1 总数扣除 S1/S2 损失） */
   friendPlaneNow?: number;
-  /** 友方初期機数 */
+  /** 友方参战机初期数（航空战首个阶段） */
   friendPlaneMax?: number;
-  /** 敌方残機数 */
+  /** 敌方参战机残机数（S1 总数扣除 S1/S2 损失） */
   enemyPlaneNow?: number;
-  /** 敌方初期機数 */
+  /** 敌方参战机初期数（航空战首个阶段） */
   enemyPlaneMax?: number;
   /** 対空CI発動 */
   aaciTriggered?: boolean;

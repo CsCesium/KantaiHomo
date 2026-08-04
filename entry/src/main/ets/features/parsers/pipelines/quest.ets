@@ -4,7 +4,10 @@ import { DumpPipeline, ParseResult, registerPipeline } from '../pipeline'
 
 export const questPipeline: DumpPipeline = {
   name: 'quest',
-  match: (url) => url.includes('/api_get_member/questlist') || url.includes('/api_req_quest/clearitemget'),
+  match: (url) => url.includes('/api_get_member/questlist') ||
+    url.includes('/api_req_quest/clearitemget') ||
+    url.includes('/api_req_quest/start') ||
+    url.includes('/api_req_quest/stop'),
 
   parse: (dump: ApiDump): ParseResult | null => {
     const evts = parseQuest(dump);

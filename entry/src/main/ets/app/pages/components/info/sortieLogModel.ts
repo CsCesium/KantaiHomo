@@ -299,6 +299,10 @@ function displayAttackerRef(
   stored: FleetRef | undefined,
   start: BattleHpSnapshot,
 ): FleetRef | undefined {
+  // The normalizer has already resolved api_active_deck for combined night
+  // battles. Reinterpreting the raw local index as a flattened 1+2 fleet index
+  // would move escort attackers back onto the main fleet.
+  if (isNightAttackPhase(phaseKind) && stored) return stored;
   if (isIndexedAttackerPhase(phaseKind) && side && typeof rawIndex === 'number') {
     const ref = zeroBasedRef(side, rawIndex, start);
     if (ref) return ref;
@@ -375,12 +379,15 @@ function nightShellingAttackLabel(code: number): string {
     case 3: return '鱼雷CI';
     case 4: return '主副CI';
     case 5: return '主主CI';
-    case 6: return '夜间航空';
-    case 7: return '夜袭CI';
-    case 8: return '主鱼电CI';
-    case 9: return '鱼鱼水CI';
-    case 10: return '潜水CI';
-    case 11: return '潜水CI(后期)';
+    case 6: return '夜袭CI';
+    case 7:
+    case 11: return '主鱼电CI';
+    case 8:
+    case 12: return '鱼见电CI';
+    case 9:
+    case 13: return '鱼水鱼CI';
+    case 10:
+    case 14: return '鱼水桶CI';
     default: return '';
   }
 }
