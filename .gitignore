@@ -23,5 +23,6 @@ signing/
 *.p7b
 
 # build outputs
-dist/
+/dist/*
+!/dist/generate-checksum.sh
 **/build/

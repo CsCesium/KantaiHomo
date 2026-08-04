@@ -2,6 +2,55 @@
 
 English | [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.1.1 - 2026-08-04
+
+Compared with `v1.1.0`.
+
+### Added
+
+- Detection of a seven-ship third fleet as a striking force. Bottom and floating
+  panels select it automatically and no longer report it as an idle expedition fleet.
+- Type 47 C3H AACI detection for Shiratsuyu Kai Ni, Shigure Kai Ni/Kai San,
+  Murasame Kai Ni, and Harusame Kai Ni, including the C-model Kai San H,
+  upgraded 25 mm AA gun, and air-radar equipment combinations.
+- Map-node recognition for no-event, aerial reconnaissance, escort success,
+  transport, air raid, long-range air raid, radar fire, anchorage repair, and
+  both legacy and current route-selection formats.
+- Carrier night air-attack power and night carrier cut-in loadout detection in
+  ship battle scenarios, including night fighters, attackers, dive bombers,
+  and supported special night aircraft.
+
+### Changed
+
+- Combined-fleet battle parsing now follows `api_active_deck` for main/escort
+  indices, supports legacy and current night packets, opening-night and
+  night-to-day battles, and predicts the active enemy night fleet.
+- Fleet and LBAS fighter-power calculations now use corrected improvement
+  coefficients, proficiency ranges, air-state boundaries, reconnaissance
+  multipliers, and land-attacker/heavy-bomber rules. Hidden proficiency
+  uncertainty is displayed as a power range.
+- Land-base air-raid previews now match bases to the active map area and show
+  resource/base damage kind, base HP loss, and total surviving aircraft.
+- Event-map gauges update immediately after selecting difficulty and preserve
+  current multi-gauge number/type data while ignoring unselected placeholders.
+- Quest parsing now ignores empty server placeholders and updates accepted or
+  stopped quests immediately. The All tab synchronizes disappeared quests,
+  while the panel shows only currently active quests.
+- The combined-fleet sidebar is available in port and switches between the main
+  and escort fleets by clicking its heading or double-tapping the sidebar.
+
+### Fixed
+
+- Fixed combined-fleet escort attackers/targets, initial HP, cumulative damage,
+  battle-record snapshots, and stale simulator state after refreshing into a
+  night battle.
+- Fixed air-state normalization and S1/S2 surviving-aircraft totals; land-base
+  air raids now record base damage and no-damage outcomes correctly.
+- Ship scenarios now apply current chuuha/taiha state to day, torpedo, ASW, and
+  night power, with correct midget-submarine opening torpedoes, armored-carrier
+  behavior, and empty aircraft-slot handling.
+- LoS and Formula 33 calculations now exclude escaped ships.
+
 ## 1.1.0 - 2026-06-21
 
 Compared with `v1.0.2`.
