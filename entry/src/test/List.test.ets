@@ -4,6 +4,7 @@ import strikingForceTest from './StrikingForce.test';
 import damageTest from './Damage.test';
 import battleNormalizerTest from './BattleNormalizer.test';
 import fighterPowerTest from './FighterPower.test';
+import interceptorTest from './Interceptor.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -12,4 +13,5 @@ export default function testsuite() {
   damageTest();
   battleNormalizerTest();
   fighterPowerTest();
+  interceptorTest();
 }

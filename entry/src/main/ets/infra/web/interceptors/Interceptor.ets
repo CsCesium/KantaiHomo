@@ -116,6 +116,28 @@ function extractHost(url: string): string {
   return m ? m[1].toLowerCase() : '';
 }
 
+/** Match an exact host or one of its subdomains without accepting lookalike suffixes. */
+function isHostInDomain(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+/**
+ * First-party DMM hosts must bypass the generic tracking/ad filters below.
+ * dmmapis.com hosts the item-purchase cashier bridge (for example d-af2/api.js),
+ * whose follow-up requests may otherwise look like analytics collection calls.
+ */
+function isDmmFirstPartyHost(host: string): boolean {
+  const allowDomains: string[] = [
+    'dmm.com',
+    'dmm.co.jp',
+    'dmmapis.com',
+  ];
+  for (let i = 0; i < allowDomains.length; i++) {
+    if (isHostInDomain(host, allowDomains[i])) return true;
+  }
+  return false;
+}
+
 export function shouldBlock(Url: string): boolean {
   let u:url.URL;
   try {
@@ -127,12 +149,8 @@ export function shouldBlock(Url: string): boolean {
   const host:string = u.hostname.toLowerCase();
   const path:string = (u.pathname+u.search).toLowerCase();
 
-  const allowHosts:string[] = [
-    'dmm.com', 'www.dmm.com', 'osapi.dmm.com', 'www.dmm.co.jp',
-    //shall allow host or proxy
-  ];
-
-  for (let i = 0; i<allowHosts.length;i++){ if (host.endsWith(allowHosts[i])) return false}
+  // Keep purchase/cashier resources ahead of generic path-based filters.
+  if (isDmmFirstPartyHost(host)) return false;
 
   const blockHosts:string[] = [
     'googlesyndication.com',
