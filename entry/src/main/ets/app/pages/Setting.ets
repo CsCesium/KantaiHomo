@@ -12,6 +12,7 @@ import {
   getExpeditionReminderService,
 } from '../../features/alerts/module/expeditionReminder';
 import { ensureNotificationPermission } from '../../features/alerts/module/notificationPermission';
+import { getExpeditionLiveNotificationService } from '../../features/alerts/module/expeditionNotification';
 import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
 import {
   TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT,
@@ -167,6 +168,7 @@ struct Setting {
       promptAction.showToast({ message: '请在系统设置中允许本应用发送通知' });
     } finally {
       await getExpeditionReminderService().syncFromDb();
+      await getExpeditionLiveNotificationService().refresh(true);
       this.expeditionReminderBusy = false;
     }
   }

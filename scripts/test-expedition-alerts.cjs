@@ -14,14 +14,14 @@ function harness() {
     permission: true, preference: true, failPublish: false, failCancel: false,
     rows: [], decks: [], reminders: [], published: [], cancelled: [], notifications: [],
     notificationEvents: [], timers: new Map(), storage: new Map(), listeners: [],
-    nextId: 1, nextTimer: 1, publishGate: null,
+    nextId: 1, nextTimer: 1, publishGate: null, toasts: [], vibrations: [], alertHandler: null,
   };
   class TestDate extends Date {
     static now() { return state.now; }
   }
   const notification = {
     SlotType: { OTHER_TYPES: 0, SERVICE_INFORMATION: 1 },
-    ContentType: { NOTIFICATION_CONTENT_MULTILINE: 4 },
+    ContentType: { NOTIFICATION_CONTENT_MULTILINE: 4, NOTIFICATION_CONTENT_BASIC_TEXT: 0 },
     isNotificationEnabled: async () => state.permission,
     requestEnableNotification: async () => { state.permission = true; },
     publish: async request => {
@@ -33,6 +33,7 @@ function harness() {
   };
   const reminderAgentManager = {
     ReminderType: { REMINDER_TYPE_TIMER: 0, REMINDER_TYPE_CALENDAR: 1 },
+    RingChannel: { RING_CHANNEL_NOTIFICATION: 2 },
     ActionButtonType: { ACTION_BUTTON_TYPE_CLOSE: 0 },
     getAllValidReminders: async () => state.reminders.slice(),
     publishReminder: async request => {
@@ -50,6 +51,13 @@ function harness() {
     },
   };
   const adapters = {
+    '@ohos.promptAction': { default: { showToast: request => state.toasts.push(request) } },
+    '@ohos.vibrator': { default: { startVibration: async request => state.vibrations.push(request) } },
+    '.': { getAlertBus: () => ({
+      getConfig: () => ({ enableToast: true, enableVibrate: true, enableNotification: true, vibrateDurationMs: 150 }),
+      subscribeAll: handler => { state.alertHandler = handler; },
+    }) },
+    '../resources/resourceMeta': { resourceGainName: () => '' },
     '@ohos.notificationManager': { default: notification },
     '@kit.BackgroundTasksKit': { reminderAgentManager },
     '../../../infra/storage/repo': { getRepositoryHub: () => ({
@@ -84,6 +92,10 @@ function harness() {
       AppStorage: { setOrCreate: (key, value) => state.storage.set(key, value) },
       require: name => {
         if (name === './expeditionTime') return load('expeditionTime.ts');
+        if (name === './module/expeditionReminder') return load('expeditionReminder.ets');
+        if (name === './module/expeditionNotification') return load('expeditionNotification.ets');
+        if (name === './module/missionCache') return adapters['./missionCache'];
+        if (name === './module/launchWantAgent') return adapters['./launchWantAgent'];
         assert.ok(adapters[name], `unexpected platform dependency: ${name}`);
         return adapters[name];
       },
@@ -97,6 +109,11 @@ function harness() {
   state.reminderService = () => load('expeditionReminder.ets').getExpeditionReminderService();
   state.liveService = () => load('expeditionNotification.ets').getExpeditionLiveNotificationService();
   state.permissionRequest = () => load('notificationPermission.ets').ensureNotificationPermission();
+  state.fireReturn = async row => {
+    load('../executor.ets').initAlertExecutor();
+    await state.alertHandler({ type: 'expedition_return', deckId: row.deckId,
+      missionId: row.missionId, timestamp: row.returnTime });
+  };
   state.tick = async () => {
     const pending = [...state.timers.values()];
     state.timers.clear();
@@ -117,6 +134,7 @@ test('granting permission registers existing fleets at an absolute time across m
   assert.equal(h.published.length, 2);
   const request = h.published[0];
   assert.equal(request.reminderType, 1);
+  assert.equal(request.ringChannel, 2, 'use the notification sound channel');
   assert.equal(request.dateTime.day, 16);
   assert.equal(request.dateTime.hour, 0);
   assert.equal(request.dateTime.minute, 1);
@@ -268,4 +286,28 @@ test('stopping during publication leaves the final notification cancelled', asyn
   await live.refresh();
   assert.deepEqual(h.notificationEvents, ['publish', 'cancel']);
   assert.equal(h.timers.size, 0);
+});
+
+test('the foreground executor avoids duplicate sound and notification for system-owned returns', async () => {
+  const h = harness();
+  h.rows = [h.row()];
+  await h.reminderService().start();
+  h.now = h.rows[0].returnTime;
+  await h.fireReturn(h.rows[0]);
+  assert.equal(h.toasts.length, 1);
+  assert.equal(h.vibrations.length, 0);
+  assert.equal(h.notifications.length, 0);
+});
+
+test('the foreground executor still alerts when system registration failed', async () => {
+  const h = harness();
+  h.rows = [h.row()];
+  h.failPublish = true;
+  await h.reminderService().start();
+  h.now = h.rows[0].returnTime;
+  await h.fireReturn(h.rows[0]);
+  assert.equal(h.toasts.length, 1);
+  assert.equal(h.vibrations.length, 1);
+  assert.equal(h.notifications.length, 1);
+  assert.equal(h.notifications[0].id, 1002);
 });

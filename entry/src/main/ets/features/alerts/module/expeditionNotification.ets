@@ -16,8 +16,6 @@ import { formatExpeditionReturnTime } from './expeditionTime';
 // ── 常驻通知 ID ──────────────────────────────────────────────────
 const LIVE_NOTIFICATION_ID = 100;
 
-// ── 工具函数 ─────────────────────────────────────────────────────
-
 // ── 服务主体 ─────────────────────────────────────────────────────
 
 const REFRESH_INTERVAL_MS = 30_000;

@@ -127,12 +127,15 @@ AlertExecutor.handleAlert()
   │
   └─ handleExpeditionReturn(alert)
       ├─ executeToast(`第 N 舰队「任务名」已返回`)
-      ├─ executeVibrate(150ms)
-      ├─ executeNotification(id=1000+deckId, title='远征归来', body=同上, sub=时间)
-      └─ liveNotification.refresh()    从通知栏移除已归来舰队
+      ├─ 系统提醒未登记成功时：executeVibrate / executeNotification(id=1000+deckId)
+      └─ liveNotification.refresh()    更新远征时间表
 ```
 
-### 阶段 6：常驻通知栏（`module/expeditionNotification.ets`）
+### 阶段 6：远征时间表（`module/expeditionNotification.ets`）
+
+普通通知的文字不会自行倒计时，应用后台冻结后 ArkTS 定时器也不能保证运行。
+通知统一显示本地绝对归来日期和时刻（`MM-DD HH:mm:ss`），以免静态剩余时间误导用户。
+普通通知的 `isCountDown` / `isStopwatch` 在官方文档中为预留能力，不能用于可靠的后台刷新。
 
 每次 `refresh()` 时：
 
@@ -145,12 +148,12 @@ hub.deck.list()       → 获取舰队名称
     id: 100,
     isOngoing: true,
     contentType: MULTILINE,
-    title: '舰队远征倒计时',
+    title: '舰队远征时间表',
     text:  'N 支舰队远征中',
-    longTitle: '最快返回: H:MM:SS',
+    longTitle: '预计归来: 舰队「任务」 MM-DD HH:mm:ss',
     lines: [
-      '第1舰队: 〇〇远征  1:23:45',
-      '第2舰队: 〇〇远征  3:00:00',
+      '第2舰队: 〇〇远征  预计 09-16 00:01:00 归来',
+      '第3舰队: 〇〇远征  预计 09-16 02:00:00 归来',
       ...
     ]
   })
@@ -160,9 +163,25 @@ hub.deck.list()       → 获取舰队名称
 
 `refresh()` 的触发时机：
 - `start()` 调用时（立即一次）
-- `setTimeout(30s)` 串行循环（每 30 秒更新倒计时）
+- `setTimeout(30s)` 串行循环（应用可运行时重新检查状态；内容相同不重复发布）
 - `triggerExpeditionChanged()`（任何远征状态写入 DB 后）
 - `handleExpeditionReturn()`（归来通知触发后）
+- 回到前台、通知授权完成、设置页“检查并重试”时强制刷新
+
+所有刷新和停止时的取消串行执行，防止旧查询覆盖新状态、退出后未完成的发布重新留下通知。
+
+### 阶段 7：系统后台提醒（`module/expeditionReminder.ets`）
+
+- 使用 `ReminderRequestCalendar` 按归来时间登记一次性代理提醒，精确到秒（向上取整）。
+- 系统接管已登记任务，应用冻结或退出后仍可提醒。此 API 的“日历类型”指提醒时间类型，不会向系统日历应用写入日程。
+- 通知权限未开启时不发布；授权完成立即同步，应用运行时每 30 秒重试失败任务。
+- 每支舰队使用 `1000 + deckId` 作为通知 ID，以舰队、任务、归来时间组成 groupId，重启通过系统有效提醒列表恢复。
+- 重复、改期、已领取结果的旧提醒会撤销；未来的旧倒计时提醒会迁移。仅因到达归来时刻不会撤销提醒，也不会补建已经过期的提醒。
+- `stop()` 只停止应用内监听和重试，保留系统任务。设置页关闭“远征后台提醒”才会撤销全部本模块登记的任务。
+- 已成功登记的远征由系统发送通知，前台仅补 Toast；未登记成功时保留原有前台通知/震动兜底。
+- 设置 → 日常提醒提供后台提醒开关、登记状态和重试按钮。系统提醒的声音/震动由系统设置控制。
+
+平台说明：[代理提醒](https://github.com/openharmony/docs/blob/master/zh-cn/application-dev/task-management/agent-powered-reminder.md)、[普通通知属性](https://github.com/openharmony/docs/blob/master/zh-cn/application-dev/reference/apis-notification-kit/js-apis-inner-notification-notificationRequest.md)。
 
 ---
 
@@ -177,16 +196,16 @@ onWindowStageCreate()
   5. addOnExpeditionChanged(scheduler.poke)     注册 poke 监听（无条件）
   6. scheduler.start()                          首次 planNext()
 
-  7. requestEnableNotification()
-     ├─ 授权 → liveNotification.start()
-     │           ├─ addOnExpeditionChanged(refresh)  注册刷新监听
-     │           ├─ refresh() 立即同步一次
-     │           └─ setTimeout(refresh, 30s)
-     └─ 拒绝 → scheduler 与 Toast/震动 继续正常工作
+  7. reminderService.start() / liveNotification.start()
+     注册状态变更监听和 30 秒重试；发布前检查通知权限
+  8. ensureNotificationPermission()
+     ├─ 授权完成 → reminderService.syncFromDb() + liveNotification.refresh(true)
+     └─ 拒绝 → scheduler 与 Toast/震动继续工作，设置页显示未开启通知
 
 onWindowStageDestroy()
   - scheduler.stop()
-  - liveNotification.stop() → clearInterval + cancel(100)
+  - liveNotification.stop() → clearTimeout + cancel(100)
+  - reminderService.stop() → 停止本地重试，保留系统提醒
 ```
 
 ---
@@ -211,4 +230,11 @@ onWindowStageDestroy()
 | `maxSnoozeMs` | `60000ms` | `expedition.ts` scheduler |
 | `pollIntervalMs` | `60000ms` | `expedition.ts` scheduler |
 | `REFRESH_INTERVAL_MS` | `30000ms` | `expeditionNotification.ets` |
+| `RETRY_INTERVAL_MS` | `30000ms` | `expeditionReminder.ets` |
 | `debounceMs` | `1200ms` | `type.ts` DEFAULT_ALERT_CONFIG |
+
+## 回归验证
+
+`node scripts/test-expedition-alerts.cjs [typescript 模块路径]` 使用真实服务代码与内存平台适配器，覆盖授权后登记、跨午夜时间、到点保留、改期撤销、开关、失败重试、旧提醒迁移、重启去重、通知刷新竞争、前台去重和兜底。
+
+真机验收：允许通知后发起远征，在设置页确认“已登记”，退出应用并锁屏，检查到点通知及点击跳转；再验证改期和关闭开关后的撤销。此测试需要实际设备，单元测试不能证明系统后台投递行为。

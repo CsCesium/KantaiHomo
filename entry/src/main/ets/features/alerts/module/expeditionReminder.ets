@@ -37,7 +37,8 @@ async function cancelReminder(reminderId: number): Promise<void> {
     await reminderAgentManager.cancelReminder(reminderId);
   } catch (e) {
     // Already dismissed by the user; all other failures must be retried.
-    if ((e as BusinessError).code !== 1700003) throw e;
+    const error = e as BusinessError;
+    if (error.code !== 1700003) throw new Error(`cancelReminder ${reminderId}: ${error.code} ${error.message}`);
   }
 }
 
@@ -89,8 +90,8 @@ class ExpeditionReminderService {
   }
 
   syncFromDb(): Promise<void> {
-    this.syncTail = this.syncTail.catch(() => undefined).then(() => {
-      if (this.running) return this.syncOnce();
+    this.syncTail = this.syncTail.catch(() => undefined).then(async () => {
+      if (this.running) await this.syncOnce();
     });
     return this.syncTail;
   }
@@ -217,6 +218,7 @@ class ExpeditionReminderService {
         slotType: notificationManager.SlotType.SERVICE_INFORMATION,
         tapDismissed: true,
         ringDuration: 1,
+        ringChannel: reminderAgentManager.RingChannel.RING_CHANNEL_NOTIFICATION,
         snoozeTimes: 0,
         actionButton: [{ title: '关闭', type: reminderAgentManager.ActionButtonType.ACTION_BUTTON_TYPE_CLOSE }],
         wantAgent: { pkgName: 'io.github.cesium.kchomo', abilityName: 'EntryAbility' },
