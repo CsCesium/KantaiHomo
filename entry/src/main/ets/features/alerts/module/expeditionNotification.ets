@@ -111,7 +111,7 @@ class ExpeditionLiveNotificationService {
         const exp = activeMap.get(deckId);
         if (exp) {
           const missionName = getMissionName(exp.missionId);
-          lines.push(`${name}: ${missionName}  预计 ${formatExpeditionReturnTime(exp.returnTime)} 归来`);
+          lines.push(`${name}: ${missionName}  ${formatExpeditionReturnTime(exp.returnTime)}`);
         } else {
           lines.push(`${name}: 空闲中`);
         }
@@ -122,7 +122,7 @@ class ExpeditionLiveNotificationService {
       const earliest = upcoming[0] ?? active[0];
       const earliestDeckName = deckNameMap.get(earliest.deckId) ?? `第${earliest.deckId}舰队`;
       const earliestMissionName = getMissionName(earliest.missionId);
-      const summaryText = `预计归来：${earliestDeckName}「${earliestMissionName}」 ${formatExpeditionReturnTime(earliest.returnTime)}`;
+      const summaryText = `归来：${earliestDeckName}「${earliestMissionName}」 ${formatExpeditionReturnTime(earliest.returnTime)}`;
 
       const contentKey = `${briefText}\n${summaryText}\n${lines.join('\n')}`;
       if (contentKey === this.lastContent) return;

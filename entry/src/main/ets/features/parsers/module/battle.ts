@@ -430,9 +430,6 @@ export function parseBattle(dump: ApiDump): AnyBattleModuleEvt[] | null {
   return null;
 }
 
-// 兼容
-export const parseBattleDump = parseBattle;
-
 /**
  * 检查 URL 是否匹配战斗相关 API
  */

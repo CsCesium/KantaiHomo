@@ -139,7 +139,7 @@ test('granting permission registers existing fleets at an absolute time across m
   assert.equal(request.dateTime.hour, 0);
   assert.equal(request.dateTime.minute, 1);
   assert.equal(request.dateTime.second, 1, 'round up to avoid an early alarm');
-  assert.match(request.content, /已到归来时间/);
+  assert.equal(request.content, '第 2 舰队「任务 5」已到归来时间（00:01:00）');
   await service.syncFromDb();
   assert.equal(h.published.length, 2, 'idempotent reconciliation');
 });
@@ -240,6 +240,30 @@ test('future legacy timers migrate, due legacy timers remain, duplicate entries 
   assert.deepEqual(h.cancelled, [10, 12]);
 });
 
+test('future calendar reminders update old text without changing their trigger, and due reminders remain', async () => {
+  const h = harness();
+  h.rows = [h.row(2), h.row(3, 60_000)];
+  const service = h.reminderService();
+  await service.start();
+  const future = h.reminders.find(item => item.reminderReq.notificationId === 1002);
+  const due = h.reminders.find(item => item.reminderReq.notificationId === 1003);
+  const original = future.reminderReq;
+  future.reminderReq.content = '旧提醒：预计 09-16 00:01:00 归来';
+  due.reminderReq.content = '旧提醒：预计 09-16 00:00:00 归来';
+  h.now = h.rows[1].returnTime;
+  await service.syncFromDb();
+  assert.deepEqual(h.cancelled, [future.reminderId]);
+  assert.equal(h.published.length, 3);
+  const replacement = h.published.at(-1);
+  assert.deepEqual(replacement.dateTime, original.dateTime);
+  assert.equal(replacement.groupId, original.groupId);
+  assert.equal(replacement.notificationId, original.notificationId);
+  assert.equal(replacement.content, '第 2 舰队「任务 5」已到归来时间（00:01:00）');
+  assert.ok(h.reminders.includes(due));
+  await service.syncFromDb();
+  assert.equal(h.published.length, 3, 'updated text must not cause repeated registration');
+});
+
 test('cold restart discovers registered reminders and concurrent syncs do not duplicate them', async () => {
   const h = harness();
   h.rows = [h.row()];
@@ -259,7 +283,8 @@ test('time table includes absolute times without deck metadata, updates on event
   h.rows = [h.row()];
   const live = h.liveService();
   await live.start();
-  assert.match(h.notifications[0].content.multiLine.lines[0], /第2舰队.*09-16 00:01:00/);
+  assert.equal(h.notifications[0].content.multiLine.lines[0], '第2舰队: 任务 5  00:01:00');
+  assert.equal(h.notifications[0].content.multiLine.longTitle, '归来：第2舰队「任务 5」 00:01:00');
   await live.refresh();
   assert.equal(h.notifications.length, 1);
   h.rows[0].returnTime += 60_000;

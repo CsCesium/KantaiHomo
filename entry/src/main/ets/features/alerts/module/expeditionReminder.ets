@@ -26,6 +26,11 @@ interface ExistingReminder {
   reminderId: number;
   groupId: string;
   reminderType: reminderAgentManager.ReminderType;
+  content: string;
+}
+
+function reminderContent(target: ExpeditionReminderTarget): string {
+  return `第 ${target.deckId} 舰队「${getMissionName(target.missionId)}」已到归来时间（${formatExpeditionReturnTime(target.returnTime)}）`;
 }
 
 function reminderGroupId(deckId: number, missionId: number, returnTime: number): string {
@@ -165,7 +170,7 @@ class ExpeditionReminderService {
         continue;
       }
       const items = map.get(deckId) ?? [];
-      items.push({ reminderId: info.reminderId, groupId, reminderType: req.reminderType });
+      items.push({ reminderId: info.reminderId, groupId, reminderType: req.reminderType, content: req.content ?? '' });
       map.set(deckId, items);
     }
     return map;
@@ -180,10 +185,12 @@ class ExpeditionReminderService {
       const deckId = entry[0];
       const target = targets.get(deckId);
       for (const reminder of entry[1]) {
-        // Migrate future legacy timers to absolute calendar reminders. Leave due ones alone.
-        const suitableType = reminder.reminderType === reminderAgentManager.ReminderType.REMINDER_TYPE_CALENDAR ||
+        // Refresh future legacy reminders and outdated text. Leave due ones alone.
+        const upToDate = (target !== undefined &&
+          reminder.reminderType === reminderAgentManager.ReminderType.REMINDER_TYPE_CALENDAR &&
+          reminder.content === reminderContent(target)) ||
           (target !== undefined && target.returnTime <= Date.now());
-        if (target && reminder.groupId === target.groupId && suitableType && !kept.has(deckId)) {
+        if (target && reminder.groupId === target.groupId && upToDate && !kept.has(deckId)) {
           kept.set(deckId, reminder);
           this.delegated.set(deckId, target.groupId);
         } else {
@@ -203,7 +210,7 @@ class ExpeditionReminderService {
       if (kept.has(target.deckId) || target.returnTime <= Date.now()) continue;
       this.delegated.delete(target.deckId);
       const date = new Date(Math.ceil(target.returnTime / 1000) * 1000);
-      const body = `第 ${target.deckId} 舰队「${getMissionName(target.missionId)}」已到归来时间（${formatExpeditionReturnTime(target.returnTime)}）`;
+      const body = reminderContent(target);
       const request: reminderAgentManager.ReminderRequestCalendar = {
         reminderType: reminderAgentManager.ReminderType.REMINDER_TYPE_CALENDAR,
         dateTime: {

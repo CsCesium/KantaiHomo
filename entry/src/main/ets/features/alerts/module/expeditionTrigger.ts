@@ -29,11 +29,6 @@ export function addOnExpeditionChanged(cb: VoidCb): () => void {
   };
 }
 
-/** @deprecated use addOnExpeditionChanged */
-export function registerOnExpeditionChanged(cb: VoidCb): void {
-  addOnExpeditionChanged(cb);
-}
-
 export function triggerExpeditionChanged(): void {
   for (const cb of _listeners) {
     try { cb(); } catch (e) {

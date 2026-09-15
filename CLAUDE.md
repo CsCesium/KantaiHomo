@@ -91,7 +91,7 @@ infra                     ← Infrastructure (WebView, SQLite, KV, WebSocket, DI
 | DAO | `infra/storage/dao/` | One file per entity (admiral, ship, battle, …) |
 | Event Bus | `infra/bus/` | Typed pub/sub dispatcher |
 | Mapper/Normalizer | `domain/models/mapper/`, `normalizer/` | API JSON → domain structs pipeline |
-| Manual DI | `infra/deps/container.ets` | `setPersistDeps` / `ensurePersistDeps` pattern |
+| Manual DI | `infra/deps/index.ts` | `initPersistDeps` / `getPersistDeps` pattern |
 | WebView Bridge | `infra/web/bridge/` | Native ↔ WebView message passing |
 
 ---

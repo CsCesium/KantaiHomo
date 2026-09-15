@@ -22,7 +22,6 @@ import { kvGetBool, kvGetNumber, kvGetString } from '../infra/storage/kv';
 import { loadSenkaFromKV } from '../features/state/senkaInit';
 import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED, initResourceCache } from '../features/resourceCache';
 import { updateShipGraphFilenames } from '../features/state';
-import { ShipGraphRow } from '../infra/storage/types';
 import { shipGraphFilename } from '../features/state/type';
 import { initBattlePredictionService, gameStateAdapter } from '../features/simulator';
 import { initAppVolumeMuteStorage } from '../infra/audio/appVolume';
