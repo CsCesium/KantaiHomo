@@ -6,6 +6,12 @@ import { HOME_URL, USER_AGENT } from '../../infra/web/config';
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
 import type { AlertMode } from '../../features/alerts';
+import {
+  APP_STORAGE_EXPEDITION_REMINDER_ENABLED,
+  APP_STORAGE_EXPEDITION_REMINDER_STATUS,
+  getExpeditionReminderService,
+} from '../../features/alerts/module/expeditionReminder';
+import { ensureNotificationPermission } from '../../features/alerts/module/notificationPermission';
 import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
 import {
   TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT,
@@ -64,6 +70,9 @@ struct Setting {
   @State private battleResultAlertEnabled: boolean = true;
   @State private repairAlertEnabled: boolean = true;
   @State private alertMode: AlertMode = 'both';
+  @StorageProp(APP_STORAGE_EXPEDITION_REMINDER_ENABLED) private expeditionReminderEnabled: boolean = true;
+  @StorageProp(APP_STORAGE_EXPEDITION_REMINDER_STATUS) private expeditionReminderStatus: string = '正在检查系统提醒';
+  @State private expeditionReminderBusy: boolean = false;
 
   // ── Toast settings ─────────────────────────────────────────────
   @State private toastEnabled: boolean = true;
@@ -139,6 +148,27 @@ struct Setting {
     this.repairAlertEnabled = v;
     void kvSet(APP_STORAGE_REPAIR_ALERT_ENABLED, v);
     setAlertConfig({ enableRepairAlert: v });
+  }
+
+  private onExpeditionReminderToggle(enabled: boolean): void {
+    void getExpeditionReminderService().setEnabled(enabled).then(async () => {
+      if (enabled) await this.retryExpeditionReminders();
+    }).catch(() => {
+      promptAction.showToast({ message: '远征提醒设置保存失败，请重试' });
+    });
+  }
+
+  private async retryExpeditionReminders(): Promise<void> {
+    if (this.expeditionReminderBusy) return;
+    this.expeditionReminderBusy = true;
+    try {
+      await ensureNotificationPermission();
+    } catch (_) {
+      promptAction.showToast({ message: '请在系统设置中允许本应用发送通知' });
+    } finally {
+      await getExpeditionReminderService().syncFromDb();
+      this.expeditionReminderBusy = false;
+    }
   }
 
   private onToastToggle(v: boolean): void {
@@ -849,6 +879,24 @@ struct Setting {
           this.SectionHeader('日常提醒')
 
           Column({ space: 8 }) {
+            this.ToggleRow(
+              '远征后台提醒',
+              '按归来时刻登记系统提醒，关闭应用后仍可提醒；响铃与震动遵循系统通知设置',
+              this.expeditionReminderEnabled,
+              (v: boolean) => { this.onExpeditionReminderToggle(v); }
+            )
+            Row({ space: 12 }) {
+              Text(this.expeditionReminderStatus)
+                .fontSize(12)
+                .fontColor('#A8B9CC')
+                .layoutWeight(1)
+              Button(this.expeditionReminderBusy ? '检查中' : '检查并重试')
+                .fontSize(12)
+                .enabled(this.expeditionReminderEnabled && !this.expeditionReminderBusy)
+                .onClick(() => { void this.retryExpeditionReminders(); })
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, bottom: 8 })
             this.ToggleRow(
               '入渠完成提醒',
               '维修渠修理完成时震动 / 铃声提醒',

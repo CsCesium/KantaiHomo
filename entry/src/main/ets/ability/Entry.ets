@@ -2,7 +2,6 @@ import UIAbility from '@ohos.app.ability.UIAbility';
 import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 import Want from '@ohos.app.ability.Want';
 import window from '@ohos.window';
-import notificationManager from '@ohos.notificationManager';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { setAppContext, setMainWindow } from '../infra/appContext'
 import { initPersistDeps } from '../infra/deps';
@@ -11,6 +10,7 @@ import { initAlerts, initExpeditionScheduler, getExpeditionScheduler, setAlertCo
   initRepairScheduler, getRepairScheduler } from '../features/alerts';
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
 import { getExpeditionReminderService } from '../features/alerts/module/expeditionReminder';
+import { ensureNotificationPermission } from '../features/alerts/module/notificationPermission';
 import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
 import { addOnNdockChanged } from '../features/alerts/module/ndockTrigger';
 import { getRepositoryHub } from '../infra/storage/repo';
@@ -208,7 +208,7 @@ export default class EntryAbility extends UIAbility {
         });
       });
 
-      // 启动远征归来调度器（负责在远征到时触发 Toast / 震动 / 归来通知）
+      // 本地调度器负责 Toast，以及系统提醒未登记成功时的前台兜底。
       const scheduler = initExpeditionScheduler(getRepositoryHub().expedition);
       // 每当 expedition 状态写入 DB 后立即重新规划 timer，与通知权限无关
       addOnExpeditionChanged(() => { void getExpeditionScheduler()?.poke(); });
@@ -245,16 +245,13 @@ export default class EntryAbility extends UIAbility {
 
     void getExpeditionLiveNotificationService().start();
 
-    // 异步申请/确认通知权限：先用 isNotificationEnabled() 探查，
-    notificationManager.isNotificationEnabled().then((enabled: boolean) => {
+    // After authorization, immediately register existing expeditions with the system.
+    ensureNotificationPermission().then(async (enabled: boolean) => {
       hilog.info(HILOG_DOM, 'App', 'notification enabled=%{public}s', String(enabled));
-      if (!enabled) {
-        notificationManager.requestEnableNotification(this.context).catch((e: BusinessError) => {
-          hilog.warn(HILOG_DOM, 'App', 'requestEnableNotification rejected: %{public}s', String(e));
-        });
-      }
+      await getExpeditionReminderService().syncFromDb();
+      await getExpeditionLiveNotificationService().refresh(true);
     }).catch((e: BusinessError) => {
-      hilog.warn(HILOG_DOM, 'App', 'isNotificationEnabled failed: %{public}s', String(e));
+      hilog.warn(HILOG_DOM, 'App', 'notification authorization failed: %{public}s', String(e));
     });
 
     windowStage.loadContent('app/pages/Launcher', (err) => {
@@ -297,7 +294,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
-    void getExpeditionLiveNotificationService().refresh();
+    void getExpeditionLiveNotificationService().refresh(true);
     void getExpeditionReminderService().syncFromDb();
   }
 

@@ -32,6 +32,7 @@ import type {
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
+import { getExpeditionReminderService } from './module/expeditionReminder';
 import { getMissionName } from './module/missionCache';
 import { getLaunchWantAgent } from './module/launchWantAgent';
 import { resourceGainName } from '../resources/resourceMeta';
@@ -135,16 +136,19 @@ async function handleExpeditionReturn(alert: ExpeditionReturnAlert): Promise<voi
   const missionName = getMissionName(alert.missionId);
   const timeStr = new Date(alert.timestamp).toLocaleTimeString();
   const body = `第 ${deckId} 舰队「${missionName}」已返回`;
+  const reminders = getExpeditionReminderService();
+  await reminders.syncFromDb();
+  const systemOwnsReminder = reminders.hasSystemReminder(deckId, alert.missionId, alert.timestamp);
 
   if (config.enableToast) {
     await executeToast(body);
   }
 
-  if (config.enableVibrate) {
+  if (config.enableVibrate && !systemOwnsReminder) {
     await executeVibrate(config.vibrateDurationMs);
   }
 
-  if (config.enableNotification) {
+  if (config.enableNotification && !systemOwnsReminder) {
     await executeNotification(
       NOTIFICATION_ID_EXPEDITION_BASE + deckId,
       '远征归来',
