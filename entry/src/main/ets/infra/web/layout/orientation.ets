@@ -57,7 +57,7 @@ export class Orientation {
 
     try {
       if (display.isFoldable()) {
-        display.off('foldStatusChange');
+        display.off('foldStatusChange', this.onFoldStatusChange);
       }
     } catch (e) {
       console.error('[Orientation] unregister fold observer failed:', e);

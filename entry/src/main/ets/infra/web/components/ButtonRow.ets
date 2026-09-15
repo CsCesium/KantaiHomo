@@ -15,6 +15,7 @@ export default struct ButtonRow {
   @Event onToggleLrMode: () => void;
   @Event onTogglePanel: () => void;
   @Event onToggleBattlePreview: () => void;
+  @Event onSwapPanes: () => void;
   @Event onOpenShipInfo: () => void;
   @Event onOpenEquipInfo: () => void;
   @Event onOpenRemodelInfo: () => void;
@@ -26,6 +27,8 @@ export default struct ButtonRow {
   @Param showPanelToggle: boolean = true;
   @Param battlePreviewAvailable: boolean = false;
   @Param battlePreviewVisible: boolean = false;
+  @Param swapPanesEnabled: boolean = false;
+  @Param infoPaneOnLeft: boolean = false;
   @Local appVolumeMuted: boolean = false;
 
   aboutToAppear(): void {
@@ -95,6 +98,19 @@ export default struct ButtonRow {
     .onClick(() => this.onTogglePanel?.())
   }
 
+  @Builder private SwapPanesBtn() {
+    Button({ type: ButtonType.Normal, stateEffect: true }) {
+      Text('⇄')
+        .fontSize(26)
+        .fontColor(this.infoPaneOnLeft ? '#56d8e0' : '#999')
+    }
+    .width(48).height(40)
+    .backgroundColor(this.infoPaneOnLeft ? '#1c3535' : Color.Transparent)
+    .border({ width: 0 })
+    .accessibilityText('互换游戏区与信息栏')
+    .onClick(() => this.onSwapPanes?.())
+  }
+
   @Builder private BattlePreviewBtn() {
     Button({ type: ButtonType.Normal, stateEffect: this.battlePreviewAvailable }) {
       SymbolGlyph(this.battlePreviewAvailable && this.battlePreviewVisible
@@ -151,7 +167,11 @@ export default struct ButtonRow {
         if (this.showPanelToggle) {
           this.PanelBtn()
         }
-        this.BattlePreviewBtn()
+        if (this.swapPanesEnabled) {
+          this.SwapPanesBtn()
+        } else {
+          this.BattlePreviewBtn()
+        }
         this.InfoBtn()
         this.MuteBtn()
       }

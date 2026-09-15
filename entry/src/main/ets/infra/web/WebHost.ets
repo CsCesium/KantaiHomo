@@ -4,6 +4,8 @@ import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
 import { decideLayout, FitPolicy, GAME_ASPECT_RATIO, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
 import { GameViewportBox, GAME_SIZE_DEFAULT_PERCENT, resolveGameViewportBox } from "./layout/gameSize";
+import { resolveTriFoldLayout } from './layout/triFold';
+import display from '@ohos.display';
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
@@ -13,6 +15,7 @@ import ButtonRow from "./components/ButtonRow";
 import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
 import PanelHost from "../../app/pages/components/panel/PanelHost";
+import BattlePreviewPanel from '../../app/pages/components/panel/battle/BattlePreviewPanel';
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
@@ -72,6 +75,11 @@ export default struct WebHost {
   @State private gameLeftMarginVp: number = 0;
   @State private viewportWidthVp: number = 0;
   @State private viewportHeightVp: number = 0;
+  @State private foldStatus: display.FoldStatus = display.FoldStatus.FOLD_STATUS_UNKNOWN;
+  @State private triFoldActive: boolean = false;
+  @State private triFoldInfoOnLeft: boolean = false;
+  @State private mainViewportWidthVp: number = 0;
+  @State private infoViewportWidthVp: number = 0;
   @State private scene: WindowScene = WindowScene.FULLSCREEN;
   @State private panelConfig: PanelLayoutConfig = { mode: PanelMode.Hidden, bottomPanelHeight: 0 };
   @State private sidebarWidthVp: number = 0;
@@ -121,6 +129,7 @@ export default struct WebHost {
   @State private sortieLogVisible: boolean = false;
 
   private windowStatusCb?: (nextStatus: window.WindowStatusType) => void;
+  private foldStatusCb?: (status: display.FoldStatus) => void;
   private unsubSortieStartTaiha?: () => void;
   private unsubGameState?: () => void;
   private unsubAppVolumeMuted?: () => void;
@@ -173,6 +182,52 @@ export default struct WebHost {
 
   private getGameViewportHeight(): Length {
     return this.gameHeightVp > 0 ? this.gameHeightVp : '100%';
+  }
+
+  private getMainViewportWidth(): Length {
+    return this.mainViewportWidthVp > 0 ? this.mainViewportWidthVp : '100%';
+  }
+
+  private getMainViewportLeft(): number {
+    return this.triFoldActive && this.triFoldInfoOnLeft ? this.infoViewportWidthVp : 0;
+  }
+
+  private getInfoViewportLeft(): number {
+    return this.triFoldInfoOnLeft ? 0 : this.mainViewportWidthVp;
+  }
+
+  private swapTriFoldPanes(): void {
+    if (this.triFoldActive) {
+      this.triFoldInfoOnLeft = !this.triFoldInfoOnLeft;
+    }
+  }
+
+  private showBattlePreviewInMainPane(): boolean {
+    return !this.triFoldActive && this.battlePreviewVisible;
+  }
+
+  private refreshFoldStatus(): void {
+    try {
+      this.foldStatus = display.isFoldable() ? display.getFoldStatus() : display.FoldStatus.FOLD_STATUS_UNKNOWN;
+    } catch (_e) {
+      this.foldStatus = display.FoldStatus.FOLD_STATUS_UNKNOWN;
+    }
+  }
+
+  private observeFoldStatus(): void {
+    this.refreshFoldStatus();
+    try {
+      if (display.isFoldable()) {
+        this.foldStatusCb = (status: display.FoldStatus): void => {
+          this.foldStatus = status;
+          this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
+          this.updateBattlePreviewAutoOverlay();
+        };
+        display.on('foldStatusChange', this.foldStatusCb);
+      }
+    } catch (e) {
+      console.error('[WebHost] observe fold status failed:', e);
+    }
   }
 
   private async rpcHandler(raw: string): Promise<string> {
@@ -264,6 +319,7 @@ export default struct WebHost {
   }
 
   private restoreVisibleWindowState(pushWebFit: boolean = false): void {
+    this.refreshFoldStatus();
     const mainWin = getMainWindowCached();
     if (mainWin) {
       this.refreshSceneAndChrome(mainWin);
@@ -312,8 +368,13 @@ export default struct WebHost {
     }
 
     const layoutScene: WindowScene = this.getLayoutScene(widthVp, heightVp);
+    const triFold = resolveTriFoldLayout(widthVp, heightVp, this.scene, this.foldStatus);
+    const triFoldChanged: boolean = this.triFoldActive !== triFold.active;
+    this.triFoldActive = triFold.active;
+    this.mainViewportWidthVp = triFold.mainWidthVp;
+    this.infoViewportWidthVp = triFold.infoWidthVp;
     const decision = decideLayout({
-      widthVp,
+      widthVp: this.mainViewportWidthVp,
       heightVp,
       scene: layoutScene,
     });
@@ -412,6 +473,8 @@ export default struct WebHost {
     }
     if (modeChanged) {
       this.host.onPageEnd();
+    } else if (triFoldChanged) {
+      this.host.reapplyFit();
     }
     this.lastMode = this.mode;
   }
@@ -534,7 +597,7 @@ export default struct WebHost {
   }
 
   private toggleBattlePreview(): void {
-    if (!this.battlePreviewAvailable) {
+    if (this.triFoldActive || !this.battlePreviewAvailable) {
       return;
     }
     this.battlePreviewVisible = !this.battlePreviewVisible;
@@ -581,7 +644,7 @@ export default struct WebHost {
       return;
     }
 
-    const shouldAutoOpen: boolean = this.shouldAvoidLeftCutoutForButtons() &&
+    const shouldAutoOpen: boolean = !this.triFoldActive && this.shouldAvoidLeftCutoutForButtons() &&
       this.panelConfig.mode !== PanelMode.BottomPanel;
     if (!shouldAutoOpen) {
       if (this.battlePreviewAutoOverlayActive) {
@@ -671,6 +734,7 @@ export default struct WebHost {
   aboutToAppear() {
     const ctx = getContext(this) as common.UIAbilityContext;
     this.host = new WebHostController(this.controller, ctx, this.getFit, this.getInjectOptions, (r: string) => this.rpcHandler(r));
+    this.observeFoldStatus();
     this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
     this.unregisterPageVisible = registerWebHostPageVisibleHandler(() => {
       this.restoreVisibleWindowState(true);
@@ -719,6 +783,14 @@ export default struct WebHost {
   aboutToDisappear() {
     setLauncherSwipeBlocked(false);
     this.host.unbindDisplay();
+    if (this.foldStatusCb) {
+      try {
+        display.off('foldStatusChange', this.foldStatusCb);
+      } catch (e) {
+        console.error('[WebHost] stop observing fold status failed:', e);
+      }
+      this.foldStatusCb = undefined;
+    }
 
     if (this.unsubSortieStartTaiha) {
       this.unsubSortieStartTaiha();
@@ -1005,6 +1077,9 @@ export default struct WebHost {
               onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => this.toggleFloatOverlayPanel(),
               onToggleBattlePreview: () => this.toggleBattlePreview(),
+              onSwapPanes: () => this.swapTriFoldPanes(),
+              swapPanesEnabled: this.triFoldActive,
+              infoPaneOnLeft: this.triFoldInfoOnLeft,
               onOpenShipInfo: () => this.openShipInfo(),
               onOpenEquipInfo: () => this.openEquipInfo(),
               onOpenRemodelInfo: () => this.openRemodelInfo(),
@@ -1041,7 +1116,7 @@ export default struct WebHost {
             .width(this.sidebarWidthVp)
             .height('100%')
             .align(Alignment.TopEnd)
-            .position({ x: this.viewportWidthVp - this.sidebarWidthVp, y: 0 })
+            .position({ x: this.mainViewportWidthVp - this.sidebarWidthVp, y: 0 })
         }
 
         // FloatOverlay panel — overlaid on the game viewport.
@@ -1056,7 +1131,7 @@ export default struct WebHost {
               .onClick(() => this.closeFloatOverlayPanel())
             PanelHost({
               config: { mode: PanelMode.FloatOverlay, bottomPanelHeight: 0 },
-              showBattlePreview: this.battlePreviewVisible
+              showBattlePreview: this.showBattlePreviewInMainPane()
             })
               .layoutWeight(1)
               .height('100%')
@@ -1083,7 +1158,7 @@ export default struct WebHost {
       // Each branch wraps its children in a single Container so the parent
       // Column flex always sees one weighted slot here.
       if (this.panelConfig.mode === PanelMode.BottomPanel) {
-        if (this.viewportWidthVp > this.viewportHeightVp) {
+        if (this.mainViewportWidthVp > this.viewportHeightVp) {
           Row() {
             Column() {
               ButtonColumn({
@@ -1091,6 +1166,9 @@ export default struct WebHost {
                 onToggleLrMode: () => this.toggleLrLayout(),
                 onTogglePanel: () => this.toggleFloatOverlayPanel(),
                 onToggleBattlePreview: () => this.toggleBattlePreview(),
+                onSwapPanes: () => this.swapTriFoldPanes(),
+                swapPanesEnabled: this.triFoldActive,
+                infoPaneOnLeft: this.triFoldInfoOnLeft,
                 onOpenShipInfo: () => this.openShipInfo(),
                 onOpenEquipInfo: () => this.openEquipInfo(),
                 onOpenRemodelInfo: () => this.openRemodelInfo(),
@@ -1112,7 +1190,7 @@ export default struct WebHost {
             .alignItems(HorizontalAlign.Start)
             .justifyContent(FlexAlign.Start)
 
-            PanelHost({ config: this.panelConfig, showBattlePreview: this.battlePreviewVisible })
+            PanelHost({ config: this.panelConfig, showBattlePreview: this.showBattlePreviewInMainPane() })
               .layoutWeight(1)
               .height('100%')
           }
@@ -1126,6 +1204,9 @@ export default struct WebHost {
               onToggleLrMode: () => this.toggleLrLayout(),
               onTogglePanel: () => this.toggleFloatOverlayPanel(),
               onToggleBattlePreview: () => this.toggleBattlePreview(),
+              onSwapPanes: () => this.swapTriFoldPanes(),
+              swapPanesEnabled: this.triFoldActive,
+              infoPaneOnLeft: this.triFoldInfoOnLeft,
               onOpenShipInfo: () => this.openShipInfo(),
               onOpenEquipInfo: () => this.openEquipInfo(),
               onOpenRemodelInfo: () => this.openRemodelInfo(),
@@ -1138,7 +1219,7 @@ export default struct WebHost {
               battlePreviewAvailable: this.battlePreviewAvailable,
               battlePreviewVisible: this.battlePreviewVisible,
             })
-            PanelHost({ config: this.panelConfig, showBattlePreview: this.battlePreviewVisible })
+            PanelHost({ config: this.panelConfig, showBattlePreview: this.showBattlePreviewInMainPane() })
               .width('100%')
               .layoutWeight(1)
           }
@@ -1148,22 +1229,23 @@ export default struct WebHost {
       }
     }
     .height('100%')
-    .width('100%')
+    .width(this.getMainViewportWidth())
+    .position({ x: this.getMainViewportLeft(), y: 0 })
+    .clip(this.triFoldActive)
     .backgroundColor('#000')
-    .onAreaChange((_oldArea: Area, area: Area) => {
-      const w: number = lengthToNumber(area.width);
-      const h: number = lengthToNumber(area.height);
-      this.viewportWidthVp = w;
-      this.viewportHeightVp = h;
-      const mainWin = getMainWindowCached();
-      if (mainWin) {
-        this.refreshSceneAndChrome(mainWin);
-        this.scheduleGameWindowChromeRefresh(mainWin);
+
+      // Keep the game Column at the same tree position when entering or swapping panes.
+      if (this.triFoldActive) {
+        Column() {
+          BattlePreviewPanel({ singleColumn: true })
+        }
+        .width(this.infoViewportWidthVp)
+        .height('100%')
+        .position({ x: this.getInfoViewportLeft(), y: 0 })
+        .backgroundColor('#0f1118')
+        .border({ width: { left: this.triFoldInfoOnLeft ? 0 : 1, right: this.triFoldInfoOnLeft ? 1 : 0 }, color: '#303440' })
+        .clip(true)
       }
-      this.refreshLeftCutoutInset();
-      this.recalcLayout(w, h);
-      this.updateBattlePreviewAutoOverlay();
-    })
 
       // Info overlays — cover the entire WebHost area (game + button bar +
       // bottom panel) regardless of layout mode. Rendered as siblings of the
@@ -1208,5 +1290,20 @@ export default struct WebHost {
     .width('100%')
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], this.getSafeAreaEdges())
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      const w: number = lengthToNumber(area.width);
+      const h: number = lengthToNumber(area.height);
+      this.viewportWidthVp = w;
+      this.viewportHeightVp = h;
+      const mainWin = getMainWindowCached();
+      if (mainWin) {
+        this.refreshSceneAndChrome(mainWin);
+        this.scheduleGameWindowChromeRefresh(mainWin);
+      }
+      this.refreshFoldStatus();
+      this.refreshLeftCutoutInset();
+      this.recalcLayout(w, h);
+      this.updateBattlePreviewAutoOverlay();
+    })
   }
 }

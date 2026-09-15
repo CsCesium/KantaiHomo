@@ -186,6 +186,7 @@ function escapedRenderSuffix(): string {
 
 @ComponentV2
 export default struct BattlePreviewPanel {
+  @Param singleColumn: boolean = false;
   @Local statusSnap: BattleStatusSnapshot | null = null;
   @Local resultSnap: BattleResultSnapshot | null = null;
   @Local battleRenderKey: string = 'empty';
@@ -609,6 +610,92 @@ export default struct BattlePreviewPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
+  /** Header for the dedicated tri-fold face; the existing panel header stays unchanged. */
+  @Builder SingleColumnPredictHeader(snap: BattleStatusSnapshot) {
+    Column({ space: 4 }) {
+      Row({ space: 6 }) {
+        Text(`${snap.mapAreaId}-${snap.mapInfoNo} ${snap.isBoss ? 'Boss' : snap.cellId}`)
+          .fontSize(PanelDimens.fontLg)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(snap.isBoss ? '#FFD700' : PanelColors.txtPrimary)
+        Text(snap.isAirRaid ? '基地空襲' : phaseName(snap.battlePhase))
+          .fontSize(PanelDimens.fontSm)
+          .fontColor(snap.isAirRaid ? '#fb8c00' : PanelColors.txtSub)
+          .layoutWeight(1)
+        Text(displayRank(snap.predictedRank))
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(rankColor(snap.predictedRank))
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+        if (snap.engagement) {
+          Text(engagementName(snap.engagement))
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(engagementColor(snap.engagement))
+            .margin({ right: 6 })
+        }
+        if (snap.enemyNightFleet) {
+          Text(snap.enemyNightFleet === 'main' ? '夜戦·主力' : '夜戦·護衛')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(snap.enemyNightFleet === 'main' ? '#FFD700' : PanelColors.txtSub)
+            .margin({ right: 6 })
+        }
+        if (snap.airState) {
+          Row() {
+            Text(airStateName(snap.airState))
+              .fontSize(PanelDimens.fontSm)
+              .fontColor(airStateColor(snap.airState))
+              .fontWeight(FontWeight.Medium)
+          }
+          .constraintSize({ minWidth: AIR_DETAIL_TOUCH_MIN_W, minHeight: AIR_DETAIL_TOUCH_MIN_H })
+          .justifyContent(FlexAlign.Center)
+          .onClick(() => { this.aerialDetailOpen = !this.aerialDetailOpen; })
+        }
+        if (snap.aaciTriggered) {
+          Text('CI')
+            .fontSize(PanelDimens.fontSm)
+            .fontColor('#FFD700')
+            .fontWeight(FontWeight.Bold)
+        }
+      }
+      .width('100%')
+
+      Text(`${formationName(snap.friendFormation)} vs ${formationName(snap.enemyFormation)}`)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(PanelColors.txtSub)
+        .width('100%')
+
+      Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+        if (snap.isAirRaid && airRaidDamageName(snap.airRaidDamageKind) !== '') {
+          Text(airRaidDamageName(snap.airRaidDamageKind))
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(airRaidDamageColor(snap.airRaidDamageKind))
+            .margin({ right: 6 })
+        }
+        if (snap.friendPlaneMax !== undefined && snap.friendPlaneMax > 0) {
+          Text(`我方残机 ${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.hpOk)
+            .margin({ right: 6 })
+        }
+        if (snap.enemyPlaneMax !== undefined && snap.enemyPlaneMax > 0) {
+          Text(`敌方残机 ${snap.enemyPlaneNow ?? 0}/${snap.enemyPlaneMax}`)
+            .fontSize(PanelDimens.fontSm)
+            .fontColor(PanelColors.hpCrit)
+        }
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+    .backgroundColor(PanelColors.bgHeader)
+    .borderWidth({ bottom: PanelDimens.borderW })
+    .borderColor(PanelColors.rowBorder)
+  }
+
   /** Taiha (critical damage) warning banner. */
   @Builder TaihaWarning(snap: BattleStatusSnapshot) {
     if (snap.hasTaihaRisk) {
@@ -949,6 +1036,29 @@ export default struct BattlePreviewPanel {
     .alignItems(VerticalAlign.Top)
   }
 
+  /** Stack fleet lists in the dedicated narrow information face. */
+  @Builder
+  SingleColumnLayout(
+    friendMain: FleetBattleStatus,
+    friendEscort: FleetBattleStatus | null,
+    enemyMain: EnemyBattleStatus,
+    enemyEscort: EnemyBattleStatus | null,
+    isAirRaid: boolean,
+    renderKey: string,
+  ) {
+    Column() {
+      this.FleetShipList(friendMain, isAirRaid ? '基地' : '我方主力', isAirRaid, renderKey)
+      if (!isAirRaid && friendEscort && hasFriendFleet(friendEscort)) {
+        this.FleetShipList(friendEscort, '我方護衛', false, renderKey)
+      }
+      this.EnemyFleetList(enemyMain, isAirRaid ? '敵編隊' : '敵主力', isAirRaid, renderKey)
+      if (!isAirRaid && enemyEscort && hasEnemyFleet(enemyEscort)) {
+        this.EnemyFleetList(enemyEscort, '敵護衛', false, renderKey)
+      }
+    }
+    .width('100%')
+  }
+
   /** Dispatcher: picks the right layout based on fleet composition / air-raid flag. */
   @Builder
   MatchupBody(
@@ -959,7 +1069,9 @@ export default struct BattlePreviewPanel {
     isAirRaid: boolean,
     renderKey: string,
   ) {
-    if (isAirRaid) {
+    if (this.singleColumn) {
+      this.SingleColumnLayout(friendMain, friendEscort, enemyMain, enemyEscort, isAirRaid, renderKey)
+    } else if (isAirRaid) {
       this.AirRaidLayout(friendMain, enemyMain, renderKey)
     } else if (friendEscort && hasFriendFleet(friendEscort) && enemyEscort && hasEnemyFleet(enemyEscort)) {
       this.CombinedVsCombinedLayout(friendMain, friendEscort, enemyMain, enemyEscort, renderKey)
@@ -1002,7 +1114,11 @@ export default struct BattlePreviewPanel {
   @Builder
   StatusContent() {
     if (this.statusSnap) {
-      this.PredictHeader(this.statusSnap)
+      if (this.singleColumn) {
+        this.SingleColumnPredictHeader(this.statusSnap)
+      } else {
+        this.PredictHeader(this.statusSnap)
+      }
       if (!this.statusSnap.isAirRaid) {
         this.TaihaWarning(this.statusSnap)
         this.SunkWarning(this.statusSnap.hasSunkRisk)
