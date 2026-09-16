@@ -19,10 +19,11 @@ export interface ApiQuestListItemRaw {
 }
 
 export interface ApiQuestListRespRaw {
-  api_count: number;
+  api_count?: number;
+  api_exec_count?: number;
   api_completed_kind: number;
-  api_page_count: number;
-  api_disp_page: number;
+  api_page_count?: number;
+  api_disp_page?: number;
   /** 服务端会用 -1/null 填充空位。 */
   api_list: Array<ApiQuestListItemRaw | -1 | null> | null;
   [k: string]: unknown;

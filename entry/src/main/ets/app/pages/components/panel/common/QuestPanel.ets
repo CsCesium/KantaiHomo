@@ -228,27 +228,19 @@ export default struct QuestPanel {
         .width(this.periodWidth())
         .textAlign(TextAlign.Center)
 
-      Column({ space: 2 }) {
-        Row({ space: 3 }) {
-          if (this.formationReady(quest)) {
-            Text('🆗').fontSize(this.titleFontSize())
-          }
-          Text(normalizeQuestText(quest.title || '未命名任务'))
-            .fontSize(this.titleFontSize())
-            .fontColor(PanelColors.txtPrimary)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .layoutWeight(1)
+      Row({ space: 3 }) {
+        if (this.formationReady(quest)) {
+          Text('🆗').fontSize(this.titleFontSize())
         }
-        .width('100%')
-
-        Text(normalizeQuestText(quest.detail || '无任务描述'))
-          .fontSize(PanelDimens.fontSm)
-          .fontColor(PanelColors.txtSub)
-          .maxLines(1)
+        Text(normalizeQuestText(quest.title || '未命名任务'))
+          .fontSize(this.titleFontSize())
+          .fontColor(PanelColors.txtPrimary)
+          .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
       }
-      .justifyContent(FlexAlign.Center)
+      .height('100%')
+      .alignItems(VerticalAlign.Center)
       .layoutWeight(1)
       .padding({ left: this.compact ? 5 : 8, right: this.compact ? 5 : 8 })
 

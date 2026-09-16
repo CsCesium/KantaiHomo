@@ -38,7 +38,10 @@ export function normalizeQuestListPage(raw: ApiQuestListRespRaw, now: number = D
   }
 
   return {
-    count: raw.api_count ?? 0,
+    count: raw.api_count ?? quests.length,
+    activeCount: typeof raw.api_exec_count === 'number' && Number.isInteger(raw.api_exec_count) &&
+      raw.api_exec_count >= 0 ? raw.api_exec_count : undefined,
+    isComplete: raw.api_page_count === undefined && raw.api_disp_page === undefined,
     completedKind: raw.api_completed_kind ?? 0,
     pageCount: raw.api_page_count ?? 0,
     page: raw.api_disp_page ?? 1,

@@ -27,18 +27,26 @@ function goalType(quest: QuestSnapshot, definition: QuestGoalDefinition | undefi
   return 0;
 }
 
-/** Only a complete, consistent traversal of tab 0 may remove quests on other pages. */
+/** Only complete all/accepted lists can identify absent accepted quests. */
 export class QuestPageAccumulator {
   private pages = new Map<number, QuestSnapshot[]>();
   private count = -1;
   private pageCount = -1;
-  clear(): void { this.pages.clear(); this.count = -1; this.pageCount = -1; }
+  private tabId = -1;
+  private activeCount: number | undefined;
+  clear(): void {
+    this.pages.clear(); this.count = -1; this.pageCount = -1; this.tabId = -1; this.activeCount = undefined;
+  }
   collect(page: QuestListPage, rows: QuestSnapshot[]): QuestSnapshot[] | null {
-    if (page.tabId !== 0) { this.clear(); return null; }
-    if (page.page === 1 || this.count !== page.count || this.pageCount !== page.pageCount) {
-      this.clear(); this.count = page.count; this.pageCount = page.pageCount;
+    if (page.tabId !== 0 && page.tabId !== 9) { this.clear(); return null; }
+    if (page.isComplete || new Set(rows.map(quest => quest.questId)).size === page.count) {
+      this.clear(); return rows;
     }
-    if (page.count === 0) { this.clear(); return []; }
+    if (page.page === 1 || this.count !== page.count || this.pageCount !== page.pageCount ||
+        this.tabId !== page.tabId || this.activeCount !== page.activeCount) {
+      this.clear(); this.count = page.count; this.pageCount = page.pageCount;
+      this.tabId = page.tabId; this.activeCount = page.activeCount;
+    }
     if (page.page < 1 || page.page > page.pageCount) return null;
     this.pages.set(page.page, rows);
     if (this.pages.size !== page.pageCount) return null;
@@ -100,7 +108,10 @@ export class QuestCounter {
     this.expire(now);
     if (replaceAll) {
       const ids = new Set(quests.map(quest => quest.questId));
-      for (const id of this.records.keys()) if (!ids.has(id)) this.records.delete(id);
+      // Absence may mean cancellation on another client. Hide it but retain its counters.
+      for (const [id, record] of this.records) {
+        if (!ids.has(id)) record.quest = { ...record.quest, state: 1 };
+      }
     }
     for (const quest of quests) {
       const def = this.definitions.get(quest.questId);
@@ -117,7 +128,7 @@ export class QuestCounter {
         if (quest.state === 3) record.counts[goal.key] = goal.required;
       }
       if (quest.state === 3) record.estimated = false;
-      else if (def?.goals.length === 1 && quest.progress !== undefined) {
+      else if (quest.state === 2 && def?.goals.length === 1 && quest.progress !== undefined) {
         const goal = def.goals[0];
         const min = quest.progress === 2 ? Math.ceil(goal.required * 0.8) :
           quest.progress === 1 ? Math.ceil(goal.required * 0.5) : 0;
@@ -129,6 +140,17 @@ export class QuestCounter {
         else if (old !== record.counts[goal.key]) record.estimated = true;
       }
     }
+  }
+  /** Like poi, cap cached membership by the server total, retaining the latest confirmed quests. */
+  reconcileActiveCount(activeCount: number | undefined, currentRows: QuestSnapshot[]): void {
+    if (activeCount === undefined || !Number.isInteger(activeCount) || activeCount < 0) return;
+    const confirmed = new Set(currentRows.filter(quest => quest.state === 2 || quest.state === 3)
+      .map(quest => quest.questId));
+    if (confirmed.size > activeCount) return; // Inconsistent response: do not hide confirmed rows.
+    const active = Array.from(this.records.values()).filter(record => record.quest.state === 2 || record.quest.state === 3);
+    active.sort((a, b) => Number(confirmed.has(b.quest.questId)) - Number(confirmed.has(a.quest.questId)) ||
+      b.quest.capturedAt - a.quest.capturedAt);
+    for (const record of active.slice(activeCount)) record.quest = { ...record.quest, state: 1 };
   }
   changeState(id: number, state: number, now: number): void {
     this.expire(now); this.pages.clear();

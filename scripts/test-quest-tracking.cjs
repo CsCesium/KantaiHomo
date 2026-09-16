@@ -7,14 +7,14 @@ const { test } = require('node:test');
 const ts = require(process.argv[2] || 'typescript');
 const root = path.resolve(__dirname, '../entry/src/main/ets/features/quests');
 const cache = new Map();
-function load(name) {
-  const file = path.resolve(root, name + '.ts');
+function load(name, base = root) {
+  const file = path.resolve(base, name + '.ts');
   if (cache.has(file)) return cache.get(file).exports;
   const module = { exports: {} }; cache.set(file, module);
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },
   }).outputText;
-  new Function('require', 'module', 'exports', code)(spec => load(spec), module, module.exports);
+  new Function('require', 'module', 'exports', code)(spec => load(spec, path.dirname(file)), module, module.exports);
   return module.exports;
 }
 const { satisfiesQuestFormation } = load('formation');
@@ -22,6 +22,7 @@ const { QuestShipCatalog } = load('shipMetadata');
 const { matchesQuestGoal } = load('goalMatcher');
 const { QuestCounter, QuestPageAccumulator, questPeriod } = load('counter');
 const { extractQuestEvents } = load('events');
+const { normalizeQuestListPage } = load('../../domain/models/normalizer/quest');
 const resources = path.resolve(__dirname, '../entry/src/main/resources/rawfile/data');
 const formations = JSON.parse(fs.readFileSync(path.join(resources, 'quest_req.json'), 'utf8'));
 const definitions = JSON.parse(fs.readFileSync(path.join(resources, 'quest_goals.json'), 'utf8')).quests;
@@ -156,6 +157,60 @@ test('pagination merges partial pages and replaces only a complete consistent un
   assert.equal(pages.collect({...page,page:2,count:3},[quest(210)]),null);
   assert.deepEqual(pages.collect({...page,pageCount:0,count:0},[]),[]);
 });
+
+test('modern full lists and accepted tab are authoritative; switching tabs never combines unrelated pages', () => {
+  const pages = new QuestPageAccumulator();
+  const page = {count:2,pageCount:2,page:1,tabId:0,activeCount:2};
+  assert.deepEqual(pages.collect({...page,isComplete:true},[quest(201),quest(210)]).map(q=>q.questId),[201,210]);
+  pages.collect(page,[quest(201)]);
+  assert.equal(pages.collect({...page,tabId:9,page:2},[quest(210)]),null);
+  pages.clear();
+  pages.collect({...page,tabId:9},[quest(201)]);
+  assert.deepEqual(pages.collect({...page,tabId:9,page:2},[quest(210)]).map(q=>q.questId),[201,210]);
+  pages.collect(page,[quest(201)]);
+  assert.equal(pages.collect({...page,page:2,activeCount:1},[quest(210)]),null);
+  assert.equal(pages.collect({...page,count:0},[quest(210)]),null);
+});
+
+test('normalizer distinguishes complete modern responses, legacy pagination and missing active count', () => {
+  const row = {api_no:210,api_state:2,api_title:'title',api_detail:'a<br>b',api_category:2,api_type:1};
+  const modern = normalizeQuestListPage({api_list:[row,-1,null],api_exec_count:1},now,0);
+  assert.equal(modern.isComplete,true);
+  assert.equal(modern.count,1);
+  assert.equal(modern.activeCount,1);
+  assert.equal(modern.quests[0].detail,'a\nb');
+  const legacy = normalizeQuestListPage({api_list:[row],api_count:10,api_page_count:2,api_disp_page:1},now,0);
+  assert.equal(legacy.isComplete,false);
+  assert.equal(legacy.activeCount,undefined);
+  assert.equal(legacy.count,10);
+  assert.equal(normalizeQuestListPage({api_list:null,api_exec_count:0},now,9).activeCount,0);
+  for (const invalid of [null,-1,NaN,1.5,'0']) {
+    assert.equal(normalizeQuestListPage({api_list:[],api_exec_count:invalid},now,0).activeCount,undefined);
+  }
+});
+
+test('server active count prunes old membership while protecting current rows and cancelled progress', () => {
+  const counter = new QuestCounter(definitions);
+  counter.sync([quest(210),quest(201),quest(503,3)],now);
+  counter.apply([{event:'battle',delta:6}],now);
+  counter.sync([quest(201)],now);
+  counter.reconcileActiveCount(1,[quest(201)]);
+  assert.deepEqual(counter.quests().filter(q=>q.state>=2).map(q=>q.questId),[201]);
+  assert.equal(counter.progress(210).label,'≈6/10');
+  counter.apply([{event:'battle',delta:2}],now);
+  counter.sync([quest(210,1)],now);
+  assert.equal(counter.progress(210).label,'≈6/10');
+  counter.changeState(210,2,now);
+  counter.reconcileActiveCount(undefined,[]);
+  assert.equal(counter.quests().find(q=>q.questId===210).state,2);
+  counter.reconcileActiveCount(0,[]);
+  assert.equal(counter.quests().filter(q=>q.state>=2).length,0);
+  const restarted = new QuestCounter(definitions);
+  restarted.restore(counter.serialize(),now);
+  restarted.changeState(210,2,now);
+  restarted.apply([{event:'battle',delta:1}],now);
+  assert.equal(restarted.progress(210).label,'≈7/10');
+});
 test('practice and actual sortie battle events stay separate and boss rank thresholds are correct', () => {
   const battle = {key:'a',fleet:[],maparea:25,mapcell:10,boss:true,enemies:[{masterId:15,hp:0},{masterId:13,hp:1}]};
   const ctx = context({battle});
@@ -232,11 +287,55 @@ function serviceHarness(storage = new Map()) {
   },module,module.exports);
   const service=module.exports;
   return {state,storage,service,failNextSave:()=>{failSave=true;},setSortie:value=>{sortie=value;},
-    sync: (rows,page=1,pageCount=1,count=rows.length,tabId=0)=>service.syncQuestPage({
-      quests:rows,page,pageCount,count,tabId,updatedAt:Date.now(),completedKind:0}),
+    sync: (rows,page=1,pageCount=1,count=rows.length,tabId=0,activeCount)=>service.syncQuestPage({
+      quests:rows,page,pageCount,count,tabId,activeCount,updatedAt:Date.now(),completedKind:0}),
     api:(url,data={},params='',result=1)=>service.trackQuestApi({type:'API_DUMP',url:`https://game.example/kcsapi${url}`,
       requestBody:params,responseText:'svdata='+JSON.stringify({api_result:result,api_data:data})})};
 }
+
+test('opening a modern quest list removes remote claims even when newly accepted quests keep the same total', async () => {
+  const h=serviceHarness();
+  await h.sync([quest(503),quest(504,3)]);
+  await h.api('/api_req_nyukyo/start');
+  const modern=normalizeQuestListPage({api_list:[
+    {api_no:503,api_state:2,api_title:'repair',api_category:5,api_type:1,api_progress_flag:0},
+    {api_no:210,api_state:2,api_title:'battle',api_category:2,api_type:1,api_progress_flag:0},
+  ],api_exec_count:2},Date.now(),0);
+  await h.service.syncQuestPage(modern);
+  assert.deepEqual(h.state.quests.filter(q=>q.state>=2).map(q=>q.questId),[503,210]);
+  assert.equal(h.service.questProgress(503).label,'≈1/5');
+  const restarted=serviceHarness(h.storage);
+  await restarted.service.initializeQuestTracking();
+  assert.deepEqual(restarted.state.quests.filter(q=>q.state>=2).map(q=>q.questId),[503,210]);
+});
+
+test('accepted-only reconciliation and empty server totals preserve paused counts through restart and resume', async () => {
+  const h=serviceHarness();
+  await h.sync([quest(503),quest(210)]);
+  await h.api('/api_req_nyukyo/start');
+  await h.service.changeTrackedQuestState(503,1,Date.now());
+  await h.sync([quest(210)],1,1,1,9,1);
+  assert.equal(h.service.questProgress(503).label,'≈1/5');
+  await h.sync([],1,1,0,2,0);
+  assert.equal(h.state.quests.filter(q=>q.state>=2).length,0);
+  await h.api('/api_req_nyukyo/start');
+  const restarted=serviceHarness(h.storage);
+  await restarted.service.initializeQuestTracking();
+  assert.equal(restarted.state.quests.filter(q=>q.state>=2).length,0);
+  await restarted.service.changeTrackedQuestState(503,2,Date.now());
+  await restarted.api('/api_req_nyukyo/start');
+  assert.equal(restarted.service.questProgress(503).label,'≈2/5');
+});
+
+test('partial legacy pages retain quests on unseen pages until membership can be reconciled', async () => {
+  const h=serviceHarness();
+  await h.sync([quest(503),quest(210)]);
+  await h.sync([quest(503)],1,3,3,0,2);
+  assert.deepEqual(h.state.quests.filter(q=>q.state>=2).map(q=>q.questId),[503,210]);
+  await h.sync([quest(201)],2,3,3,0,2);
+  assert.equal(h.state.quests.filter(q=>q.state>=2).length,2);
+  assert.ok(h.state.quests.some(q=>q.questId===201 && q.state===2));
+});
 test('real service merges pages, saves counters, restores after restart and isolates accounts', async () => {
   const h=serviceHarness();
   await h.sync([quest(503)],1,2,2);

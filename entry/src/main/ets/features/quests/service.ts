@@ -112,6 +112,7 @@ export function syncQuestPage(page: QuestListPage): Promise<void> {
     const rows = page.quests.map(quest => ({ ...quest, capturedAt: page.updatedAt }));
     const full = counter?.pages.collect(page, rows);
     counter?.sync(full ?? rows, page.updatedAt, full !== null && full !== undefined);
+    counter?.reconcileActiveCount(page.activeCount, full ?? rows);
     publishQuests(); await save();
   });
 }
