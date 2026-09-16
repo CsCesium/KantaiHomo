@@ -2,6 +2,11 @@ import { ApiQuestListItemRaw, ApiQuestListRespRaw } from "../api/quest";
 import { questLabelTypeFromAppearanceType, QuestState } from "../enums/quest";
 import { Quest, QuestListPage } from "../struct/quest";
 
+/** Task API text uses HTML line breaks; native Text/Dialog expects newline characters. */
+export function normalizeQuestText(text: string): string {
+  return text.replace(/<br\s*\/?>/gi, '\n');
+}
+
 export function normalizeQuest(raw: ApiQuestListItemRaw, now: number = Date.now()): Quest {
   const state =
     raw.api_state === 2 ? QuestState.ACTIVE :
@@ -12,8 +17,8 @@ export function normalizeQuest(raw: ApiQuestListItemRaw, now: number = Date.now(
     category: raw.api_category,
     type: raw.api_label_type ?? questLabelTypeFromAppearanceType(raw.api_type),
     state,
-    title: raw.api_title ?? '',
-    detail: raw.api_detail ?? '',
+    title: normalizeQuestText(raw.api_title ?? ''),
+    detail: normalizeQuestText(raw.api_detail ?? ''),
     progress: raw.api_progress_flag ?? undefined,
     bonusFlag: raw.api_bonus_flag ?? undefined,
     materials: raw.api_get_material ?? undefined,

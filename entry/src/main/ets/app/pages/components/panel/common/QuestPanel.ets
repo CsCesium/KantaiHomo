@@ -1,4 +1,5 @@
 import { QuestSnapshot, subscribeGameState } from '../../../../../features/state';
+import { normalizeQuestText } from '../../../../../domain/models/normalizer/quest';
 import { firstFleetSatisfiesQuest, initializeQuestTracking, questProgress, subscribeQuestTracking } from '../../../../../features/quests/service';
 import {
   PanelColors,
@@ -86,7 +87,7 @@ export default struct QuestPanel {
   }
 
   private showQuestDetail(quest: QuestSnapshot): void {
-    const detailText = quest.detail || '无任务描述';
+    const detailText = normalizeQuestText(quest.detail || '无任务描述');
     const message = [
       `周期：${questResetTypeLabel(quest.type)}`,
       `进度：${questProgressLabel(quest.progress, quest.state)}`,
@@ -96,7 +97,7 @@ export default struct QuestPanel {
       detailText,
     ].join('\n');
     promptAction.showDialog({
-      title: quest.title || '任务详情',
+      title: normalizeQuestText(quest.title || '任务详情'),
       message,
       buttons: [
         { text: '关闭', color: '#6A9AB5' },
@@ -126,7 +127,7 @@ export default struct QuestPanel {
 
       Column({ space: 2 }) {
         Row({ space: 3 }) {
-          Text(quest.title || '未命名任务')
+          Text(normalizeQuestText(quest.title || '未命名任务'))
             .fontSize(this.titleFontSize())
             .fontColor(PanelColors.txtPrimary)
             .maxLines(1)
@@ -138,7 +139,7 @@ export default struct QuestPanel {
         }
         .width('100%')
 
-        Text(quest.detail || '无任务描述')
+        Text(normalizeQuestText(quest.detail || '无任务描述'))
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtSub)
           .maxLines(1)

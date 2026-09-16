@@ -4,12 +4,16 @@ import {
 } from '../../../../../features/state';
 import { PanelColors, PanelDimens } from '../../../../../features/panel/panelConfig';
 import { getRepositoryHub } from '../../../../../infra/storage/repo';
+import { kvGetNumber, kvSet } from '../../../../../infra/storage/kv';
 import { MissionRow } from '../../../../../infra/storage/types';
 import ExpeditionStatusPanel from './ExpeditionStatusPanel';
 import QuestPanel from './QuestPanel';
 import NdockPanel from './NdockPanel';
 
 const DASHBOARD_TITLES: string[] = ['远征', '任务', '入渠'];
+const DASHBOARD_KIND_KEY: string = 'ui.triFold.dashboardKind';
+// Keep writes ordered even when folding destroys and recreates the component.
+let dashboardSave: Promise<void> = Promise.resolve();
 
 /** Fixed slot below the tri-fold battle preview. Double-tap cycles its content. */
 @ComponentV2
@@ -22,8 +26,10 @@ export default struct TriFoldDashboard {
   private scroller: Scroller = new Scroller();
   private unsubscribe: (() => void) | null = null;
   private missionLoadSeq: number = 0;
+  private kindLoadSeq: number = 0;
 
   aboutToAppear(): void {
+    void this.restoreActiveKind();
     this.refreshState();
     void this.loadMissions();
     this.unsubscribe = subscribeGameState((changeType, _state) => {
@@ -41,6 +47,32 @@ export default struct TriFoldDashboard {
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.missionLoadSeq++;
+    this.kindLoadSeq++;
+  }
+
+  private normalizeKind(kind: number): number {
+    return Number.isInteger(kind) && kind >= 0 && kind < DASHBOARD_TITLES.length ? kind : 0;
+  }
+
+  private async restoreActiveKind(): Promise<void> {
+    const seq: number = ++this.kindLoadSeq;
+    const cached: number | undefined = AppStorage.get<number>(DASHBOARD_KIND_KEY);
+    if (cached !== undefined) {
+      this.activeKind = this.normalizeKind(cached);
+      return;
+    }
+    try {
+      const saved: number = await kvGetNumber(DASHBOARD_KIND_KEY, 0);
+      if (seq !== this.kindLoadSeq) {
+        return;
+      }
+      // A newer component may have selected another card while the disk read was pending.
+      const current: number | undefined = AppStorage.get<number>(DASHBOARD_KIND_KEY);
+      this.activeKind = this.normalizeKind(current ?? saved);
+      AppStorage.setOrCreate(DASHBOARD_KIND_KEY, this.activeKind);
+    } catch (e) {
+      console.warn('[TriFoldDashboard] restore selected card failed:', e);
+    }
   }
 
   private refreshState(): void {
@@ -62,7 +94,14 @@ export default struct TriFoldDashboard {
   }
 
   private nextKind(): void {
+    this.kindLoadSeq++;
     this.activeKind = (this.activeKind + 1) % DASHBOARD_TITLES.length;
+    const selected: number = this.activeKind;
+    // Update memory synchronously so an immediate remount never reads an older disk value.
+    AppStorage.setOrCreate(DASHBOARD_KIND_KEY, selected);
+    dashboardSave = dashboardSave.then(() => kvSet(DASHBOARD_KIND_KEY, selected)).catch((e: Error) => {
+      console.warn('[TriFoldDashboard] save selected card failed:', e);
+    });
     this.scroller.scrollTo({ xOffset: 0, yOffset: 0 });
   }
 

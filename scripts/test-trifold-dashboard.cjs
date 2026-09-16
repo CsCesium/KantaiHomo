@@ -30,9 +30,37 @@ function componentLogic(relativePath, globals = {}) {
   return compile(`${constants}\nexport default class Logic { ${methods} }`, globals).default;
 }
 
-test('dashboard cycles all three views and resets scrolling without changing its host', () => {
-  const Dashboard = componentLogic(`${panelRoot}TriFoldDashboard.ets`);
+function dashboardLogic(globals = {}) {
+  const memory = new Map();
+  return componentLogic(`${panelRoot}TriFoldDashboard.ets`, {
+    AppStorage: {
+      get: key => memory.get(key),
+      setOrCreate: (key, value) => { memory.set(key, value); },
+    },
+    kvGetNumber: async (_key, fallback) => fallback,
+    kvSet: async () => {},
+    getDecks: () => [], getQuests: () => [], getNDocks: () => [],
+    getRepositoryHub: () => ({ mission: { listAll: async () => [] } }),
+    subscribeGameState: () => () => {},
+    console: { warn: () => {} },
+    ...globals,
+  });
+}
+
+function dashboardInstance(Dashboard) {
   const h = new Dashboard();
+  Object.assign(h, {
+    activeKind: 0, kindLoadSeq: 0, missionLoadSeq: 0, unsubscribe: null,
+    scroller: { scrollTo: () => {} },
+  });
+  return h;
+}
+
+const flushAsync = () => new Promise(resolve => setImmediate(resolve));
+
+test('dashboard cycles all three views and resets scrolling without changing its host', () => {
+  const Dashboard = dashboardLogic();
+  const h = dashboardInstance(Dashboard);
   const offsets = [];
   h.activeKind = 0;
   h.scroller = { scrollTo: options => offsets.push([options.xOffset, options.yOffset]) };
@@ -46,12 +74,12 @@ test('dashboard refreshes live snapshots and removes its subscription on disappe
   let listener;
   let quests = [{ questId: 1, state: 2 }];
   let docks = [{ dockId: 1, state: 1 }];
-  const Dashboard = componentLogic(`${panelRoot}TriFoldDashboard.ets`, {
+  const Dashboard = dashboardLogic({
     getDecks: () => [{ deckId: 2 }], getQuests: () => quests, getNDocks: () => docks,
     getRepositoryHub: () => ({ mission: { listAll: async () => [] } }),
     subscribeGameState: callback => { listener = callback; return () => { listener = null; }; },
   });
-  const h = new Dashboard();
+  const h = dashboardInstance(Dashboard);
   h.missionLoadSeq = 0;
   h.aboutToAppear();
   assert.equal(h.decks[0].deckId, 2);
@@ -70,10 +98,10 @@ test('dashboard refreshes live snapshots and removes its subscription on disappe
 
 test('late mission lookups cannot overwrite a newer result or update an unmounted dashboard', async () => {
   const pending = [];
-  const Dashboard = componentLogic(`${panelRoot}TriFoldDashboard.ets`, {
+  const Dashboard = dashboardLogic({
     getRepositoryHub: () => ({ mission: { listAll: () => new Promise(resolve => pending.push(resolve)) } }),
   });
-  const h = new Dashboard();
+  const h = dashboardInstance(Dashboard);
   h.missionLoadSeq = 0;
   h.unsubscribe = null;
   const first = h.loadMissions();
@@ -88,6 +116,109 @@ test('late mission lookups cannot overwrite a newer result or update an unmounte
   pending[2]([{ id: 3 }]);
   await third;
   assert.equal(h.missions[0].id, 2);
+});
+
+test('selected card survives immediate remounts and restores from disk after a fresh launch', async () => {
+  const disk = new Map();
+  let reads = 0;
+  const storage = {
+    kvGetNumber: async (key, fallback) => { reads++; return disk.get(key) ?? fallback; },
+    kvSet: async (key, value) => { disk.set(key, value); },
+  };
+  const Dashboard = dashboardLogic(storage);
+  let h = dashboardInstance(Dashboard);
+  h.aboutToAppear();
+  await flushAsync();
+  for (const selected of [1, 2, 0, 1, 2]) {
+    h.nextKind();
+    assert.equal(h.activeKind, selected);
+    h.aboutToDisappear();
+    h = dashboardInstance(Dashboard);
+    h.aboutToAppear();
+    assert.equal(h.activeKind, selected, 'remount restores synchronously before pending saves finish');
+  }
+  assert.equal(reads, 1, 'folding and rotating do not reload stale disk preferences');
+  h.aboutToDisappear();
+  await flushAsync();
+  const FreshDashboard = dashboardLogic(storage);
+  const fresh = dashboardInstance(FreshDashboard);
+  fresh.aboutToAppear();
+  await flushAsync();
+  assert.equal(fresh.activeKind, 2, 'a fresh app storage restores the last saved repair card');
+  assert.equal(reads, 2);
+  fresh.aboutToDisappear();
+});
+
+test('late preference reads cannot override a new selection or update an unmounted card', async () => {
+  const pending = [];
+  const Dashboard = dashboardLogic({
+    kvGetNumber: () => new Promise(resolve => pending.push(resolve)),
+  });
+  const first = dashboardInstance(Dashboard);
+  first.aboutToAppear();
+  first.aboutToDisappear();
+  const second = dashboardInstance(Dashboard);
+  second.aboutToAppear();
+  second.nextKind();
+  pending[1](2);
+  pending[0](2);
+  await flushAsync();
+  assert.equal(first.activeKind, 0, 'unmounted card ignores its outstanding read');
+  assert.equal(second.activeKind, 1, 'late disk data cannot replace a newer user choice');
+  second.aboutToDisappear();
+  const third = dashboardInstance(Dashboard);
+  third.aboutToAppear();
+  assert.equal(third.activeKind, 1, 'the newer choice also survives the next remount');
+  assert.equal(pending.length, 2, 'cached selection bypasses disk');
+  third.aboutToDisappear();
+});
+
+test('card saves stay ordered across remounts and a failed write does not block the next save', async () => {
+  const writes = [];
+  const warnings = [];
+  let saved = 0;
+  const Dashboard = dashboardLogic({
+    kvSet: (key, value) => new Promise((resolve, reject) => {
+      writes.push({ key, value, finish: () => { saved = value; resolve(); }, reject });
+    }),
+    console: { warn: (...args) => warnings.push(args) },
+  });
+  const first = dashboardInstance(Dashboard);
+  first.nextKind();
+  first.aboutToDisappear();
+  const second = dashboardInstance(Dashboard);
+  second.aboutToAppear();
+  assert.equal(second.activeKind, 1);
+  second.nextKind();
+  await flushAsync();
+  assert.deepEqual(writes.map(write => write.value), [1], 'only one write may be in flight');
+  writes[0].reject(new Error('disk unavailable'));
+  await flushAsync();
+  assert.deepEqual(writes.map(write => write.value), [1, 2]);
+  assert.equal(writes[0].key, writes[1].key);
+  assert.equal(warnings.length, 1);
+  writes[1].finish();
+  await flushAsync();
+  assert.equal(saved, 2);
+  assert.equal(second.activeKind, 2);
+  second.aboutToDisappear();
+});
+
+test('invalid or unreadable saved selections safely use the default card', async () => {
+  for (const value of [-1, 3, 1.5, NaN, Infinity]) {
+    const Dashboard = dashboardLogic({ kvGetNumber: async () => value });
+    const h = dashboardInstance(Dashboard);
+    await h.restoreActiveKind();
+    assert.equal(h.activeKind, 0);
+  }
+  const Dashboard = dashboardLogic({ kvGetNumber: async () => { throw new Error('read failed'); } });
+  const h = dashboardInstance(Dashboard);
+  await h.restoreActiveKind();
+  assert.equal(h.activeKind, 0);
+  h.nextKind();
+  const recreated = dashboardInstance(Dashboard);
+  await recreated.restoreActiveKind();
+  assert.equal(recreated.activeKind, 1, 'a read failure does not prevent remembering later selections');
 });
 
 test('expedition countdown handles elapsed, subsecond and cross-midnight returns and clears its timer', () => {
