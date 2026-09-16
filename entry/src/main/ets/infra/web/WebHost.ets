@@ -4,8 +4,9 @@ import { HOME_URL } from "./config";
 import { FitGetter, WebHostController } from "./controller/WebHostController";
 import { decideLayout, FitPolicy, GAME_ASPECT_RATIO, HostMode, LayoutDecision, WindowScene } from "./layout/responsive";
 import { GameViewportBox, GAME_SIZE_DEFAULT_PERCENT, resolveGameViewportBox } from "./layout/gameSize";
-import { resolveTriFoldLayout } from './layout/triFold';
+import { isTriFoldPortrait, resolveTriFoldLayout } from './layout/triFold';
 import display from '@ohos.display';
+import { deviceInfo } from '@kit.BasicServicesKit';
 import { defaultInjectOptions, InjectOptions } from "./types";
 import { common } from "@kit.AbilityKit";
 import { promptAction, window } from "@kit.ArkUI";
@@ -16,12 +17,14 @@ import GameWeb from "./components/GameWeb";
 import { lengthToNumber } from "../utils/trans";
 import PanelHost from "../../app/pages/components/panel/PanelHost";
 import BattlePreviewPanel from '../../app/pages/components/panel/battle/BattlePreviewPanel';
+import TriFoldDashboard from '../../app/pages/components/panel/common/TriFoldDashboard';
 import { decidePanelLayout, PanelDimens, PanelLayoutConfig, PanelMode } from "../../features/panel";
 import FleetStatusSidebar from "../../app/pages/components/sidebar/FleetStatusSidebar";
 import BattleStatsWidget from "../../app/pages/components/BattleStatsWidget";
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH,
   APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL,
-  APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED, APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY } from "../../ability/Entry";
+  APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED, APP_STORAGE_GAME_SIZE_TRIFOLD,
+  APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY } from "../../ability/Entry";
 import { TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT } from "./input/touchWheelSensitivity";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED } from "../../features/resourceCache";
@@ -60,6 +63,7 @@ export default struct WebHost {
   private host!: WebHostController;
 
   private readonly HOME: string = HOME_URL;
+  private readonly deviceType: string = deviceInfo.deviceType;
   private fullReloadUrl: string = HOME_URL;
   private homeOverride: string = '';
   private firstPageLoad: boolean = true;
@@ -110,6 +114,9 @@ export default struct WebHost {
   @StorageProp(APP_STORAGE_GAME_SIZE_EXPANDED)
   @Watch('onGameSizePercentChanged')
   private expandedGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
+  @StorageProp(APP_STORAGE_GAME_SIZE_TRIFOLD)
+  @Watch('onGameSizePercentChanged')
+  private triFoldGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
   // Test-only: manually force the FloatOverlay panel open regardless of layout mode.
   // Remove once the fairy ball → panel trigger is wired up.
   @State private overlayForced: boolean = false;
@@ -171,9 +178,6 @@ export default struct WebHost {
       return;
     }
     this.recalcLayout(this.viewportWidthVp, this.viewportHeightVp);
-    if (this.host) {
-      this.host.reapplyFit();
-    }
   }
 
   private getGameViewportWidth(): Length {
@@ -368,7 +372,7 @@ export default struct WebHost {
     }
 
     const layoutScene: WindowScene = this.getLayoutScene(widthVp, heightVp);
-    const triFold = resolveTriFoldLayout(widthVp, heightVp, this.scene, this.foldStatus);
+    const triFold = resolveTriFoldLayout(widthVp, heightVp, this.scene, this.foldStatus, this.deviceType);
     const triFoldChanged: boolean = this.triFoldActive !== triFold.active;
     this.triFoldActive = triFold.active;
     this.mainViewportWidthVp = triFold.mainWidthVp;
@@ -387,7 +391,7 @@ export default struct WebHost {
     let nextGameHeightVp: number = decision.gameHeightVp;
     let nextGameLeftMarginVp: number = decision.gameLeftMarginVp;
     let nextSidebarWidthVp: number = decision.sidebarWidthVp;
-    let nextUseCustomGameSize: boolean = decision.useCustomGameSize !== false;
+    let nextUseCustomGameSize: boolean = this.triFoldActive || decision.useCustomGameSize !== false;
 
     const isPureFloatingScene: boolean = this.isPureGameFloatingWindow(widthVp, heightVp);
     // Tiny floating windows should stay pure game canvas.
@@ -422,9 +426,12 @@ export default struct WebHost {
     }
 
     if (nextUseCustomGameSize) {
-      const gameSizePercent: number = nextMode === HostMode.COMPACT
-        ? this.compactGameSizePercent
-        : this.expandedGameSizePercent;
+      // The shared three-pane layout owns its scale regardless of the AB pane's host mode.
+      const useTriFoldScale: boolean = this.triFoldActive ||
+        isTriFoldPortrait(widthVp, heightVp, this.scene, this.foldStatus);
+      const gameSizePercent: number = useTriFoldScale
+        ? this.triFoldGameSizePercent
+        : (nextMode === HostMode.COMPACT ? this.compactGameSizePercent : this.expandedGameSizePercent);
       const gameViewport: GameViewportBox = resolveGameViewportBox(
         nextGameWidthVp,
         nextGameHeightVp,
@@ -436,6 +443,7 @@ export default struct WebHost {
     }
 
     const modeChanged: boolean = this.lastMode !== nextMode;
+    const gameSizeChanged: boolean = this.gameWidthVp !== nextGameWidthVp || this.gameHeightVp !== nextGameHeightVp;
 
     this.mode = nextMode;
     this.fit = nextFit;
@@ -473,7 +481,7 @@ export default struct WebHost {
     }
     if (modeChanged) {
       this.host.onPageEnd();
-    } else if (triFoldChanged) {
+    } else if (triFoldChanged || gameSizeChanged) {
       this.host.reapplyFit();
     }
     this.lastMode = this.mode;
@@ -1238,6 +1246,11 @@ export default struct WebHost {
       if (this.triFoldActive) {
         Column() {
           BattlePreviewPanel({ singleColumn: true })
+            .width('100%')
+            .layoutWeight(1)
+          TriFoldDashboard()
+            .width('100%')
+            .height(Math.min(240, this.viewportHeightVp * 0.4))
         }
         .width(this.infoViewportWidthVp)
         .height('100%')

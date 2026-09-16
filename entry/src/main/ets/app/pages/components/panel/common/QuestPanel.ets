@@ -18,9 +18,11 @@ function questRowKey(quest: QuestSnapshot): string {
 export default struct QuestPanel {
   @Param quests: QuestSnapshot[] = [];
   @Param compact: boolean = false;
+  @Param includeCompleted: boolean = false;
 
   private visibleQuests(): QuestSnapshot[] {
-    return this.quests.filter((q: QuestSnapshot) => q.state === QUEST_STATE_ACTIVE);
+    return this.quests.filter((q: QuestSnapshot) => q.state === QUEST_STATE_ACTIVE ||
+      (this.includeCompleted && q.state === 3));
   }
 
   private categoryWidth(): number {

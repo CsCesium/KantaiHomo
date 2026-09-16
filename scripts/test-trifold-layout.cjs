@@ -34,7 +34,7 @@ function load(relativePath) {
 
 const responsive = load('infra/web/layout/responsive.ets');
 const { WindowScene, HostMode } = responsive;
-const { resolveTriFoldLayout } = load('infra/web/layout/triFold.ets');
+const { isTriFoldPortrait, resolveTriFoldLayout } = load('infra/web/layout/triFold.ets');
 const { PanelMode } = load('features/panel/type.ts');
 
 // Extract actual non-UI methods using the TypeScript AST; do not duplicate their logic.
@@ -48,7 +48,7 @@ const Host = compile(`export default class Host { ${methods} }`, 'WebHostLogic.t
   ...responsive,
   ...load('infra/web/layout/gameSize.ets'),
   ...load('features/panel/panelLayoutManager.ets'),
-  resolveTriFoldLayout, PanelMode,
+  isTriFoldPortrait, resolveTriFoldLayout, PanelMode,
   NARROW_SHORT_SIDE_VP: 420,
   FLOATING_TOOL_SURFACE_MIN_WIDTH_VP: 700,
   setLauncherSwipeBlocked: () => {},
@@ -58,10 +58,11 @@ function harness() {
   const h = new Host();
   const calls = [];
   Object.assign(h, {
-    viewportWidthVp: 1200, viewportHeightVp: 800, foldStatus: 11,
+    viewportWidthVp: 1200, viewportHeightVp: 800, foldStatus: 11, deviceType: 'phone',
     scene: WindowScene.FULLSCREEN, triFoldActive: false, triFoldInfoOnLeft: false,
     mainViewportWidthVp: 0, infoViewportWidthVp: 0, lrLayoutForced: false,
     lastMode: null, compactGameSizePercent: 100, expandedGameSizePercent: 100,
+    triFoldGameSizePercent: 100,
     landscapeOrientationPending: false, restoreLandscapeAfterManualLayout: false,
     battlePreviewAvailable: true, battlePreviewVisible: true,
     autoBattlePreviewFloatOverlay: true, overlayForced: false,
@@ -111,7 +112,7 @@ test('AB uses the dual-face game size and keeps a bottom dashboard beside C', ()
   assert.equal(h.panelConfig.mode, PanelMode.BottomPanel);
   assert.equal(h.panelConfig.bottomPanelHeight, 320);
   assert.equal(h.showBattlePreviewInMainPane(), false);
-  h.expandedGameSizePercent = 80;
+  h.triFoldGameSizePercent = 80;
   h.resize(1200, 800);
   assert.equal(h.gameWidthVp, 640);
   assert.equal(h.gameHeightVp, 384);
@@ -183,7 +184,7 @@ test('multi-window transitions restore full window width on a fully unfolded dev
   assert.equal(h.triFoldActive, true);
 });
 
-test('portrait keeps the original game, dashboard, button and preview behavior at every fold state', () => {
+test('portrait keeps the original layout and preview behavior when scale preferences match', () => {
   for (const [width, height] of [[360, 800], [720, 1000], [800, 1200]]) {
     const baseline = harness();
     baseline.expandedGameSizePercent = 80;
@@ -191,6 +192,7 @@ test('portrait keeps the original game, dashboard, button and preview behavior a
     for (const status of [0, 1, 2, 3, 11, 12, 13, 21, 22, 23]) {
       const h = harness();
       h.expandedGameSizePercent = 80;
+      h.triFoldGameSizePercent = 80;
       h.resize(1200, 800, 11);
       h.swapTriFoldPanes();
       h.resize(width, height, status);
@@ -211,4 +213,165 @@ test('portrait keeps the original game, dashboard, button and preview behavior a
       assert.equal(h.getMainViewportLeft(), 0);
     }
   }
+});
+
+test('fully unfolded portrait uses its independent scale and pushes size changes without reloading', () => {
+  const h = harness();
+  h.compactGameSizePercent = 60;
+  h.expandedGameSizePercent = 80;
+  h.triFoldGameSizePercent = 75;
+  h.resize(800, 1200, 11);
+  assert.equal(h.gameWidthVp, 600);
+  assert.equal(h.gameHeightVp, 360);
+  assert.equal(h.panelConfig.bottomPanelHeight, 840);
+  assert.equal(h.triFoldActive, false);
+  h.calls.length = 0;
+  h.triFoldGameSizePercent = 60;
+  h.onGameSizePercentChanged();
+  assert.equal(h.gameWidthVp, 480);
+  assert.equal(h.gameHeightVp, 288);
+  assert.deepEqual(h.calls, ['orientation', 'fit']);
+  assert.equal(h.compactGameSizePercent, 60);
+  assert.equal(h.expandedGameSizePercent, 80);
+
+  // Same host mode and window size; changing fold state still updates web fit.
+  h.calls.length = 0;
+  h.resize(800, 1200, 1);
+  assert.equal(h.gameWidthVp, 640);
+  assert.ok(h.calls.includes('fit'));
+  h.resize(1200, 800, 11);
+  assert.equal(h.gameWidthVp, 480, 'landscape AB also uses the independent three-pane scale');
+});
+
+test('portrait scale excludes partial folds, square windows and multi-window scenes', () => {
+  for (const status of [0, 1, 2, 3, 12, 13, 21, 22, 23]) {
+    assert.equal(isTriFoldPortrait(800, 1200, WindowScene.FULLSCREEN, status), false);
+  }
+  for (const scene of [WindowScene.SPLIT, WindowScene.FLOATING]) {
+    const h = harness();
+    h.expandedGameSizePercent = 80;
+    h.triFoldGameSizePercent = 60;
+    h.resize(800, 1200, 11, scene);
+    assert.equal(h.gameWidthVp, 640);
+  }
+  assert.equal(isTriFoldPortrait(800, 800, WindowScene.FULLSCREEN, 11), false);
+  assert.equal(isTriFoldPortrait(0, 1200, WindowScene.FULLSCREEN, 11), false);
+});
+
+test('three-pane scale wins over both normal scales in expanded and compact AB layouts', () => {
+  for (const [width, height, baseWidth, baseHeight, mode] of [
+    [1200, 800, 800, 480, HostMode.EXPANDED],
+    [1800, 800, 1200, 720, HostMode.COMPACT],
+    [1200, 360, 600, 360, HostMode.COMPACT],
+  ]) {
+    const h = harness();
+    h.resize(width, height);
+    assert.equal(h.triFoldActive, true);
+    assert.equal(h.mode, mode);
+    assert.deepEqual([h.gameWidthVp, h.gameHeightVp], [baseWidth, baseHeight]);
+
+    h.calls.length = 0;
+    h.expandedGameSizePercent = 80;
+    h.compactGameSizePercent = 60;
+    h.onGameSizePercentChanged();
+    assert.deepEqual([h.gameWidthVp, h.gameHeightVp], [baseWidth, baseHeight]);
+    assert.ok(!h.calls.includes('fit'), 'unrelated preferences do not change the game viewport');
+
+    h.calls.length = 0;
+    h.triFoldGameSizePercent = 75;
+    h.onGameSizePercentChanged();
+    const scaledSize = [baseWidth * 0.75, baseHeight * 0.75];
+    assert.deepEqual([h.gameWidthVp, h.gameHeightVp], scaledSize);
+    assert.deepEqual(h.calls, ['orientation', 'fit']);
+    h.swapTriFoldPanes();
+    assert.deepEqual([h.gameWidthVp, h.gameHeightVp], scaledSize);
+
+    const regular = harness();
+    regular.expandedGameSizePercent = 80;
+    regular.compactGameSizePercent = 60;
+    regular.resize(width, height, 1);
+    h.resize(width, height, 1);
+    assert.equal(h.triFoldActive, false);
+    assert.deepEqual([h.gameWidthVp, h.gameHeightVp], [regular.gameWidthVp, regular.gameHeightVp]);
+  }
+});
+
+test('tablet identification and available window size both gate the shared layout', () => {
+  for (const width of [840, 1200, 1201]) {
+    const layout = resolveTriFoldLayout(width, 600, WindowScene.FULLSCREEN, 0, 'tablet');
+    assert.equal(layout.active, true);
+    assert.equal(layout.infoWidthVp, Math.floor(width / 3));
+    assert.equal(layout.mainWidthVp + layout.infoWidthVp, width);
+  }
+  for (const deviceType of ['phone', 'default', '2in1', '', 'unknown']) {
+    assert.equal(resolveTriFoldLayout(1200, 800, WindowScene.FULLSCREEN, 0, deviceType).active, false);
+  }
+  for (const [width, height, scene] of [
+    [839, 600, WindowScene.FULLSCREEN], [1200, 420, WindowScene.FULLSCREEN],
+    [800, 1200, WindowScene.FULLSCREEN], [1000, 1000, WindowScene.FULLSCREEN],
+    [0, 0, WindowScene.FULLSCREEN], [1200, 0, WindowScene.FULLSCREEN],
+    [1200, 800, WindowScene.SPLIT], [1200, 800, WindowScene.FLOATING],
+  ]) {
+    const layout = resolveTriFoldLayout(width, height, scene, 0, 'tablet');
+    assert.equal(layout.active, false, `${width}x${height}, ${scene}`);
+    assert.equal(layout.mainWidthVp, width);
+    assert.equal(layout.infoWidthVp, 0);
+  }
+  assert.equal(resolveTriFoldLayout(840, 421, WindowScene.FULLSCREEN, 0, 'tablet').active, true);
+});
+
+test('tablet landscape reuses the preview, swap and independent scaling behavior', () => {
+  const h = harness();
+  h.deviceType = 'tablet';
+  h.compactGameSizePercent = 60;
+  h.expandedGameSizePercent = 80;
+  h.triFoldGameSizePercent = 75;
+  h.resize(1200, 800, 0);
+  assert.equal(h.triFoldActive, true);
+  assert.equal(h.mainViewportWidthVp, 800);
+  assert.equal(h.infoViewportWidthVp, 400);
+  assert.deepEqual([h.gameWidthVp, h.gameHeightVp], [600, 360]);
+  assert.equal(h.panelConfig.mode, PanelMode.BottomPanel);
+  assert.equal(h.showBattlePreviewInMainPane(), false);
+  h.toggleBattlePreview();
+  assert.equal(h.battlePreviewVisible, true);
+  h.swapTriFoldPanes();
+  assert.equal(h.getMainViewportLeft(), 400);
+  h.calls.length = 0;
+  h.triFoldGameSizePercent = 65;
+  h.onGameSizePercentChanged();
+  assert.deepEqual([h.gameWidthVp, h.gameHeightVp], [520, 312]);
+  assert.deepEqual(h.calls, ['orientation', 'fit']);
+});
+
+test('tablet rotation, resizing and multi-window transitions restore ordinary layout and scale', () => {
+  const h = harness();
+  h.deviceType = 'tablet';
+  h.expandedGameSizePercent = 80;
+  h.compactGameSizePercent = 60;
+  h.triFoldGameSizePercent = 75;
+  h.resize(1200, 800, 0);
+  h.swapTriFoldPanes();
+  for (const [width, height, scene] of [
+    [800, 1200, WindowScene.FULLSCREEN], [839, 600, WindowScene.FULLSCREEN],
+    [900, 600, WindowScene.SPLIT], [900, 600, WindowScene.FLOATING],
+  ]) {
+    const baseline = harness();
+    baseline.expandedGameSizePercent = 80;
+    baseline.compactGameSizePercent = 60;
+    baseline.resize(width, height, 0, scene);
+    h.resize(width, height, 0, scene);
+    assert.equal(h.triFoldActive, false);
+    assert.equal(h.infoViewportWidthVp, 0);
+    assert.equal(h.getMainViewportLeft(), 0);
+    assert.equal(h.showBattlePreviewInMainPane(), true);
+    for (const property of ['mode', 'fit', 'gameWidthVp', 'gameHeightVp', 'mainViewportWidthVp']) {
+      assert.equal(h[property], baseline[property], `${scene}, ${property}`);
+    }
+    assert.deepEqual(h.panelConfig, baseline.panelConfig);
+  }
+  h.resize(1200, 800, 0, WindowScene.FULLSCREEN);
+  assert.equal(h.triFoldActive, true);
+  assert.equal(h.getMainViewportLeft(), 400);
+  assert.deepEqual([h.gameWidthVp, h.gameHeightVp], [600, 360]);
 });

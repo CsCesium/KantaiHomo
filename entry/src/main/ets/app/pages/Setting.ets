@@ -14,6 +14,7 @@ import {
 import { ensureNotificationPermission } from '../../features/alerts/module/notificationPermission';
 import { getExpeditionLiveNotificationService } from '../../features/alerts/module/expeditionNotification';
 import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
+import { APP_STORAGE_GAME_SIZE_TRIFOLD } from '../../ability/Entry';
 import {
   TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT,
   TOUCH_WHEEL_SENSITIVITY_MAX_PERCENT,
@@ -49,6 +50,7 @@ struct Setting {
   @StorageLink(APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW) private autoBattlePreviewFloatOverlay: boolean = true;
   @StorageLink(APP_STORAGE_GAME_SIZE_COMPACT) private compactGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
   @StorageLink(APP_STORAGE_GAME_SIZE_EXPANDED) private expandedGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
+  @StorageLink(APP_STORAGE_GAME_SIZE_TRIFOLD) private triFoldGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
   @StorageLink(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
   @StorageLink(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
@@ -274,6 +276,15 @@ struct Setting {
     }
     this.expandedGameSizePercent = next;
     void kvSet(APP_STORAGE_GAME_SIZE_EXPANDED, next);
+  }
+
+  private setTriFoldGameSizePercent(value: number): void {
+    const next: number = normalizeGameSizePercent(value);
+    if (next === this.triFoldGameSizePercent) {
+      return;
+    }
+    this.triFoldGameSizePercent = next;
+    void kvSet(APP_STORAGE_GAME_SIZE_TRIFOLD, next);
   }
 
   private onResourceCacheToggle(v: boolean): void {
@@ -558,7 +569,7 @@ struct Setting {
           Text('宽屏游戏画面')
             .fontSize(15)
             .fontColor('#A09080')
-          Text('用于游戏 + 底部面板布局，缩小后释放下方面板空间')
+          Text('用于常规的游戏 + 底部面板布局')
             .fontSize(12)
             .fontColor('#3A4A55')
         }
@@ -586,6 +597,50 @@ struct Setting {
         .trackColor('#1C2E3A')
         .blockColor('#90B0C0')
         .onChange((value: number) => { this.setExpandedGameSizePercent(value); })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+  }
+
+  @Builder
+  private TriFoldGameSizeRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('三屏模式游戏画面')
+            .fontSize(15)
+            .fontColor('#A09080')
+          Text('用于三折叠或平板的横向三栏布局，以及三折叠完全展开的全屏竖向布局')
+            .fontSize(12)
+            .fontColor('#3A4A55')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(`${this.triFoldGameSizePercent}%`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#90B0C0')
+          .width(58)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Slider({
+        value: this.triFoldGameSizePercent,
+        min: GAME_SIZE_MIN_PERCENT,
+        max: GAME_SIZE_MAX_PERCENT,
+        step: GAME_SIZE_STEP_PERCENT,
+      })
+        .width('100%')
+        .selectedColor('#6A9AB5')
+        .trackColor('#1C2E3A')
+        .blockColor('#90B0C0')
+        .onChange((value: number) => { this.setTriFoldGameSizePercent(value); })
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 14, bottom: 14 })
@@ -833,6 +888,8 @@ struct Setting {
             this.CompactGameSizeRow()
 
             this.ExpandedGameSizeRow()
+
+            this.TriFoldGameSizeRow()
 
             this.ToggleRow(
               '装备改修度图标',

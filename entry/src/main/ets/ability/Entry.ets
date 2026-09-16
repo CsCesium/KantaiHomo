@@ -60,6 +60,8 @@ export const APP_STORAGE_PANEL_SHOW_PROFICIENCY = 'panel.equip.showProficiency';
 /** AppStorage keys for mode-specific game viewport size percent */
 export const APP_STORAGE_GAME_SIZE_COMPACT = 'ui.gameSize.compact';
 export const APP_STORAGE_GAME_SIZE_EXPANDED = 'ui.gameSize.expanded';
+// Keep the original storage key so existing independent scale preferences survive the rename.
+export const APP_STORAGE_GAME_SIZE_TRIFOLD = 'ui.gameSize.triFoldPortrait';
 
 export default class EntryAbility extends UIAbility {
   private mainWindow?: window.Window;
@@ -99,6 +101,11 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_GAME_SIZE_EXPANDED, GAME_SIZE_DEFAULT_PERCENT);
     void kvGetNumber(APP_STORAGE_GAME_SIZE_EXPANDED, GAME_SIZE_DEFAULT_PERCENT).then((v: number) => {
       AppStorage.set(APP_STORAGE_GAME_SIZE_EXPANDED, normalizeGameSizePercent(v));
+    });
+
+    AppStorage.setOrCreate(APP_STORAGE_GAME_SIZE_TRIFOLD, GAME_SIZE_DEFAULT_PERCENT);
+    void kvGetNumber(APP_STORAGE_GAME_SIZE_TRIFOLD, GAME_SIZE_DEFAULT_PERCENT).then((v: number) => {
+      AppStorage.set(APP_STORAGE_GAME_SIZE_TRIFOLD, normalizeGameSizePercent(v));
     });
 
     // Optional local cache for game resources.
