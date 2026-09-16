@@ -76,4 +76,16 @@ export interface QuestCountRecord {
   period: string;
   resetPeriod: string;
 }
-export interface QuestProgressView { label: string; detail: string; }
+export interface QuestGoalProgress {
+  key: string;
+  description: string;
+  label: string;
+  /** The local count has reached this subgoal's target; not the server quest state. */
+  satisfied: boolean;
+}
+export interface QuestProgressView {
+  label: string;
+  items: QuestGoalProgress[];
+  anySatisfied: boolean;
+  note: string;
+}

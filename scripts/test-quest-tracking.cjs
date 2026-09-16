@@ -107,7 +107,25 @@ test('multi-goal counters progress independently and do not fabricate allocation
   counter.sync([quest(214,2,1,3)],now);
   counter.apply([{event:'sally',delta:1},{event:'battle_boss',delta:1},{event:'battle_rank_s',delta:1}],now);
   assert.equal(counter.progress(214).label,'≈3/78');
-  assert.match(counter.progress(214).detail,/出擊：≈1\/36/);
+  assert.equal(counter.progress(214).items.find(item => item.description === '出擊').label, '≈1/36');
+});
+test('a reached subgoal is highlighted independently of the total and clears when server progress is corrected', () => {
+  const counter = new QuestCounter(definitions);
+  counter.sync([quest(214,2,0,3),quest(210)],now);
+  assert.equal(counter.progress(214).anySatisfied,false);
+  counter.apply([{event:'battle_rank_s',delta:6}],now);
+  const progress = counter.progress(214);
+  assert.equal(progress.label,'≈6/78');
+  assert.equal(progress.anySatisfied,true);
+  assert.equal(progress.items.filter(item=>item.satisfied).length,1);
+  assert.equal(progress.items.find(item=>item.key==='battle_rank_s').satisfied,true);
+  assert.equal(progress.items.find(item=>item.key==='sally').satisfied,false);
+  counter.apply([{event:'battle',delta:10}],now);
+  assert.equal(counter.progress(210).anySatisfied,true);
+  counter.sync([quest(210,2,2)],now);
+  assert.equal(counter.progress(210).anySatisfied,false);
+  counter.sync([quest(214,3,2,3)],now);
+  assert.ok(counter.progress(214).items.every(item=>item.satisfied));
 });
 test('reset boundaries use JST 05:00 for daily, Monday, month, quarter and yearly quests', () => {
   const before = Date.parse('2026-09-01T03:59:59+08:00');

@@ -159,11 +159,18 @@ export class QuestCounter {
     const required = def.goals.reduce((sum, goal) => sum + goal.required, 0);
     const count = counts.reduce((sum, value) => sum + value, 0);
     const prefix = record.estimated ? '≈' : '';
+    const items = def.goals.map((goal, i) => ({
+      key: goal.key,
+      description: goal.description ?? goal.event,
+      label: `${prefix}${counts[i]}/${goal.required}`,
+      satisfied: goal.required > 0 && counts[i] >= goal.required,
+    }));
     return {
       label: `${prefix}${count}/${required}`,
-      detail: def.goals.map((goal, i) => `${goal.description ?? goal.event}：${prefix}${counts[i]}/${goal.required}`).join('\n') +
-        (record.estimated ? '\n≈ 为本地估算；接入前或在其他设备上的进度可能不完整。' : '') +
-        '\n任务是否完成以游戏确认结果为准。',
+      items,
+      anySatisfied: items.some(item => item.satisfied),
+      note: (record.estimated ? '≈ 为本地估算；接入前或在其他设备上的进度可能不完整。\n' : '') +
+        '任务是否完成以游戏确认结果为准。',
     };
   }
 }

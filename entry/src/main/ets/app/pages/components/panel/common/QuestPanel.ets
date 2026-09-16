@@ -1,6 +1,7 @@
 import { QuestSnapshot, subscribeGameState } from '../../../../../features/state';
 import { normalizeQuestText } from '../../../../../domain/models/normalizer/quest';
 import { firstFleetSatisfiesQuest, initializeQuestTracking, questProgress, subscribeQuestTracking } from '../../../../../features/quests/service';
+import { QuestGoalProgress } from '../../../../../features/quests/types';
 import {
   PanelColors,
   PanelDimens,
@@ -8,7 +9,6 @@ import {
   questResetTypeLabel,
   questProgressLabel,
 } from '../../../../../features/panel/panelConfig';
-import { promptAction } from '@kit.ArkUI';
 
 const QUEST_STATE_ACTIVE = 2;
 
@@ -22,6 +22,8 @@ export default struct QuestPanel {
   @Param compact: boolean = false;
   @Param includeCompleted: boolean = false;
   @Local revision: number = 0;
+  @Local detailVisible: boolean = false;
+  @Local detailQuest: QuestSnapshot | null = null;
   private unsubscribeState: (() => void) | null = null;
   private unsubscribeTracking: (() => void) | null = null;
   private resetTimer: number = -1;
@@ -38,6 +40,7 @@ export default struct QuestPanel {
   }
 
   aboutToDisappear(): void {
+    this.detailVisible = false;
     this.unsubscribeState?.(); this.unsubscribeState = null;
     this.unsubscribeTracking?.(); this.unsubscribeTracking = null;
     if (this.resetTimer !== -1) clearInterval(this.resetTimer);
@@ -51,6 +54,11 @@ export default struct QuestPanel {
   private progressLabel(quest: QuestSnapshot): string {
     if (quest.state === 3) return questProgressLabel(quest.progress, quest.state);
     return questProgress(quest.questId)?.label ?? questProgressLabel(quest.progress, quest.state);
+  }
+
+  private progressColor(quest: QuestSnapshot): string {
+    return quest.state === 3 || questProgress(quest.questId)?.anySatisfied ?
+      PanelColors.questSatisfied : PanelColors.stat;
   }
 
   private visibleQuests(): QuestSnapshot[] {
@@ -87,22 +95,117 @@ export default struct QuestPanel {
   }
 
   private showQuestDetail(quest: QuestSnapshot): void {
-    const detailText = normalizeQuestText(quest.detail || '无任务描述');
-    const message = [
-      `周期：${questResetTypeLabel(quest.type)}`,
-      `进度：${questProgressLabel(quest.progress, quest.state)}`,
-      ...(this.formationReady(quest) ? ['第一舰队满足编成要求 🆗（仅检查编成）'] : []),
-      ...(questProgress(quest.questId) ? [questProgress(quest.questId)?.detail ?? ''] : []),
-      '',
-      detailText,
-    ].join('\n');
-    promptAction.showDialog({
-      title: normalizeQuestText(quest.title || '任务详情'),
-      message,
-      buttons: [
-        { text: '关闭', color: '#6A9AB5' },
-      ],
-    }).catch((_e: Error) => {});
+    this.detailQuest = quest;
+    this.detailVisible = true;
+  }
+
+  @Builder private QuestDetailSheet(revision: number): void {
+    if (this.detailQuest) {
+      this.QuestDetailContent(this.quests.find((quest: QuestSnapshot) => quest.questId === this.detailQuest?.questId) ??
+        this.detailQuest, revision)
+    }
+  }
+
+  @Builder private QuestDetailContent(quest: QuestSnapshot, revision: number): void {
+    Column({ space: 16 }) {
+      Text(`${this.formationReady(quest) ? '🆗 ' : ''}${normalizeQuestText(quest.title || '任务详情')}`)
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(PanelColors.txtPrimary)
+        .width('100%')
+        .padding({ right: 30 })
+
+      Row({ space: 12 }) {
+        Text(`周期：${questResetTypeLabel(quest.type)}`)
+          .fontSize(14)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(PanelColors.txtPrimary)
+          .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+          .backgroundColor(PanelColors.bgInfoOn)
+          .borderRadius(8)
+        Text(questProgressLabel(quest.progress, quest.state))
+          .fontSize(14)
+          .fontColor(quest.state === 3 ? PanelColors.questSatisfied : PanelColors.txtSub)
+      }
+      .width('100%')
+
+      Scroll() {
+        Column({ space: 18 }) {
+          if (questProgress(quest.questId)) {
+            Column({ space: 12 }) {
+              Row() {
+                Text('任务计数').fontSize(16).fontWeight(FontWeight.Bold).fontColor(PanelColors.txtPrimary)
+                Blank()
+                Text(questProgress(quest.questId)?.label ?? '')
+                  .fontSize(28)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(this.progressColor(quest))
+              }
+              .width('100%')
+
+              ForEach(questProgress(quest.questId)?.items ?? [], (item: QuestGoalProgress) => {
+                Row({ space: 12 }) {
+                  Text(item.description)
+                    .fontSize(16)
+                    .fontWeight(item.satisfied ? FontWeight.Bold : FontWeight.Medium)
+                    .fontColor(item.satisfied ? PanelColors.questSatisfied : PanelColors.txtPrimary)
+                    .layoutWeight(1)
+                  Text(item.label)
+                    .fontSize(22)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor(item.satisfied ? PanelColors.questSatisfied : PanelColors.stat)
+                    .flexShrink(0)
+                }
+                .width('100%')
+                .padding(12)
+                .backgroundColor(PanelColors.bg)
+                .borderRadius(8)
+              }, (item: QuestGoalProgress) => `${item.key}-${item.label}-${revision}`)
+            }
+            .width('100%')
+            .padding(16)
+            .backgroundColor(PanelColors.bgInfoOn)
+            .borderRadius(12)
+
+            Text(questProgress(quest.questId)?.note ?? '')
+              .fontSize(12)
+              .fontColor(PanelColors.txtSub)
+              .width('100%')
+          }
+
+          if (this.formationReady(quest)) {
+            Text('第一舰队满足编成要求（仅检查编成）')
+              .fontSize(14)
+              .fontColor(PanelColors.questSatisfied)
+              .width('100%')
+          }
+
+          Column({ space: 8 }) {
+            Text('任务说明').fontSize(14).fontWeight(FontWeight.Bold).fontColor(PanelColors.txtSub)
+            Text(normalizeQuestText(quest.detail || '无任务描述'))
+              .fontSize(16)
+              .fontColor(PanelColors.txtPrimary)
+              .lineHeight(24)
+              .width('100%')
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .width('100%')
+      .align(Alignment.TopStart)
+
+      Button('关闭')
+        .width('100%')
+        .fontColor(PanelColors.txtPrimary)
+        .backgroundColor(PanelColors.bgInfoOn)
+        .onClick(() => { this.detailVisible = false; })
+    }
+    .height('100%')
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 28, bottom: 16 })
   }
 
   @Builder private QuestRow(quest: QuestSnapshot): void {
@@ -127,15 +230,15 @@ export default struct QuestPanel {
 
       Column({ space: 2 }) {
         Row({ space: 3 }) {
+          if (this.formationReady(quest)) {
+            Text('🆗').fontSize(this.titleFontSize())
+          }
           Text(normalizeQuestText(quest.title || '未命名任务'))
             .fontSize(this.titleFontSize())
             .fontColor(PanelColors.txtPrimary)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .layoutWeight(1)
-          if (this.formationReady(quest)) {
-            Text('🆗').fontSize(this.titleFontSize())
-          }
         }
         .width('100%')
 
@@ -151,8 +254,8 @@ export default struct QuestPanel {
 
       Text(this.progressLabel(quest))
         .fontSize(this.progressFontSize())
-        .fontWeight(FontWeight.Medium)
-        .fontColor(PanelColors.stat)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.progressColor(quest))
         .width(this.progressWidth())
         .textAlign(TextAlign.End)
         .padding({ right: this.compact ? 5 : 8 })
@@ -193,5 +296,11 @@ export default struct QuestPanel {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+    .bindSheet($$this.detailVisible, this.QuestDetailSheet(this.revision), {
+      height: '85%',
+      backgroundColor: PanelColors.bg,
+      showClose: true,
+      dragBar: true,
+    })
   }
 }
