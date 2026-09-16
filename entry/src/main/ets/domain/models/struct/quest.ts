@@ -27,7 +27,7 @@ export interface QuestListPage {
   completedKind: number;
   pageCount: number;
   page: number;
-  /** 请求参数 api_tab_id；0 表示游戏的“全部”页，可用于清理已消失任务。 */
+  /** 请求参数 api_tab_id；0 表示“全部”标签，仅完整遍历所有分页后可清理缺失任务。 */
   tabId?: number;
   quests: Quest[];
   updatedAt: number;

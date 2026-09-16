@@ -14,12 +14,13 @@ const RULES: EndpointRule[] = [
 
 function parseQuestList(ctx: ParserCtx): QuestListEvent[] {
   const root: JsonObject | null = parseSvdata<any>(ctx.responseText)
-  if (root === null) return [];
+  if (root === null || root.api_result !== 1) return [];
 
   const payloadObj: JsonObject = unwrapApiData(root)
   const raw = payloadObj as ApiQuestListRespRaw;
   const params = parseFormBody(ctx.requestBody);
-  const tabIdRaw = Number(params.get('api_tab_id'));
+  const tabIdText = params.get('api_tab_id');
+  const tabIdRaw = tabIdText === undefined || tabIdText === null || tabIdText === '' ? NaN : Number(tabIdText);
   const tabId = Number.isFinite(tabIdRaw) ? tabIdRaw : undefined;
   const page = normalizeQuestListPage(raw, ctx.ts, tabId);
 

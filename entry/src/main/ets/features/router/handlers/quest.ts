@@ -1,8 +1,7 @@
 import { AnyQuestEvt } from '../../../domain/events';
 import { questsToRows } from '../../../domain/models/mapper/quest';
-import { Quest } from '../../../domain/models/struct/quest';
-import { QuestState } from '../../../domain/models/enums/quest';
-import { removeQuest, setQuestState, updateQuests } from '../../state';
+import { QuestListPage } from '../../../domain/models/struct/quest';
+import { syncQuestPage, claimTrackedQuest, changeTrackedQuestState } from '../../quests/service';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -11,7 +10,7 @@ class QuestPersistHandler implements Handler {
     const e = ev as AnyQuestEvt;
     switch (e.type) {
       case 'QUEST_LIST':
-        await this.handleQuestList(e.payload.quests, e.payload.tabId === 0, deps);
+        await this.handleQuestList(e.payload, deps);
         break;
       case 'QUEST_CLAIMED':
         await this.handleQuestClaimed(e.payload.questId, deps);
@@ -22,8 +21,9 @@ class QuestPersistHandler implements Handler {
     }
   }
 
-  private async handleQuestList(payload: Quest[], replaceAll: boolean, deps: PersistDeps): Promise<void> {
-    updateQuests(payload, replaceAll);
+  private async handleQuestList(page: QuestListPage, deps: PersistDeps): Promise<void> {
+    await syncQuestPage(page);
+    const payload = page.quests;
 
     if (!deps.repos?.quest) {
       console.warn('[persist][QUEST_LIST] repository not provided');
@@ -35,7 +35,7 @@ class QuestPersistHandler implements Handler {
   }
 
   private async handleQuestClaimed(questId: number, deps: PersistDeps): Promise<void> {
-    removeQuest(questId);
+    await claimTrackedQuest(questId);
 
     if (!deps.repos?.quest) {
       console.warn('[persist][QUEST_CLAIMED] repository not provided');
@@ -51,7 +51,7 @@ class QuestPersistHandler implements Handler {
     changedAt: number,
     deps: PersistDeps
   ): Promise<void> {
-    setQuestState(questId, state as QuestState);
+    await changeTrackedQuestState(questId, state, changedAt);
     if (!deps.repos?.quest) return;
 
     const row = await deps.repos.quest.get(questId);

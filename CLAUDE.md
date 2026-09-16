@@ -178,6 +178,8 @@ and are loaded via `resourceManager.getRawFileContent(...)`.
 | `servers.json` | session/server detection | 20 official game server IPs |
 | `expedition_conditions.json` | `ExpeditionInfoPage` | Expedition fleet requirements |
 | `equipment_classification.json` | `panel/equipmentClassification.ts` | Equipment grouping overrides |
+| `quest_req.json` / `quest_nations.json` | `features/quests` | First-fleet quest composition requirements |
+| `quest_goals.json` | `features/quests` | Offline poi quest counter goals; update with `scripts/update-quest-goals.mjs` |
 | `improvement.json` | `RemodelInfoPage` (改修情报) | Equipment improvement (改修) table |
 
 ### Improvement data (`improvement.json`)

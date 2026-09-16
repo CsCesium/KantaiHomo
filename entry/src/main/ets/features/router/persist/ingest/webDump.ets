@@ -40,6 +40,7 @@ import {
   updateFromPort
 } from '../../../state';
 import { getSortieContext } from '../../../../domain/service';
+import { trackQuestApi } from '../../../quests/service';
 import { parseFormBody } from '../../../utils/common';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
@@ -292,6 +293,12 @@ function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
 
 export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void> {
   const size: number = totalSize(dump)
+
+  try {
+    await trackQuestApi(dump);
+  } catch (error) {
+    console.warn('[quests] API tracking failed:', String(error));
+  }
 
   let result: ParseResult = { preEvents: [], mainEvents: [] };
   // 提取状态（补给 API 的 api_material 为 number[] 格式，由专用 pipeline 处理，跳过通用提取；

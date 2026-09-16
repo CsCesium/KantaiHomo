@@ -1,4 +1,5 @@
-import { QuestSnapshot } from '../../../../../features/state';
+import { QuestSnapshot, subscribeGameState } from '../../../../../features/state';
+import { firstFleetSatisfiesQuest, initializeQuestTracking, questProgress, subscribeQuestTracking } from '../../../../../features/quests/service';
 import {
   PanelColors,
   PanelDimens,
@@ -19,6 +20,37 @@ export default struct QuestPanel {
   @Param quests: QuestSnapshot[] = [];
   @Param compact: boolean = false;
   @Param includeCompleted: boolean = false;
+  @Local revision: number = 0;
+  private unsubscribeState: (() => void) | null = null;
+  private unsubscribeTracking: (() => void) | null = null;
+  private resetTimer: number = -1;
+
+  aboutToAppear(): void {
+    this.unsubscribeState = subscribeGameState((changeType) => {
+      if (changeType === 'ships' || changeType === 'decks' || changeType === 'all') this.revision++;
+    });
+    this.unsubscribeTracking = subscribeQuestTracking(() => { this.revision++; });
+    void initializeQuestTracking().catch((error: Error) => { console.warn('[QuestPanel]', String(error)); });
+    this.resetTimer = setInterval(() => {
+      void initializeQuestTracking().catch((error: Error) => { console.warn('[QuestPanel]', String(error)); });
+    }, 60000);
+  }
+
+  aboutToDisappear(): void {
+    this.unsubscribeState?.(); this.unsubscribeState = null;
+    this.unsubscribeTracking?.(); this.unsubscribeTracking = null;
+    if (this.resetTimer !== -1) clearInterval(this.resetTimer);
+    this.resetTimer = -1;
+  }
+
+  private formationReady(quest: QuestSnapshot): boolean {
+    return quest.state === QUEST_STATE_ACTIVE && firstFleetSatisfiesQuest(quest.questId);
+  }
+
+  private progressLabel(quest: QuestSnapshot): string {
+    if (quest.state === 3) return questProgressLabel(quest.progress, quest.state);
+    return questProgress(quest.questId)?.label ?? questProgressLabel(quest.progress, quest.state);
+  }
 
   private visibleQuests(): QuestSnapshot[] {
     return this.quests.filter((q: QuestSnapshot) => q.state === QUEST_STATE_ACTIVE ||
@@ -34,7 +66,7 @@ export default struct QuestPanel {
   }
 
   private progressWidth(): number {
-    return this.compact ? 44 : 56;
+    return this.compact ? 66 : 80;
   }
 
   private rowHeight(): number {
@@ -58,6 +90,8 @@ export default struct QuestPanel {
     const message = [
       `周期：${questResetTypeLabel(quest.type)}`,
       `进度：${questProgressLabel(quest.progress, quest.state)}`,
+      ...(this.formationReady(quest) ? ['第一舰队满足编成要求 🆗（仅检查编成）'] : []),
+      ...(questProgress(quest.questId) ? [questProgress(quest.questId)?.detail ?? ''] : []),
       '',
       detailText,
     ].join('\n');
@@ -91,11 +125,18 @@ export default struct QuestPanel {
         .textAlign(TextAlign.Center)
 
       Column({ space: 2 }) {
-        Text(quest.title || '未命名任务')
-          .fontSize(this.titleFontSize())
-          .fontColor(PanelColors.txtPrimary)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Row({ space: 3 }) {
+          Text(quest.title || '未命名任务')
+            .fontSize(this.titleFontSize())
+            .fontColor(PanelColors.txtPrimary)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+          if (this.formationReady(quest)) {
+            Text('🆗').fontSize(this.titleFontSize())
+          }
+        }
+        .width('100%')
 
         Text(quest.detail || '无任务描述')
           .fontSize(PanelDimens.fontSm)
@@ -107,7 +148,7 @@ export default struct QuestPanel {
       .layoutWeight(1)
       .padding({ left: this.compact ? 5 : 8, right: this.compact ? 5 : 8 })
 
-      Text(questProgressLabel(quest.progress, quest.state))
+      Text(this.progressLabel(quest))
         .fontSize(this.progressFontSize())
         .fontWeight(FontWeight.Medium)
         .fontColor(PanelColors.stat)
@@ -144,7 +185,7 @@ export default struct QuestPanel {
       if (this.visibleQuests().length > 0) {
         ForEach(this.visibleQuests(), (quest: QuestSnapshot) => {
           this.QuestRow(quest)
-        }, (quest: QuestSnapshot) => questRowKey(quest))
+        }, (quest: QuestSnapshot) => `${questRowKey(quest)}-${this.revision}`)
       } else {
         this.EmptyQuestState()
       }
