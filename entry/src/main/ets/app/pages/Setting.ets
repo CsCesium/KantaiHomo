@@ -12,6 +12,8 @@ import {
   getExpeditionReminderService,
 } from '../../features/alerts/module/expeditionReminder';
 import { ensureNotificationPermission } from '../../features/alerts/module/notificationPermission';
+import { getRefreshReminderService } from '../../features/alerts/module/refreshReminder';
+import { RefreshReminderKind, REFRESH_REMINDER_STATUS } from '../../features/alerts/module/refreshSchedule';
 import { getExpeditionLiveNotificationService } from '../../features/alerts/module/expeditionNotification';
 import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
 import { APP_STORAGE_GAME_SIZE_TRIFOLD } from '../../ability/Entry';
@@ -76,6 +78,11 @@ struct Setting {
   @StorageProp(APP_STORAGE_EXPEDITION_REMINDER_ENABLED) private expeditionReminderEnabled: boolean = true;
   @StorageProp(APP_STORAGE_EXPEDITION_REMINDER_STATUS) private expeditionReminderStatus: string = '正在检查系统提醒';
   @State private expeditionReminderBusy: boolean = false;
+  @StorageProp('alerts.refresh.practice.enabled') private practiceRefreshEnabled: boolean = false;
+  @StorageProp('alerts.refresh.senka.enabled') private senkaRefreshEnabled: boolean = false;
+  @StorageProp('alerts.refresh.eo.enabled') private eoRefreshEnabled: boolean = false;
+  @StorageProp(REFRESH_REMINDER_STATUS) private refreshReminderStatus: string = '已关闭时间点提醒';
+  @State private refreshReminderBusy: boolean = false;
 
   // ── Toast settings ─────────────────────────────────────────────
   @State private toastEnabled: boolean = true;
@@ -93,8 +100,36 @@ struct Setting {
   @State private resourceCacheStatsRefreshing: boolean = false;
 
   aboutToAppear(): void {
+    void getRefreshReminderService().sync();
     void this.loadAll();
     void this.refreshResourceCacheStats();
+  }
+
+  private async onRefreshReminderToggle(kind: RefreshReminderKind, enabled: boolean): Promise<void> {
+    if (this.refreshReminderBusy) return;
+    this.refreshReminderBusy = true;
+    try {
+      await getRefreshReminderService().setEnabled(kind, enabled);
+      if (enabled) {
+        await ensureNotificationPermission();
+        await getRefreshReminderService().sync();
+      }
+    } catch (error) {
+      console.warn('[Setting] refresh reminder:', String(error));
+      AppStorage.setOrCreate(REFRESH_REMINDER_STATUS, '设置或授权失败，请检查并重试');
+    } finally { this.refreshReminderBusy = false; }
+  }
+
+  private async retryRefreshReminders(): Promise<void> {
+    if (this.refreshReminderBusy) return;
+    this.refreshReminderBusy = true;
+    try {
+      await ensureNotificationPermission();
+      await getRefreshReminderService().sync();
+    } catch (error) {
+      console.warn('[Setting] refresh reminder permission:', String(error));
+      AppStorage.setOrCreate(REFRESH_REMINDER_STATUS, '未获得通知权限，请检查并重试');
+    } finally { this.refreshReminderBusy = false; }
   }
 
   private async loadAll(): Promise<void> {
@@ -964,6 +999,35 @@ struct Setting {
             )
           }
           .width('100%')
+
+          this.SectionHeader('时间点提醒')
+          Column({ space: 8 }) {
+            this.ToggleRow('演习刷新提醒', '提前 15 分钟；北京时间每天 01:45、13:45 通知',
+              this.practiceRefreshEnabled,
+              (v: boolean) => { void this.onRefreshReminderToggle('practice', v); })
+            this.ToggleRow('月度战果结算提醒', '提前 30 分钟；北京时间每月最后一天 20:30 通知',
+              this.senkaRefreshEnabled,
+              (v: boolean) => { void this.onRefreshReminderToggle('senka', v); })
+            this.ToggleRow('月底 EO 勋章提醒', '提前 3 小时；北京时间每月最后一天 20:00 通知',
+              this.eoRefreshEnabled,
+              (v: boolean) => { void this.onRefreshReminderToggle('eo', v); })
+          }
+          .width('100%')
+          .enabled(!this.refreshReminderBusy)
+          Text('仅发送系统通知，不弹出 Toast、不触发应用振动。月度提醒预登记未来 12 个月，打开应用时自动续期。')
+            .fontSize(12)
+            .fontColor('#A8B9CC')
+            .padding({ left: 16, right: 16 })
+          Row({ space: 12 }) {
+            Text(this.refreshReminderStatus).fontSize(12).fontColor('#A8B9CC').layoutWeight(1)
+            Button(this.refreshReminderBusy ? '检查中' : '检查并重试')
+              .fontSize(12)
+              .enabled(!this.refreshReminderBusy &&
+                (this.practiceRefreshEnabled || this.senkaRefreshEnabled || this.eoRefreshEnabled))
+              .onClick(() => { void this.retryRefreshReminders(); })
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, bottom: 8 })
 
           // ── SECTION: Toast 提示 ───────────────────────────────
           this.SectionHeader('Toast 提示')

@@ -10,6 +10,7 @@ import { initAlerts, initExpeditionScheduler, getExpeditionScheduler, setAlertCo
   initRepairScheduler, getRepairScheduler } from '../features/alerts';
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
 import { getExpeditionReminderService } from '../features/alerts/module/expeditionReminder';
+import { getRefreshReminderService } from '../features/alerts/module/refreshReminder';
 import { ensureNotificationPermission } from '../features/alerts/module/notificationPermission';
 import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
 import { addOnNdockChanged } from '../features/alerts/module/ndockTrigger';
@@ -220,6 +221,7 @@ export default class EntryAbility extends UIAbility {
       addOnExpeditionChanged(() => { void getExpeditionScheduler()?.poke(); });
       void scheduler.start();
       void getExpeditionReminderService().start();
+      void getRefreshReminderService().start();
 
       // 启动入渠修理完成调度器
       const repairScheduler = initRepairScheduler(getRepositoryHub().repair);
@@ -255,6 +257,7 @@ export default class EntryAbility extends UIAbility {
     ensureNotificationPermission().then(async (enabled: boolean) => {
       hilog.info(HILOG_DOM, 'App', 'notification enabled=%{public}s', String(enabled));
       await getExpeditionReminderService().syncFromDb();
+      await getRefreshReminderService().sync();
       await getExpeditionLiveNotificationService().refresh(true);
     }).catch((e: BusinessError) => {
       hilog.warn(HILOG_DOM, 'App', 'notification authorization failed: %{public}s', String(e));
@@ -289,6 +292,7 @@ export default class EntryAbility extends UIAbility {
     getExpeditionScheduler()?.stop();
     getRepairScheduler()?.stop();
     getExpeditionReminderService().stop();
+    getRefreshReminderService().stop();
     getExpeditionLiveNotificationService().stop();
     this.mainWindow?.disableLandscapeMultiWindow().catch((error: BusinessError): void => {
       hilog.error(HILOG_DOM, 'App', 'disableLandscapeMultiWindow failed: %{public}s', JSON.stringify(error));
@@ -300,11 +304,13 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
+    void getRefreshReminderService().sync();
     void getExpeditionLiveNotificationService().refresh(true);
     void getExpeditionReminderService().syncFromDb();
   }
 
   onBackground(): void {
+    void getRefreshReminderService().sync();
     void getExpeditionLiveNotificationService().refresh();
     void getExpeditionReminderService().syncFromDb();
   }
