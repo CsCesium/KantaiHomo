@@ -2,6 +2,53 @@
 
 English | [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.1.2 - 2026-09-17
+
+Compared with `v1.1.1`.
+
+### Added
+
+- Three-pane mode for fully unfolded tri-fold devices and sufficiently large
+  fullscreen landscape tablets, with a 2:1 game/information layout, swappable
+  sides, and independent game scaling. Fully unfolded portrait tri-fold layouts
+  share the new scale preference.
+- A single-column battle preview and an expedition/quest/repair dashboard in the
+  information pane. Double-tapping cycles dashboard views and preserves the selection;
+  expeditions show countdowns and return times, and the quest view includes unclaimed completions.
+- First-fleet quest formation checks and local per-goal counters using 425 bundled
+  poi quest definitions. Counters cover sortie/battle, practice, expedition,
+  supply, repair, arsenal, modernization, and node-arrival events, with per-account
+  persistence and recurring resets. Estimated progress is marked with `≈`.
+- Scrollable quest details with separate goal counts, period labels, and green
+  highlighting for satisfied goals; formation indicators are limited to formation checks.
+- Expedition background reminder settings, registration status, and retry controls,
+  backed by system calendar reminders that remain registered after app exit.
+- Independent, default-off practice refresh, monthly ranking settlement, and EO
+  medal reminders. Notification times in Beijing time (UTC+8) are daily 01:45/13:45,
+  month-end 20:30, and month-end 20:00, respectively. Monthly reminders are registered
+  for a rolling 12-month window; this channel does not trigger app Toasts or vibration.
+- Release checksum generator `dist/generate-checksum.sh` and additional ship avatars.
+
+### Changed
+
+- Quest state synchronization supports modern full-tab responses and legacy
+  pagination, reconciles accepted counts including unclaimed completions, and
+  preserves counters when quests are stopped or canceled on another device.
+- Quest titles and descriptions convert HTML `<br>` tags to native line breaks.
+- Expedition notifications refresh after permission grants, foreground transitions,
+  and manual retries; reminder registration and notification updates are serialized.
+- Removed unused battle, persistence, and infrastructure code, and added focused
+  regression scripts for quest tracking, reminders, and tri-fold layouts.
+
+### Fixed
+
+- Fixed duplicate expedition notifications, stale reminders after schedule changes,
+  and cancellation races around return time; failed registrations can retry.
+- Mute preferences now survive restarts, rapid toggles retain the last choice,
+  and restoring an unmuted preference preserves an existing nonzero system volume.
+- DMM purchase/cashier resources under `dmmapis.com` bypass generic tracking filters;
+  first-party domain matching now rejects lookalike hostname suffixes.
+
 ## 1.1.1 - 2026-08-04
 
 Compared with `v1.1.0`.
