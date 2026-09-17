@@ -11,6 +11,7 @@
 /.appanalyzer
 /docs/*
 build-profile.json5
+RELEASE_NOTES.md
 
 # OHOS signing
 .ci/
