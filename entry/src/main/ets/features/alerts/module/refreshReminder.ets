@@ -62,7 +62,8 @@ class RefreshReminderService {
   private async cancel(id: number): Promise<void> {
     try { await reminderAgentManager.cancelReminder(id); }
     catch (error) {
-      if ((error as BusinessError).code !== 1700003) throw error;
+      const failure = error as BusinessError;
+      if (failure.code !== 1700003) throw new Error(`cancelReminder ${id}: ${failure.code} ${failure.message}`);
     }
   }
 
