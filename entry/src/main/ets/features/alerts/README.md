@@ -150,7 +150,7 @@ hub.deck.list()       → 获取舰队名称
     contentType: MULTILINE,
     title: '舰队远征时间表',
     text:  'N 支舰队远征中',
-    longTitle: '归来：舰队「任务」 HH:mm:ss',
+    longTitle: '归来：HH:mm:ss「任务」',
     lines: [
       '第2舰队: 〇〇远征  00:01:00',
       '第3舰队: 〇〇远征  02:00:00',

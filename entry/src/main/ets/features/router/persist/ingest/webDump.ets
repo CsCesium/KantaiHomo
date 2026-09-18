@@ -41,6 +41,7 @@ import {
 } from '../../../state';
 import { getSortieContext } from '../../../../domain/service';
 import { trackQuestApi } from '../../../quests/service';
+import { getHarborReminderService, harborFlagships } from '../../../alerts/module/harborReminder';
 import { parseFormBody } from '../../../utils/common';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
@@ -292,6 +293,12 @@ function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
 }
 
 export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void> {
+  const before = harborFlagships();
+  await ingestDumpCore(dump, deps);
+  await getHarborReminderService().afterApi(dump, before);
+}
+
+async function ingestDumpCore(dump: ApiDump, deps: PersistDeps): Promise<void> {
   const size: number = totalSize(dump)
 
   try {

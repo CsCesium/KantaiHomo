@@ -11,6 +11,7 @@ import { initAlerts, initExpeditionScheduler, getExpeditionScheduler, setAlertCo
 import { getExpeditionLiveNotificationService } from '../features/alerts/module/expeditionNotification';
 import { getExpeditionReminderService } from '../features/alerts/module/expeditionReminder';
 import { getRefreshReminderService } from '../features/alerts/module/refreshReminder';
+import { getHarborReminderService } from '../features/alerts/module/harborReminder';
 import { ensureNotificationPermission } from '../features/alerts/module/notificationPermission';
 import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
 import { addOnNdockChanged } from '../features/alerts/module/ndockTrigger';
@@ -222,6 +223,7 @@ export default class EntryAbility extends UIAbility {
       void scheduler.start();
       void getExpeditionReminderService().start();
       void getRefreshReminderService().start();
+      void getHarborReminderService().start();
 
       // 启动入渠修理完成调度器
       const repairScheduler = initRepairScheduler(getRepositoryHub().repair);
@@ -258,6 +260,7 @@ export default class EntryAbility extends UIAbility {
       hilog.info(HILOG_DOM, 'App', 'notification enabled=%{public}s', String(enabled));
       await getExpeditionReminderService().syncFromDb();
       await getRefreshReminderService().sync();
+      await getHarborReminderService().sync();
       await getExpeditionLiveNotificationService().refresh(true);
     }).catch((e: BusinessError) => {
       hilog.warn(HILOG_DOM, 'App', 'notification authorization failed: %{public}s', String(e));
@@ -293,6 +296,7 @@ export default class EntryAbility extends UIAbility {
     getRepairScheduler()?.stop();
     getExpeditionReminderService().stop();
     getRefreshReminderService().stop();
+    getHarborReminderService().stop();
     getExpeditionLiveNotificationService().stop();
     this.mainWindow?.disableLandscapeMultiWindow().catch((error: BusinessError): void => {
       hilog.error(HILOG_DOM, 'App', 'disableLandscapeMultiWindow failed: %{public}s', JSON.stringify(error));
@@ -304,12 +308,14 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
+    getHarborReminderService().setForeground(true);
     void getRefreshReminderService().sync();
     void getExpeditionLiveNotificationService().refresh(true);
     void getExpeditionReminderService().syncFromDb();
   }
 
   onBackground(): void {
+    getHarborReminderService().setForeground(false);
     void getRefreshReminderService().sync();
     void getExpeditionLiveNotificationService().refresh();
     void getExpeditionReminderService().syncFromDb();

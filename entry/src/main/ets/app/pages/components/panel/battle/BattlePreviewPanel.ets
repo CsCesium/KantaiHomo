@@ -8,6 +8,7 @@ import {
 } from '../../../../../features/state';
 import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../../../../domain/models';
 import AerialCombatPanel from './AerialCombatPanel';
+import { battleMvpLabel, battleMvpShips } from '../../../../../features/panel/battleMvp';
 
 // ── pure helpers (no ArkUI APIs) ──────────────────────────────────────────
 
@@ -84,8 +85,10 @@ function shipBadgeColor(ship: ShipBattleStatus): string {
   return PanelColors.hpOk;
 }
 
-/** 已退避舰名 / HP 全部置灰，其余沿用原有损伤配色。 */
-function shipNameColor(ship: ShipBattleStatus): string {
+/** MVP 金色优先，其次大破红色；其余沿用退避和沉没配色。 */
+function shipNameColor(ship: ShipBattleStatus, isMvp: boolean = false): string {
+  if (isMvp) return '#FFD700';
+  if (ship.isTaiha && !ship.isSunk) return PanelColors.hpCrit;
   if (ship.isSunk) return PanelColors.txtMuted;
   if (isShipEscaped(ship.uid)) return PanelColors.escapeHp;
   return ship.hasSinkRisk ? PanelColors.hpSinkRisk : PanelColors.txtPrimary;
@@ -332,7 +335,7 @@ export default struct BattlePreviewPanel {
       Row({ space: 3 }) {
         Text(ship.name)
           .fontSize(PanelDimens.fontMd)
-          .fontColor(shipNameColor(ship))
+          .fontColor(shipNameColor(ship, !landBased && battleMvpShips(this.resultSnap).some(mvp => mvp.uid === ship.uid)))
           .fontWeight(ship.hasSinkRisk && !isShipEscaped(ship.uid) ? FontWeight.Bold : FontWeight.Normal)
           .layoutWeight(1)
           .maxLines(1)
@@ -851,10 +854,13 @@ export default struct BattlePreviewPanel {
 
       // Row 2: MVP + drop + base exp
       Row({ space: 8 }) {
-        if (snap.mvp !== undefined) {
-          Text(`MVP: ${snap.mvp}号舰`)
+        if (battleMvpLabel(snap)) {
+          Text(`MVP: ${battleMvpLabel(snap)}`)
             .fontSize(PanelDimens.fontSm)
             .fontColor('#FFD700')
+            .layoutWeight(1)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         Text(snap.dropShipName ? `掉落: ${snap.dropShipName}` : '掉落: 无')
           .fontSize(PanelDimens.fontSm)

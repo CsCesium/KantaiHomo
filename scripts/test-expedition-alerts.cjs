@@ -15,6 +15,7 @@ function harness() {
     rows: [], decks: [], reminders: [], published: [], cancelled: [], notifications: [],
     notificationEvents: [], timers: new Map(), storage: new Map(), listeners: [],
     nextId: 1, nextTimer: 1, publishGate: null, toasts: [], vibrations: [], alertHandler: null,
+    harbor: null, harborListeners: [],
   };
   class TestDate extends Date {
     static now() { return state.now; }
@@ -51,6 +52,10 @@ function harness() {
     },
   };
   const adapters = {
+    './harborReminder': { getHarborReminderService: () => ({
+      notification: () => state.harbor,
+      subscribe: callback => { state.harborListeners.push(callback); return () => { state.harborListeners = state.harborListeners.filter(item => item !== callback); }; },
+    }) },
     '@ohos.promptAction': { default: { showToast: request => state.toasts.push(request) } },
     '@ohos.vibrator': { default: { startVibration: async request => state.vibrations.push(request) } },
     '.': { getAlertBus: () => ({
@@ -284,7 +289,8 @@ test('time table includes absolute times without deck metadata, updates on event
   const live = h.liveService();
   await live.start();
   assert.equal(h.notifications[0].content.multiLine.lines[0], '第2舰队: 任务 5  00:01:00');
-  assert.equal(h.notifications[0].content.multiLine.longTitle, '归来：第2舰队「任务 5」 00:01:00');
+  assert.equal(h.notifications[0].content.multiLine.longTitle, '归来：00:01:00（任务 5）');
+  assert.equal(h.notifications[0].content.multiLine.title, '归来：00:01:00（任务 5）');
   await live.refresh();
   assert.equal(h.notifications.length, 1);
   h.rows[0].returnTime += 60_000;
@@ -295,6 +301,18 @@ test('time table includes absolute times without deck metadata, updates on event
   h.rows = [];
   await live.refresh();
   assert.equal(h.notificationEvents.at(-1), 'cancel');
+});
+
+test('harbor timers take priority even without expeditions and restore the return title when disabled', async () => {
+  const h=harness();
+  h.harbor={title:'维修：00:20:00（明石改）',lines:['第1舰队 明石改：已挂机 0 分钟 / 20 分钟']};
+  const live=h.liveService();await live.start();
+  assert.equal(h.notifications[0].content.multiLine.title,h.harbor.title);
+  h.rows=[h.row()];await live.refresh();
+  assert.equal(h.notifications.at(-1).content.multiLine.longTitle,h.harbor.title);
+  h.harbor=null;await live.refresh();
+  assert.equal(h.notifications.at(-1).content.multiLine.title,'归来：00:01:00（任务 5）');
+  live.stop();await live.refresh();assert.equal(h.harborListeners.length,0);
 });
 
 test('stopping during publication leaves the final notification cancelled', async () => {

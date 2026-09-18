@@ -13,6 +13,8 @@ import {
 } from '../../features/alerts/module/expeditionReminder';
 import { ensureNotificationPermission } from '../../features/alerts/module/notificationPermission';
 import { getRefreshReminderService } from '../../features/alerts/module/refreshReminder';
+import { getHarborReminderService } from '../../features/alerts/module/harborReminder';
+import { HARBOR_TIMER_ENABLED } from '../../features/alerts/module/harborTimer';
 import { RefreshReminderKind, REFRESH_REMINDER_STATUS } from '../../features/alerts/module/refreshSchedule';
 import { getExpeditionLiveNotificationService } from '../../features/alerts/module/expeditionNotification';
 import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
@@ -83,6 +85,7 @@ struct Setting {
   @StorageProp('alerts.refresh.eo.enabled') private eoRefreshEnabled: boolean = false;
   @StorageProp(REFRESH_REMINDER_STATUS) private refreshReminderStatus: string = '已关闭时间点提醒';
   @State private refreshReminderBusy: boolean = false;
+  @StorageProp(HARBOR_TIMER_ENABLED) private harborTimerEnabled: boolean = true;
 
   // ── Toast settings ─────────────────────────────────────────────
   @State private toastEnabled: boolean = true;
@@ -973,6 +976,10 @@ struct Setting {
           this.SectionHeader('日常提醒')
 
           Column({ space: 8 }) {
+            this.ToggleRow('明石维修 / 野埼给粮计时', '作为旗舰且满足条件时自动计时；到点仅通知Toast',
+              this.harborTimerEnabled, (v: boolean) => {
+                void getHarborReminderService().setEnabled(v).catch((error: Error) => { console.warn('[Setting] harbor timer:', String(error)); });
+              })
             this.ToggleRow(
               '远征后台提醒',
               '按归来时刻登记系统提醒，关闭应用后仍可提醒；响铃与震动遵循系统通知设置',

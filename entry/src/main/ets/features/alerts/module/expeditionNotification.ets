@@ -13,6 +13,7 @@ import { getMissionName } from './missionCache';
 import { addOnExpeditionChanged } from './expeditionTrigger';
 import { getLaunchWantAgent } from './launchWantAgent';
 import { formatExpeditionReturnTime } from './expeditionTime';
+import { getHarborReminderService } from './harborReminder';
 // ── 常驻通知 ID ──────────────────────────────────────────────────
 const LIVE_NOTIFICATION_ID = 100;
 
@@ -24,6 +25,7 @@ class ExpeditionLiveNotificationService {
   private timer: number | null = null;
   private running: boolean = false;
   private unsubscribeExpeditionChanged: (() => void) | null = null;
+  private unsubscribeHarbor: (() => void) | null = null;
   private refreshTail: Promise<void> = Promise.resolve();
   private lastContent: string = '';
 
@@ -32,6 +34,7 @@ class ExpeditionLiveNotificationService {
     this.running = true;
     // Only registers refresh — scheduler poke is registered separately in Entry.ets
     this.unsubscribeExpeditionChanged = addOnExpeditionChanged(() => { void this.refresh(); });
+    this.unsubscribeHarbor = getHarborReminderService().subscribe(() => { void this.refresh(); });
     await this.refresh();
     this.scheduleNextRefresh();
     console.info('[ExpeditionLiveNotification] started');
@@ -39,6 +42,7 @@ class ExpeditionLiveNotificationService {
 
   stop(): void {
     this.running = false;
+    this.unsubscribeHarbor?.(); this.unsubscribeHarbor = null;
     if (this.timer !== null) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -89,7 +93,8 @@ class ExpeditionLiveNotificationService {
 
       const active = expeditions.filter(e => e.progress === 1 && e.returnTime > 0);
 
-      if (active.length === 0) {
+      const harbor = getHarborReminderService().notification();
+      if (active.length === 0 && !harbor) {
         await this._cancel();
         return;
       }
@@ -104,7 +109,7 @@ class ExpeditionLiveNotificationService {
       for (const exp of active) {
         if (!deckNameMap.has(exp.deckId)) deckNameMap.set(exp.deckId, `第${exp.deckId}舰队`);
       }
-      const lines: string[] = [];
+      const lines: string[] = harbor ? harbor.lines.slice() : [];
       const deckIds = Array.from(deckNameMap.keys()).filter(id => id !== 1).sort((a, b) => a - b);
       for (const deckId of deckIds) {
         const name = deckNameMap.get(deckId) ?? `第${deckId}舰队`;
@@ -118,11 +123,10 @@ class ExpeditionLiveNotificationService {
       }
 
       const upcoming = active.filter(exp => exp.returnTime > now);
-      const briefText = `${upcoming.length} 支远征中 / ${active.length - upcoming.length} 支已到归来时间`;
+      const briefText = `${harbor ? '挂机计时中 / ' : ''}${upcoming.length} 支远征中 / ${active.length - upcoming.length} 支已到归来时间`;
       const earliest = upcoming[0] ?? active[0];
-      const earliestDeckName = deckNameMap.get(earliest.deckId) ?? `第${earliest.deckId}舰队`;
-      const earliestMissionName = getMissionName(earliest.missionId);
-      const summaryText = `归来：${earliestDeckName}「${earliestMissionName}」 ${formatExpeditionReturnTime(earliest.returnTime)}`;
+      const summaryText = harbor?.title ?? (earliest ?
+        `归来：${formatExpeditionReturnTime(earliest.returnTime)}「${getMissionName(earliest.missionId)}」` : '舰队空闲中');
 
       const contentKey = `${briefText}\n${summaryText}\n${lines.join('\n')}`;
       if (contentKey === this.lastContent) return;
@@ -140,7 +144,7 @@ class ExpeditionLiveNotificationService {
         content: {
           notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_MULTILINE,
           multiLine: {
-            title: '舰队远征时间表',
+            title: summaryText,
             text: summaryText,
             briefText,
             longTitle: summaryText,
