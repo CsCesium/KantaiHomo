@@ -33,6 +33,7 @@ import {
   getResourceCacheStats,
 } from '../../features/resourceCache';
 import type { ResourceCacheStats } from '../../features/resourceCache';
+import { APP_STORAGE_SHIP_MODS_ENABLED } from '../../features/shipMods/model';
 
 @Entry
 @Component
@@ -57,6 +58,8 @@ struct Setting {
   @StorageLink(APP_STORAGE_GAME_SIZE_TRIFOLD) private triFoldGameSizePercent: number = GAME_SIZE_DEFAULT_PERCENT;
   @StorageLink(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
   @StorageLink(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
+  @StorageProp(APP_STORAGE_SHIP_MODS_ENABLED) private shipModsEnabled: boolean = false;
+  @State private shipModsSaving: boolean = false;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
   @StorageLink(APP_STORAGE_YASEN_DETECT_ENABLED) private yasenAlertEnabled: boolean = true;
   /** Two-way binding to AppStorage; writing this immediately updates WebHost injection. */
@@ -329,6 +332,18 @@ struct Setting {
     this.resourceCacheEnabled = v;
     void kvSet(APP_STORAGE_RESOURCE_CACHE_ENABLED, v);
     void this.refreshResourceCacheStats();
+  }
+
+  private async onShipModsToggle(enabled: boolean): Promise<void> {
+    if (this.shipModsSaving) return;
+    this.shipModsSaving = true;
+    try {
+      await kvSet(APP_STORAGE_SHIP_MODS_ENABLED, enabled);
+      AppStorage.setOrCreate(APP_STORAGE_SHIP_MODS_ENABLED, enabled);
+      promptAction.showToast({ message: '设置已保存，请刷新游戏以更新已载入的立绘', duration: 3000 });
+    } catch (_) {
+      promptAction.showToast({ message: '立绘魔改设置保存失败，请重试' });
+    } finally { this.shipModsSaving = false; }
   }
 
   private onResourceCacheAudioToggle(v: boolean): void {
@@ -1083,6 +1098,19 @@ struct Setting {
           .backgroundColor('#0C1420')
           .borderRadius(10)
           .border({ width: 1, color: '#15202C' })
+
+          // ── SECTION: 立绘魔改 ─────────────────────────────────
+          this.SectionHeader('立绘魔改')
+          Column({ space: 8 }) {
+            this.ToggleRow(
+              '开启立绘魔改',
+              '优先使用本地自定义立绘；图片或开关变更后请刷新游戏',
+              this.shipModsEnabled,
+              (enabled: boolean) => { void this.onShipModsToggle(enabled); }
+            )
+            Button('添加与管理魔改图片')
+              .onClick(() => { void router.pushUrl({ url: 'app/pages/ShipMods' }); })
+          }.width('100%').enabled(!this.shipModsSaving)
 
           // ── SECTION: 资源缓存 ─────────────────────────────────
           this.SectionHeader('资源缓存')

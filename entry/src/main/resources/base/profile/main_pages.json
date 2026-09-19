@@ -3,6 +3,7 @@
     "app/pages/Launcher",
     "app/pages/WebRoot",
     "app/pages/Setting",
+    "app/pages/ShipMods",
     "app/pages/Changelog",
     "infra/fairy/page/FairyPage"
   ]

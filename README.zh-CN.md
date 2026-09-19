@@ -28,6 +28,7 @@ KanColleObserver(KCO) 是面向《舰队 Collection》（HTML5）的 HarmonyOS �
 - 远征归来系统代理提醒，提供登记状态和重试入口；演习刷新、月度战果周期结算、月底 EO 勋章提醒提供独立开关，默认关闭。
 - 应用静音偏好持久化，重启后恢复。
 - 游戏图片资源本地缓存，支持实验性音频缓存、缓存统计和手动清理。
+- [立绘魔改](entry/src/main/ets/features/shipMods/README.md)：按舰娘图鉴与立绘类型导入本地图片，自动混淆命名，支持预览、替换和删除；设置中开启后优先替换游戏立绘资源。
 - 可选 WebView 注入：触摸悬停、双指滚轮、FPS 显示、ticker RAF、Pixi 渲染兼容补丁。
 
 ## 项目结构

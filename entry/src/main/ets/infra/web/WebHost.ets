@@ -28,6 +28,7 @@ import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW
 import { TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT } from "./input/touchWheelSensitivity";
 import { subscribeAlert, SortieStartTaihaAlert } from "../../features/alerts";
 import { APP_STORAGE_RESOURCE_CACHE_AUDIO, APP_STORAGE_RESOURCE_CACHE_ENABLED } from "../../features/resourceCache";
+import { APP_STORAGE_SHIP_MODS_ENABLED } from '../../features/shipMods/model';
 import { isInBattle, subscribeGameState } from "../../features/state";
 import EquipInfoPage from "../../app/pages/components/info/EquipInfoPage";
 import ExpeditionInfoPage from "../../app/pages/components/info/ExpeditionInfoPage";
@@ -105,6 +106,7 @@ export default struct WebHost {
   private touchWheelSensitivityPercent: number = TOUCH_WHEEL_SENSITIVITY_DEFAULT_PERCENT;
   @StorageProp(APP_STORAGE_INJECT_TICKER_RAF) private injectTickerRaf: boolean = false;
   @StorageProp(APP_STORAGE_INJECT_PIXI_PATCH) private injectPixiPatch: boolean = false;
+  @StorageProp(APP_STORAGE_SHIP_MODS_ENABLED) private shipModsEnabled: boolean = false;
   @StorageProp(APP_STORAGE_RESOURCE_CACHE_ENABLED) private resourceCacheEnabled: boolean = false;
   @StorageProp(APP_STORAGE_RESOURCE_CACHE_AUDIO) private resourceCacheAudioEnabled: boolean = false;
   @StorageProp(APP_STORAGE_SESSION_LOGOUT_REV) private logoutRevision: number = 0;
@@ -1056,6 +1058,7 @@ export default struct WebHost {
               src: this.HOME,
               controller: this.controller,
               resourceCacheEnabled: this.resourceCacheEnabled,
+              shipModsEnabled: this.shipModsEnabled,
               resourceCacheAudioEnabled: this.resourceCacheAudioEnabled,
               onWebAttached: this.onWebAttached,
               onWebPageBegin: this.onBegin,

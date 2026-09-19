@@ -2,6 +2,7 @@ import { webview } from "@kit.ArkWeb";
 import { HOME_URL } from "../config";
 import { gameAssetInterceptor } from "../../../features/resourceCache";
 import { createEmptyResp, shouldBlock } from "../interceptors/Interceptor";
+import { shipModInterceptor } from '../../../features/shipMods/interceptor';
 
 interface messages {
   message?: string;
@@ -16,6 +17,7 @@ export default struct GameWeb {
   @Event onWebProgress?: (p: number) => void;
   @Event onWebPageEnd?: () => void;
   @Param resourceCacheEnabled: boolean = false;
+  @Param shipModsEnabled: boolean = false;
   @Param resourceCacheAudioEnabled: boolean = false;
 
   build() {
@@ -32,6 +34,10 @@ export default struct GameWeb {
         const reqUrl: string = ev.request.getRequestUrl() || '';
         if (!reqUrl) return undefined;
         if (shouldBlock(reqUrl)) return createEmptyResp();
+        if (this.shipModsEnabled) {
+          const replacement = shipModInterceptor(ev);
+          if (replacement) return replacement;
+        }
         if (this.resourceCacheEnabled) {
           const cached = gameAssetInterceptor(ev, { enableAudio: this.resourceCacheAudioEnabled });
           if (cached) return cached;

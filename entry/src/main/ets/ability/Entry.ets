@@ -33,6 +33,8 @@ import {
   normalizeTouchWheelSensitivityPercent
 } from '../infra/web/input/touchWheelSensitivity';
 import { loadEquipmentClassification } from '../features/panel/equipmentClassification';
+import { APP_STORAGE_SHIP_MODS_ENABLED } from '../features/shipMods/model';
+import { initShipMods } from '../features/shipMods/store';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -71,6 +73,7 @@ export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     setAppContext(this.context);
     initResourceCache(this.context.filesDir);
+    initShipMods(this.context.filesDir);
     void loadEquipmentClassification(this.context);
 
     webview.WebCookieManager.putAcceptCookieEnabled(true);
@@ -108,6 +111,12 @@ export default class EntryAbility extends UIAbility {
     AppStorage.setOrCreate(APP_STORAGE_GAME_SIZE_TRIFOLD, GAME_SIZE_DEFAULT_PERCENT);
     void kvGetNumber(APP_STORAGE_GAME_SIZE_TRIFOLD, GAME_SIZE_DEFAULT_PERCENT).then((v: number) => {
       AppStorage.set(APP_STORAGE_GAME_SIZE_TRIFOLD, normalizeGameSizePercent(v));
+    });
+
+    // Local ship artwork replacements are independent of the resource cache.
+    AppStorage.setOrCreate(APP_STORAGE_SHIP_MODS_ENABLED, false);
+    void kvGetBool(APP_STORAGE_SHIP_MODS_ENABLED, false).then((enabled: boolean) => {
+      AppStorage.set(APP_STORAGE_SHIP_MODS_ENABLED, enabled);
     });
 
     // Optional local cache for game resources.

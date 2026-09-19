@@ -120,71 +120,81 @@ struct Launcher {
   }
 
   build() {
-    Column() {
-      // ── Header ──────────────────────────────────────────────────
-      Column({ space: 8 }) {
-        Text('艦隊これくしょん')
+    Scroll() {
+      Column() {
+        // ── Header ──────────────────────────────────────────────────
+        Column({ space: 8 }) {
+          Text('艦隊これくしょん')
+            .fontSize(11)
+            .fontColor('#253A4A')
+            .letterSpacing(3)
+
+          Text('KantaiHomo')
+            .fontSize(34)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#C0AF95')
+
+          Divider()
+            .strokeWidth(1)
+            .color('#192A3A')
+            .width(72)
+            .margin({ top: 6, bottom: 2 })
+
+          Text('HarmonyOS Viewer')
+            .fontSize(11)
+            .fontColor('#1E3345')
+        }
+        .padding({ top: 72, bottom: 52 })
+        .alignItems(HorizontalAlign.Center)
+        .width('100%')
+
+        // ── Menu Cards ───────────────────────────────────────────────
+        Column({ space: 10 }) {
+          this.MenuCard(
+            '⚓', '进入游戏','艦これ', false,
+            () => this.enterGame()
+          )
+          this.MenuCard(
+            '⚙', '设置', '游戏配置与账号管理', false,
+            () => this.navigate('app/pages/Setting')
+          )
+          this.MenuCard(
+            '▧', '立绘魔改', '添加与管理舰娘自定义图片', false,
+            () => this.navigate('app/pages/ShipMods')
+          )
+          this.MenuCard(
+            '✦', 'Fairy', '（即将推出）', true,
+            () => {}
+          )
+          this.MenuCard(
+            '📋', '更新日志', '版本变更记录', false,
+            () => this.navigate('app/pages/Changelog')
+          )
+          this.MenuCard(
+            '↩', '登出', '清除登录 Cookie 与会话缓存', false,
+            () => promptLogout()
+          )
+        }
+        .padding({ left: 20, right: 20 })
+        .width('100%')
+
+        Blank()
+
+        // ── Footer ──────────────────────────────────────────────────
+        Text('KantaiHomo · HarmonyOS')
           .fontSize(11)
-          .fontColor('#253A4A')
-          .letterSpacing(3)
-
-        Text('KantaiHomo')
-          .fontSize(34)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#C0AF95')
-
-        Divider()
-          .strokeWidth(1)
-          .color('#192A3A')
-          .width(72)
-          .margin({ top: 6, bottom: 2 })
-
-        Text('HarmonyOS Viewer')
-          .fontSize(11)
-          .fontColor('#1E3345')
+          .fontColor('#162230')
+          .padding({ bottom: 32 })
       }
-      .padding({ top: 72, bottom: 52 })
+      .width('100%')
+      .constraintSize({ minHeight: '100%' })
+      .backgroundColor('#070E17')
       .alignItems(HorizontalAlign.Center)
-      .width('100%')
-
-      // ── Menu Cards ───────────────────────────────────────────────
-      Column({ space: 10 }) {
-        this.MenuCard(
-          '⚓', '进入游戏','艦これ', false,
-          () => this.enterGame()
-        )
-        this.MenuCard(
-          '⚙', '设置', '游戏配置与账号管理', false,
-          () => this.navigate('app/pages/Setting')
-        )
-        this.MenuCard(
-          '✦', 'Fairy', '（即将推出）', true,
-          () => {}
-        )
-        this.MenuCard(
-          '📋', '更新日志', '版本变更记录', false,
-          () => this.navigate('app/pages/Changelog')
-        )
-        this.MenuCard(
-          '↩', '登出', '清除登录 Cookie 与会话缓存', false,
-          () => promptLogout()
-        )
-      }
-      .padding({ left: 20, right: 20 })
-      .width('100%')
-
-      Blank()
-
-      // ── Footer ──────────────────────────────────────────────────
-      Text('KantaiHomo · HarmonyOS')
-        .fontSize(11)
-        .fontColor('#162230')
-        .padding({ bottom: 32 })
     }
     .width('100%')
     .height('100%')
     .backgroundColor('#070E17')
-    .alignItems(HorizontalAlign.Center)
+    .scrollBar(BarState.Off)
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 }
