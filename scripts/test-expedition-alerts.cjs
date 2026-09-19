@@ -289,8 +289,9 @@ test('time table includes absolute times without deck metadata, updates on event
   const live = h.liveService();
   await live.start();
   assert.equal(h.notifications[0].content.multiLine.lines[0], '第2舰队: 任务 5  00:01:00');
-  assert.equal(h.notifications[0].content.multiLine.longTitle, '归来：00:01:00（任务 5）');
-  assert.equal(h.notifications[0].content.multiLine.title, '归来：00:01:00（任务 5）');
+  assert.equal(h.notifications[0].content.multiLine.longTitle, '归来：00:01:00「任务 5」');
+  assert.equal(h.notifications[0].content.multiLine.title, '归来：00:01:00「任务 5」');
+  assert.deepEqual(Array.from(h.notifications[0].content.multiLine.lines), ['第2舰队: 任务 5  00:01:00','第3舰队: 空闲中','第4舰队: 空闲中']);
   await live.refresh();
   assert.equal(h.notifications.length, 1);
   h.rows[0].returnTime += 60_000;
@@ -305,13 +306,19 @@ test('time table includes absolute times without deck metadata, updates on event
 
 test('harbor timers take priority even without expeditions and restore the return title when disabled', async () => {
   const h=harness();
-  h.harbor={title:'维修：00:20:00（明石改）',lines:['第1舰队 明石改：已挂机 0 分钟 / 20 分钟']};
+  h.harbor={title:'维修：00:20:00（明石改）'};
   const live=h.liveService();await live.start();
   assert.equal(h.notifications[0].content.multiLine.title,h.harbor.title);
-  h.rows=[h.row()];await live.refresh();
+  assert.deepEqual(Array.from(h.notifications[0].content.multiLine.lines),['第2舰队: 空闲中','第3舰队: 空闲中','第4舰队: 空闲中']);
+  h.rows=[h.row(2),h.row(3),h.row(4)];await live.refresh();
   assert.equal(h.notifications.at(-1).content.multiLine.longTitle,h.harbor.title);
+  const body=h.notifications.at(-1).content.multiLine;
+  assert.equal(body.lines.length,3);
+  for(let i=0;i<3;i++)assert.match(body.lines[i],new RegExp(`^第${i+2}舰队: 任务`));
+  assert.equal(body.text,body.lines.join('\n'));
+  assert.doesNotMatch(body.text+body.briefText,/维修|给粮|挂机/);
   h.harbor=null;await live.refresh();
-  assert.equal(h.notifications.at(-1).content.multiLine.title,'归来：00:01:00（任务 5）');
+  assert.equal(h.notifications.at(-1).content.multiLine.title,'归来：00:01:00「任务 5」');
   live.stop();await live.refresh();assert.equal(h.harborListeners.length,0);
 });
 

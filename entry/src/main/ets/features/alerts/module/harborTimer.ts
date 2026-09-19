@@ -5,12 +5,15 @@ export const HARBOR_TIMER_ENABLED = 'alerts.harbor.enabled';
 export const HARBOR_TIMER_KINDS: HarborTimerKind[] = ['repair', 'supply'];
 export const HARBOR_INTERVAL_REPAIR = 20 * 60000;
 export const HARBOR_INTERVAL_SUPPLY = 15 * 60000;
-export interface HarborClock {
-  kind: HarborTimerKind;
-  startedAt: number;
+export interface HarborStage {
   toastShown: boolean;
   systemScheduled: boolean;
   notificationSent: boolean;
+}
+export interface HarborClock extends HarborStage {
+  kind: HarborTimerKind;
+  startedAt: number;
+  supplyFinal?: HarborStage;
 }
 export interface HarborFleet {
   kind: HarborTimerKind;
@@ -20,6 +23,7 @@ export interface HarborFleet {
 export interface HarborTimerView extends HarborFleet {
   dueAt: number;
   startedAt: number;
+  finalSupply: boolean;
 }
 
 export function harborInterval(kind: HarborTimerKind): number {
@@ -73,14 +77,21 @@ export class HarborTimer {
     if (!Array.isArray(saved)) return;
     for (const clock of saved) {
       if (HARBOR_TIMER_KINDS.includes(clock.kind) && Number.isFinite(clock.startedAt) && clock.startedAt > 0 && clock.startedAt <= now) {
+        if (clock.kind === 'supply' && !clock.supplyFinal) clock.supplyFinal = this.newStage();
         this.clocks.set(clock.kind, clock);
       }
     }
   }
   serialize(): string { return JSON.stringify(Array.from(this.clocks.values())); }
   clock(kind: HarborTimerKind): HarborClock | undefined { return this.clocks.get(kind); }
+  private newStage(): HarborStage { return { toastShown: false, systemScheduled: false, notificationSent: false }; }
+  stage(view: HarborTimerView): HarborStage {
+    const clock = this.clocks.get(view.kind)!;
+    return view.finalSupply ? clock.supplyFinal! : clock;
+  }
   reset(kind: HarborTimerKind, now: number): void {
-    this.clocks.set(kind, { kind, startedAt: now, toastShown: false, systemScheduled: false, notificationSent: false });
+    this.clocks.set(kind, { kind, startedAt: now, toastShown: false, systemScheduled: false, notificationSent: false,
+      supplyFinal: kind === 'supply' ? this.newStage() : undefined });
   }
   observe(kinds: HarborTimerKind[], now: number): void {
     for (const kind of kinds) if (!this.clocks.has(kind) || this.clocks.get(kind)!.startedAt > now) this.reset(kind, now);
@@ -96,7 +107,10 @@ export class HarborTimer {
     const result: HarborTimerView[] = [];
     for (const fleet of fleets) {
       const clock = this.clocks.get(fleet.kind);
-      if (clock) result.push({ ...fleet, startedAt: clock.startedAt, dueAt: clock.startedAt + harborInterval(fleet.kind) });
+      if (!clock) continue;
+      result.push({ ...fleet, startedAt: clock.startedAt, dueAt: clock.startedAt + harborInterval(fleet.kind), finalSupply: false });
+      if (fleet.kind === 'supply') result.push({ ...fleet, startedAt: clock.startedAt,
+        dueAt: clock.startedAt + 2 * HARBOR_INTERVAL_SUPPLY, finalSupply: true });
     }
     return result.sort((a, b) => a.dueAt - b.dueAt || a.deckId - b.deckId);
   }

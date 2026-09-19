@@ -122,13 +122,14 @@ test('defaults are off and leave expedition reminders and their slots alone', as
   assert.equal(h.state.timers.size,0);
 });
 
-test('all reminders fit alongside expeditions, use notification-only delivery, and survive process restart', async () => {
+test('all reminders fit alongside expeditions and both supply stages and survive process restart', async () => {
   const h = harness();
   for (const id of [997,998,999]) h.state.reminders.push({reminderId:id,reminderReq:{groupId:`kchomo.expedition.${id}`}});
+  for (const id of [995,996]) h.state.reminders.push({reminderId:id,reminderReq:{groupId:`kchomo.harbor.supply.${id}`}});
   for (const kind of ['practice','senka','eo']) await h.service.setEnabled(kind,true);
-  assert.equal(active(h).length,26);
+  assert.equal(active(h).length,24);
   assert.equal(h.state.reminders.length,29);
-  assert.equal(new Set(active(h).map(r=>r.reminderReq.notificationId)).size,26);
+  assert.equal(new Set(active(h).map(r=>r.reminderReq.notificationId)).size,24);
   assert.equal(h.state.slots[0].vibrationEnabled,false);
   assert.equal(h.state.slots[0].notificationType,3);
   for (const {reminderReq:r} of active(h)) {
@@ -140,11 +141,11 @@ test('all reminders fit alongside expeditions, use notification-only delivery, a
     else assert.equal(r.daysOfWeek,undefined);
   }
   await h.service.sync();
-  assert.equal(h.state.published.length,26);
+  assert.equal(h.state.published.length,24);
   h.service.stop();
   const restarted=harness(h.state);
   await restarted.service.start();
-  assert.equal(restarted.state.published.length,26);
+  assert.equal(restarted.state.published.length,24);
   assert.equal(restarted.state.app.get('alerts.refresh.eo.enabled'),true);
   restarted.service.stop();
 });
@@ -154,10 +155,10 @@ test('disabling a kind cancels only its own reminders and persists across restar
   await h.service.setEnabled('practice',true);
   await h.service.setEnabled('eo',true);
   await h.service.setEnabled('practice',false);
-  assert.equal(active(h).length,12);
+  assert.equal(active(h).length,11);
   assert.ok(active(h).every(r=>r.reminderReq.groupId.includes('.eo.')));
   await harness(h.state).service.sync();
-  assert.equal(h.state.published.length,14);
+  assert.equal(h.state.published.length,13);
   await h.service.setEnabled('eo',false);
   assert.equal(active(h).length,0);
 });
@@ -168,22 +169,22 @@ test('due monthly reminders stay registered until deadline and dismissed ones ar
   h.state.now=Date.parse('2026-09-30T20:00:00+08:00');
   await h.service.sync();
   assert.equal(h.state.cancelled.length,0);
-  assert.equal(h.state.published.length,12);
+  assert.equal(h.state.published.length,11);
   const due=active(h)[0];
   h.state.reminders=h.state.reminders.filter(r=>r!==due);
   await h.service.sync();
-  assert.equal(h.state.published.length,12);
+  assert.equal(h.state.published.length,11);
   h.state.now=Date.parse('2026-09-30T23:00:00+08:00');
   await h.service.sync();
-  assert.equal(h.state.published.length,13);
-  assert.equal(active(h).length,12);
+  assert.equal(h.state.published.length,12);
+  assert.equal(active(h).length,11);
 });
 
 test('enabling after a monthly lead time does not send a late reminder', async () => {
   const h=harness();
   h.state.now=Date.parse('2026-09-30T20:40:00+08:00');
   await h.service.setEnabled('senka',true);
-  assert.equal(active(h).length,11);
+  assert.equal(active(h).length,10);
   assert.ok(active(h).every(r=>r.reminderReq.dateTime.month!==9));
 });
 

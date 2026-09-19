@@ -45,9 +45,9 @@ export function refreshReminderTargets(kind: RefreshReminderKind, now: number): 
     }
     return result;
   }
-  // Reserve only 24 monthly reminders + 2 daily reminders, leaving room for the 3 expedition reminders.
-  // Refresh this rolling year while the app runs; existing reminders remain system-owned after exit.
-  for (let offset = 0; result.length < 12; offset++) {
+  // 22 monthly + 2 daily requests leave space for expeditions and both supply stages (system limit: 30).
+  // Refill this rolling 11-month window while the app runs; registered reminders survive exit.
+  for (let offset = 0; result.length < 11; offset++) {
     const nextMonth = Date.UTC(year, month + offset + 1, 1) - JST;
     const deadline = kind === 'senka' ? nextMonth - 2 * HOUR : nextMonth;
     if (deadline <= now) continue;

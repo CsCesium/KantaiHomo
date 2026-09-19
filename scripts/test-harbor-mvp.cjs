@@ -130,26 +130,29 @@ function harness(storage=new Map()) {
   }};
 }
 
-test('service registers two no-vibration timers and emits each toast only once at its threshold',async()=>{
+test('service registers repair plus two supply stages and emits each toast only once',async()=>{
   const h=harness();await h.service.start();assert.equal(h.state.reminders.length,0);
-  await h.api();assert.equal(h.state.reminders.length,2);
+  await h.api();assert.equal(h.state.reminders.length,3);
   assert.match(h.service.notification().title,/给粮/);
   for(const r of h.state.published){assert.equal(r.ringDuration,0);assert.equal(r.slotType,3);}
   h.state.now+=15*60000;await h.service.sync();await h.service.sync();
   assert.equal(h.state.toasts.length,1);assert.equal(h.state.notifications.length,0);
-  assert.match(h.service.notification().title,/可回港结算/);
+  assert.match(h.service.notification().title,/维修/);
   h.state.now+=5*60000;await h.service.sync();assert.equal(h.state.toasts.length,2);
   await h.service.sync();assert.equal(h.state.toasts.length,2);
-  h.service.stop();assert.equal(h.state.timers.size,0);assert.equal(h.state.reminders.length,2);
+  h.state.now+=10*60000;await h.service.sync();assert.equal(h.state.toasts.length,3);
+  assert.match(h.state.toasts.at(-1).message,/30 分钟/);
+  h.state.now+=30*60000;await h.service.sync();assert.equal(h.state.toasts.length,3);
+  h.service.stop();assert.equal(h.state.timers.size,0);assert.equal(h.state.reminders.length,3);
 });
 
 test('formation change restarts the relevant shared timer but presets, failed requests and early ports do not',async()=>{
   const h=harness();await h.api();const initial=h.state.published[0].groupId;
   h.state.now+=60000;await h.api('/api_req_hensei/change','api_id=1&api_ship_id=2',0);
   await h.api('/api_req_hensei/preset_select','api_id=1');await h.api();
-  assert.equal(h.state.published.length,2);
+  assert.equal(h.state.published.length,3);
   await h.api('/api_req_hensei/change','api_id=1&api_ship_id=2');
-  assert.equal(h.state.published.length,3);assert.notEqual(h.state.published[2].groupId,initial);
+  assert.equal(h.state.published.length,4);assert.notEqual(h.state.published[3].groupId,initial);
   assert.equal(h.state.cancelled.length,1);
 });
 
@@ -166,10 +169,11 @@ test('disable cancels only harbor timers; persisted clocks and toast markers sur
 
 test('sortie removes active timer notifications and return-to-port starts the next due cycle',async()=>{
   const h=harness();await h.api();h.state.sortie={deckId:1,combinedType:0};
-  await h.api('/api_req_map/start');assert.equal(h.state.reminders.length,1);
+  await h.api('/api_req_map/start');assert.equal(h.state.reminders.length,2);
   h.state.now+=20*60000;h.state.sortie=null;await h.api();
-  assert.equal(h.state.reminders.length,2);assert.equal(h.state.toasts.length,0);
-  assert.ok(h.service.notification().lines.every(line=>line.includes('0 分钟')));
+  assert.equal(h.state.reminders.length,3);assert.equal(h.state.toasts.length,0);
+  const saved=JSON.parse(h.state.storage.get('alerts.harbor.clock.101'));
+  assert.ok(saved.every(clock=>clock.startedAt===h.state.now));
 });
 
 test('registration failure falls back to a single system notification without vibration or repeated toast',async()=>{
@@ -180,7 +184,7 @@ test('registration failure falls back to a single system notification without vi
 
 test('switching accounts cancels previous account reminders and starts independent clocks',async()=>{
   const h=harness();await h.api();h.state.now+=60000;h.state.game.admiral.memberId=202;await h.api();
-  assert.equal(h.state.reminders.length,2);
+  assert.equal(h.state.reminders.length,3);
   assert.ok(h.state.reminders.every(r=>r.reminderReq.groupId.includes('.202.')));
   assert.ok(h.state.storage.has('alerts.harbor.clock.101'));assert.ok(h.state.storage.has('alerts.harbor.clock.202'));
 });
@@ -188,7 +192,59 @@ test('switching accounts cancels previous account reminders and starts independe
 test('background thresholds keep the system notification and defer the one-time toast until foreground',async()=>{
   const h=harness();await h.api();h.service.setForeground(false);await h.service.sync();
   h.state.now+=15*60000;await h.service.sync();
-  assert.equal(h.state.toasts.length,0);assert.equal(h.state.reminders.length,2);
+  assert.equal(h.state.toasts.length,0);assert.equal(h.state.reminders.length,3);
   h.service.setForeground(true);await h.service.sync();await h.service.sync();
   assert.equal(h.state.toasts.length,1);assert.equal(h.state.notifications.length,0);
+});
+
+test('supply switches its displayed target from 15 to 30 minutes without restarting or repeating after the cap',async()=>{
+  const h=harness();h.state.game.ships.get(2).hpNow=10;await h.api();
+  const start=h.state.now;
+  assert.match(h.service.notification().title,/15分/);
+  const times=h.state.published.map(r=>r.dateTime.minute);
+  assert.deepEqual(times,[15,30]);
+  h.state.now+=15*60000;await h.service.sync();
+  assert.match(h.service.notification().title,/04:30:00.*30分/);
+  assert.equal(h.state.toasts.length,1);
+  h.state.now+=15*60000;await h.service.sync();
+  assert.match(h.service.notification().title,/可回港.*30分/);
+  assert.equal(h.state.toasts.length,2);
+  h.state.now+=15*60000;await h.service.sync();
+  assert.equal(h.state.toasts.length,2);assert.equal(h.state.published.length,2);
+  const clock=JSON.parse(h.state.storage.get('alerts.harbor.clock.101')).find(c=>c.kind==='supply');
+  assert.equal(clock.startedAt,start);assert.equal(clock.supplyFinal.toastShown,true);
+});
+
+test('late foreground sync sends only the latest supply toast and fallback notification',async()=>{
+  const h=harness();h.state.game.ships.get(2).hpNow=10;h.state.failPublish=true;await h.api();
+  h.service.setForeground(false);await h.service.sync();
+  h.state.now+=31*60000;h.service.setForeground(true);await h.service.sync();await h.service.sync();
+  assert.equal(h.state.toasts.length,1);assert.match(h.state.toasts[0].message,/30 分钟/);
+  assert.equal(h.state.notifications.length,1);assert.equal(h.state.notifications[0].id,4302);
+});
+
+test('legacy clock upgrade preserves first-stage delivery and restores independent final-stage markers',()=>{
+  const timer=new logic.HarborTimer();
+  timer.restore(JSON.stringify([{kind:'supply',startedAt:1000,toastShown:true,systemScheduled:true,notificationSent:false}]),1000000);
+  assert.equal(timer.clock('supply').toastShown,true);
+  assert.equal(timer.clock('supply').supplyFinal.toastShown,false);
+  timer.clock('supply').supplyFinal.toastShown=true;
+  const restored=new logic.HarborTimer();restored.restore(timer.serialize(),1000000);
+  assert.equal(restored.clock('supply').supplyFinal.toastShown,true);
+});
+
+test('supply formation reset replaces both stages; reaching morale 54 cancels them',async()=>{
+  const h=harness();h.state.game.ships.get(2).hpNow=10;await h.api();
+  const groups=h.state.published.map(r=>r.groupId);
+  h.state.now+=16*60000;await h.api('/api_req_hensei/change','api_id=2&api_ship_id=4');
+  assert.equal(h.state.cancelled.length,2);assert.equal(h.state.reminders.length,2);
+  assert.ok(h.state.reminders.every(r=>!groups.includes(r.reminderReq.groupId)));
+  h.state.game.ships.get(4).cond=54;await h.api();
+  assert.equal(h.state.reminders.length,0);assert.equal(h.service.notification(),null);
+});
+
+test('two supply fleets share one native request per threshold',async()=>{
+  const h=harness();h.state.game.ships.get(1).name='野埼改';await h.api();
+  assert.equal(h.state.reminders.length,2);
+  assert.ok(h.state.published.every(r=>r.content.startsWith('第1舰队、第2舰队已等待')));
 });

@@ -10,13 +10,13 @@ import { parseSvdata, parseFormBody } from '../../utils/common';
 import { getSortieContext } from '../../../domain/service/sortie';
 import { formatExpeditionReturnTime } from './expeditionTime';
 import {
-  HarborTimer, HarborTimerKind, HarborTimerView, HarborFleet, HARBOR_TIMER_ENABLED,
-  HARBOR_TIMER_KINDS, eligibleHarborFleets, harborFlagshipKind, harborInterval,
+  HarborTimer, HarborTimerView, HarborFleet, HARBOR_TIMER_ENABLED,
+  HARBOR_TIMER_KINDS, HARBOR_INTERVAL_SUPPLY, eligibleHarborFleets, harborFlagshipKind,
 } from './harborTimer';
 
 const PREFIX = 'kchomo.harbor.';
 interface HarborResponse { api_result?: number; }
-export interface HarborNotification { title: string; lines: string[]; }
+export interface HarborNotification { title: string; }
 
 export function harborFlagships(): HarborFleet[] {
   const state = getGameState().getState();
@@ -137,16 +137,14 @@ class HarborReminderService {
     return this.engine.views(eligibleHarborFleets(state, away));
   }
   notification(): HarborNotification | null {
-    const views = this.views();
-    if (views.length === 0) return null;
     const now = Date.now();
+    // After the first supply threshold, show the 30-minute target without restarting the clock.
+    const views = this.views().filter(view => view.kind !== 'supply' ||
+      view.finalSupply === (now >= view.startedAt + HARBOR_INTERVAL_SUPPLY));
+    if (views.length === 0) return null;
     const first = views[0];
     return {
-      title: `${first.kind === 'repair' ? '维修' : '给粮'}：${first.dueAt <= now ? '可回港' : formatExpeditionReturnTime(first.dueAt)}（${first.flagship}）`,
-      lines: views.map(view => {
-        const minutes = Math.floor(Math.max(0, now - view.startedAt) / 60000);
-        return `第${view.deckId}舰队 ${view.flagship}：已挂机 ${minutes} 分钟 / ${harborInterval(view.kind) / 60000} 分钟${view.dueAt <= now ? '，可回港' : ''}`;
-      }),
+      title: `${first.kind === 'repair' ? '维修' : '给粮'}：${first.dueAt <= now ? '可回港' : formatExpeditionReturnTime(first.dueAt)}（${first.flagship}${first.kind === 'supply' ? (first.finalSupply ? ' · 30分' : ' · 15分') : ''}）`,
     };
   }
   private async save(): Promise<void> {
@@ -154,7 +152,9 @@ class HarborReminderService {
     const value = this.engine.serialize();
     if (value !== this.saved) { await kvSet(`alerts.harbor.clock.${this.account}`, value); this.saved = value; }
   }
-  private group(view: HarborTimerView): string { return `${PREFIX}${this.account}.${view.kind}.${view.startedAt}`; }
+  private group(view: HarborTimerView): string {
+    return `${PREFIX}${this.account}.${view.kind}.${view.startedAt}${view.finalSupply ? '.30' : ''}`;
+  }
   private async cancel(id: number): Promise<void> {
     try { await reminderAgentManager.cancelReminder(id); }
     catch (error) {
@@ -181,14 +181,22 @@ class HarborReminderService {
     }
     for (const kind of HARBOR_TIMER_KINDS) {
       const clock = this.engine.clock(kind);
-      const view = views.find(item => item.kind === kind);
-      if (!clock) continue;
-      if (!view) { clock.systemScheduled = false; continue; }
+      if (clock && !views.some(view => view.kind === kind)) {
+        clock.systemScheduled = false;
+        if (clock.supplyFinal) clock.supplyFinal.systemScheduled = false;
+      }
+    }
+    const processed = new Set<string>();
+    for (const view of views) {
+      const kind = view.kind;
+      const clock = this.engine.stage(view);
       const group = this.group(view);
+      if (processed.has(group)) continue;
+      processed.add(group);
       if (kept.has(group)) clock.systemScheduled = true;
       const label = kind === 'repair' ? '明石维修' : '野埼给粮';
-      const body = `${views.filter(item => item.kind === kind).map(item => `第${item.deckId}舰队`).join('、')}已等待 ${harborInterval(kind) / 60000} 分钟，可回母港${kind === 'repair' ? '泊地维修' : '士气提升'}。`;
-      const id = kind === 'repair' ? 4300 : 4301;
+      const body = `${views.filter(item => item.kind === kind && item.finalSupply === view.finalSupply).map(item => `第${item.deckId}舰队`).join('、')}已等待 ${(view.dueAt - view.startedAt) / 60000} 分钟，可回母港${kind === 'repair' ? '泊地维修' : '士气提升'}。${view.finalSupply ? '已达到本轮 30 分钟提醒上限，士气恢复上限为 54。' : ''}`;
+      const id = kind === 'repair' ? 4300 : (view.finalSupply ? 4302 : 4301);
       if (view.dueAt > Date.now() && !kept.has(group) && permission) {
         const date = new Date(Math.ceil(view.dueAt / 1000) * 1000);
         const request: reminderAgentManager.ReminderRequestCalendar = {
@@ -202,6 +210,12 @@ class HarborReminderService {
         catch (error) { console.warn('[HarborReminder] publish failed:', String(error)); }
       }
       if (view.dueAt <= Date.now()) {
+        // A delayed foreground sync should report the latest threshold, not burst both supply toasts.
+        if (kind === 'supply' && !view.finalSupply && Date.now() >= view.startedAt + 2 * HARBOR_INTERVAL_SUPPLY) {
+          clock.toastShown = true;
+          clock.notificationSent = true;
+          continue;
+        }
         if (this.foreground && !clock.toastShown && getAlertBus().getConfig().enableToast) {
           promptAction.showToast({ message: body, duration: 3000 });
           clock.toastShown = true;

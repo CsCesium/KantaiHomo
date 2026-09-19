@@ -91,7 +91,7 @@ class ExpeditionLiveNotificationService {
       const deckNameMap = new Map<number, string>(decks.map(d => [d.deckId, d.name]));
       const now = Date.now();
 
-      const active = expeditions.filter(e => e.progress === 1 && e.returnTime > 0);
+      const active = expeditions.filter(e => e.deckId >= 2 && e.deckId <= 4 && e.progress === 1 && e.returnTime > 0);
 
       const harbor = getHarborReminderService().notification();
       if (active.length === 0 && !harbor) {
@@ -105,13 +105,9 @@ class ExpeditionLiveNotificationService {
       // 构建活跃远征 Map，供 lines 查找
       const activeMap = new Map(active.map(e => [e.deckId, e]));
 
-      // Include active fleets even while the deck name snapshot is still loading.
-      for (const exp of active) {
-        if (!deckNameMap.has(exp.deckId)) deckNameMap.set(exp.deckId, `第${exp.deckId}舰队`);
-      }
-      const lines: string[] = harbor ? harbor.lines.slice() : [];
-      const deckIds = Array.from(deckNameMap.keys()).filter(id => id !== 1).sort((a, b) => a - b);
-      for (const deckId of deckIds) {
+      // The system displays at most three body rows: reserve one for each expedition fleet.
+      const lines: string[] = [];
+      for (const deckId of [2, 3, 4]) {
         const name = deckNameMap.get(deckId) ?? `第${deckId}舰队`;
         const exp = activeMap.get(deckId);
         if (exp) {
@@ -123,7 +119,7 @@ class ExpeditionLiveNotificationService {
       }
 
       const upcoming = active.filter(exp => exp.returnTime > now);
-      const briefText = `${harbor ? '挂机计时中 / ' : ''}${upcoming.length} 支远征中 / ${active.length - upcoming.length} 支已到归来时间`;
+      const briefText = `${upcoming.length} 支远征中 / ${active.length - upcoming.length} 支已到归来时间`;
       const earliest = upcoming[0] ?? active[0];
       const summaryText = harbor?.title ?? (earliest ?
         `归来：${formatExpeditionReturnTime(earliest.returnTime)}「${getMissionName(earliest.missionId)}」` : '舰队空闲中');
@@ -145,7 +141,7 @@ class ExpeditionLiveNotificationService {
           notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_MULTILINE,
           multiLine: {
             title: summaryText,
-            text: summaryText,
+            text: lines.join('\n'),
             briefText,
             longTitle: summaryText,
             lines,
