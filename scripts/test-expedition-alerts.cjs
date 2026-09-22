@@ -52,6 +52,7 @@ function harness() {
     },
   };
   const adapters = {
+    './calendarReminder': { calendarReminder: { ...reminderAgentManager, isEnabled: async () => state.permission } },
     './harborReminder': { getHarborReminderService: () => ({
       notification: () => state.harbor,
       subscribe: callback => { state.harborListeners.push(callback); return () => { state.harborListeners = state.harborListeners.filter(item => item !== callback); }; },

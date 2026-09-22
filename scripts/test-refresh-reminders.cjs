@@ -25,6 +25,11 @@ function harness(shared) {
       getAllValidReminders: async () => state.reminders.slice(),
       publishReminder: async request => {
         assert.equal(state.permission, true);
+        // The native bridge distinguishes an absent optional field from an explicit undefined value.
+        if (Object.hasOwn(request, 'daysOfWeek') && !Array.isArray(request.daysOfWeek)) {
+          throw { code: 401, message: 'Wrong argument type:daysOfWeek. object expected.' };
+        }
+        if (state.publishFailure) throw state.publishFailure;
         if (state.failPublish) throw new Error('publish failed');
         assert.ok(state.reminders.length < 30, 'system reminder capacity');
         state.reminders.push({ reminderId: state.nextId++, reminderReq: request });
@@ -45,6 +50,10 @@ function harness(shared) {
       },
     },
   };
+  adapters['./calendarReminder']={calendarReminder:{
+    ...adapters['@kit.BackgroundTasksKit'].reminderAgentManager,
+    isEnabled:async()=>state.permission,
+  }};
   const modules = new Map();
   function load(name) {
     if (modules.has(name)) return modules.get(name);
@@ -73,6 +82,29 @@ function harness(shared) {
 const iso = value => new Date(value).toISOString();
 const active = h => h.state.reminders.filter(r => r.reminderReq.groupId.startsWith('kchomo.refresh.'));
 const first = (kind, date) => harness().schedule.refreshReminderTargets(kind, Date.parse(date))[0];
+
+test('monthly requests omit daysOfWeek while practice requests retain their daily repeat days', async () => {
+  const h=harness();
+  for(const kind of ['practice','senka','eo'])await h.service.setEnabled(kind,true);
+  const requests=active(h).map(r=>r.reminderReq);
+  assert.equal(requests.length,24);
+  for(const request of requests) {
+    if(request.groupId.includes('.practice.'))assert.deepEqual(Array.from(request.daysOfWeek),[1,2,3,4,5,6,7]);
+    else assert.equal(Object.hasOwn(request,'daysOfWeek'),false);
+  }
+});
+
+test('registration failures expose the native error code and reason and clear after a successful retry', async () => {
+  const h=harness();
+  h.state.publishFailure={code:401,message:'Wrong argument type:daysOfWeek. object expected.'};
+  await h.service.setEnabled('eo',true);
+  const status=()=>h.state.app.get(h.schedule.REFRESH_REMINDER_STATUS);
+  assert.match(status(),/11 项登记失败.*提醒参数无效.*401.*daysOfWeek/);
+  h.state.publishFailure={code:1700002,message:'The number of reminders exceeds the limit.'};
+  await h.service.sync();assert.match(status(),/数量已达上限.*1700002/);
+  h.state.publishFailure=null;await h.service.sync();
+  assert.equal(active(h).length,11);assert.doesNotMatch(status(),/失败|401|1700002/);
+});
 
 test('practice alerts precede both JST refreshes by 15 minutes and skip passed reminder times', () => {
   const h = harness();
@@ -130,8 +162,7 @@ test('all reminders fit alongside expeditions and both supply stages and survive
   assert.equal(active(h).length,24);
   assert.equal(h.state.reminders.length,29);
   assert.equal(new Set(active(h).map(r=>r.reminderReq.notificationId)).size,24);
-  assert.equal(h.state.slots[0].vibrationEnabled,false);
-  assert.equal(h.state.slots[0].notificationType,3);
+  assert.equal(h.state.slots.length,0,'calendar reminders do not change app notification slots');
   for (const {reminderReq:r} of active(h)) {
     assert.equal(r.slotType,3);
     assert.equal(r.ringDuration,0);
@@ -192,7 +223,7 @@ test('permission denial and publish failure retry without duplicate reminders', 
   const h=harness(); h.state.permission=false;
   await h.service.setEnabled('practice',true);
   assert.equal(h.state.published.length,0);
-  assert.match(h.state.app.get('alerts.refresh.status'),/权限/);
+  assert.match(h.state.app.get('alerts.refresh.status'),/日历未授权/);
   h.state.permission=true; h.state.failPublish=true;
   await h.service.sync();
   assert.match(h.state.app.get('alerts.refresh.status'),/失败/);

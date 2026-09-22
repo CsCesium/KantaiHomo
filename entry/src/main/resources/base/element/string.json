@@ -1,6 +1,10 @@
 {
   "string": [
     {
+      "name": "calendar_reminder_permission",
+      "value": "用于登记、更新和取消舰队计时及游戏周期提醒，应用关闭后由系统日历通知"
+    },
+    {
       "name": "module_desc",
       "value": "module description"
     },

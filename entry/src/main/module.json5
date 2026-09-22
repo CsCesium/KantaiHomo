@@ -39,6 +39,8 @@
       { "name": "ohos.permission.GET_NETWORK_INFO" },
       { "name": "ohos.permission.KEEP_BACKGROUND_RUNNING" },
       { "name": "ohos.permission.PUBLISH_AGENT_REMINDER" },
+      { "name": "ohos.permission.READ_CALENDAR", "reason": "$string:calendar_reminder_permission", "usedScene": { "abilities": ["EntryAbility"], "when": "always" } },
+      { "name": "ohos.permission.WRITE_CALENDAR", "reason": "$string:calendar_reminder_permission", "usedScene": { "abilities": ["EntryAbility"], "when": "always" } },
       { "name": "ohos.permission.VIBRATE" },
       //{"name": "ohos.permission.USE_FLOAT_BALL"}
     ],

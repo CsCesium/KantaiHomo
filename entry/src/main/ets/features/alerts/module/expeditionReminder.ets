@@ -2,6 +2,7 @@
 import notificationManager from '@ohos.notificationManager';
 import { reminderAgentManager } from '@kit.BackgroundTasksKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { calendarReminder } from './calendarReminder';
 import { getRepositoryHub } from '../../../infra/storage/repo';
 import { kvGetBool, kvSet } from '../../../infra/storage/kv';
 import { getMissionName } from './missionCache';
@@ -39,7 +40,7 @@ function reminderGroupId(deckId: number, missionId: number, returnTime: number):
 
 async function cancelReminder(reminderId: number): Promise<void> {
   try {
-    await reminderAgentManager.cancelReminder(reminderId);
+    await calendarReminder.cancelReminder(reminderId);
   } catch (e) {
     // Already dismissed by the user; all other failures must be retried.
     const error = e as BusinessError;
@@ -123,9 +124,9 @@ class ExpeditionReminderService {
         this.setStatus('已关闭，已撤销后台归来提醒');
         return;
       }
-      if (!await notificationManager.isNotificationEnabled()) {
+      if (!await calendarReminder.isEnabled()) {
         this.delegated.clear();
-        this.setStatus('未开启系统通知，请允许通知后重试');
+        this.setStatus('日历未授权，请点击“授权日历并登记”');
         return;
       }
       const failures = await this.publishMissingReminders(targets, kept);
@@ -134,11 +135,12 @@ class ExpeditionReminderService {
       if (failures > 0) {
         this.setStatus(`已登记 ${scheduled} 支舰队，${failures} 项失败；应用运行时自动重试`);
       } else {
-        this.setStatus(scheduled > 0 ? `已登记 ${scheduled} 支舰队，关闭应用后由系统提醒` : '暂无待登记的远征');
+        this.setStatus(scheduled > 0 ? `已登记 ${scheduled} 支舰队，新增提醒由系统日历通知` : '暂无待登记的远征');
       }
     } catch (e) {
-      this.setStatus('系统提醒同步失败，应用运行时自动重试');
-      console.warn('[ExpeditionReminder] sync failed:', e);
+      const failure = e as BusinessError;
+      this.setStatus(`提醒同步失败：${failure.code ?? ''} ${failure.message}`);
+      console.warn(`[ExpeditionReminder] sync failed: ${failure.code ?? ''} ${failure.message}`);
     }
   }
 
@@ -159,7 +161,7 @@ class ExpeditionReminderService {
 
   private async loadExistingReminders(): Promise<Map<number, ExistingReminder[]>> {
     const map = new Map<number, ExistingReminder[]>();
-    const reminders = await reminderAgentManager.getAllValidReminders();
+    const reminders = await calendarReminder.getAllValidReminders();
     for (const info of reminders) {
       const req = info.reminderReq;
       const groupId = req.groupId ?? '';
@@ -231,7 +233,7 @@ class ExpeditionReminderService {
         wantAgent: { pkgName: 'io.github.cesium.kchomo', abilityName: 'EntryAbility' },
       };
       try {
-        const reminderId = await reminderAgentManager.publishReminder(request);
+        const reminderId = await calendarReminder.publishReminder(request);
         this.delegated.set(target.deckId, target.groupId);
         console.info(`[ExpeditionReminder] scheduled deck=${target.deckId}, id=${reminderId}, returnTime=${target.returnTime}`);
       } catch (e) {

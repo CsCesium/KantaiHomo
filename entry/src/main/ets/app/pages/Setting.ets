@@ -11,9 +11,9 @@ import {
   APP_STORAGE_EXPEDITION_REMINDER_STATUS,
   getExpeditionReminderService,
 } from '../../features/alerts/module/expeditionReminder';
-import { ensureNotificationPermission } from '../../features/alerts/module/notificationPermission';
 import { getRefreshReminderService } from '../../features/alerts/module/refreshReminder';
 import { getHarborReminderService } from '../../features/alerts/module/harborReminder';
+import { calendarReminder, CALENDAR_REMINDER_STATUS } from '../../features/alerts/module/calendarReminder';
 import { HARBOR_TIMER_ENABLED } from '../../features/alerts/module/harborTimer';
 import { RefreshReminderKind, REFRESH_REMINDER_STATUS } from '../../features/alerts/module/refreshSchedule';
 import { getExpeditionLiveNotificationService } from '../../features/alerts/module/expeditionNotification';
@@ -89,6 +89,21 @@ struct Setting {
   @StorageProp(REFRESH_REMINDER_STATUS) private refreshReminderStatus: string = '已关闭时间点提醒';
   @State private refreshReminderBusy: boolean = false;
   @StorageProp(HARBOR_TIMER_ENABLED) private harborTimerEnabled: boolean = true;
+  @StorageProp(CALENDAR_REMINDER_STATUS) private calendarReminderStatus: string = '备用提醒使用系统日历，请先授权';
+  @State private calendarReminderBusy: boolean = false;
+
+  private async authorizeCalendarReminders(): Promise<void> {
+    if (this.calendarReminderBusy) return;
+    this.calendarReminderBusy = true;
+    try {
+      if (!await calendarReminder.requestPermission()) return;
+      await getExpeditionReminderService().syncFromDb();
+      await getRefreshReminderService().sync();
+      await getHarborReminderService().sync();
+    } catch (error) {
+      AppStorage.setOrCreate(CALENDAR_REMINDER_STATUS, `日历授权或登记失败：${(error as Error).message}`);
+    } finally { this.calendarReminderBusy = false; }
+  }
 
   // ── Toast settings ─────────────────────────────────────────────
   @State private toastEnabled: boolean = true;
@@ -117,12 +132,12 @@ struct Setting {
     try {
       await getRefreshReminderService().setEnabled(kind, enabled);
       if (enabled) {
-        await ensureNotificationPermission();
+        await calendarReminder.requestPermission();
         await getRefreshReminderService().sync();
       }
     } catch (error) {
       console.warn('[Setting] refresh reminder:', String(error));
-      AppStorage.setOrCreate(REFRESH_REMINDER_STATUS, '设置或授权失败，请检查并重试');
+      AppStorage.setOrCreate(REFRESH_REMINDER_STATUS, `设置或日历授权失败：${(error as Error).message}`);
     } finally { this.refreshReminderBusy = false; }
   }
 
@@ -130,11 +145,11 @@ struct Setting {
     if (this.refreshReminderBusy) return;
     this.refreshReminderBusy = true;
     try {
-      await ensureNotificationPermission();
+      if (!await calendarReminder.requestPermission()) return;
       await getRefreshReminderService().sync();
     } catch (error) {
       console.warn('[Setting] refresh reminder permission:', String(error));
-      AppStorage.setOrCreate(REFRESH_REMINDER_STATUS, '未获得通知权限，请检查并重试');
+      AppStorage.setOrCreate(REFRESH_REMINDER_STATUS, `日历授权失败：${(error as Error).message}`);
     } finally { this.refreshReminderBusy = false; }
   }
 
@@ -206,9 +221,9 @@ struct Setting {
     if (this.expeditionReminderBusy) return;
     this.expeditionReminderBusy = true;
     try {
-      await ensureNotificationPermission();
+      await calendarReminder.requestPermission();
     } catch (_) {
-      promptAction.showToast({ message: '请在系统设置中允许本应用发送通知' });
+      promptAction.showToast({ message: '请在系统设置中允许本应用访问日历' });
     } finally {
       await getExpeditionReminderService().syncFromDb();
       await getExpeditionLiveNotificationService().refresh(true);
@@ -990,14 +1005,23 @@ struct Setting {
           // ── SECTION: 日常提醒 ─────────────────────────────────
           this.SectionHeader('日常提醒')
 
+          Text('后台提醒暂由系统日历接管。请授权并保持系统日历通知开启；声音与振动由日历设置控制。')
+            .fontSize(12).fontColor('#A8B9CC').padding({ left: 16, right: 16 })
+          Row({ space: 12 }) {
+            Text(this.calendarReminderStatus).fontSize(12).fontColor('#A8B9CC').layoutWeight(1)
+            Button(this.calendarReminderBusy ? '登记中' : '授权日历并登记')
+              .fontSize(12).enabled(!this.calendarReminderBusy)
+              .onClick(() => { void this.authorizeCalendarReminders(); })
+          }.width('100%').padding({ left: 16, right: 16, bottom: 8 })
+
           Column({ space: 8 }) {
-            this.ToggleRow('明石维修 / 野埼给粮计时', '作为旗舰且满足条件时自动计时；到点仅通知Toast',
+            this.ToggleRow('明石维修 / 野埼给粮计时', '作为旗舰且满足条件时自动计时；到点日历提醒和一次 Toast',
               this.harborTimerEnabled, (v: boolean) => {
                 void getHarborReminderService().setEnabled(v).catch((error: Error) => { console.warn('[Setting] harbor timer:', String(error)); });
               })
             this.ToggleRow(
               '远征后台提醒',
-              '按归来时刻登记系统提醒，关闭应用后仍可提醒；响铃与震动遵循系统通知设置',
+              '按归来时刻登记日历提醒，关闭应用后由系统日历通知',
               this.expeditionReminderEnabled,
               (v: boolean) => { this.onExpeditionReminderToggle(v); }
             )
@@ -1036,7 +1060,7 @@ struct Setting {
           }
           .width('100%')
           .enabled(!this.refreshReminderBusy)
-          Text('仅发送系统通知，不弹出 Toast、不触发应用振动。月度提醒预登记未来 12 个月，打开应用时自动续期。')
+          Text('由系统日历提醒，不弹出应用 Toast。演习使用每日重复日程；月度提醒预登记未来 11 个月，打开应用时自动续期。')
             .fontSize(12)
             .fontColor('#A8B9CC')
             .padding({ left: 16, right: 16 })

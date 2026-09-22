@@ -2,6 +2,7 @@ import notificationManager from '@ohos.notificationManager';
 import promptAction from '@ohos.promptAction';
 import { reminderAgentManager } from '@kit.BackgroundTasksKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { calendarReminder } from './calendarReminder';
 import { getGameState } from '../../state';
 import { getAlertBus } from '../bus';
 import { kvGetBool, kvGetString, kvSet } from '../../../infra/storage/kv';
@@ -40,7 +41,6 @@ class HarborReminderService {
   private tail: Promise<void> = Promise.resolve();
   private listeners = new Set<() => void>();
   private practiceDeck = 0;
-  private slotReady = false;
   private saved = '';
 
   subscribe(listener: () => void): () => void {
@@ -156,7 +156,7 @@ class HarborReminderService {
     return `${PREFIX}${this.account}.${view.kind}.${view.startedAt}${view.finalSupply ? '.30' : ''}`;
   }
   private async cancel(id: number): Promise<void> {
-    try { await reminderAgentManager.cancelReminder(id); }
+    try { await calendarReminder.cancelReminder(id); }
     catch (error) {
       const failure = error as BusinessError;
       if (failure.code !== 1700003) throw new Error(`cancel harbor reminder: ${failure.code}`);
@@ -166,7 +166,7 @@ class HarborReminderService {
     if (!this.confirmed && this.enabled) return; // Wait for a fresh port snapshot before trusting cached fleets.
     const views = this.views();
     this.changed();
-    const valid = await reminderAgentManager.getAllValidReminders();
+    const valid = await calendarReminder.getAllValidReminders();
     const kept = new Set<string>();
     for (const reminder of valid) {
       const group = reminder.reminderReq.groupId ?? '';
@@ -174,11 +174,7 @@ class HarborReminderService {
       if (views.some(view => this.group(view) === group) && !kept.has(group)) kept.add(group);
       else await this.cancel(reminder.reminderId);
     }
-    const permission = await notificationManager.isNotificationEnabled();
-    if (permission && views.length > 0 && !this.slotReady) {
-      await reminderAgentManager.addNotificationSlot({ notificationType: notificationManager.SlotType.CONTENT_INFORMATION, vibrationEnabled: false });
-      this.slotReady = true;
-    }
+    const permission = await calendarReminder.isEnabled();
     for (const kind of HARBOR_TIMER_KINDS) {
       const clock = this.engine.clock(kind);
       if (clock && !views.some(view => view.kind === kind)) {
@@ -206,7 +202,7 @@ class HarborReminderService {
           slotType: notificationManager.SlotType.CONTENT_INFORMATION, ringDuration: 0, snoozeTimes: 0, tapDismissed: true,
           wantAgent: { pkgName: 'io.github.cesium.kchomo', abilityName: 'EntryAbility' },
         };
-        try { await reminderAgentManager.publishReminder(request); clock.systemScheduled = true; }
+        try { await calendarReminder.publishReminder(request); clock.systemScheduled = true; }
         catch (error) { console.warn('[HarborReminder] publish failed:', String(error)); }
       }
       if (view.dueAt <= Date.now()) {
@@ -220,7 +216,7 @@ class HarborReminderService {
           promptAction.showToast({ message: body, duration: 3000 });
           clock.toastShown = true;
         }
-        if (permission && !clock.systemScheduled && !clock.notificationSent) {
+        if (!clock.systemScheduled && !clock.notificationSent && await notificationManager.isNotificationEnabled()) {
           await notificationManager.publish({ id, notificationSlotType: notificationManager.SlotType.CONTENT_INFORMATION,
             tapDismissed: true, content: { notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
               normal: { title: `${label}计时到点`, text: body } } });

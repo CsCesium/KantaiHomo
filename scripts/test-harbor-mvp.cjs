@@ -119,6 +119,10 @@ function harness(storage=new Map()) {
     './harborTimer':logic,
     './expeditionTime':{formatExpeditionReturnTime:time=>new Date(time).toISOString().slice(11,19)},
   };
+  adapters['./calendarReminder']={calendarReminder:{
+    ...adapters['@kit.BackgroundTasksKit'].reminderAgentManager,
+    isEnabled:async()=>state.permission,
+  }};
   const mod=compile('features/alerts/module/harborReminder.ets',{
     Date:Clock,console:{warn(){}},AppStorage:{setOrCreate:(k,v)=>state.app.set(k,v)},
     setTimeout:cb=>{const id=state.nextTimer++;state.timers.set(id,cb);return id;},clearTimeout:id=>state.timers.delete(id),
