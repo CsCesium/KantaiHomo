@@ -30,8 +30,8 @@ function decode(event: calendarManager.Event): reminderAgentManager.ReminderInfo
     dateTime: { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate(),
       hour: date.getHours(), minute: date.getMinutes(), second: date.getSeconds() },
   };
-  // Default calendar queries omit recurrenceRule; our practice groups always represent daily reminders.
-  if (group.startsWith('kchomo.refresh.v1.practice.')) {
+  // Do not infer recurrence from the group: new practice events are one-shot.
+  if (event.recurrenceRule?.recurrenceFrequency === calendarManager.RecurrenceFrequency.DAILY) {
     request.daysOfWeek = [1, 2, 3, 4, 5, 6, 7];
   }
   // Agent IDs are non-negative; negative IDs identify our calendar events, including event ID zero.

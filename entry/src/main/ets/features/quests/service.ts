@@ -169,8 +169,8 @@ export function trackQuestApi(dump: ApiDump): Promise<void> {
     if (isResult && battle) lastBattleKey = battle.key;
     const expired = counter?.expire(Date.now());
     const changed = counter?.apply(events, Date.now());
-    if (expired) publishQuests();
-    else if (changed) notify();
+    // Buttons and the tri-fold card subscribe to game state, including local completion.
+    if (expired || changed) publishQuests();
     await save();
   });
 }

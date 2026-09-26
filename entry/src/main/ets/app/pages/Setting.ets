@@ -1048,7 +1048,7 @@ struct Setting {
 
           this.SectionHeader('时间点提醒')
           Column({ space: 8 }) {
-            this.ToggleRow('演习刷新提醒', '提前 15 分钟；北京时间每天 01:45、13:45 通知',
+            this.ToggleRow('演习刷新提醒', '仅登记今日；北京时间 01:45、13:45 通知，次日运行应用续登',
               this.practiceRefreshEnabled,
               (v: boolean) => { void this.onRefreshReminderToggle('practice', v); })
             this.ToggleRow('月度战果结算提醒', '提前 30 分钟；北京时间每月最后一天 20:30 通知',

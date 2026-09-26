@@ -81,10 +81,14 @@ class RefreshReminderService {
   private async syncOnce(): Promise<void> {
     const now = Date.now();
     const targets: RefreshReminderTarget[] = [];
+    let anyEnabled = false;
     for (const kind of REFRESH_REMINDER_KINDS) {
       const enabled = await kvGetBool(refreshReminderKey(kind), false);
       AppStorage.setOrCreate(refreshReminderKey(kind), enabled);
-      if (enabled) targets.push(...refreshReminderTargets(kind, now));
+      if (enabled) {
+        anyEnabled = true;
+        targets.push(...refreshReminderTargets(kind, now));
+      }
     }
     const byGroup = new Map<string, RefreshReminderTarget>();
     targets.forEach(item => byGroup.set(item.groupId, item));
@@ -103,7 +107,8 @@ class RefreshReminderService {
       }
     }
     if (targets.length === 0) {
-      AppStorage.setOrCreate(REFRESH_REMINDER_STATUS, '已关闭时间点提醒');
+      AppStorage.setOrCreate(REFRESH_REMINDER_STATUS, anyEnabled ?
+        '今日演习提醒时间已过；次日运行应用时登记当天提醒' : '已关闭时间点提醒');
       return;
     }
     if (!await calendarReminder.isEnabled()) {
@@ -126,8 +131,7 @@ class RefreshReminderService {
         ringDuration: 0, snoozeTimes: 0, tapDismissed: true,
         wantAgent: { pkgName: 'io.github.cesium.kchomo', abilityName: 'EntryAbility' },
       };
-      // Native validation rejects an explicitly undefined array; one-shot reminders omit the field.
-      if (item.daily) request.daysOfWeek = [1, 2, 3, 4, 5, 6, 7];
+      // All refresh reminders are one-shot; omit repeat fields entirely.
       try { await calendarReminder.publishReminder(request); }
       catch (error) {
         failures++;

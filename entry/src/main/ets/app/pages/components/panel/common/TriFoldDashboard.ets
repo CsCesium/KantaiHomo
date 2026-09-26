@@ -9,6 +9,7 @@ import { MissionRow } from '../../../../../infra/storage/types';
 import ExpeditionStatusPanel from './ExpeditionStatusPanel';
 import QuestPanel from './QuestPanel';
 import { claimableQuestCount } from '../../../../../features/quests/presentation';
+import { questProgress } from '../../../../../features/quests/service';
 import NdockPanel from './NdockPanel';
 
 const DASHBOARD_TITLES: string[] = ['远征', '任务', '入渠'];
@@ -118,8 +119,8 @@ export default struct TriFoldDashboard {
           .fontWeight(FontWeight.Medium)
           .fontColor(PanelColors.txtPrimary)
         Blank().layoutWeight(1)
-        if (claimableQuestCount(this.quests) > 0) {
-          Text(`✦ ${claimableQuestCount(this.quests)} 项可交付`)
+        if (claimableQuestCount(this.quests, questProgress) > 0) {
+          Text(`✦ ${claimableQuestCount(this.quests, questProgress)} 项完成`)
             .fontSize(PanelDimens.fontSm)
             .fontWeight(FontWeight.Bold)
             .fontColor(PanelColors.questReady)
@@ -133,7 +134,7 @@ export default struct TriFoldDashboard {
       .width('100%')
       .height(32)
       .padding({ left: 10, right: 10 })
-      .backgroundColor(this.activeKind === 1 && claimableQuestCount(this.quests) > 0 ?
+      .backgroundColor(this.activeKind === 1 && claimableQuestCount(this.quests, questProgress) > 0 ?
         PanelColors.questReadyBg : PanelColors.bgHeader)
       .alignItems(VerticalAlign.Center)
 
@@ -158,8 +159,8 @@ export default struct TriFoldDashboard {
     .width('100%')
     .height('100%')
     .backgroundColor(PanelColors.bg)
-    .borderWidth(this.activeKind === 1 && claimableQuestCount(this.quests) > 0 ? 2 : 1)
-    .borderColor(this.activeKind === 1 && claimableQuestCount(this.quests) > 0 ?
+    .borderWidth(this.activeKind === 1 && claimableQuestCount(this.quests, questProgress) > 0 ? 2 : 1)
+    .borderColor(this.activeKind === 1 && claimableQuestCount(this.quests, questProgress) > 0 ?
       PanelColors.questReady : PanelColors.rowBorder)
     .clip(true)
     .priorityGesture(

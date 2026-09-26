@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '../entry/src/main/ets/features/alerts/modu
 
 function harness(shared) {
   const state = shared || {
-    now: Date.parse('2026-09-17T10:00:00+08:00'), permission: true,
+    now: Date.parse('2026-09-17T01:00:00+08:00'), permission: true,
     prefs: new Map(), app: new Map(), timers: new Map(), reminders: [],
     published: [], cancelled: [], slots: [], nextId: 1, nextTimer: 1,
     failPublish: false, failCancel: false, failSave: false,
@@ -83,14 +83,13 @@ const iso = value => new Date(value).toISOString();
 const active = h => h.state.reminders.filter(r => r.reminderReq.groupId.startsWith('kchomo.refresh.'));
 const first = (kind, date) => harness().schedule.refreshReminderTargets(kind, Date.parse(date))[0];
 
-test('monthly requests omit daysOfWeek while practice requests retain their daily repeat days', async () => {
+test('practice and monthly requests omit repeat fields', async () => {
   const h=harness();
   for(const kind of ['practice','senka','eo'])await h.service.setEnabled(kind,true);
   const requests=active(h).map(r=>r.reminderReq);
   assert.equal(requests.length,24);
   for(const request of requests) {
-    if(request.groupId.includes('.practice.'))assert.deepEqual(Array.from(request.daysOfWeek),[1,2,3,4,5,6,7]);
-    else assert.equal(Object.hasOwn(request,'daysOfWeek'),false);
+    assert.equal(Object.hasOwn(request,'daysOfWeek'),false);
   }
 });
 
@@ -106,13 +105,67 @@ test('registration failures expose the native error code and reason and clear af
   assert.equal(active(h).length,11);assert.doesNotMatch(status(),/失败|401|1700002/);
 });
 
-test('practice alerts precede both JST refreshes by 15 minutes and skip passed reminder times', () => {
+test('practice targets stay within today in Beijing time and retain due reminders until refresh', () => {
   const h = harness();
   const rows = h.schedule.refreshReminderTargets('practice', Date.parse('2026-09-17T01:00:00+08:00'));
   assert.deepEqual(Array.from(rows, r => iso(r.remindAt)), ['2026-09-16T17:45:00.000Z', '2026-09-17T05:45:00.000Z']);
   for (const r of rows) assert.equal(r.deadline - r.remindAt, 15 * 60000);
   const next = first('practice', '2026-09-17T01:45:00+08:00');
-  assert.equal(iso(next.remindAt), '2026-09-17T17:45:00.000Z');
+  assert.equal(iso(next.remindAt), '2026-09-16T17:45:00.000Z');
+  assert.equal(iso(first('practice','2026-09-17T02:00:00+08:00').remindAt),'2026-09-17T05:45:00.000Z');
+  for(const time of ['14:00:00','23:30:00','23:59:59']) {
+    assert.equal(h.schedule.refreshReminderTargets('practice',Date.parse(`2026-09-17T${time}+08:00`)).length,0);
+  }
+  assert.equal(iso(first('practice','2026-09-18T00:00:00+08:00').remindAt),'2026-09-17T17:45:00.000Z');
+});
+
+test('practice registers only remaining times today and waits until the next day to refill', async () => {
+  const h=harness();
+  h.state.now=Date.parse('2026-09-17T10:00:00+08:00');
+  await h.service.setEnabled('practice',true);
+  assert.equal(active(h).length,1);
+  assert.equal(h.state.published.length,1);
+  const due=active(h)[0];
+  h.state.now=Date.parse('2026-09-17T13:45:00+08:00');
+  await h.service.sync();
+  assert.equal(active(h)[0].reminderId,due.reminderId);
+  h.state.reminders=[]; // A dismissed reminder must not be recreated.
+  await h.service.sync();
+  assert.equal(h.state.published.length,1);
+  h.state.now=Date.parse('2026-09-17T23:30:00+08:00');
+  await h.service.sync();
+  assert.equal(active(h).length,0);
+  assert.match(h.state.app.get(h.schedule.REFRESH_REMINDER_STATUS),/今日.*已过/);
+  assert.equal(h.state.prefs.get(h.schedule.refreshReminderKey('practice')),true);
+  h.state.now=Date.parse('2026-09-18T00:00:00+08:00');
+  await h.service.sync();
+  assert.equal(active(h).length,2);
+  assert.equal(h.state.published.length,3);
+  await harness(h.state).service.sync();
+  assert.equal(h.state.published.length,3);
+});
+
+test('old daily series and future practice events are replaced without touching other reminders', async () => {
+  const h=harness();
+  await h.service.setEnabled('eo',true);
+  const monthlyIds=active(h).map(r=>r.reminderId);
+  const future=h.schedule.refreshReminderTargets('practice',h.state.now+86400000)[0];
+  h.state.reminders.push(
+    {reminderId:991,reminderReq:{groupId:'kchomo.refresh.v1.practice.4000.1.45.-480',daysOfWeek:[1,2,3,4,5,6,7]}},
+    {reminderId:-992,reminderReq:{groupId:future.groupId}},
+    {reminderId:993,reminderReq:{groupId:'kchomo.expedition.2'}});
+  await h.service.setEnabled('practice',true);
+  assert.ok(h.state.cancelled.includes(991));
+  assert.ok(h.state.cancelled.includes(-992));
+  assert.ok(monthlyIds.every(id=>!h.state.cancelled.includes(id)));
+  assert.ok(!h.state.cancelled.includes(993));
+  assert.equal(active(h).filter(r=>r.reminderReq.groupId.includes('.practice.')).length,2);
+});
+
+test('enabling practice after both lead times never creates a late or next-day reminder', async () => {
+  const h=harness();h.state.now=Date.parse('2026-09-17T13:46:00+08:00');
+  await h.service.setEnabled('practice',true);
+  assert.equal(h.state.published.length,0);
 });
 
 test('monthly deadlines handle 28/29/30/31-day months and year rollover', () => {
@@ -168,8 +221,7 @@ test('all reminders fit alongside expeditions and both supply stages and survive
     assert.equal(r.ringDuration,0);
     assert.equal(r.snoozeTimes,0);
     assert.equal(r.maxScreenWantAgent,undefined);
-    if (r.groupId.includes('.practice.')) assert.equal(r.daysOfWeek.length,7);
-    else assert.equal(r.daysOfWeek,undefined);
+    assert.equal(r.daysOfWeek,undefined);
   }
   await h.service.sync();
   assert.equal(h.state.published.length,24);

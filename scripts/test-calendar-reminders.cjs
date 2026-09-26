@@ -71,15 +71,21 @@ test('calendar queries omit optional arguments and reminders recover after resta
   assert.equal(h.state.events[0].startTime,new Date(2026,8,20,11,0,15).getTime());
 });
 
-test('practice uses daily recurrence; monthly and harbor stages stay one-shot',async()=>{
+test('legacy daily series remain readable; new practice, monthly and harbor events are one-shot',async()=>{
   const h=harness();
   await h.service.publishReminder(request('kchomo.refresh.v1.practice.4000',true));
   await h.service.publishReminder(request('kchomo.refresh.v1.eo.123'));
   await h.service.publishReminder(request('kchomo.harbor.101.supply.123'));
   await h.service.publishReminder(request('kchomo.harbor.101.supply.123.30'));
+  await h.service.publishReminder(request('kchomo.refresh.v1.practice.1790000000000.-480'));
   assert.equal(h.state.events[0].recurrenceRule.recurrenceFrequency,3);
   assert.ok(h.state.events.slice(1).every(e=>!Object.hasOwn(e,'recurrenceRule')));
-  const rows=await h.service.getAllValidReminders();assert.equal(rows[0].reminderReq.daysOfWeek.length,7);
+  const rows=await h.service.getAllValidReminders();
+  assert.equal(rows.length,5);
+  assert.equal(Object.hasOwn(rows[4].reminderReq,'daysOfWeek'),false);
+  await h.service.cancelReminder(rows[0].reminderId);
+  assert.equal(h.state.events.length,4);
+  assert.ok(h.state.events.every(e=>!Object.hasOwn(e,'recurrenceRule')));
 });
 
 test('denied permission never creates events or prompts during background synchronization',async()=>{

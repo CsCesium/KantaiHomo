@@ -33,6 +33,7 @@ import MapGaugeRow from './rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import QuestPanel from '../common/QuestPanel';
 import { claimableQuestCount } from '../../../../../features/quests/presentation';
+import { questProgress } from '../../../../../features/quests/service';
 import NdockPanel from '../common/NdockPanel';
 import LbasPanel from '../common/LbasPanel';
 import ExpeditionCheckPanel from '../common/ExpeditionCheckPanel';
@@ -847,13 +848,13 @@ export default struct FloatOverlayPanel {
               .borderRadius(PanelDimens.radius)
               .onClick(() => { this.selectFleet(OVERLAY_MAP_TAB_IDX); })
 
-            Text(claimableQuestCount(this.quests) > 0 ? '任务 ✦' : '任务')
+            Text(claimableQuestCount(this.quests, questProgress) > 0 ? '任务 ✦' : '任务')
               .fontSize(PanelDimens.fontSm)
-              .fontColor(claimableQuestCount(this.quests) > 0 ? PanelColors.questReady : PanelColors.txtTabOn)
-              .backgroundColor(claimableQuestCount(this.quests) > 0 ? PanelColors.questReadyBg :
+              .fontColor(claimableQuestCount(this.quests, questProgress) > 0 ? PanelColors.questReady : PanelColors.txtTabOn)
+              .backgroundColor(claimableQuestCount(this.quests, questProgress) > 0 ? PanelColors.questReadyBg :
                 this.activeFleet === OVERLAY_QUEST_TAB_IDX ? '#37474f' : PanelColors.bgTabInactive)
-              .opacity(this.activeFleet === OVERLAY_QUEST_TAB_IDX || claimableQuestCount(this.quests) > 0 ? 1.0 : 0.55)
-              .shadow({ radius: claimableQuestCount(this.quests) > 0 ? 6 : 0, color: '#88ffd166' })
+              .opacity(this.activeFleet === OVERLAY_QUEST_TAB_IDX || claimableQuestCount(this.quests, questProgress) > 0 ? 1.0 : 0.55)
+              .shadow({ radius: claimableQuestCount(this.quests, questProgress) > 0 ? 6 : 0, color: '#88ffd166' })
               .padding({ left: 7, right: 7, top: 3, bottom: 3 })
               .borderRadius(PanelDimens.radius)
               .onClick(() => { this.selectFleet(OVERLAY_QUEST_TAB_IDX); })

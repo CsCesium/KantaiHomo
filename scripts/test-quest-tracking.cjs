@@ -120,31 +120,66 @@ test('first-seen 80% hints never round small targets up to completion', () => {
     const view = counter.progress(1);
     assert.equal(view.anySatisfied,false, `80% of ${required}`);
     assert.equal(Number(view.label.replace('≈','').split('/')[0]), Math.min(required-1,Math.floor(required*.8)));
-    assert.equal(claimableQuestCount(counter.quests()),0);
+    assert.equal(claimableQuestCount(counter.quests(), id => counter.progress(id)),0);
     counter.changeState(1,1,now);
     const restarted = new QuestCounter(defs); restarted.restore(counter.serialize(),now);
     restarted.changeState(1,2,now);
     assert.equal(restarted.progress(1).label.replace('≈',''), view.label.replace('≈',''));
     restarted.sync([quest(1,3,2)],now);
     assert.equal(restarted.progress(1).label, `${required}/${required}`);
-    assert.equal(claimableQuestCount(restarted.quests()),1);
+    assert.equal(claimableQuestCount(restarted.quests(), id => restarted.progress(id)),1);
     restarted.claim(1);
-    assert.equal(claimableQuestCount(restarted.quests()),0);
+    assert.equal(claimableQuestCount(restarted.quests(), id => restarted.progress(id)),0);
   }
 });
 
-test('server 80% repairs old cached 4/4 and an estimated full count does not advertise rewards', () => {
+test('local completion alerts immediately and server 80% correction clears the alert', () => {
   const counter = new QuestCounter([{id:1, goals:[goal({required:4})]}]);
   counter.sync([quest(1)],now);
   counter.apply([{event:'battle',delta:4}],now);
   assert.equal(counter.progress(1).anySatisfied,true);
-  assert.equal(claimableQuestCount(counter.quests()),0);
+  assert.equal(claimableQuestCount(counter.quests(), id => counter.progress(id)),1);
+  assert.equal(counter.quests()[0].state,2);
   const restarted = new QuestCounter([{id:1, goals:[goal({required:4})]}]);
   restarted.restore(counter.serialize(),now);
   restarted.sync([quest(1,2,2)],now);
   assert.equal(restarted.progress(1).label,'≈3/4');
   assert.equal(restarted.progress(1).anySatisfied,false);
-  assert.equal(claimableQuestCount([quest(1,1),quest(2,2),quest(3,3)]),1);
+  assert.equal(claimableQuestCount(restarted.quests(), id => restarted.progress(id)),0);
+  assert.equal(claimableQuestCount([quest(1,1),quest(2,2),quest(3,3)], () => null),1);
+});
+
+test('completion requires every goal; cancel, restart, resume, claim and reset update alerts', () => {
+  const defs = [{id:1, type:1, goals:[goal({required:2}), goal({key:'win',event:'win',required:1})]}];
+  const counter = new QuestCounter(defs);
+  const count = c => claimableQuestCount(c.quests(), id => c.progress(id));
+  counter.sync([quest(1)],now);
+  counter.apply([{event:'battle',delta:20}],now);
+  assert.equal(count(counter),0); // A large count on one goal cannot replace another goal.
+  counter.apply([{event:'win',delta:1}],now);
+  assert.equal(count(counter),1);
+  counter.changeState(1,1,now);
+  assert.equal(count(counter),0);
+  const restored = new QuestCounter(defs);
+  restored.restore(counter.serialize(),now);
+  assert.equal(count(restored),0);
+  restored.changeState(1,2,now);
+  assert.equal(count(restored),1);
+  restored.expire(now+86400000);
+  assert.equal(count(restored),0);
+  counter.changeState(1,2,now);
+  assert.equal(count(counter),1);
+  counter.claim(1);
+  assert.equal(count(counter),0);
+});
+
+test('missing, empty and zero-target goal definitions do not imply local completion', () => {
+  const counter = new QuestCounter([{id:2,goals:[]},{id:3,goals:[goal({required:0})]}]);
+  counter.sync([quest(1),quest(2),quest(3)],now);
+  assert.equal(claimableQuestCount(counter.quests(), id => counter.progress(id)),0);
+  assert.equal(claimableQuestCount([quest(4)], () => ({items:[]})),0);
+  counter.sync([quest(1,3)],now);
+  assert.equal(claimableQuestCount(counter.quests(), id => counter.progress(id)),1);
 });
 test('a reached subgoal is highlighted independently of the total and clears when server progress is corrected', () => {
   const counter = new QuestCounter(definitions);
@@ -294,7 +329,7 @@ test('all bundled poi rules use supported fields and event names', () => {
 });
 
 function serviceHarness(storage = new Map()) {
-  const state = { admiral: {memberId:101}, quests:[], decks:[], ships:new Map(), slotItemIndex:new Map(), slotItemEquipTypes:new Map() };
+  const state = { admiral: {memberId:101}, quests:[], questRevision:0, decks:[], ships:new Map(), slotItemIndex:new Map(), slotItemEquipTypes:new Map() };
   let failSave = false;
   let sortie = null;
   const adapters = {
@@ -309,7 +344,7 @@ function serviceHarness(storage = new Map()) {
     '../../domain/service/sortie': {getSortieContext:()=>sortie},
     '../simulator/battle_prediction_service': {getBattlePredictionService:()=>({getCurrentSnapshot:()=>({
       enemyFleet:[{shipId:15,nowHP:0}],enemyEscort:[]})})},
-    '../state': {getGameState:()=>({getState:()=>state}),updateQuests:quests=>{state.quests=quests}},
+    '../state': {getGameState:()=>({getState:()=>state}),updateQuests:quests=>{state.quests=quests;state.questRevision++;}},
     '../utils/common': {parseSvdata:text=>JSON.parse(text.replace(/^svdata=/,''))},
   };
   const module = {exports:{}};
@@ -328,6 +363,24 @@ function serviceHarness(storage = new Map()) {
     api:(url,data={},params='',result=1)=>service.trackQuestApi({type:'API_DUMP',url:`https://game.example/kcsapi${url}`,
       requestBody:params,responseText:'svdata='+JSON.stringify({api_result:result,api_data:data})})};
 }
+
+test('local count events publish completion to panel subscribers without another quest API response', async () => {
+  const h=serviceHarness();
+  await h.sync([quest(503)]);
+  for(let i=0;i<4;i++) await h.api('/api_req_nyukyo/start');
+  assert.equal(claimableQuestCount(h.state.quests,h.service.questProgress),0);
+  const revision=h.state.questRevision;
+  await h.api('/api_req_nyukyo/start');
+  assert.ok(h.state.questRevision>revision);
+  assert.equal(claimableQuestCount(h.state.quests,h.service.questProgress),1);
+  assert.equal(h.state.quests[0].state,2);
+  await h.service.changeTrackedQuestState(503,1,Date.now());
+  assert.equal(claimableQuestCount(h.state.quests,h.service.questProgress),0);
+  await h.service.changeTrackedQuestState(503,2,Date.now());
+  assert.equal(claimableQuestCount(h.state.quests,h.service.questProgress),1);
+  await h.service.claimTrackedQuest(503);
+  assert.equal(claimableQuestCount(h.state.quests,h.service.questProgress),0);
+});
 
 test('opening a modern quest list removes remote claims even when newly accepted quests keep the same total', async () => {
   const h=serviceHarness();
