@@ -1,3 +1,4 @@
+import { LengthMetrics } from '@kit.ArkUI';
 import { PanelColors, PanelDimens, hpColor } from '../../../../../features/panel/panelConfig';
 import { airStateName, airStateColor } from '../../../../../features/panel/airStateUi';
 import {
@@ -15,6 +16,17 @@ import { battleMvpLabel, battleMvpShips } from '../../../../../features/panel/ba
 const BATTLE_SHIP_ROW_H = 32;
 const AIR_DETAIL_TOUCH_MIN_W = 48;
 const AIR_DETAIL_TOUCH_MIN_H = 32;
+
+function attackPlaneColorFilter(friendly: boolean): ColorFilter {
+  const color = Number.parseInt((friendly ? PanelColors.hpOk : PanelColors.hpCrit).slice(1), 16);
+  // Apply the same color as the count while preserving the icon's transparency.
+  return new ColorFilter([
+    0, 0, 0, 0, (color >> 16) & 255,
+    0, 0, 0, 0, (color >> 8) & 255,
+    0, 0, 0, 0, color & 255,
+    0, 0, 0, 1, 0
+  ]);
+}
 
 function rankColor(rank: string): string {
   if (displayRank(rank) === 'S') return '#FFD700';
@@ -567,7 +579,7 @@ export default struct BattlePreviewPanel {
       .padding({ left: 10, right: 10 })
       .alignItems(VerticalAlign.Center)
 
-      // Row 2: formation info + 全部参战机残机数（我方绿 / 敌方红）
+      // Row 2: formation info + 攻击机结算后/前数量（我方绿 / 敌方红）
       Row({ space: 6 }) {
         Text(formationName(snap.friendFormation))
           .fontSize(PanelDimens.fontSm)
@@ -591,15 +603,11 @@ export default struct BattlePreviewPanel {
 
         Blank().layoutWeight(1)
 
-        if (snap.friendPlaneMax !== undefined && snap.friendPlaneMax > 0) {
-          Text(`我方残机 ${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.hpOk)
+        if (snap.friendPlaneMax !== undefined && snap.friendPlaneNow !== undefined) {
+          this.AttackPlaneCount(snap.friendPlaneNow, snap.friendPlaneMax, true)
         }
-        if (snap.enemyPlaneMax !== undefined && snap.enemyPlaneMax > 0) {
-          Text(`敌方残机 ${snap.enemyPlaneNow ?? 0}/${snap.enemyPlaneMax}`)
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.hpCrit)
+        if (snap.enemyPlaneMax !== undefined && snap.enemyPlaneNow !== undefined) {
+          this.AttackPlaneCount(snap.enemyPlaneNow, snap.enemyPlaneMax, false)
         }
       }
       .width('100%')
@@ -613,7 +621,22 @@ export default struct BattlePreviewPanel {
     .borderColor(PanelColors.rowBorder)
   }
 
-  /** Header for the dedicated tri-fold face; the existing panel header stays unchanged. */
+  @Builder AttackPlaneCount(now: number, before: number, friendly: boolean) {
+    Row({ space: 3 }) {
+      Image($r('app.media.airplane_windows8'))
+        .width(16)
+        .height(16)
+        .objectFit(ImageFit.Contain)
+        .colorFilter(attackPlaneColorFilter(friendly))
+      Text(`${now}/${before}`)
+        .fontSize(PanelDimens.fontSm)
+        .fontColor(friendly ? PanelColors.hpOk : PanelColors.hpCrit)
+    }
+    .alignItems(VerticalAlign.Center)
+    .accessibilityText(`${friendly ? '我方' : '敌方'}攻击机：结算后 ${now} 架，结算前 ${before} 架`)
+  }
+
+  /** Header for the dedicated tri-fold face. */
   @Builder SingleColumnPredictHeader(snap: BattleStatusSnapshot) {
     Column({ space: 4 }) {
       Row({ space: 6 }) {
@@ -671,23 +694,18 @@ export default struct BattlePreviewPanel {
         .fontColor(PanelColors.txtSub)
         .width('100%')
 
-      Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+      Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center, space: { main: LengthMetrics.vp(6) } }) {
         if (snap.isAirRaid && airRaidDamageName(snap.airRaidDamageKind) !== '') {
           Text(airRaidDamageName(snap.airRaidDamageKind))
             .fontSize(PanelDimens.fontSm)
             .fontColor(airRaidDamageColor(snap.airRaidDamageKind))
             .margin({ right: 6 })
         }
-        if (snap.friendPlaneMax !== undefined && snap.friendPlaneMax > 0) {
-          Text(`我方残机 ${snap.friendPlaneNow ?? 0}/${snap.friendPlaneMax}`)
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.hpOk)
-            .margin({ right: 6 })
+        if (snap.friendPlaneMax !== undefined && snap.friendPlaneNow !== undefined) {
+          this.AttackPlaneCount(snap.friendPlaneNow, snap.friendPlaneMax, true)
         }
-        if (snap.enemyPlaneMax !== undefined && snap.enemyPlaneMax > 0) {
-          Text(`敌方残机 ${snap.enemyPlaneNow ?? 0}/${snap.enemyPlaneMax}`)
-            .fontSize(PanelDimens.fontSm)
-            .fontColor(PanelColors.hpCrit)
+        if (snap.enemyPlaneMax !== undefined && snap.enemyPlaneNow !== undefined) {
+          this.AttackPlaneCount(snap.enemyPlaneNow, snap.enemyPlaneMax, false)
         }
       }
       .width('100%')

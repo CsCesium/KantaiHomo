@@ -151,7 +151,7 @@ function buildMeta(apiPath: string, d: any, now: number) {
   const kouku2 = parseAerialCombat(d?.api_kouku2);
   if (kouku2) aerialPhases.push(kouku2);
   const headlineAerial = kouku1 ?? kouku2;
-  const planeSummary = summarizeAerialPlanes(headlineAerial);
+  const planeSummary = summarizeAerialPlanes(aerialPhases);
   const lbasWaves = parseLbasWaves(d?.api_air_base_attack);
   // 基地空袭（api_destruction_battle）通常没有 api_kouku，制空状态只存在于
   // api_air_base_attack[*].api_stage1。普通航空战仍优先展示舰队航空战制空。
@@ -182,9 +182,11 @@ function buildMeta(apiPath: string, d: any, now: number) {
 
 /** ---------- Aerial combat info extraction ---------- */
 
-function summarizeAerialPlanes(aerial: AerialCombatInfo | undefined) {
-  const first = aerial?.stage1 ?? aerial?.stage2;
-  if (!first) {
+function summarizeAerialPlanes(aerialPhases: AerialCombatInfo[]) {
+  const stages = aerialPhases.map(aerial => aerial.stage2).filter((stage): stage is AerialStageInfo => stage !== undefined);
+  const first = stages[0];
+  const last = stages[stages.length - 1];
+  if (!first || !last) {
     return {
       friendPlaneNow: undefined,
       friendPlaneMax: undefined,
@@ -193,15 +195,13 @@ function summarizeAerialPlanes(aerial: AerialCombatInfo | undefined) {
     };
   }
 
-  // S1 是全部参战机的制空争夺；S2 只包含进入攻击阶段的攻击机。
-  // 因此不能把 S2 的 count-lost 当作「总残机」（那会漏掉战斗机）。
-  // 总残机应从 S1 总数依次扣除 S1 与 S2 的损失数。
-  const friendStage2Lost = aerial?.stage1 ? (aerial.stage2?.friendLost ?? 0) : 0;
-  const enemyStage2Lost = aerial?.stage1 ? (aerial.stage2?.enemyLost ?? 0) : 0;
+  // S2 count 是进入对空炮火阶段的攻击机数，count-lost 是结算后剩余数。
+  // S1 含战斗机，不能用作攻击机分母，也不能将 S1 损失再次从 S2 扣除。
+  // 两轮航空战：分母取首轮 S2 入场数，分子取最后一轮 S2 结算数，不累加。
   return {
-    friendPlaneNow: Math.max(0, first.friendCount - first.friendLost - friendStage2Lost),
+    friendPlaneNow: Math.max(0, last.friendCount - last.friendLost),
     friendPlaneMax: first.friendCount,
-    enemyPlaneNow: Math.max(0, first.enemyCount - first.enemyLost - enemyStage2Lost),
+    enemyPlaneNow: Math.max(0, last.enemyCount - last.enemyLost),
     enemyPlaneMax: first.enemyCount,
   };
 }

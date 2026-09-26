@@ -1,0 +1,5 @@
+airplane_windows8.png: Airplane (U+2708), Microsoft Windows 8.0 emoji artwork.
+Original artwork: Microsoft.
+Version reference: https://www.emojiall.com/zh-hans/image-version-page/microsoft/windows-8.0
+Image source: https://www.emojiall.com/images/120/microsoft/windows-8.0/2708.png
+The original transparent PNG is bundled unchanged; the panel tints its silhouette green for friendly aircraft and red for enemy aircraft.

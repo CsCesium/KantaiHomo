@@ -144,13 +144,13 @@ export interface BattleMeta {
 
   /** 制空状態 (1=確保, 2=優勢, 3=均衡, 4=劣勢, 5=喪失) */
   airState?: number;
-  /** 友方参战机残机数（S1 总数扣除 S1/S2 损失；S2 count 本身只含攻击机） */
+  /** 友方攻击机结算后剩余数（最后一轮 S2 count-lost） */
   friendPlaneNow?: number;
-  /** 友方参战机初期数（来自首个可用阶段） */
+  /** 友方攻击机结算前数量（首轮可用 S2 count，已扣除 S1 损失） */
   friendPlaneMax?: number;
-  /** 敌方参战机残机数（S1 总数扣除 S1/S2 损失） */
+  /** 敌方攻击机结算后剩余数（最后一轮 S2 count-lost） */
   enemyPlaneNow?: number;
-  /** 敌方参战机初期数（来自首个可用阶段） */
+  /** 敌方攻击机结算前数量（首轮可用 S2 count，已扣除 S1 损失） */
   enemyPlaneMax?: number;
 
   /** 主舰队航空战情报（api_kouku / api_kouku2 各一项，含 S1/S2、触接、对空CI） */
