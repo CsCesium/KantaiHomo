@@ -8,6 +8,7 @@ import { kvGetNumber, kvSet } from '../../../../../infra/storage/kv';
 import { MissionRow } from '../../../../../infra/storage/types';
 import ExpeditionStatusPanel from './ExpeditionStatusPanel';
 import QuestPanel from './QuestPanel';
+import { claimableQuestCount } from '../../../../../features/quests/presentation';
 import NdockPanel from './NdockPanel';
 
 const DASHBOARD_TITLES: string[] = ['远征', '任务', '入渠'];
@@ -94,8 +95,12 @@ export default struct TriFoldDashboard {
   }
 
   private nextKind(): void {
+    this.selectKind((this.activeKind + 1) % DASHBOARD_TITLES.length);
+  }
+
+  private selectKind(kind: number): void {
     this.kindLoadSeq++;
-    this.activeKind = (this.activeKind + 1) % DASHBOARD_TITLES.length;
+    this.activeKind = kind;
     const selected: number = this.activeKind;
     // Update memory synchronously so an immediate remount never reads an older disk value.
     AppStorage.setOrCreate(DASHBOARD_KIND_KEY, selected);
@@ -113,6 +118,14 @@ export default struct TriFoldDashboard {
           .fontWeight(FontWeight.Medium)
           .fontColor(PanelColors.txtPrimary)
         Blank().layoutWeight(1)
+        if (claimableQuestCount(this.quests) > 0) {
+          Text(`✦ ${claimableQuestCount(this.quests)} 项可交付`)
+            .fontSize(PanelDimens.fontSm)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(PanelColors.questReady)
+            .padding({ left: 6, right: 6 })
+            .onClick(() => { this.selectKind(1); })
+        }
         Text(`双击切换 · ${this.activeKind + 1}/${DASHBOARD_TITLES.length}`)
           .fontSize(PanelDimens.fontSm)
           .fontColor(PanelColors.txtMuted)
@@ -120,7 +133,8 @@ export default struct TriFoldDashboard {
       .width('100%')
       .height(32)
       .padding({ left: 10, right: 10 })
-      .backgroundColor(PanelColors.bgHeader)
+      .backgroundColor(this.activeKind === 1 && claimableQuestCount(this.quests) > 0 ?
+        PanelColors.questReadyBg : PanelColors.bgHeader)
       .alignItems(VerticalAlign.Center)
 
       Scroll(this.scroller) {
@@ -144,8 +158,9 @@ export default struct TriFoldDashboard {
     .width('100%')
     .height('100%')
     .backgroundColor(PanelColors.bg)
-    .borderWidth({ top: 1 })
-    .borderColor(PanelColors.rowBorder)
+    .borderWidth(this.activeKind === 1 && claimableQuestCount(this.quests) > 0 ? 2 : 1)
+    .borderColor(this.activeKind === 1 && claimableQuestCount(this.quests) > 0 ?
+      PanelColors.questReady : PanelColors.rowBorder)
     .clip(true)
     .priorityGesture(
       TapGesture({ count: 2 })

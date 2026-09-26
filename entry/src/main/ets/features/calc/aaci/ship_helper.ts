@@ -13,12 +13,15 @@ export const AKIZUKI_CLASS_IDS: Set<number> = new Set([
   422,  // 照月
   346,  // 照月改
   423,  // 初月
-  423,  // 初月改 (same?)
+  357,  // 初月改
   532,  // 涼月
   537,  // 涼月改
-  699,  // 冬月
-  700,  // 冬月改
-  // 以下は改造後のID
+  533,  // 冬月
+  538,  // 冬月改
+  963,  // 秋月改二
+  968,  // 初月改二
+  1041, // 花月
+  1046, // 花月改
 ]);
 
 /** 摩耶改二 */
@@ -115,6 +118,8 @@ export const FUBUKI_AACI_GROUP_IDS: Set<number> = new Set([
   986,  // 白雪改二
   987,  // 初雪改二
   1033, // 玉波改二
+  1034, // 涼波改二
+  745,  // 涼波改二補
   1035, // 吹雪改三
   1040, // 吹雪改三護(六式)
 ]);
@@ -140,19 +145,16 @@ export const HAMAKAZE_B_IDS: Set<number> = new Set([
 
 /** Fletcher級 */
 export const FLETCHER_CLASS_IDS: Set<number> = new Set([
-  562,  // Fletcher
-  563,  // Fletcher改
-  596,  // Johnston
-  597,  // Johnston改
-  628,  // Heywood L.E.
-  629,  // Heywood L.E.改
+  562, 689, // Johnston / 改
+  596, 692, 628, 629, // Fletcher / 改 / Mod.2 / Mk.II
+  941, 726, // Heywood L.E. / 改
+  942, 737, // Richard P.Leary / 改
 ]);
 
 /** Atlanta */
 export const ATLANTA_IDS: Set<number> = new Set([
-  597,  // Atlanta (これは間違い?)
-  621,  // Atlanta
-  622,  // Atlanta改
+  597, 696, // Atlanta / 改
+  991, 747, // Reno / 改
 ]);
 
 /** 榛名改二乙 */
@@ -195,8 +197,8 @@ export const BRITISH_CTYPES: Set<number> = new Set([
 /**
  * 秋月型かどうか
  */
-export function isAkizukiClass(shipMasterId: number): boolean {
-  return AKIZUKI_CLASS_IDS.has(shipMasterId);
+export function isAkizukiClass(shipMasterId: number, ctype: number = 0): boolean {
+  return ctype === 54 || AKIZUKI_CLASS_IDS.has(shipMasterId);
 }
 
 /**
@@ -335,15 +337,15 @@ export function isIsokazeOrHamakazeB(shipMasterId: number): boolean {
 /**
  * Fletcher級かどうか
  */
-export function isFletcherClass(shipMasterId: number): boolean {
-  return FLETCHER_CLASS_IDS.has(shipMasterId);
+export function isFletcherClass(shipMasterId: number, ctype: number = 0): boolean {
+  return ctype === 91 || FLETCHER_CLASS_IDS.has(shipMasterId);
 }
 
 /**
  * Atlantaかどうか
  */
-export function isAtlanta(shipMasterId: number): boolean {
-  return ATLANTA_IDS.has(shipMasterId);
+export function isAtlanta(shipMasterId: number, ctype: number = 0): boolean {
+  return ctype === 99 || ATLANTA_IDS.has(shipMasterId);
 }
 
 /**
@@ -393,12 +395,28 @@ export function matchesShipRestriction(
   ctype: number,
 ): boolean {
   switch (restriction) {
+    case AaciShipRestriction.MAYA_HIRYU:
+      return shipMasterId === 428 || shipMasterId === 1031;
+    case AaciShipRestriction.MAYA_HIRYU_KITAKAMI:
+      return [428, 1031, 1071].includes(shipMasterId);
+    case AaciShipRestriction.HIRYU_KITAKAMI:
+      return shipMasterId === 1031 || shipMasterId === 1071;
+    case AaciShipRestriction.OOYODO_HIRYU:
+      return shipMasterId === 321 || shipMasterId === 1031;
+    case AaciShipRestriction.ISUZU_FUBUKI_SHIGURE:
+      return [141, 1035, 961].includes(shipMasterId);
+    case AaciShipRestriction.KASUMI_SHARED:
+      return [470, 622, 1035, 961].includes(shipMasterId);
+    case AaciShipRestriction.AKIZUKI_FUBUKI_GROUP:
+      return isAkizukiClass(shipMasterId, ctype) || isFubukiAaciGroup(shipMasterId);
+    case AaciShipRestriction.FUBUKI_KITAKAMI:
+      return isFubukiAaciGroup(shipMasterId) || shipMasterId === 1071;
     case AaciShipRestriction.GENERIC:
       return !isSubmarine(stype);
     case AaciShipRestriction.AKIZUKI_CLASS:
-      return isAkizukiClass(shipMasterId);
+      return isAkizukiClass(shipMasterId, ctype);
     case AaciShipRestriction.AKIZUKI_OR_FUBUKI_GO:
-      return isAkizukiClass(shipMasterId) || isFubukiKai3Go(shipMasterId);
+      return isAkizukiClass(shipMasterId, ctype) || isFubukiKai3Go(shipMasterId);
     case AaciShipRestriction.MAYA_K2:
       return isMayaK2(shipMasterId);
     case AaciShipRestriction.ISE_CLASS_K2:
@@ -412,25 +430,25 @@ export function matchesShipRestriction(
     case AaciShipRestriction.UIT_I504:
       return isUitOrI504(shipMasterId);
     case AaciShipRestriction.TENRYU_K2:
-      return isTenryuK2(shipMasterId);
+      return [477,478,1035,961].includes(shipMasterId);
     case AaciShipRestriction.ISUZU_K2:
-      return isIsuzuK2(shipMasterId);
+      return isIsuzuK2(shipMasterId) || shipMasterId === 1071;
     case AaciShipRestriction.KASUMI_K2B:
       return isKasumiK2B(shipMasterId);
     case AaciShipRestriction.YURA_K2:
       return isYuraK2(shipMasterId);
     case AaciShipRestriction.YURA_FUBUKI_KAI3:
-      return isYuraK2(shipMasterId) || isFubukiKai3(shipMasterId);
+      return isYuraK2(shipMasterId) || isFubukiKai3(shipMasterId) || shipMasterId === 1071;
     case AaciShipRestriction.CHOUKAI_MAYA_K2:
       return isChoukaiOrMayaK2(shipMasterId);
     case AaciShipRestriction.ISOKAZE_HAMAKAZE_B:
       return isIsokazeOrHamakazeB(shipMasterId);
     case AaciShipRestriction.FLETCHER_CLASS:
-      return isFletcherClass(shipMasterId);
+      return isFletcherClass(shipMasterId, ctype);
     case AaciShipRestriction.FLETCHER_OR_FUBUKI_GO:
-      return isFletcherClass(shipMasterId) || isFubukiKai3Go(shipMasterId);
+      return isFletcherClass(shipMasterId, ctype) || isFubukiKai3Go(shipMasterId);
     case AaciShipRestriction.ATLANTA:
-      return isAtlanta(shipMasterId);
+      return isAtlanta(shipMasterId, ctype);
     case AaciShipRestriction.YAMATO_K2:
       return isYamatoK2(shipMasterId);
     case AaciShipRestriction.HARUNA_K2B:

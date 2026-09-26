@@ -36,15 +36,15 @@ export function isBuiltInAAFD(master: SlotItemMaster): boolean {
     122, // 10cm高角砲+高射装置
     130, // 12.7cm高角砲+高射装置
     135, // 90mm単装高角砲
-    172, // 5inch連装砲(集中配備)
+    172, // 5inch連装砲 Mk.28 mod.2
     275, // 10cm連装高角砲改+増設機銃
     295, // 12.7cm連装砲A型改三(戦時改修)+高射装置
     296, // 12.7cm連装砲B型改四(戦時改修)+高射装置
     308, // 5inch単装砲 Mk.30改+GFCS Mk.37
-    313, // 5inch連装両用砲(集中配備)
-    363, // 10cm連装高角砲群 集中配備
-    438, // 5inch連装砲 Mk.28 mod.2
-    467, // 10cm連装高角砲改+増設機銃(対水上電探搭載)
+    362, 363, // 5inch連装両用砲(集中配備) / GFCS版
+    464, // 10cm連装高角砲群 集中配備
+    467, // 5inch連装砲(副砲配置) 集中配備
+    533, // 10cm連装高角砲改+高射装置改
   ]);
   return builtInIds.has(master.id);
 }
@@ -146,11 +146,11 @@ function is10cmHighAngleGunKaiName(master: SlotItemMaster): boolean {
 }
 
 export function is10cmHighAngleGunKai(master: SlotItemMaster): boolean {
-  return is10cmHighAngleGunKaiName(master);
+  return master.id === 533 || master.id === 553 || is10cmHighAngleGunKaiName(master);
 }
 
 export function is10cmHighAngleGunKaiDirectorKai(master: SlotItemMaster): boolean {
-  return is10cmHighAngleGunKaiName(master) && hasNameFragment(master, '高射装置改');
+  return master.id === 533 || (is10cmHighAngleGunKaiName(master) && hasNameFragment(master, '高射装置改'));
 }
 
 export function isType94AADirector(master: SlotItemMaster): boolean {
@@ -162,7 +162,7 @@ export function isRocketLauncherK2(master: SlotItemMaster): boolean {
 }
 
 export function is10cmCentralizedMount(master: SlotItemMaster): boolean {
-  return master.id === 363; // 10cm連装高角砲群 集中配備
+  return master.id === 464; // 10cm連装高角砲群 集中配備
 }
 
 export function isYamatoRadar(master: SlotItemMaster): boolean {
@@ -174,12 +174,7 @@ export function isYamatoRadar(master: SlotItemMaster): boolean {
 }
 
 export function isGFCS(master: SlotItemMaster): boolean {
-  const gfcsIds: Set<number> = new Set([
-    307,  // GFCS Mk.37
-    308,  // 5inch単装砲 Mk.30改+GFCS Mk.37
-    363,  // 10cm連装高角砲群 集中配備 (これはGFCSではない)
-  ]);
-  return gfcsIds.has(master.id);
+  return master.id === 307; // GFCS Mk.37 radar; integrated guns do not replace it.
 }
 
 export function isMk30KaiGFCS(master: SlotItemMaster): boolean {
@@ -187,35 +182,26 @@ export function isMk30KaiGFCS(master: SlotItemMaster): boolean {
 }
 
 export function isMk30Kai(master: SlotItemMaster): boolean {
-  const mk30KaiIds: Set<number> = new Set([
-    284,  // 5inch単装砲 Mk.30
-    313,  // 5inch連装両用砲(集中配備)
-    285,  // 5inch単装砲 Mk.30改
-  ]);
-  return mk30KaiIds.has(master.id);
+  return master.id === 313; // 5inch単装砲 Mk.30改 (未改造炮不满足)
 }
 
 export function isAtlantaGFCSGun(master: SlotItemMaster): boolean {
-  return master.id === 363; // これではない、正しいIDは362
-  // 362: GFCS Mk.37+5inch連装両用砲(集中配備)
+  return master.id === 363;
 }
 
 export function isAtlantaCentralizedGun(master: SlotItemMaster): boolean {
-  const ids: Set<number> = new Set([
-    361,  // 5inch連装両用砲(集中配備)
-    362,  // GFCS Mk.37+5inch連装両用砲(集中配備)
-  ]);
-  return ids.has(master.id);
+  return master.id === 362; // 5inch連装両用砲(集中配備)
 }
 
 export function isAtlantaGFCSMount(master: SlotItemMaster): boolean {
-  return master.id === 362; // GFCS Mk.37+5inch連装両用砲(集中配備)
+  return master.id === 363; // GFCS Mk.37+5inch連装両用砲(集中配備)
 }
 
 export function isDazzleGunK3K4(master: SlotItemMaster): boolean {
   const ids: Set<number> = new Set([
     502,  // 35.6cm連装砲(ダズル迷彩)改三
     503,  // 35.6cm連装砲(ダズル迷彩)改四
+    530,  // 35.6cm連装砲改三丙
   ]);
   return ids.has(master.id);
 }
@@ -226,8 +212,7 @@ export function isPomPomGun(master: SlotItemMaster): boolean {
 
 export function is16inchMkIGunKai(master: SlotItemMaster): boolean {
   const ids: Set<number> = new Set([
-    298,  // 16inch Mk.I三連装砲改
-    299,  // 16inch Mk.I三連装砲改+FCR type284
+    300,  // 16inch Mk.I三連装砲改+FCR type284
   ]);
   return ids.has(master.id);
 }

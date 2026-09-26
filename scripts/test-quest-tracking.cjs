@@ -21,6 +21,7 @@ const { satisfiesQuestFormation } = load('formation');
 const { QuestShipCatalog } = load('shipMetadata');
 const { matchesQuestGoal } = load('goalMatcher');
 const { QuestCounter, QuestPageAccumulator, questPeriod } = load('counter');
+const { claimableQuestCount } = load('presentation');
 const { extractQuestEvents } = load('events');
 const { normalizeQuestListPage } = load('../../domain/models/normalizer/quest');
 const resources = path.resolve(__dirname, '../entry/src/main/resources/rawfile/data');
@@ -109,6 +110,41 @@ test('multi-goal counters progress independently and do not fabricate allocation
   counter.apply([{event:'sally',delta:1},{event:'battle_boss',delta:1},{event:'battle_rank_s',delta:1}],now);
   assert.equal(counter.progress(214).label,'≈3/78');
   assert.equal(counter.progress(214).items.find(item => item.description === '出擊').label, '≈1/36');
+});
+
+test('first-seen 80% hints never round small targets up to completion', () => {
+  for (const required of [1, 2, 3, 4, 5, 6, 8, 10]) {
+    const defs = [{id:1, goals:[goal({required})]}];
+    const counter = new QuestCounter(defs);
+    counter.sync([quest(1,2,2)],now);
+    const view = counter.progress(1);
+    assert.equal(view.anySatisfied,false, `80% of ${required}`);
+    assert.equal(Number(view.label.replace('≈','').split('/')[0]), Math.min(required-1,Math.floor(required*.8)));
+    assert.equal(claimableQuestCount(counter.quests()),0);
+    counter.changeState(1,1,now);
+    const restarted = new QuestCounter(defs); restarted.restore(counter.serialize(),now);
+    restarted.changeState(1,2,now);
+    assert.equal(restarted.progress(1).label.replace('≈',''), view.label.replace('≈',''));
+    restarted.sync([quest(1,3,2)],now);
+    assert.equal(restarted.progress(1).label, `${required}/${required}`);
+    assert.equal(claimableQuestCount(restarted.quests()),1);
+    restarted.claim(1);
+    assert.equal(claimableQuestCount(restarted.quests()),0);
+  }
+});
+
+test('server 80% repairs old cached 4/4 and an estimated full count does not advertise rewards', () => {
+  const counter = new QuestCounter([{id:1, goals:[goal({required:4})]}]);
+  counter.sync([quest(1)],now);
+  counter.apply([{event:'battle',delta:4}],now);
+  assert.equal(counter.progress(1).anySatisfied,true);
+  assert.equal(claimableQuestCount(counter.quests()),0);
+  const restarted = new QuestCounter([{id:1, goals:[goal({required:4})]}]);
+  restarted.restore(counter.serialize(),now);
+  restarted.sync([quest(1,2,2)],now);
+  assert.equal(restarted.progress(1).label,'≈3/4');
+  assert.equal(restarted.progress(1).anySatisfied,false);
+  assert.equal(claimableQuestCount([quest(1,1),quest(2,2),quest(3,3)]),1);
 });
 test('a reached subgoal is highlighted independently of the total and clears when server progress is corrected', () => {
   const counter = new QuestCounter(definitions);

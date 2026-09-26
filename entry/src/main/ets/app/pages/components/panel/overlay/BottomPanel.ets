@@ -32,6 +32,7 @@ import ShipRow from '../bottom/rows/ShipRow';
 import MapGaugeRow from '../bottom/rows/MapGaugeRow';
 import ResourceAmount from '../common/ResourceAmount';
 import QuestPanel from '../common/QuestPanel';
+import { claimableQuestCount } from '../../../../../features/quests/presentation';
 import NdockPanel from '../common/NdockPanel';
 import LbasPanel from '../common/LbasPanel';
 import ExpeditionCheckPanel from '../common/ExpeditionCheckPanel';
@@ -515,12 +516,14 @@ export default struct BottomPanel {
           if (idx < 4) {
             this.FleetTabIcon(idx)
           } else {
-            Text(FLEET_TABS_LABEL[idx])
+            Text(idx === 8 && claimableQuestCount(this.quests) > 0 ? '任务 ✦' : FLEET_TABS_LABEL[idx])
               .fontSize(PanelDimens.fontLg)
               .fontWeight(this.activeFleet === idx ? FontWeight.Bold : FontWeight.Normal)
-              .fontColor(PanelColors.txtTabOn)
-              .backgroundColor(FLEET_TAB_COLORS[idx] ?? PanelColors.bgTabInactive)
-              .opacity(this.activeFleet === idx ? 1.0 : 0.38)
+              .fontColor(idx === 8 && claimableQuestCount(this.quests) > 0 ? PanelColors.questReady : PanelColors.txtTabOn)
+              .backgroundColor(idx === 8 && claimableQuestCount(this.quests) > 0 ? PanelColors.questReadyBg :
+                FLEET_TAB_COLORS[idx] ?? PanelColors.bgTabInactive)
+              .opacity(this.activeFleet === idx || (idx === 8 && claimableQuestCount(this.quests) > 0) ? 1.0 : 0.38)
+              .shadow({ radius: idx === 8 && claimableQuestCount(this.quests) > 0 ? 6 : 0, color: '#88ffd166' })
               .padding({ left: 10, right: 10, top: 5, bottom: 5 })
               .borderRadius(PanelDimens.radius)
               .onClick(() => { this.selectFleet(idx); })
@@ -855,7 +858,7 @@ export default struct BottomPanel {
       Scroll() {
         Column() {
           if (this.activeFleet === QUEST_TAB_IDX) {
-            QuestPanel({ quests: this.quests, compact: false })
+            QuestPanel({ quests: this.quests, compact: false, includeCompleted: true })
           } else if (this.activeFleet === LBAS_TAB_IDX) {
             LbasPanel({
               bases: this.lbases,

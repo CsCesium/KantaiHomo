@@ -130,13 +130,16 @@ export class QuestCounter {
       if (quest.state === 3) record.estimated = false;
       else if (quest.state === 2 && def?.goals.length === 1 && quest.progress !== undefined) {
         const goal = def.goals[0];
-        const min = quest.progress === 2 ? Math.ceil(goal.required * 0.8) :
-          quest.progress === 1 ? Math.ceil(goal.required * 0.5) : 0;
+        // Progress flags are coarse hints, not completion. Small targets can round
+        // 80% up to the full target (e.g. 4 * .8 -> 4); state 2 must stay below it.
+        const incompleteMax = Math.max(0, goal.required - 1);
+        const min = Math.min(incompleteMax, quest.progress === 2 ? Math.floor(goal.required * 0.8) :
+          quest.progress === 1 ? Math.floor(goal.required * 0.5) : 0);
         const max = quest.progress === 2 ? goal.required - 1 :
           quest.progress === 1 ? Math.ceil(goal.required * 0.8) - 1 : Math.ceil(goal.required * 0.5) - 1;
         const old = record.counts[goal.key];
         record.counts[goal.key] = Math.max(min, Math.min(old, Math.max(min, max)));
-        if (min === max) record.estimated = false;
+        if (min === max && goal.required * (quest.progress === 2 ? 0.8 : 0.5) === min) record.estimated = false;
         else if (old !== record.counts[goal.key]) record.estimated = true;
       }
     }

@@ -85,7 +85,8 @@ export interface ShipAaciResult {
  * 秋月型専用 AACI の装備条件
  */
 function checkAkizukiAaciConditions(
-  equips: SlotItemMaster[]
+  equips: SlotItemMaster[],
+  shipMasterId: number,
 ): AaciTypeId[] {
   const result: AaciTypeId[] = [];
 
@@ -95,7 +96,8 @@ function checkAkizukiAaciConditions(
   const hasAa4Radar = hasEquipment(equips, m => isAirRadarAtLeast(m, 4));
 
   // 48種: 10cm連装高角砲改+高射装置改×2 + 対空電探(素対空4以上)
-  if (akizukiGunKaiDirectorCount >= 2 && hasAa4Radar) {
+  if ([330, 346, 357, 537, 538, 963, 968, 1046].includes(shipMasterId) &&
+      akizukiGunKaiDirectorCount >= 2 && hasAa4Radar) {
     result.push(AaciTypeId.AKIZUKI_48);
   }
 
@@ -152,15 +154,15 @@ function checkAtlantaAaciConditions(
 
   const gfcsMountCount = countEquipment(equips, isAtlantaGFCSMount);
   const centralizedCount = countEquipment(equips, isAtlantaCentralizedGun);
-  const hasRadar = hasEquipment(equips, isAirRadar);
+  const hasRadar = hasEquipment(equips, m => m.id === 307);
 
-  // 40種: GFCS砲×2 + 対空電探
-  if (gfcsMountCount >= 2 && hasRadar) {
+  // 40種: 集中配備/GFCS砲を合計2門 + GFCS Mk.37
+  if (gfcsMountCount + centralizedCount >= 2 && hasRadar) {
     result.push(AaciTypeId.ATLANTA_40);
   }
 
-  // 41種: GFCS砲 + 集中配備 + 対空電探
-  if (gfcsMountCount >= 1 && centralizedCount >= 2 && hasRadar) {
+  // 41種: 集中配備/GFCS砲を合計2門
+  if (gfcsMountCount + centralizedCount >= 2) {
     result.push(AaciTypeId.ATLANTA_41);
   }
 
@@ -170,7 +172,7 @@ function checkAtlantaAaciConditions(
   }
 
   // 39種: GFCS砲 + 集中配備
-  if (gfcsMountCount >= 1 && centralizedCount >= 2) {
+  if (gfcsMountCount >= 1 && centralizedCount >= 1) {
     result.push(AaciTypeId.ATLANTA_39);
   }
 
@@ -630,10 +632,9 @@ function checkTenryuK2AaciConditions(
 ): AaciTypeId[] {
   const result: AaciTypeId[] = [];
 
-  const haGunCount = countEquipment(equips, isHighAngleGun);
-
-  // 24種: 高角砲×3
-  if (haGunCount >= 3) {
+  // 24種: 高角砲 + 通常機銃 (特殊機銃は不可)
+  if (hasEquipment(equips, isHighAngleGun) &&
+      hasEquipment(equips, m => isAAGun(m) && !isSpecialAAGun(m))) {
     result.push(AaciTypeId.TENRYU_24);
   }
 
@@ -648,9 +649,9 @@ function checkUitI504AaciConditions(
 ): AaciTypeId[] {
   const result: AaciTypeId[] = [];
 
-  const hasMg = hasEquipment(equips, isAAGun);
+  const hasMg = hasEquipment(equips, m => isAAGun(m) && !isSpecialAAGun(m));
 
-  // 23種: 通常機銃
+  // 23種: 通常機銃 (特殊機銃は不可)
   if (hasMg) {
     result.push(AaciTypeId.UIT_23);
   }
@@ -702,24 +703,27 @@ export function detectAacis(
   const detected: AaciTypeId[] = [];
 
   // 潜水艦は対空カットイン不可
-  if (isSubmarine(stype)) {
+  if (isSubmarine(stype) && !isUitOrI504(shipMasterId)) {
     return [];
   }
 
   // 艦娘固有チェック
-  if (isAkizukiClass(shipMasterId)) {
-    detected.push(...checkAkizukiAaciConditions(equips));
+  if (isAkizukiClass(shipMasterId, ctype)) {
+    detected.push(...checkAkizukiAaciConditions(equips, shipMasterId));
+    detected.push(...checkFubukiGroupAaciConditions(equips).filter(id =>
+      id === AaciTypeId.FUBUKI_50 || id === AaciTypeId.FUBUKI_52));
   }
 
-  if (isMayaK2(shipMasterId)) {
-    detected.push(...checkMayaK2AaciConditions(equips));
+  if (isMayaK2(shipMasterId) || shipMasterId === 1031 || shipMasterId === 1071) {
+    detected.push(...checkMayaK2AaciConditions(equips).filter(id =>
+      shipMasterId !== 1071 || id === AaciTypeId.MAYA_10));
   }
 
-  if (isAtlanta(shipMasterId)) {
+  if (isAtlanta(shipMasterId, ctype)) {
     detected.push(...checkAtlantaAaciConditions(equips));
   }
 
-  if (isFletcherClass(shipMasterId)) {
+  if (isFletcherClass(shipMasterId, ctype)) {
     detected.push(...checkFletcherAaciConditions(equips));
   }
 
@@ -729,6 +733,31 @@ export function detectAacis(
 
   if (isFubukiAaciGroup(shipMasterId)) {
     detected.push(...checkFubukiGroupAaciConditions(equips));
+  }
+
+  if (shipMasterId === 1071) {
+    detected.push(...checkFubukiGroupAaciConditions(equips).filter(id => id === AaciTypeId.FUBUKI_49));
+  }
+
+  if ((shipMasterId === 1031 || shipMasterId === 1071) &&
+      hasEquipment(equips, m => isHighAngleGun(m) && m.stats.aa >= 9) &&
+      hasEquipment(equips, m => isAirRadarAtLeast(m, 4))) {
+    detected.push(AaciTypeId.HIRYU_KITAKAMI_53);
+  }
+
+  if ((shipMasterId === 321 || shipMasterId === 1031) &&
+      hasEquipment(equips, m => m.id === 275) &&
+      hasEquipment(equips, isRocketLauncherK2) && hasEquipment(equips, isAirRadar)) {
+    detected.push(AaciTypeId.OOYODO_HIRYU_27);
+  }
+
+  if ((shipMasterId === 141 || shipMasterId === 1035 || shipMasterId === 961) &&
+      hasEquipment(equips, isHighAngleGun) && hasEquipment(equips, isAAGun)) {
+    detected.push(AaciTypeId.ISUZU_15);
+  }
+
+  if (shipMasterId === 622 || shipMasterId === 1035 || shipMasterId === 961) {
+    detected.push(...checkKasumiK2BAaciConditions(equips).filter(id => id === AaciTypeId.KASUMI_16));
   }
 
   if (isShiratsuyuC3HAaciGroup(shipMasterId)) {
@@ -751,7 +780,7 @@ export function detectAacis(
     detected.push(...checkMusashiK2AaciConditions(equips));
   }
 
-  if (isIsuzuK2(shipMasterId)) {
+  if (isIsuzuK2(shipMasterId) || shipMasterId === 1071) {
     detected.push(...checkIsuzuK2AaciConditions(equips));
   }
 
@@ -771,7 +800,7 @@ export function detectAacis(
     detected.push(...checkChoukaiMayaK2AaciConditions(equips));
   }
 
-  if (isYuraK2(shipMasterId) || isFubukiKai3(shipMasterId)) {
+  if (isYuraK2(shipMasterId) || isFubukiKai3(shipMasterId) || shipMasterId === 1071) {
     detected.push(...checkYuraFubukiKai3AaciConditions(equips));
   }
 
@@ -779,7 +808,7 @@ export function detectAacis(
     detected.push(...checkIsokazeHamazakeBaciConditions(equips));
   }
 
-  if (isTenryuK2(shipMasterId)) {
+  if ([477,478,1035,961].includes(shipMasterId)) {
     detected.push(...checkTenryuK2AaciConditions(equips));
   }
 

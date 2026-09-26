@@ -50,10 +50,13 @@ export enum AaciTypeId {
   UIT_23 = 23,     // 通常機銃
 
   // 天龍改二専用
-  TENRYU_24 = 24,  // 高角砲 + 高角砲 + 高角砲 (3本)
+  TENRYU_24 = 24,  // 高角砲 + 通常機銃
 
   // 五十鈴改二専用
   ISUZU_14 = 14,   // 高角砲 + 対空機銃 + 対空電探
+  ISUZU_15 = 15,   // 高角砲 + 対空機銃
+  OOYODO_HIRYU_27 = 27, // 10cm改+増設機銃 + 噴進砲改二 + 対空電探
+  HIRYU_KITAKAMI_53 = 53, // 高角砲(対空9以上) + 電探(対空4以上)
 
   // 霞改二乙専用
   KASUMI_16 = 16,  // 高角砲 + 機銃 + 対空電探
@@ -126,6 +129,14 @@ export interface AaciTypeInfo {
 }
 
 export enum AaciShipRestriction {
+  MAYA_HIRYU = 'maya_hiryu',
+  MAYA_HIRYU_KITAKAMI = 'maya_hiryu_kitakami',
+  HIRYU_KITAKAMI = 'hiryu_kitakami',
+  OOYODO_HIRYU = 'ooyodo_hiryu',
+  ISUZU_FUBUKI_SHIGURE = 'isuzu_fubuki_shigure',
+  KASUMI_SHARED = 'kasumi_shared',
+  AKIZUKI_FUBUKI_GROUP = 'akizuki_fubuki_group',
+  FUBUKI_KITAKAMI = 'fubuki_kitakami',
   /** 汎用 (潜水艦以外) */
   GENERIC = 'generic',
   /** 秋月型のみ */
@@ -184,6 +195,21 @@ export enum AaciShipRestriction {
 
 // ==================== AACI ====================
 export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
+  [AaciTypeId.ISUZU_15, {
+    id: AaciTypeId.ISUZU_15, fixedBonus: 3, variableBonus: 1.3, baseRate: 0.55, priority: 71.5,
+    description: '五十鈴改二/吹雪改三/時雨改三: 高角砲 + 機銃',
+    shipRestriction: AaciShipRestriction.ISUZU_FUBUKI_SHIGURE,
+  }],
+  [AaciTypeId.OOYODO_HIRYU_27, {
+    id: AaciTypeId.OOYODO_HIRYU_27, fixedBonus: 6, variableBonus: 1.55, baseRate: 0.55, priority: 88,
+    description: '大淀改/飛龍改三: 10cm連装高角砲改+増設機銃 + 噴進砲改二 + 対空電探',
+    shipRestriction: AaciShipRestriction.OOYODO_HIRYU,
+  }],
+  [AaciTypeId.HIRYU_KITAKAMI_53, {
+    id: AaciTypeId.HIRYU_KITAKAMI_53, fixedBonus: 4, variableBonus: 1.6, baseRate: 0.50, priority: 82,
+    description: '飛龍改三/北上改三: 高角砲(素対空9以上) + 電探(素対空4以上)',
+    shipRestriction: AaciShipRestriction.HIRYU_KITAKAMI,
+  }],
   // 秋月型専用 (最強クラス)
   [AaciTypeId.AKIZUKI_1, {
     id: AaciTypeId.AKIZUKI_1,
@@ -231,8 +257,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.5,
     baseRate: 0.55,
     priority: 96,
-    description: '吹雪型/夕雲型改二等: 10cm連装高角砲改系×2 + 対空電探 + 94式高射装置',
-    shipRestriction: AaciShipRestriction.FUBUKI_AACI_GROUP,
+    description: '秋月型/吹雪型/夕雲型改二等: 10cm連装高角砲改系×2 + 対空電探 + 94式高射装置',
+    shipRestriction: AaciShipRestriction.AKIZUKI_FUBUKI_GROUP,
   }],
   [AaciTypeId.FUBUKI_49, {
     id: AaciTypeId.FUBUKI_49,
@@ -240,8 +266,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.5,
     baseRate: 0.55,
     priority: 85,
-    description: '吹雪型/夕雲型改二等: 特殊高角砲×2 + 対空電探',
-    shipRestriction: AaciShipRestriction.FUBUKI_AACI_GROUP,
+    description: '北上改三/吹雪型/夕雲型改二等: 特殊高角砲×2 + 対空電探',
+    shipRestriction: AaciShipRestriction.FUBUKI_KITAKAMI,
   }],
   [AaciTypeId.FUBUKI_51, {
     id: AaciTypeId.FUBUKI_51,
@@ -258,8 +284,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.4,
     baseRate: 0.50,
     priority: 77,
-    description: '吹雪型/夕雲型改二等: 10cm連装高角砲改×2 + 94式高射装置',
-    shipRestriction: AaciShipRestriction.FUBUKI_AACI_GROUP,
+    description: '秋月型/吹雪型/夕雲型改二等: 10cm連装高角砲改×2 + 94式高射装置',
+    shipRestriction: AaciShipRestriction.AKIZUKI_FUBUKI_GROUP,
   }],
 
   // 摩耶改二専用 (最強クラス)
@@ -269,8 +295,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.65,
     baseRate: 0.60,
     priority: 102,
-    description: '摩耶改二: 高角砲 + 特殊機銃 + 対空電探',
-    shipRestriction: AaciShipRestriction.MAYA_K2,
+    description: '摩耶改二/飛龍改三/北上改三: 高角砲 + 特殊機銃 + 対空電探',
+    shipRestriction: AaciShipRestriction.MAYA_HIRYU_KITAKAMI,
   }],
   [AaciTypeId.MAYA_11, {
     id: AaciTypeId.MAYA_11,
@@ -278,8 +304,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.5,
     baseRate: 0.55,
     priority: 90,
-    description: '摩耶改二: 高角砲 + 特殊機銃',
-    shipRestriction: AaciShipRestriction.MAYA_K2,
+    description: '摩耶改二/飛龍改三: 高角砲 + 特殊機銃',
+    shipRestriction: AaciShipRestriction.MAYA_HIRYU,
   }],
 
   // Atlanta専用 (最強クラス)
@@ -514,7 +540,7 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.45,
     baseRate: 0.63,
     priority: 81,
-    description: '五十鈴改二: 高角砲 + 機銃 + 対空電探',
+    description: '五十鈴改二/北上改三: 高角砲 + 機銃 + 対空電探',
     shipRestriction: AaciShipRestriction.ISUZU_K2,
   }],
 
@@ -525,8 +551,8 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.4,
     baseRate: 0.62,
     priority: 79,
-    description: '霞改二乙: 高角砲 + 機銃 + 対空電探',
-    shipRestriction: AaciShipRestriction.KASUMI_K2B,
+    description: '霞改二乙/夕張改二/吹雪改三/時雨改三: 高角砲 + 機銃 + 対空電探',
+    shipRestriction: AaciShipRestriction.KASUMI_SHARED,
   }],
   [AaciTypeId.KASUMI_17, {
     id: AaciTypeId.KASUMI_17,
@@ -576,7 +602,7 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.45,
     baseRate: 0.60,
     priority: 87,
-    description: '由良改二/吹雪改三/改三護: 高角砲 + 対空電探',
+    description: '由良改二/吹雪改三/改三護/北上改三: 高角砲 + 対空電探',
     shipRestriction: AaciShipRestriction.YURA_FUBUKI_KAI3,
   }],
 
@@ -609,7 +635,7 @@ export const AACI_DATABASE: Map<AaciTypeId, AaciTypeInfo> = new Map([
     variableBonus: 1.25,
     baseRate: 0.55,
     priority: 71,
-    description: '天龍改二: 高角砲×3',
+    description: '天龍改二/龍田改二/吹雪改三/時雨改三: 高角砲 + 通常機銃',
     shipRestriction: AaciShipRestriction.TENRYU_K2,
   }],
 

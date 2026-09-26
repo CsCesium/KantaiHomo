@@ -37,6 +37,8 @@ export const PanelColors = {
   // Stats
   stat:          '#56d8e0',   // all stat value columns (bright teal)
   questSatisfied: '#81c784', // a quest subgoal has reached its target
+  questReady:     '#ffd166', // server-confirmed reward available
+  questReadyBg:   '#49391d',
 
   // HP states
   hpOk:          '#43a047',   // hp ratio > 75%  — green

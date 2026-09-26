@@ -153,6 +153,7 @@ const UNCONDITIONAL_OPENING_ASW_SHIP_IDS: ReadonlySet<number> = new Set([
   478,  // 龍田改二
   394,  // Jervis改
   893,  // Janus改
+  906,  // Javelin改
   681,  // Samuel B.Roberts改
   920,  // Samuel B.Roberts Mk.II
   562,  // Johnston
@@ -161,12 +162,17 @@ const UNCONDITIONAL_OPENING_ASW_SHIP_IDS: ReadonlySet<number> = new Set([
   692,  // Fletcher改
   628,  // Fletcher改 Mod.2
   629,  // Fletcher Mk.II
+  726,  // Heywood L.E.改 (未改造不具备自动先制反潜)
+  737,  // Richard P.Leary改
+  1062, // Visby
+  1067, // Visby改
   624,  // 夕張改二丁
-  1035, // 吹雪改三
   1040, // 吹雪改三護(六式)
 ]);
 
 const EXCLUDED_ESCORT_IDS: ReadonlySet<number> = new Set([
+  998, // Norge
+  738, // Norge改
   999, // Eidsvold
   739, // Eidsvold改
 ]);
@@ -177,11 +183,14 @@ const SOYA_AND_YAMASHIOMARU_IDS: ReadonlySet<number> = new Set([
   699, // 宗谷
   900, // 山汐丸
   717, // 山汐丸改
+  1008, // しまね丸改
 ]);
 
 const FUSO_YAMASHIRO_K2_IDS: ReadonlySet<number> = new Set([
   411, // 扶桑改二
   412, // 山城改二
+  748, // 扶桑改二補
+  749, // 山城改二補
 ]);
 
 const KUMANOMARU_IDS: ReadonlySet<number> = new Set([
@@ -290,7 +299,7 @@ function isSeaplaneBomber(master: SlotItemMaster): boolean {
 }
 
 function isAswAircraftAtLeast(master: SlotItemMaster, asw: number): boolean {
-  return (isCarrierTorpedo(master) || isAswPatrol(master) || isAutogyro(master)) && master.stats.asw >= asw;
+  return (isCarrierTorpedo(master) && master.stats.asw >= asw) || isAswPatrol(master) || isAutogyro(master);
 }
 
 function isCarrierAttackOrDiveAswAtLeast(master: SlotItemMaster, asw: number): boolean {
@@ -331,11 +340,12 @@ function supportsCommonCvlOpeningAsw(shipMasterId: number, aswCur: number, equip
     return false;
   }
 
-  const sonarOk = isFlexibleSonarCarrier(shipMasterId)
-    ? hasEquip(equips, isSonar)
-    : hasEquip(equips, isZeroSonar);
-  const hasAsw7Aircraft = hasEmbarkedEquip(equips, master => isAswAircraftAtLeast(master, 7));
-  const hasAsw1AttackAircraft = hasEmbarkedEquip(equips, master => isCarrierAttackOrDiveAswAtLeast(master, 1));
+  // Equipped slots already passed the game's equip restrictions. This also
+  // covers new carriers (e.g. Independence Flight II) that can mount small sonar.
+  const sonarOk = hasEquip(equips, isSonar);
+  // Opening ASW remains possible even after the aircraft slot is wiped out.
+  const hasAsw7Aircraft = hasEquip(equips, master => isAswAircraftAtLeast(master, 7));
+  const hasAsw1AttackAircraft = hasEquip(equips, master => isCarrierAttackOrDiveAswAtLeast(master, 1));
 
   if (aswCur >= 50 && sonarOk && hasAsw7Aircraft) {
     return true;
@@ -356,6 +366,9 @@ function supportsOpeningAsw(ctx: ShipCapabilityTagContext, equips: EquippedMaste
   }
 
   if (isStandardAsw100Ship(shipType, shipMasterId)) {
+    if ((shipMasterId === 717 || shipMasterId === 1008) &&
+        hasEmbarkedEquip(equips, master => isCarrierTorpedo(master) || isCarrierDiveBomber(master)) &&
+        !hasEmbarkedEquip(equips, master => isCarrierAttackOrDiveAswAtLeast(master, 1))) return false;
     return aswCur >= 100 && hasEquip(equips, isSonar);
   }
 
@@ -365,7 +378,7 @@ function supportsOpeningAsw(ctx: ShipCapabilityTagContext, equips: EquippedMaste
   }
 
   if (isTaiyouClassSpecial(shipMasterId)) {
-    return hasEmbarkedEquip(equips, master =>
+    return hasEquip(equips, master =>
       (isCarrierTorpedo(master) || isCarrierDiveBomber(master) || isAswPatrol(master) || isAutogyro(master)) &&
         master.stats.asw >= 1);
   }
@@ -376,7 +389,7 @@ function supportsOpeningAsw(ctx: ShipCapabilityTagContext, equips: EquippedMaste
 
   if (FUSO_YAMASHIRO_K2_IDS.has(shipMasterId)) {
     return aswCur >= 100 &&
-      hasEquip(equips, isZeroSonar) &&
+      hasEquip(equips, isSonar) &&
       (hasEmbarkedEquip(equips, master => isSeaplaneBomber(master) || isAutogyro(master)) ||
         hasEquip(equips, isDepthCharge));
   }
@@ -396,9 +409,9 @@ function supportsOpeningAsw(ctx: ShipCapabilityTagContext, equips: EquippedMaste
 
   if (shipMasterId === 554) {
     const kaObservationCount = equips.filter(equip =>
-      nameContains(equip.master.name, ['カ号観測機', 'Ｏ号観測機', 'O号観測機', 'O号观测机'])).length;
+      [69, 324, 325].includes(equip.master.id)).length;
     const s51Count = equips.filter(equip =>
-      nameContains(equip.master.name, ['S-51J'])).length;
+      [326, 327].includes(equip.master.id)).length;
     return kaObservationCount >= 2 || s51Count >= 1;
   }
 
