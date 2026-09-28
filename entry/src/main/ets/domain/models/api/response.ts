@@ -269,7 +269,7 @@ export interface ApiSupplyResponse extends ApiStateFields {
  */
 export interface ApiPowerupResponse extends ApiStateFields {
   api_powerup_flag: number;
-  api_ship: ApiShipRaw[];
+  api_ship: ApiShipRaw | ApiShipRaw[];
   api_deck?: ApiDeckPortRaw[];
 }
 

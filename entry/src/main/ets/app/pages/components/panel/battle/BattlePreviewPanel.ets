@@ -10,6 +10,7 @@ import {
 import { FormationNameJP, EngagementNameJP, Formation, Engagement } from '../../../../../domain/models';
 import AerialCombatPanel from './AerialCombatPanel';
 import { battleMvpLabel, battleMvpShips } from '../../../../../features/panel/battleMvp';
+import { silhouetteTintMatrix } from '../../../../../features/panel/planeIconColor';
 
 // ── pure helpers (no ArkUI APIs) ──────────────────────────────────────────
 
@@ -18,14 +19,8 @@ const AIR_DETAIL_TOUCH_MIN_W = 48;
 const AIR_DETAIL_TOUCH_MIN_H = 32;
 
 function attackPlaneColorFilter(friendly: boolean): ColorFilter {
-  const color = Number.parseInt((friendly ? PanelColors.hpOk : PanelColors.hpCrit).slice(1), 16);
-  // Apply the same color as the count while preserving the icon's transparency.
-  return new ColorFilter([
-    0, 0, 0, 0, (color >> 16) & 255,
-    0, 0, 0, 0, (color >> 8) & 255,
-    0, 0, 0, 0, color & 255,
-    0, 0, 0, 1, 0
-  ]);
+  // Friendly green / enemy red, matching the count text; the matrix keeps the icon's transparency.
+  return new ColorFilter(silhouetteTintMatrix(friendly ? PanelColors.hpOk : PanelColors.hpCrit));
 }
 
 function rankColor(rank: string): string {

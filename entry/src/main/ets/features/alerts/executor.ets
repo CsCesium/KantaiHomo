@@ -29,6 +29,8 @@ import type {
   BuildStartAlert,
   BuildResultAlert,
   RemodelResultAlert,
+  PowerupResultAlert,
+  ModernizationGain,
 } from './type';
 import { getAlertBus } from '.';
 import { getExpeditionLiveNotificationService } from './module/expeditionNotification';
@@ -479,6 +481,27 @@ async function handleRemodelResult(alert: RemodelResultAlert): Promise<void> {
   await executeToast(body, 3000, alert.success ? undefined : '#FF9F43');
 }
 
+/** 舰船图鉴缺失时 remaining 为 undefined，此时只报本次上升值。 */
+function modernizationText(gains: ModernizationGain[]): string {
+  return gains.map((row: ModernizationGain): string =>
+    row.remaining === undefined
+      ? `${row.label} +${row.gain}`
+      : `${row.label} +${row.gain}/+${row.remaining}`
+  ).join('、');
+}
+
+/** 近代化改修结果 — 仅 Toast */
+async function handlePowerupResult(alert: PowerupResultAlert): Promise<void> {
+  const config = getAlertBus().getConfig();
+  if (!config.enableToast || !config.enablePowerupResultToast) return;
+
+  const body = alert.success
+    ? `🔧 改修成功：${modernizationText(alert.gains)}`
+    : '🔧 近代化改修失败';
+  console.info(`[AlertExecutor] powerup result: ${body}`);
+  await executeToast(body, 3000, alert.success ? undefined : '#FF9F43');
+}
+
 // ========== 主处理函数 ==========
 
 async function handleAlert(alert: AnyAlert): Promise<void> {
@@ -521,6 +544,9 @@ async function handleAlert(alert: AnyAlert): Promise<void> {
       break;
     case 'remodel_result':
       await handleRemodelResult(alert);
+      break;
+    case 'powerup_result':
+      await handlePowerupResult(alert);
       break;
   }
 }

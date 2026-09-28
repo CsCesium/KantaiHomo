@@ -158,6 +158,23 @@ export interface ShipSpecialEquip {
 }
 
 /** 完整游戏状态 */
+/**
+ * 近代化改修上限（来自 api_start2 舰船图鉴）。
+ *
+ * 火力/雷装/对空/装甲/运的上限是「图鉴最大值 − 图鉴基础值」，与 api_kyouka 的累计强化值同量纲；
+ * 耐久与对潜的上限是游戏内写死的常量（分别为 2 与 9），此处只记录该舰是否具备强化条件所需的
+ * 图鉴耐久上限 taikMax。
+ */
+export interface ShipModernizationCaps {
+  firepower: number;
+  torpedo: number;
+  antiAir: number;
+  armor: number;
+  luck: number;
+  /** 图鉴耐久上限 api_taik[1]；当前 maxhp 达到该值后耐久不能再强化 */
+  taikMax: number;
+}
+
 export interface GameState {
   /** 提督信息 */
   admiral: AdmiralSnapshot | null;
@@ -201,6 +218,8 @@ export interface GameState {
   shipMasterStype: Map<number, number>;
   /** 舰船图鉴舰型缓存 (masterId → api_ctype) */
   shipMasterCtype: Map<number, number>;
+  /** 舰船图鉴近代化改修上限缓存 (masterId → ShipModernizationCaps) */
+  shipMasterKyoukaCaps: Map<number, ShipModernizationCaps>;
   /** 装备图鉴类型缓存 (slotitem masterId → typeEquipType) */
   slotItemEquipTypes: Map<number, number>;
   /** 装备图鉴图标缓存 (slotitem masterId → api_type[3]) */

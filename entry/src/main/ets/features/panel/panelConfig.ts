@@ -126,6 +126,22 @@ export function questCategoryStyle(category: number): QuestCategoryStyle {
   return QUEST_CATEGORY_STYLES[category] ?? QUEST_CATEGORY_FALLBACK;
 }
 
+/** 编成、出击（含扩展分类）、演习、远征、改修优先，其余类别随后。 */
+export function questCategoryPriority(category: number): number {
+  switch (category) {
+    case 1: return 0;
+    case 2:
+    case 8:
+    case 9: return 1;
+    case 3: return 2;
+    case 4: return 3;
+    case 7: return 4;
+    case 5: return 5;
+    case 6: return 6;
+    default: return 7;
+  }
+}
+
 const QUEST_RESET_TYPE_LABELS: Record<number, string> = {
   1: '单次',   // ONCE
   2: '每日',   // DAILY

@@ -12,6 +12,7 @@ import { getExpeditionLiveNotificationService } from '../features/alerts/module/
 import { getExpeditionReminderService } from '../features/alerts/module/expeditionReminder';
 import { getRefreshReminderService } from '../features/alerts/module/refreshReminder';
 import { getHarborReminderService } from '../features/alerts/module/harborReminder';
+import { calendarReminder } from '../features/alerts/module/calendarReminder';
 import { ensureNotificationPermission } from '../features/alerts/module/notificationPermission';
 import { addOnExpeditionChanged } from '../features/alerts/module/expeditionTrigger';
 import { addOnNdockChanged } from '../features/alerts/module/ndockTrigger';
@@ -207,6 +208,7 @@ export default class EntryAbility extends UIAbility {
         kvGetBool('alerts.toast.dev.enabled', true),
         kvGetBool('alerts.toast.build.enabled', true),
         kvGetBool('alerts.toast.remodel.enabled', true),
+        kvGetBool('alerts.toast.powerup.enabled', true),
       ]).then((results: Array<boolean | string>) => {
         const yasen = results[0] as boolean;
         const battle = results[1] as boolean;
@@ -222,8 +224,12 @@ export default class EntryAbility extends UIAbility {
           enableDevResultToast: results[5] as boolean,
           enableBuildResultToast: results[6] as boolean,
           enableRemodelResultToast: results[7] as boolean,
+          enablePowerupResultToast: results[8] as boolean,
         });
       });
+
+      // 日历提醒的类型与时长设置必须在首次登记前就位。
+      void calendarReminder.loadOptions();
 
       // 本地调度器负责 Toast，以及系统提醒未登记成功时的前台兜底。
       const scheduler = initExpeditionScheduler(getRepositoryHub().expedition);

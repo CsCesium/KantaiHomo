@@ -128,6 +128,9 @@ class AlertBusImpl {
         return `build:${alert.kdockId}:${alert.shipName}`;
       case 'remodel_result':
         return `remodel:${alert.itemName}:${alert.level}:${alert.success ? 1 : 0}`;
+      case 'powerup_result':
+        // 连续两次改修可能产出相同属性，签名带上时间戳以免被去抖吞掉第二条。
+        return `powerup:${alert.shipName}:${alert.gains.map(g => `${g.key}+${g.gain}`).join(',')}:${alert.timestamp}`;
       default:
         return `unknown`;
     }

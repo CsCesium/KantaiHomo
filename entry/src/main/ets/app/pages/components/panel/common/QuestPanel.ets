@@ -6,6 +6,7 @@ import {
   PanelColors,
   PanelDimens,
   questCategoryStyle,
+  questCategoryPriority,
   questResetTypeLabel,
   questProgressLabel,
 } from '../../../../../features/panel/panelConfig';
@@ -63,7 +64,9 @@ export default struct QuestPanel {
 
   private visibleQuests(): QuestSnapshot[] {
     return this.quests.filter((q: QuestSnapshot) => q.state === QUEST_STATE_ACTIVE ||
-      (this.includeCompleted && q.state === 3));
+      (this.includeCompleted && q.state === 3))
+      .sort((a: QuestSnapshot, b: QuestSnapshot) =>
+        questCategoryPriority(a.category) - questCategoryPriority(b.category));
   }
 
   private categoryWidth(): number {

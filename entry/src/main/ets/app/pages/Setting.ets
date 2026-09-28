@@ -1,7 +1,7 @@
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import { webview } from '@kit.ArkWeb';
-import { kvGetString, kvSet, kvGetBool, kvDelete } from '../../infra/storage/kv';
+import { kvGetString, kvSet, kvGetBool, kvGetNumber, kvDelete } from '../../infra/storage/kv';
 import { HOME_URL, USER_AGENT } from '../../infra/web/config';
 import { APP_STORAGE_SHOW_SIDEBAR, APP_STORAGE_SIDEBAR_SHOW_AVATAR, APP_STORAGE_FLOAT_OVERLAY_AUTO_BATTLE_PREVIEW, APP_STORAGE_YASEN_DETECT_ENABLED, APP_STORAGE_ADVANCE_GUARD_ENABLED, APP_STORAGE_REPAIR_ALERT_ENABLED, APP_STORAGE_INJECT_FPS, APP_STORAGE_INJECT_TOUCH_PATCH, APP_STORAGE_INJECT_TOUCH_HOVER, APP_STORAGE_INJECT_TOUCH_WHEEL, APP_STORAGE_INJECT_TOUCH_WHEEL_SENSITIVITY, APP_STORAGE_INJECT_TICKER_RAF, APP_STORAGE_INJECT_PIXI_PATCH, APP_STORAGE_PANEL_SHOW_KAISYUU, APP_STORAGE_PANEL_SHOW_PROFICIENCY, APP_STORAGE_GAME_SIZE_COMPACT, APP_STORAGE_GAME_SIZE_EXPANDED } from '../../ability/Entry';
 import { setAlertConfig } from '../../features/alerts';
@@ -14,6 +14,17 @@ import {
 import { getRefreshReminderService } from '../../features/alerts/module/refreshReminder';
 import { getHarborReminderService } from '../../features/alerts/module/harborReminder';
 import { calendarReminder, CALENDAR_REMINDER_STATUS } from '../../features/alerts/module/calendarReminder';
+import {
+  CALENDAR_DURATION_DEFAULT_MINUTES,
+  CALENDAR_DURATION_KEY,
+  CALENDAR_DURATION_MAX_MINUTES,
+  CALENDAR_DURATION_MIN_MINUTES,
+  CALENDAR_DURATION_STEP_MINUTES,
+  CALENDAR_IMPORTANT_DEFAULT,
+  CALENDAR_IMPORTANT_KEY,
+  formatCalendarDuration,
+  normalizeCalendarDurationMinutes,
+} from '../../features/alerts/module/calendarOptions';
 import { HARBOR_TIMER_ENABLED } from '../../features/alerts/module/harborTimer';
 import { RefreshReminderKind, REFRESH_REMINDER_STATUS } from '../../features/alerts/module/refreshSchedule';
 import { getExpeditionLiveNotificationService } from '../../features/alerts/module/expeditionNotification';
@@ -91,6 +102,8 @@ struct Setting {
   @StorageProp(HARBOR_TIMER_ENABLED) private harborTimerEnabled: boolean = true;
   @StorageProp(CALENDAR_REMINDER_STATUS) private calendarReminderStatus: string = '备用提醒使用系统日历，请先授权';
   @State private calendarReminderBusy: boolean = false;
+  @State private calendarImportant: boolean = CALENDAR_IMPORTANT_DEFAULT;
+  @State private calendarDurationMinutes: number = CALENDAR_DURATION_DEFAULT_MINUTES;
 
   private async authorizeCalendarReminders(): Promise<void> {
     if (this.calendarReminderBusy) return;
@@ -105,11 +118,45 @@ struct Setting {
     } finally { this.calendarReminderBusy = false; }
   }
 
+  /** 改设置后重新对账，让已登记日程按新的类型和时长就地更新。 */
+  private async resyncCalendarReminders(): Promise<void> {
+    try {
+      if (!await calendarReminder.isEnabled()) return;
+      await getExpeditionReminderService().syncFromDb();
+      await getRefreshReminderService().sync();
+      await getHarborReminderService().sync();
+    } catch (error) {
+      console.warn('[Setting] calendar resync:', String(error));
+    }
+  }
+
+  private onCalendarImportantToggle(v: boolean): void {
+    this.calendarImportant = v;
+    // 失败写回本段落已有的状态行，与授权/登记的反馈走同一个通道。
+    void calendarReminder.setImportant(v)
+      .then(() => this.resyncCalendarReminders())
+      .catch((error: Error) => {
+        AppStorage.setOrCreate(CALENDAR_REMINDER_STATUS, `重要提醒设置保存失败：${error.message}`);
+      });
+  }
+
+  private onCalendarDurationChange(value: number): void {
+    const next: number = normalizeCalendarDurationMinutes(value);
+    if (next === this.calendarDurationMinutes) return;
+    this.calendarDurationMinutes = next;
+    void calendarReminder.setDurationMinutes(next)
+      .then(() => this.resyncCalendarReminders())
+      .catch((error: Error) => {
+        AppStorage.setOrCreate(CALENDAR_REMINDER_STATUS, `通知时长保存失败：${error.message}`);
+      });
+  }
+
   // ── Toast settings ─────────────────────────────────────────────
   @State private toastEnabled: boolean = true;
   @State private devResultToastEnabled: boolean = true;
   @State private buildResultToastEnabled: boolean = true;
   @State private remodelResultToastEnabled: boolean = true;
+  @State private powerupResultToastEnabled: boolean = true;
 
   // ── UI state ───────────────────────────────────────────────────
   @State private configDirty: boolean = false;
@@ -166,6 +213,9 @@ struct Setting {
       kvGetBool('alerts.toast.dev.enabled', true),
       kvGetBool('alerts.toast.build.enabled', true),
       kvGetBool('alerts.toast.remodel.enabled', true),
+      kvGetBool('alerts.toast.powerup.enabled', true),
+      kvGetBool(CALENDAR_IMPORTANT_KEY, CALENDAR_IMPORTANT_DEFAULT),
+      kvGetNumber(CALENDAR_DURATION_KEY, CALENDAR_DURATION_DEFAULT_MINUTES),
     ]);
     this.homeUrl = results[0] as string;
     this.userAgent = results[1] as string;
@@ -178,6 +228,9 @@ struct Setting {
     this.devResultToastEnabled = results[8] as boolean;
     this.buildResultToastEnabled = results[9] as boolean;
     this.remodelResultToastEnabled = results[10] as boolean;
+    this.powerupResultToastEnabled = results[11] as boolean;
+    this.calendarImportant = results[12] as boolean;
+    this.calendarDurationMinutes = normalizeCalendarDurationMinutes(results[13] as number);
     this.configDirty = false;
     this.accountDirty = false;
   }
@@ -253,6 +306,12 @@ struct Setting {
     this.remodelResultToastEnabled = v;
     void kvSet('alerts.toast.remodel.enabled', v);
     setAlertConfig({ enableRemodelResultToast: v });
+  }
+
+  private onPowerupResultToastToggle(v: boolean): void {
+    this.powerupResultToastEnabled = v;
+    void kvSet('alerts.toast.powerup.enabled', v);
+    setAlertConfig({ enablePowerupResultToast: v });
   }
 
   private onAdvanceGuardToggle(v: boolean): void {
@@ -573,6 +632,61 @@ struct Setting {
           .fontColor('#3A4A55')
         Blank()
         Text(`${TOUCH_WHEEL_SENSITIVITY_MAX_PERCENT}%`)
+          .fontSize(11)
+          .fontColor('#3A4A55')
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+  }
+
+  @Builder
+  private CalendarDurationRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Column({ space: 3 }) {
+          Text('通知时长')
+            .fontSize(15)
+            .fontColor('#A09080')
+          Text('写入系统日历的日程长度，提醒条目在这段时间内保持活跃')
+            .fontSize(12)
+            .fontColor('#3A4A55')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Text(formatCalendarDuration(this.calendarDurationMinutes))
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#90B0C0')
+          .width(88)
+          .textAlign(TextAlign.End)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Slider({
+        value: this.calendarDurationMinutes,
+        min: CALENDAR_DURATION_MIN_MINUTES,
+        max: CALENDAR_DURATION_MAX_MINUTES,
+        step: CALENDAR_DURATION_STEP_MINUTES,
+      })
+        .width('100%')
+        .selectedColor('#6A9AB5')
+        .trackColor('#1C2E3A')
+        .blockColor('#90B0C0')
+        .onChange((value: number) => { this.onCalendarDurationChange(value); })
+
+      Row() {
+        Text(formatCalendarDuration(CALENDAR_DURATION_MIN_MINUTES))
+          .fontSize(11)
+          .fontColor('#3A4A55')
+        Blank()
+        Text(formatCalendarDuration(CALENDAR_DURATION_MAX_MINUTES))
           .fontSize(11)
           .fontColor('#3A4A55')
       }
@@ -1015,6 +1129,13 @@ struct Setting {
           }.width('100%').padding({ left: 16, right: 16, bottom: 8 })
 
           Column({ space: 8 }) {
+            this.ToggleRow(
+              '重要提醒（闹铃）',
+              '以系统日历“重要事项”登记，支持闹铃级响铃；关闭则为普通日历通知',
+              this.calendarImportant,
+              (v: boolean) => { this.onCalendarImportantToggle(v); }
+            )
+            this.CalendarDurationRow()
             this.ToggleRow('明石维修 / 野埼给粮计时', '作为旗舰且满足条件时自动计时；到点日历提醒和一次 Toast',
               this.harborTimerEnabled, (v: boolean) => {
                 void getHarborReminderService().setEnabled(v).catch((error: Error) => { console.warn('[Setting] harbor timer:', String(error)); });
@@ -1105,6 +1226,13 @@ struct Setting {
               '改修工厂改修后 Toast 显示成功 / 失败与 ★ 等级',
               this.remodelResultToastEnabled,
               (v: boolean) => { this.onRemodelResultToastToggle(v); }
+            )
+
+            this.ToggleRow(
+              '近代化改修提示',
+              '近代化改修后 Toast 显示各属性的本次上升值与剩余可增加值',
+              this.powerupResultToastEnabled,
+              (v: boolean) => { this.onPowerupResultToastToggle(v); }
             )
           }
           .width('100%')

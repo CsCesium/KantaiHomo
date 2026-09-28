@@ -26,7 +26,8 @@ import {
   FleetBattleStatus,
   EnemyBattleStatus,
   ShipBattleStatus,
-  MapGaugeSnapshot
+  MapGaugeSnapshot,
+  ShipModernizationCaps
 } from "./type";
 
 /**
@@ -117,6 +118,7 @@ class GameStateManager {
     shipMasterSoku: new Map(),
     shipMasterStype: new Map(),
     shipMasterCtype: new Map(),
+    shipMasterKyoukaCaps: new Map(),
     slotItemEquipTypes: new Map(),
     slotItemIconTypes: new Map(),
     slotItemLos: new Map(),
@@ -1372,6 +1374,7 @@ class GameStateManager {
       shipMasterSoku: new Map(),
       shipMasterStype: new Map(),
       shipMasterCtype: new Map(),
+      shipMasterKyoukaCaps: new Map(),
       slotItemEquipTypes: new Map(),
       slotItemIconTypes: new Map(),
       slotItemLos: new Map(),
@@ -1407,7 +1410,7 @@ class GameStateManager {
   /**
    * 更新舰船图鉴名称及最大补给量缓存（来自 api_start2 舰船图鉴）
    */
-  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number; stype?: number; ctype?: number }>): void {
+  updateShipMasterMeta(items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number; stype?: number; ctype?: number; kyoukaCaps?: ShipModernizationCaps }>): void {
     for (const item of items) {
       this.state.shipMasterNames.set(item.id, item.name);
       this.state.shipMasterMaxSupply.set(item.id, { fuelMax: item.fuelMax, ammoMax: item.ammoMax });
@@ -1420,12 +1423,20 @@ class GameStateManager {
       if (item.ctype !== undefined) {
         this.state.shipMasterCtype.set(item.id, item.ctype);
       }
+      if (item.kyoukaCaps !== undefined) {
+        this.state.shipMasterKyoukaCaps.set(item.id, item.kyoukaCaps);
+      }
     }
   }
 
   /** 按图鉴 ID 查询舰种（无数据时返回 0） */
   getShipMasterStype(masterId: number): number {
     return this.state.shipMasterStype.get(masterId) ?? 0;
+  }
+
+  /** 按图鉴 ID 查询近代化改修上限；未收到 api_start2 时为 undefined */
+  getShipModernizationCaps(masterId: number): ShipModernizationCaps | undefined {
+    return this.state.shipMasterKyoukaCaps.get(masterId);
   }
 
   /**
@@ -1982,6 +1993,8 @@ export function getGameState(): GameStateManager {
 export const updateShipMasterMeta = (items: ReadonlyArray<{ id: number; name: string; fuelMax: number; ammoMax: number; soku?: number; stype?: number; ctype?: number }>) =>
   gameStateManager.updateShipMasterMeta(items);
 export const getShipMasterStype = (masterId: number): number => gameStateManager.getShipMasterStype(masterId);
+export const getShipModernizationCaps = (masterId: number): ShipModernizationCaps | undefined =>
+  gameStateManager.getShipModernizationCaps(masterId);
 export const updateSlotItemEquipTypes = (items: ReadonlyArray<{
   id: number;
   equipType: number;

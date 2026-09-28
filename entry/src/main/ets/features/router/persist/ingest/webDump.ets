@@ -42,6 +42,7 @@ import {
 import { getSortieContext } from '../../../../domain/service';
 import { trackQuestApi } from '../../../quests/service';
 import { getHarborReminderService, harborFlagships } from '../../../alerts/module/harborReminder';
+import { publishModernizationAlert } from '../../../alerts/module/modernization';
 import { parseFormBody } from '../../../utils/common';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
@@ -305,6 +306,13 @@ async function ingestDumpCore(dump: ApiDump, deps: PersistDeps): Promise<void> {
     await trackQuestApi(dump);
   } catch (error) {
     console.warn('[quests] API tracking failed:', String(error));
+  }
+
+  // 近代化改修的响应只带改修后的舰船，必须在 extractAndUpdateState 覆盖 GameState 之前取差值。
+  try {
+    publishModernizationAlert(dump);
+  } catch (error) {
+    console.warn('[ingest] modernization toast failed:', String(error));
   }
 
   let result: ParseResult = { preEvents: [], mainEvents: [] };

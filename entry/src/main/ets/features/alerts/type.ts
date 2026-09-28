@@ -32,7 +32,8 @@ export type AlertType =
   | 'dev_result'
   | 'build_start'
   | 'build_result'
-  | 'remodel_result';
+  | 'remodel_result'
+  | 'powerup_result';
 
 export interface BaseAlert {
   type: AlertType;
@@ -164,6 +165,26 @@ export interface RemodelResultAlert extends BaseAlert {
   level: number;
 }
 
+/** 近代化改修中单个属性的上升量与剩余可增加量 */
+export interface ModernizationGain {
+  key: string;
+  label: string;
+  /** 本次上升值 x */
+  gain: number;
+  /** 剩余可增加值 N；舰船图鉴未就绪时为 undefined，此时只展示 +x */
+  remaining?: number;
+}
+
+/** 近代化改修结果提示（/api_req_kaisou/powerup） */
+export interface PowerupResultAlert extends BaseAlert {
+  type: 'powerup_result';
+  success: boolean;
+  /** 被改修的舰娘名；失败时为空 */
+  shipName: string;
+  /** 本次上升的属性，失败时为空数组 */
+  gains: ModernizationGain[];
+}
+
 export type AnyAlert =
   | ExpeditionReturnAlert
   | YasenPromptAlert
@@ -177,7 +198,8 @@ export type AnyAlert =
   | DevResultAlert
   | BuildStartAlert
   | BuildResultAlert
-  | RemodelResultAlert;
+  | RemodelResultAlert
+  | PowerupResultAlert;
 
 // ========== Alert Config ==========
 
@@ -201,6 +223,8 @@ export interface AlertConfig {
   enableBuildResultToast: boolean;
   /** 是否启用改修结果 Toast (remodel_result) */
   enableRemodelResultToast: boolean;
+  /** 是否启用近代化改修结果 Toast (powerup_result) */
+  enablePowerupResultToast: boolean;
 }
 
 export const DEFAULT_ALERT_CONFIG: AlertConfig = {
@@ -216,6 +240,7 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   enableDevResultToast: true,
   enableBuildResultToast: true,
   enableRemodelResultToast: true,
+  enablePowerupResultToast: true,
 };
 
 // ========== Expedition DAO interface ==========

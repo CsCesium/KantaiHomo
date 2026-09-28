@@ -26,7 +26,8 @@ export type {
   ShipBattleStatus,
   EnemyBattleStatus,
   QuestSnapshot,
-  MapGaugeSnapshot
+  MapGaugeSnapshot,
+  ShipModernizationCaps
 } from './type';
 
 // ========== GameState 导出 ==========
@@ -111,6 +112,7 @@ export {
   getShipSpecialEquip,
   getShipMasterName,
   getShipMasterStype,
+  getShipModernizationCaps,
   isShipMasterLandBased,
 
   // 战果计算

@@ -5,6 +5,7 @@ import { normalizeMstSlotItem } from '../../../domain/models/normalizer/mst_slot
 import { slotItemMasterToRow } from '../../../domain/models/mapper/slotitem';
 import { MissionRow, ShipGraphRow, ShipMasterRow } from '../../../infra/storage/types';
 import { updateShipGraphFilenames, updateShipMasterMeta, updateSlotItemEquipTypes, updateUseItemMasterNames, setGameServerUrl } from '../../state';
+import type { ShipModernizationCaps } from '../../state';
 import { registerHandler } from '../persist/registry';
 import { Handler, HandlerEvent, PersistDeps } from '../persist/type';
 
@@ -23,6 +24,24 @@ function shipRawToRow(raw: ApiMstShipRaw, ts: number): ShipMasterRow {
     afterLv: raw.api_afterlv ?? null,
     afterShipId: raw.api_aftershipid ? (parseInt(raw.api_aftershipid) || null) : null,
     updatedAt: ts,
+  };
+}
+
+/**
+ * 近代化改修上限：火力/雷装/对空/装甲/运的可强化量是「图鉴最大值 − 图鉴基础值」，
+ * 与 api_kyouka 的累计强化值同量纲（游戏内 PowerUpCheckModel 用的就是这个差值）。
+ * 耐久与对潜的上限是写死的常量（2 / 9），只有耐久额外受图鉴耐久上限 api_taik[1] 限制。
+ */
+function modernizationCaps(raw: ApiMstShipRaw): ShipModernizationCaps {
+  const span = (pair: [number, number] | undefined): number =>
+    pair ? Math.max(0, pair[1] - pair[0]) : 0;
+  return {
+    firepower: span(raw.api_houg),
+    torpedo: span(raw.api_raig),
+    antiAir: span(raw.api_tyku),
+    armor: span(raw.api_souk),
+    luck: span(raw.api_luck),
+    taikMax: raw.api_taik?.[1] ?? 0,
   };
 }
 
@@ -141,6 +160,7 @@ class Start2Handler implements Handler {
       soku: r.api_soku,
       stype: r.api_stype,
       ctype: r.api_ctype,
+      kyoukaCaps: modernizationCaps(r),
     }));
     updateShipMasterMeta(metaItems);
 
