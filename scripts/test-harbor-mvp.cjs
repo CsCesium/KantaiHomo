@@ -93,6 +93,30 @@ test('shared clocks keep elapsed time on early port visits and reset only due cy
   assert.equal(restored.clock('repair').startedAt,start+20*60000);
 });
 
+test('reminder options accept only fixed effective thresholds and preserve an empty selection', () => {
+  assert.deepEqual(Array.from(logic.normalizeHarborReminderMinutes('repair', [15, 20, 30, 40, 50, 60])), [20]);
+  assert.deepEqual(Array.from(logic.normalizeHarborReminderMinutes('supply', [45, 15, 20, 25, 30, 15])), [15, 30, 45]);
+  assert.deepEqual(Array.from(logic.parseHarborReminderMinutes('supply', '[]')), []);
+  assert.deepEqual(Array.from(logic.parseHarborReminderMinutes('supply', 'broken')), [15, 30]);
+});
+
+test('selected stages persist independently and never change the game reset threshold', () => {
+  const timer = new logic.HarborTimer();
+  const start = 1000;
+  const fleets = [{ kind: 'supply', deckId: 2 }];
+  timer.observe(['supply'], start);
+  const views = timer.views(fleets, [], [30, 45]);
+  assert.deepEqual(Array.from(views, view => view.minutes), [30, 45]);
+  timer.stage(views[1]).toastShown = true;
+  const restored = new logic.HarborTimer();
+  restored.restore(timer.serialize(), start + 46 * 60000);
+  assert.equal(restored.stage(restored.views(fleets, [], [45])[0]).toastShown, true);
+  timer.port(fleets, start + 14 * 60000);
+  assert.equal(timer.clock('supply').startedAt, start);
+  timer.port(fleets, start + 15 * 60000);
+  assert.equal(timer.clock('supply').startedAt, start + 15 * 60000);
+});
+
 function harness(storage=new Map()) {
   const state={game:game(),now:Date.parse('2026-09-18T12:00:00+08:00'),sortie:null,permission:true,
     reminders:[],published:[],cancelled:[],toasts:[],notifications:[],app:new Map(),storage,timers:new Map(),nextId:1,nextTimer:1,failPublish:false};
@@ -251,4 +275,65 @@ test('two supply fleets share one native request per threshold',async()=>{
   const h=harness();h.state.game.ships.get(1).name='野埼改';await h.api();
   assert.equal(h.state.reminders.length,2);
   assert.ok(h.state.published.every(r=>r.content.startsWith('第1舰队、第2舰队已等待')));
+});
+
+test('changing selected thresholds reconciles events without resetting the active clock', async () => {
+  const h = harness();
+  await h.api();
+  const start = h.state.now;
+  await h.service.setReminderMinutes('repair', []);
+  await h.service.setReminderMinutes('supply', [30, 45]);
+  assert.equal(h.state.reminders.length, 2);
+  const due = h.state.reminders.map(({ reminderReq: r }) =>
+    new Date(r.dateTime.year, r.dateTime.month - 1, r.dateTime.day, r.dateTime.hour, r.dateTime.minute, r.dateTime.second).getTime());
+  assert.deepEqual(due, [start + 30 * 60000, start + 45 * 60000]);
+  assert.equal(JSON.parse(h.state.storage.get('alerts.harbor.clock.101')).find(c => c.kind === 'supply').startedAt, start);
+  h.state.now = start + 29 * 60000;
+  await h.service.sync();
+  assert.equal(h.state.toasts.length, 0);
+  h.state.now = start + 30 * 60000;
+  await h.service.sync();
+  assert.equal(h.state.toasts.length, 1);
+  assert.match(h.service.notification().title, /45分/);
+  h.state.now = start + 45 * 60000;
+  await h.service.sync();
+  await h.service.sync();
+  assert.equal(h.state.toasts.length, 2);
+  assert.match(h.state.toasts[1].message, /45 分钟/);
+  assert.doesNotMatch(h.state.toasts[1].message, /30 分钟提醒上限/);
+  await h.service.setReminderMinutes('supply', []);
+  assert.equal(h.state.reminders.length, 0);
+  const restarted = harness(h.state.storage);
+  await restarted.api();
+  assert.equal(restarted.state.published.length, 0, 'preferences load even before start/sync');
+});
+
+test('adding an elapsed threshold does not send a late notification; new future stages still fire', async () => {
+  const h = harness();
+  await h.service.setReminderMinutes('repair', []);
+  await h.service.setReminderMinutes('supply', [30]);
+  await h.api();
+  h.state.now += 31 * 60000;
+  await h.service.sync();
+  assert.equal(h.state.toasts.length, 1);
+  await h.service.setReminderMinutes('supply', [15, 30, 45]);
+  assert.equal(h.state.toasts.length, 1);
+  h.state.now += 14 * 60000;
+  await h.service.sync();
+  assert.equal(h.state.toasts.length, 2);
+  assert.match(h.state.toasts[1].message, /45 分钟/);
+});
+
+test('a late return to foreground emits only the latest selected supply stage', async () => {
+  const h = harness();
+  await h.service.setReminderMinutes('repair', []);
+  await h.service.setReminderMinutes('supply', [15, 30, 45]);
+  h.state.failPublish = true;
+  await h.api();
+  h.state.now += 46 * 60000;
+  await h.service.sync();
+  await h.service.sync();
+  assert.equal(h.state.toasts.length, 1);
+  assert.equal(h.state.notifications.length, 1);
+  assert.match(h.state.toasts[0].message, /45 分钟/);
 });

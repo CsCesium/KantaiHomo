@@ -12,7 +12,8 @@ import { getSortieContext } from '../../../domain/service/sortie';
 import { formatExpeditionReturnTime } from './expeditionTime';
 import {
   HarborTimer, HarborTimerView, HarborFleet, HARBOR_TIMER_ENABLED,
-  HARBOR_TIMER_KINDS, HARBOR_INTERVAL_SUPPLY, eligibleHarborFleets, harborFlagshipKind,
+  HARBOR_TIMER_KINDS, eligibleHarborFleets, harborFlagshipKind, HarborTimerKind,
+  harborReminderMinutesKey, normalizeHarborReminderMinutes, parseHarborReminderMinutes,
 } from './harborTimer';
 
 const PREFIX = 'kchomo.harbor.';
@@ -42,6 +43,38 @@ class HarborReminderService {
   private listeners = new Set<() => void>();
   private practiceDeck = 0;
   private saved = '';
+  private repairMinutes: number[] = [20];
+  private supplyMinutes: number[] = [15, 30];
+
+  private async loadOptions(): Promise<void> {
+    this.enabled = await kvGetBool(HARBOR_TIMER_ENABLED, true);
+    this.repairMinutes = parseHarborReminderMinutes('repair', await kvGetString(harborReminderMinutesKey('repair'), ''));
+    this.supplyMinutes = parseHarborReminderMinutes('supply', await kvGetString(harborReminderMinutesKey('supply'), ''));
+    AppStorage.setOrCreate(HARBOR_TIMER_ENABLED, this.enabled);
+  }
+
+  setReminderMinutes(kind: HarborTimerKind, minutes: number[]): Promise<void> {
+    const next = normalizeHarborReminderMinutes(kind, minutes);
+    return this.enqueue(async () => {
+      await this.loadOptions();
+      const previous = kind === 'repair' ? this.repairMinutes : this.supplyMinutes;
+      await kvSet(harborReminderMinutesKey(kind), JSON.stringify(next));
+      if (kind === 'repair') this.repairMinutes = next;
+      else this.supplyMinutes = next;
+      // 新选的时刻已经过去时不补发，也不重置游戏计时起点。
+      for (const view of this.views()) {
+        if (view.kind === kind && !previous.includes(view.minutes) && view.dueAt <= Date.now()) {
+          const stage = this.engine.stage(view);
+          stage.toastShown = true;
+          stage.notificationSent = true;
+        }
+      }
+      await this.reconcile();
+      if (this.timer !== null) clearTimeout(this.timer);
+      this.timer = null;
+      this.schedule();
+    });
+  }
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
@@ -73,16 +106,14 @@ class HarborReminderService {
   }
   sync(): Promise<void> {
     return this.enqueue(async () => {
-      this.enabled = await kvGetBool(HARBOR_TIMER_ENABLED, true);
-      AppStorage.setOrCreate(HARBOR_TIMER_ENABLED, this.enabled);
+      await this.loadOptions();
       await this.reconcile();
     }).catch(() => undefined);
   }
   setEnabled(enabled: boolean): Promise<void> {
     return this.enqueue(async () => {
       await kvSet(HARBOR_TIMER_ENABLED, enabled);
-      this.enabled = enabled;
-      AppStorage.setOrCreate(HARBOR_TIMER_ENABLED, enabled);
+      await this.loadOptions();
       await this.reconcile();
     });
   }
@@ -92,6 +123,7 @@ class HarborReminderService {
     if (!/\/api_(port\/port|req_hensei\/|req_kaisou\/|req_hokyu\/|req_nyukyo\/|req_mission\/|req_map\/start|req_practice\/|get_member\/)/.test(endpoint)) return Promise.resolve();
     if (parseSvdata<HarborResponse>(dump.responseText)?.api_result !== 1) return Promise.resolve();
     return this.enqueue(async () => {
+      await this.loadOptions();
       const state = getGameState().getState();
       const key = String(state.admiral?.memberId ?? '');
       if (!key) return;
@@ -134,17 +166,20 @@ class HarborReminderService {
     const sortie = getSortieContext();
     const away = sortie ? [sortie.deckId, ...(sortie.combinedType > 0 ? [2] : [])] : [];
     if (this.practiceDeck > 0) away.push(this.practiceDeck);
-    return this.engine.views(eligibleHarborFleets(state, away));
+    return this.engine.views(eligibleHarborFleets(state, away), this.repairMinutes, this.supplyMinutes);
   }
   notification(): HarborNotification | null {
     const now = Date.now();
-    // After the first supply threshold, show the 30-minute target without restarting the clock.
-    const views = this.views().filter(view => view.kind !== 'supply' ||
-      view.finalSupply === (now >= view.startedAt + HARBOR_INTERVAL_SUPPLY));
+    const all = this.views();
+    const views = all.filter(view => {
+      const sameKind = all.filter(item => item.kind === view.kind);
+      const next = sameKind.find(item => item.dueAt > now) ?? sameKind[sameKind.length - 1];
+      return view.minutes === next.minutes;
+    });
     if (views.length === 0) return null;
     const first = views[0];
     return {
-      title: `${first.kind === 'repair' ? '维修' : '给粮'}：${first.dueAt <= now ? '可回港' : formatExpeditionReturnTime(first.dueAt)}（${first.flagship}${first.kind === 'supply' ? (first.finalSupply ? ' · 30分' : ' · 15分') : ''}）`,
+      title: `${first.kind === 'repair' ? '维修' : '给粮'}：${first.dueAt <= now ? '可回港' : formatExpeditionReturnTime(first.dueAt)}（${first.flagship} · ${first.minutes}分）`,
     };
   }
   private async save(): Promise<void> {
@@ -153,7 +188,9 @@ class HarborReminderService {
     if (value !== this.saved) { await kvSet(`alerts.harbor.clock.${this.account}`, value); this.saved = value; }
   }
   private group(view: HarborTimerView): string {
-    return `${PREFIX}${this.account}.${view.kind}.${view.startedAt}${view.finalSupply ? '.30' : ''}`;
+    const suffix = view.finalSupply ? '.30' :
+      (view.minutes === (view.kind === 'repair' ? 20 : 15) ? '' : `.m${view.minutes}`);
+    return `${PREFIX}${this.account}.${view.kind}.${view.startedAt}${suffix}`;
   }
   private async cancel(id: number): Promise<void> {
     try { await calendarReminder.cancelReminder(id); }
@@ -180,6 +217,7 @@ class HarborReminderService {
       if (clock && !views.some(view => view.kind === kind)) {
         clock.systemScheduled = false;
         if (clock.supplyFinal) clock.supplyFinal.systemScheduled = false;
+        clock.extraStages?.forEach(stage => { stage.systemScheduled = false; });
       }
     }
     const processed = new Set<string>();
@@ -191,8 +229,9 @@ class HarborReminderService {
       processed.add(group);
       if (kept.has(group)) clock.systemScheduled = true;
       const label = kind === 'repair' ? '明石维修' : '野埼给粮';
-      const body = `${views.filter(item => item.kind === kind && item.finalSupply === view.finalSupply).map(item => `第${item.deckId}舰队`).join('、')}已等待 ${(view.dueAt - view.startedAt) / 60000} 分钟，可回母港${kind === 'repair' ? '泊地维修' : '士气提升'}。${view.finalSupply ? '已达到本轮 30 分钟提醒上限，士气恢复上限为 54。' : ''}`;
-      const id = kind === 'repair' ? 4300 : (view.finalSupply ? 4302 : 4301);
+      const body = `${views.filter(item => item.kind === kind && item.minutes === view.minutes).map(item => `第${item.deckId}舰队`).join('、')}已等待 ${view.minutes} 分钟，可回母港${kind === 'repair' ? '泊地维修' : '士气提升'}。${kind === 'supply' ? '士气恢复上限为 54。' : ''}`;
+      const id = view.finalSupply ? 4302 : (kind === 'repair' ?
+        (view.minutes === 20 ? 4300 : 4400 + view.minutes) : (view.minutes === 15 ? 4301 : 4500 + view.minutes));
       if (view.dueAt > Date.now() && !kept.has(group) && permission) {
         const date = new Date(Math.ceil(view.dueAt / 1000) * 1000);
         const request: reminderAgentManager.ReminderRequestCalendar = {
@@ -206,8 +245,8 @@ class HarborReminderService {
         catch (error) { console.warn('[HarborReminder] publish failed:', String(error)); }
       }
       if (view.dueAt <= Date.now()) {
-        // A delayed foreground sync should report the latest threshold, not burst both supply toasts.
-        if (kind === 'supply' && !view.finalSupply && Date.now() >= view.startedAt + 2 * HARBOR_INTERVAL_SUPPLY) {
+        // 恢复前台时，每类只补当前已到达的最新勾选档位。
+        if (views.some(item => item.kind === kind && item.dueAt > view.dueAt && item.dueAt <= Date.now())) {
           clock.toastShown = true;
           clock.notificationSent = true;
           continue;

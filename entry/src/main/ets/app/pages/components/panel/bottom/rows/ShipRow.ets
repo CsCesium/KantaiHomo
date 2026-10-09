@@ -28,6 +28,7 @@ export default struct ShipRow {
     exSlot: 0, exSlotMasterId: 0, exSlotType: 0, exSlotIconType: 0, exSlotLevel: 0, exSlotAlv: 0,
   };
   @Param isFlag: boolean = false;
+  @Param showResupplyAlert: boolean = false;
   @Param specialAttacks: string[] = [];
 
   @Param showAvatar: boolean = true;
@@ -76,7 +77,7 @@ export default struct ShipRow {
 
         // 中列：HP / 状态 / 进度条
         Row() {
-          ShipStatusBlock({ ship: this.ship })
+          ShipStatusBlock({ ship: this.ship, showResupplyAlert: this.showResupplyAlert })
         }
         .layoutWeight(3)
         .constraintSize({ minWidth: 0 })

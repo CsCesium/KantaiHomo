@@ -6,6 +6,7 @@ import { getShipStatusText, getShipStatusColor, rangeLabel } from './shipHelpers
 /** 中列：HP 数值 / 状态文字 / HP 进度条。 */
 @ComponentV2
 export default struct ShipStatusBlock {
+  @Param showResupplyAlert: boolean = false;
   @Param ship: ShipItem = {
     id: 0, masterId: 0, name: '', shipType: '', level: 0,
     expToNext: 0,
@@ -45,6 +46,15 @@ export default struct ShipStatusBlock {
           .fontColor(getShipStatusColor(this.ship))
           .maxLines(1)
           .textAlign(TextAlign.End)
+
+        if (this.showResupplyAlert && this.ship.fuelMax > 0 &&
+            (this.ship.s2 < this.ship.fuelMax || this.ship.s3 < this.ship.ammoMax)) {
+          Image('resource://RAWFILE/icons/common/给.gif')
+            .width(12)
+            .height(12)
+            .objectFit(ImageFit.Contain)
+            .margin({ left: 3 })
+        }
 
         if (this.rangeText().length > 0) {
           Text(this.rangeText())

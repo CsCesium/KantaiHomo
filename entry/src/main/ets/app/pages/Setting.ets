@@ -25,7 +25,10 @@ import {
   formatCalendarDuration,
   normalizeCalendarDurationMinutes,
 } from '../../features/alerts/module/calendarOptions';
-import { HARBOR_TIMER_ENABLED } from '../../features/alerts/module/harborTimer';
+import {
+  HARBOR_TIMER_ENABLED, HARBOR_REPAIR_MINUTES, HARBOR_SUPPLY_MINUTES, HarborTimerKind,
+  harborReminderMinutesKey, normalizeHarborReminderMinutes, parseHarborReminderMinutes,
+} from '../../features/alerts/module/harborTimer';
 import { RefreshReminderKind, REFRESH_REMINDER_STATUS } from '../../features/alerts/module/refreshSchedule';
 import { getExpeditionLiveNotificationService } from '../../features/alerts/module/expeditionNotification';
 import { GAME_SIZE_DEFAULT_PERCENT, GAME_SIZE_MAX_PERCENT, GAME_SIZE_MIN_PERCENT, GAME_SIZE_STEP_PERCENT, normalizeGameSizePercent } from '../../infra/web/layout/gameSize';
@@ -104,6 +107,26 @@ struct Setting {
   @State private calendarReminderBusy: boolean = false;
   @State private calendarImportant: boolean = CALENDAR_IMPORTANT_DEFAULT;
   @State private calendarDurationMinutes: number = CALENDAR_DURATION_DEFAULT_MINUTES;
+  @State private harborRepairMinutes: number[] = [20];
+  @State private harborSupplyMinutes: number[] = [15, 30];
+  @State private harborMinutesBusy: boolean = false;
+  @State private harborMinutesError: string = '';
+
+  private async onHarborMinuteToggle(kind: HarborTimerKind, minute: number, checked: boolean): Promise<void> {
+    if (this.harborMinutesBusy) return;
+    const current = kind === 'repair' ? this.harborRepairMinutes : this.harborSupplyMinutes;
+    const next = normalizeHarborReminderMinutes(kind,
+      checked ? [...current, minute] : current.filter(value => value !== minute));
+    this.harborMinutesBusy = true;
+    this.harborMinutesError = '';
+    try {
+      await getHarborReminderService().setReminderMinutes(kind, next);
+      if (kind === 'repair') this.harborRepairMinutes = next;
+      else this.harborSupplyMinutes = next;
+    } catch (error) {
+      this.harborMinutesError = `提醒档位设置失败：${(error as Error).message}`;
+    } finally { this.harborMinutesBusy = false; }
+  }
 
   private async authorizeCalendarReminders(): Promise<void> {
     if (this.calendarReminderBusy) return;
@@ -216,6 +239,8 @@ struct Setting {
       kvGetBool('alerts.toast.powerup.enabled', true),
       kvGetBool(CALENDAR_IMPORTANT_KEY, CALENDAR_IMPORTANT_DEFAULT),
       kvGetNumber(CALENDAR_DURATION_KEY, CALENDAR_DURATION_DEFAULT_MINUTES),
+      kvGetString(harborReminderMinutesKey('repair'), ''),
+      kvGetString(harborReminderMinutesKey('supply'), ''),
     ]);
     this.homeUrl = results[0] as string;
     this.userAgent = results[1] as string;
@@ -231,6 +256,8 @@ struct Setting {
     this.powerupResultToastEnabled = results[11] as boolean;
     this.calendarImportant = results[12] as boolean;
     this.calendarDurationMinutes = normalizeCalendarDurationMinutes(results[13] as number);
+    this.harborRepairMinutes = parseHarborReminderMinutes('repair', results[14] as string);
+    this.harborSupplyMinutes = parseHarborReminderMinutes('supply', results[15] as string);
     this.configDirty = false;
     this.accountDirty = false;
   }
@@ -700,6 +727,41 @@ struct Setting {
   }
 
   @Builder
+  private HarborReminderMinutesRow(kind: HarborTimerKind) {
+    Column({ space: 8 }) {
+      Text(kind === 'repair' ? '明石维修提醒档位' : '野埼给粮提醒档位')
+        .fontSize(15)
+        .fontColor('#A09080')
+      Text(kind === 'repair' ? '20 分钟后可回港维修；取消勾选则不提醒' :
+        '每 15 分钟一个有效提升档位，可多选；全部取消则不提醒')
+        .fontSize(12)
+        .fontColor('#667888')
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(kind === 'repair' ? HARBOR_REPAIR_MINUTES : HARBOR_SUPPLY_MINUTES, (minute: number) => {
+          Row({ space: 4 }) {
+            Checkbox()
+              .select((kind === 'repair' ? this.harborRepairMinutes : this.harborSupplyMinutes).includes(minute))
+              .selectedColor('#6A9AB5')
+              .width(18)
+              .height(18)
+              .onChange((checked: boolean) => { void this.onHarborMinuteToggle(kind, minute, checked); })
+            Text(`${minute} 分钟`).fontSize(13).fontColor('#90B0C0')
+          }
+          .height(36)
+          .margin({ right: 12 })
+        }, (minute: number) => `${kind}-${minute}`)
+      }
+      .enabled(!this.harborMinutesBusy)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .padding(16)
+    .backgroundColor('#0C1420')
+    .borderRadius(10)
+    .border({ width: 1, color: '#15202C' })
+  }
+
+  @Builder
   private CompactGameSizeRow() {
     Column({ space: 10 }) {
       Row() {
@@ -1140,9 +1202,14 @@ struct Setting {
               this.harborTimerEnabled, (v: boolean) => {
                 void getHarborReminderService().setEnabled(v).catch((error: Error) => { console.warn('[Setting] harbor timer:', String(error)); });
               })
+            this.HarborReminderMinutesRow('repair')
+            this.HarborReminderMinutesRow('supply')
+            if (this.harborMinutesError) {
+              Text(this.harborMinutesError).fontSize(12).fontColor('#FF9F43')
+            }
             this.ToggleRow(
               '远征后台提醒',
-              '按归来时刻登记日历提醒，关闭应用后由系统日历通知',
+              '归来前 1 分钟由系统日历提醒，关闭应用后仍可通知',
               this.expeditionReminderEnabled,
               (v: boolean) => { this.onExpeditionReminderToggle(v); }
             )

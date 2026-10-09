@@ -266,6 +266,7 @@ export default struct FloatOverlayPanel {
   @Local showProficiency: boolean = true;
   /** Show ship avatar/remodel banner; mirrors AppStorage setting. */
   @Local showAvatar: boolean = true;
+  @Local inSortie: boolean = false;
 
   private unsubscribe: (() => void) | null = null;
   private calcStatsSeq: number = 0;
@@ -302,6 +303,7 @@ export default struct FloatOverlayPanel {
   }
 
   private loadState(preferStrikingForce: boolean = false): void {
+    this.inSortie = getSortieContext() !== null;
     const manager = getGameState();
     const st = manager.getState();
     const admiral = st.admiral;
@@ -907,6 +909,7 @@ export default struct FloatOverlayPanel {
             ForEach(this.ships, (ship: ShipItem, idx: number) => {
               ShipRow({
                 ship,
+                showResupplyAlert: !this.inSortie,
                 isFlag: idx === 0,
                 specialAttacks: this.specialAttacks,
                 showAvatar: this.showAvatar,
