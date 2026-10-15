@@ -40,22 +40,6 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
       // === 统一发送函数（不假设返回 Promise）===
       function __sendToHost(payload){
         try{
-          var NAME='${channelName}', M='${postMethod}', host=window[NAME];
-          if (host && typeof host[M] === 'function') {
-            try { host[M](payload); console.debug('[bridge][post] ok'); return true; } catch(e){ console.warn('[bridge][post] error', e); }
-          }
-          if (host && typeof host.postAsync === 'function') {
-            try {
-              var r = host.postAsync(payload);
-              if (r && typeof r.then === 'function') {
-                r.then(function(){ console.debug('[bridge][postAsync] ok'); })
-                 .catch(function(e){ console.warn('[bridge][postAsync] fail', e); });
-              } else {
-                console.debug('[bridge][postAsync] called (non-promise)');
-              }
-              return true;
-            } catch(e){ console.warn('[bridge][postAsync] error', e); }
-          }
           if (typeof window.__hm_send === 'function') {
             try { window.__hm_send(payload); console.debug('[bridge][queue] enqueue'); return true; } catch(e){ console.warn('[bridge][queue] error', e); }
           }
@@ -76,6 +60,7 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
 
           return _fetch(input, init).then(function(res){
             try {
+              if (res.status < 200 || res.status >= 300) return res;
               if (!__isTextLike(res.headers)) return res;
               var clone = res.clone();
               return clone.text().then(function(text){
@@ -85,6 +70,7 @@ export function hookFetchSnippet(channelName: string, postMethod: string, apiFil
                 console.debug('[hook-fetch]', method, res.status, url);
 
                 var payload = JSON.stringify({
+                  type: 'API_DUMP',
                   ts: Date.now(),
                   kind: 'fetch',
                   url: url,

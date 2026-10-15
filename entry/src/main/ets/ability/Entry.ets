@@ -36,6 +36,7 @@ import {
 import { loadEquipmentClassification } from '../features/panel/equipmentClassification';
 import { APP_STORAGE_SHIP_MODS_ENABLED } from '../features/shipMods/model';
 import { initShipMods } from '../features/shipMods/store';
+import { notifyWebHostPageVisible } from '../infra/web/pageVisibility';
 
 const HILOG_DOM: number = 0x1357;
 
@@ -323,6 +324,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
+    notifyWebHostPageVisible();
     getHarborReminderService().setForeground(true);
     void getRefreshReminderService().sync();
     void getExpeditionLiveNotificationService().refresh(true);

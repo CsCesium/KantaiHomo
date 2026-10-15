@@ -747,6 +747,8 @@ export default struct WebHost {
     this.observeFoldStatus();
     this.host.setAdvanceWarningHandler((msg: string) => { this.showAdvanceWarningDialog(msg); });
     this.unregisterPageVisible = registerWebHostPageVisibleHandler(() => {
+      this.host.resumeBridge();
+      this.refreshBattlePreviewState();
       this.restoreVisibleWindowState(true);
       this.applyWebAudioMuteState();
     });

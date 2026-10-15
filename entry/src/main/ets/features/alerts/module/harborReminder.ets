@@ -122,10 +122,13 @@ class HarborReminderService {
     const endpoint = dump.url.match(/(\/api_[^?#]+)/)?.[1] ?? '';
     if (!/\/api_(port\/port|req_hensei\/|req_kaisou\/|req_hokyu\/|req_nyukyo\/|req_mission\/|req_map\/start|req_practice\/|get_member\/)/.test(endpoint)) return Promise.resolve();
     if (parseSvdata<HarborResponse>(dump.responseText)?.api_result !== 1) return Promise.resolve();
+    // Capture the API's fleet and timestamp before calendar work can delay it.
+    const key = String(getGameState().getState().admiral?.memberId ?? '');
+    const now = Date.now();
+    const current = harborFlagships();
+    const params = parseFormBody(dump.requestBody);
     return this.enqueue(async () => {
       await this.loadOptions();
-      const state = getGameState().getState();
-      const key = String(state.admiral?.memberId ?? '');
       if (!key) return;
       if (key !== this.account) {
         this.account = key; this.confirmed = false; this.practiceDeck = 0;
@@ -135,9 +138,6 @@ class HarborReminderService {
       }
       const isPort = endpoint === '/api_port/port';
       if (!isPort && !this.confirmed) return;
-      const now = Date.now();
-      const current = harborFlagships();
-      const params = parseFormBody(dump.requestBody);
       this.engine.observe(current.map(fleet => fleet.kind), now);
       if (isPort) {
         this.confirmed = true; this.practiceDeck = 0;

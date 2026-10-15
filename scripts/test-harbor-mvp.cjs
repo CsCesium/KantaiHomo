@@ -184,6 +184,24 @@ test('formation change restarts the relevant shared timer but presets, failed re
   assert.equal(h.state.cancelled.length,1);
 });
 
+test('API clock updates keep their original fleet and time while calendar work is delayed', async () => {
+  const h = harness();
+  await h.api();
+  const capturedAt = h.state.now + 60000;
+  h.state.now = capturedAt;
+  let release;
+  h.service.tail = new Promise(resolve => { release = resolve; });
+  // The API succeeded with Akashi present; the next fleet edit removes her
+  // before slow calendar IPC lets this operation execute.
+  const update = h.api('/api_req_hensei/change', 'api_id=1&api_ship_id=2');
+  h.state.game.decks[0].shipUids = [2];
+  h.state.now += 5 * 60000;
+  release();
+  await update;
+  const clocks = JSON.parse(h.state.storage.get('alerts.harbor.clock.101'));
+  assert.equal(clocks.find(clock => clock.kind === 'repair').startedAt, capturedAt);
+});
+
 test('disable cancels only harbor timers; persisted clocks and toast markers survive restart',async()=>{
   const h=harness();await h.api();h.state.now+=15*60000;await h.service.sync();
   const saved=h.state.storage.get('alerts.harbor.clock.101');assert.ok(JSON.parse(saved).find(c=>c.kind==='supply').toastShown);

@@ -47,6 +47,22 @@ import { parseFormBody } from '../../../utils/common';
 
 const HEAVY_THRESHOLD: number = 256 * 1024         // >=256KB to TaskPool
 const WORKER_MAX_INPUT: number = 14 * 1024 * 1024  // 16MB
+const WORKER_TIMEOUT_MS: number = 3000;
+
+async function parseHeavyDump(dump: ApiDump): Promise<ParseResult> {
+  let timeoutId: number = -1;
+  try {
+    const timeout = new Promise<ParseResult>((_resolve, reject) => {
+      timeoutId = setTimeout(() => { reject(new Error('parser worker timed out')); }, WORKER_TIMEOUT_MS);
+    });
+    return await Promise.race([
+      taskpool.execute(parseDumpInWorker, dump.url ?? '', dump.requestBody ?? '', dump.responseText ?? '') as Promise<ParseResult>,
+      timeout,
+    ]);
+  } finally {
+    if (timeoutId >= 0) clearTimeout(timeoutId);
+  }
+}
 
 interface ApiResponseProbeData {
   api_material?: object[];
@@ -296,10 +312,16 @@ function patchPanelStateFromKaisouRequest(dump: ApiDump): void {
 export async function ingestDump(dump: ApiDump, deps: PersistDeps): Promise<void> {
   const before = harborFlagships();
   await ingestDumpCore(dump, deps);
-  await getHarborReminderService().afterApi(dump, before);
+  // Calendar IPC can stall while the application is backgrounded. The reminder
+  // service owns its ordering; it must not hold up the next game-state packet.
+  void getHarborReminderService().afterApi(dump, before).catch((error: Error) => {
+    console.warn('[ingest] harbor reminder failed:', String(error));
+  });
 }
 
 async function ingestDumpCore(dump: ApiDump, deps: PersistDeps): Promise<void> {
+  // Failed/offline responses must not clear a valid fleet or battle snapshot.
+  if (!isSuccessfulApiResponse(dump.responseText)) return;
   const size: number = totalSize(dump)
 
   try {
@@ -397,13 +419,9 @@ async function ingestDumpCore(dump: ApiDump, deps: PersistDeps): Promise<void> {
     }
   } else if (size >= HEAVY_THRESHOLD) {
     try {
-      result = await taskpool.execute(
-        parseDumpInWorker,
-        dump.url ?? '',
-        dump.requestBody ?? '',
-        dump.responseText ?? ''
-      ) as ParseResult
+      result = await parseHeavyDump(dump)
     } catch (e) {
+      console.warn('[persist] worker unavailable, parsing on main thread:', String(e));
       // worker failed：backward to MainThread
       try {
         result = parseDump(dump)

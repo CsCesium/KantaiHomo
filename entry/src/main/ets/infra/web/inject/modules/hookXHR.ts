@@ -45,10 +45,9 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
 
       function __sendToHost(payload){
         try{
-          var NAME='${channelName}', M='${postMethod}', host=window[NAME];
-          if (host && typeof host[M] === 'function') {
-            try { host[M](payload); console.debug('[bridge][post] ok'); return true; }
-            catch(e){ console.warn('[bridge][post] error', e); return false; }
+          if (typeof window.__hm_send === 'function') {
+            window.__hm_send(payload);
+            return true;
           }
           // fallback：stash queue
           (window.__hm_q = window.__hm_q || []).push(payload);
@@ -72,11 +71,14 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
         var xhr = this;
         try { if (xhr.__kc) xhr.__kc.reqRaw = __parseReqRaw(body); } catch(e){}
 
-        xhr.addEventListener('readystatechange', function(){
+        var request = xhr.__kc;
+        var completed = function(){
           try {
             if (xhr.readyState !== 4) return;
+            xhr.removeEventListener('readystatechange', completed);
+            if (xhr.status < 200 || xhr.status >= 300) return;
 
-            var url = xhr.responseURL || (xhr.__kc && xhr.__kc.u) || '';
+            var url = xhr.responseURL || (request && request.u) || '';
             if (!url) return;
 
             var ok = (!(${filterExp}).test ? (url.indexOf(${filterExp}) !== -1) : (${filterExp}).test(url));
@@ -84,7 +86,7 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
 
             if (__shouldSkip(url)) return;
 
-            var reqRaw = (xhr.__kc && xhr.__kc.reqRaw) ? xhr.__kc.reqRaw : '';
+            var reqRaw = (request && request.reqRaw) ? request.reqRaw : '';
             if (reqRaw.length > MAX_REQ_LEN) reqRaw = ''; // 太大也不传
 
             var text = (typeof xhr.responseText === 'string') ? xhr.responseText : '';
@@ -97,7 +99,7 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
 
             var resp = __stripSvdata(text);
 
-            console.debug('[hook-xhr]', (xhr.__kc && xhr.__kc.m) || 'GET', xhr.status, url);
+            console.debug('[hook-xhr]', (request && request.m) || 'GET', xhr.status, url);
 
             var dump = JSON.stringify({
               type: 'API_DUMP',
@@ -106,10 +108,11 @@ export function hookXhrSnippet(channelName: string, postMethod: string, apiFilte
               responseText: resp
             });
 
-            setTimeout(function(){ __sendToHost(dump); }, 0);
+            __sendToHost(dump);
 
           } catch(e) {}
-        });
+        };
+        xhr.addEventListener('readystatechange', completed);
 
         return send.apply(this, arguments);
       };

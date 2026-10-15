@@ -1,44 +1,71 @@
 export function bridgeSnippet(channelName: string, postMethod: string) {
   return `
   (function(){
-    // - proxy 未就绪：消息进队 window.__hm_q
-    // - proxy 就绪：flush 队列并后续直发
     window.__safeInject('bridge', function(){
       var NAME='${channelName}', M='${postMethod}';
-      if (!Array.isArray(window.__hm_q)) { window.__hm_q = []; }
-
-      // 单点发送：优先走 JSProxy；未就绪则排队
+      var q = window.__hm_q = window.__hm_q || [];
+      var sequence = 0, session = Date.now().toString(36) + Math.random().toString(36).slice(2);
+      var timer = null, flushing = false;
+      function schedule(){
+        if (timer !== null || !q.length) return;
+        timer = setTimeout(function(){ timer = null; window.__hm_flush(); }, 500);
+      }
+      function prepare(msg){
+        try {
+          var packet = JSON.parse(msg);
+          if (packet && typeof packet.url === 'string' && typeof packet.responseText === 'string') {
+            packet.type = 'API_DUMP';
+            if (!packet.trace) packet.trace = session + ':' + (++sequence);
+            return JSON.stringify(packet);
+          }
+        } catch(e){}
+        return msg;
+      }
       window.__hm_send = function(msg){
-        try{
-          var ok = window[NAME] && typeof window[NAME][M] === 'function';
-          if (ok) { window[NAME][M](msg); return; }
-          window.__hm_q.push(msg);
-          console.debug('[bridge] queued', window.__hm_q.length);
-        }catch(e){}
+        try { msg = prepare(msg); } catch(e){}
+        q.push(msg);
+        window.__hm_flush();
       };
-
-      // flush
+      window.__hm_ack = function(trace){
+        if (!q.length) return;
+        try {
+          if (JSON.parse(q[0]).trace !== trace) return;
+          q.shift();
+          if (timer !== null) clearTimeout(timer);
+          timer = setTimeout(function(){ timer = null; window.__hm_flush(); }, 0);
+        } catch(e){}
+      };
       window.__hm_flush = function(){
-        try{
-          var ok = window[NAME] && typeof window[NAME][M] === 'function';
-          if (!ok) return;
-          var q = window.__hm_q; window.__hm_q = [];
-          console.debug('[bridge] flushing', q.length);
-          for (var i=0;i<q.length;i++){ try{ window[NAME][M](q[i]); }catch(e){} }
-          console.log('[bridge] proxy-ready; delivered=', q.length);
-        }catch(e){}
+        if (flushing || !q.length) return;
+        flushing = true;
+        try {
+          var host = window[NAME];
+          if (!host || typeof host[M] !== 'function') return;
+          // Later responses must never overtake a stalled port/battle/fleet update.
+          while (q.length) {
+            var msg = prepare(q[0]);
+            q[0] = msg;
+            var api = false;
+            try {
+              var packet = JSON.parse(msg);
+              api = packet && typeof packet.url === 'string' && typeof packet.responseText === 'string';
+            } catch(e){}
+            host[M](msg);
+            if (api) break;
+            q.shift();
+          }
+        } catch(e) {
+          console.warn('[bridge] delivery deferred:', String(e));
+        } finally {
+          flushing = false;
+          schedule();
+        }
       };
-
-      // 轮询探测 proxy
-      (function poll(){
-        try{
-          var ok = window[NAME] && typeof window[NAME][M] === 'function';
-          if (ok) { window.__hm_flush(); return; }
-        }catch(e){}
-        setTimeout(poll, 200);
-      })();
-
-      console.log('[bridge] installed (queue mode)');
+      document.addEventListener('visibilitychange', function(){ if (!document.hidden) window.__hm_flush(); });
+      window.addEventListener('pageshow', function(){ window.__hm_flush(); });
+      window.addEventListener('online', function(){ window.__hm_flush(); });
+      window.__hm_flush();
+      console.log('[bridge] installed (ordered retry mode)');
     });
   })();`;
 }

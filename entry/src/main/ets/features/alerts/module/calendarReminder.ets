@@ -26,11 +26,6 @@ function owned(group: string): boolean {
   return group.startsWith('kchomo.expedition.') || group.startsWith('kchomo.refresh.v1.') || group.startsWith('kchomo.harbor.');
 }
 
-/** 仅远征提前一分钟；其他日程在业务指定的时刻提醒。 */
-function reminderLeadMinutes(group: string): number {
-  return group.startsWith('kchomo.expedition.') ? 1 : 0;
-}
-
 function decode(event: calendarManager.Event): reminderAgentManager.ReminderInfo | null {
   const identifier = event.identifier ?? '';
   if (!identifier.startsWith(IDENTIFIER) || event.id === undefined) return null;
@@ -206,12 +201,11 @@ class CalendarReminderService {
       if (!info) return;
       const type = this.eventType();
       const endTime = event.startTime + calendarDurationMs(this.durationMinutes);
-      const lead = reminderLeadMinutes(info.reminderReq.groupId ?? '');
       if (event.type === type && event.endTime === endTime &&
-          event.reminderTime?.length === 1 && event.reminderTime[0] === lead) return;
+          event.reminderTime?.length === 1 && event.reminderTime[0] === 0) return;
       event.type = type;
       event.endTime = endTime;
-      event.reminderTime = [lead];
+      event.reminderTime = [0];
       await calendar.updateEvent(event);
       console.info(`[CalendarReminder] migrated event=${eventId}, type=${type}, end=${endTime}`);
     } catch (error) {
@@ -243,7 +237,7 @@ class CalendarReminderService {
         type: this.eventType(), title: request.title ?? '舰队提醒',
         description: request.content ?? '', startTime,
         endTime: startTime + calendarDurationMs(this.durationMinutes),
-        isAllDay: false, reminderTime: [reminderLeadMinutes(group)], identifier,
+        isAllDay: false, reminderTime: [0], identifier,
       };
       if (request.daysOfWeek && request.daysOfWeek.length > 0) {
         if (request.daysOfWeek.length !== 7) throw new Error('不支持的重复提醒规则');

@@ -92,7 +92,7 @@ test('calendar queries omit optional arguments and reminders recover after resta
   assert.equal(rows.length,1);assert.equal(rows[0].reminderReq.groupId,request().groupId);
   assert.equal(rows[0].reminderReq.content,request().content);
   await restarted.service.publishReminder(request());assert.equal(h.state.events.length,1);
-  assert.deepEqual(h.state.events[0].reminderTime,[1]);
+  assert.deepEqual(h.state.events[0].reminderTime,[0]);
   assert.equal(h.state.events[0].startTime,new Date(2026,8,20,11,0,15).getTime());
 });
 
@@ -121,7 +121,7 @@ test('denied permission never creates events or prompts during background synchr
   assert.equal(h.state.created,0);assert.equal(h.state.events.length,0);
 });
 
-test('only expeditions lead by one minute, including repair of existing calendar reminders', async () => {
+test('reminders fire at the target time and existing expedition lead times are corrected in place', async () => {
   for (const important of [false, true]) {
     const h = harness();
     await h.service.setImportant(important);
@@ -131,13 +131,13 @@ test('only expeditions lead by one minute, including repair of existing calendar
     for (const group of groups) await h.service.publishReminder(request(group));
     const starts = h.state.events.map(event => event.startTime);
     h.state.events.forEach((event, index) => {
-      assert.deepEqual(event.reminderTime, [index === 0 ? 1 : 0]);
-      event.reminderTime = [1, 5]; // stale native event; duration and type are already current
+      assert.deepEqual(event.reminderTime, [0]);
+      event.reminderTime = index === 0 ? [1] : [1, 5]; // old expedition lead; current duration and type
     });
     await h.service.getAllValidReminders();
     assert.equal(h.state.events.length, groups.length);
     h.state.events.forEach((event, index) => {
-      assert.deepEqual(event.reminderTime, [index === 0 ? 1 : 0]);
+      assert.deepEqual(event.reminderTime, [0]);
       assert.equal(event.startTime, starts[index]);
     });
     const updates = h.state.updated.length;
@@ -189,7 +189,7 @@ test('new events default to a 30-minute normal reminder and clamp the configured
   await h.service.publishReminder(request());
   assert.equal(h.state.events[0].endTime - h.state.events[0].startTime, 30 * 60000);
   assert.equal(h.state.events[0].type, 0);
-  assert.deepEqual(h.state.events[0].reminderTime, [1]);
+  assert.deepEqual(h.state.events[0].reminderTime, [0]);
 });
 
 test('important reminders and a custom duration apply to newly registered events', async () => {
@@ -259,7 +259,7 @@ test('business sync updates retained future reminders without publishing them ag
     assert.equal(event.startTime, starts[index]);
     assert.equal(event.endTime - event.startTime, 120 * 60000);
     assert.equal(event.type, 1);
-    assert.deepEqual(event.reminderTime, [index === 0 ? 1 : 0]);
+    assert.deepEqual(event.reminderTime, [0]);
   });
   await h.service.getAllValidReminders();
   assert.equal(h.state.updated.length, 3, 'unchanged settings do not rewrite events');

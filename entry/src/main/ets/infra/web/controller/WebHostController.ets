@@ -60,6 +60,7 @@ export class WebHostController {
   private persistQ: ApiDump[] = [];
   private persistDraining: boolean = false;
   private readonly MAX_PERSIST_Q: number = 60;
+  private acceptedTraces: Set<string> = new Set();
 
   private ackQ: string[] = [];
   private ackDraining: boolean = false;
@@ -156,6 +157,17 @@ export class WebHostController {
     this.pushFitStrong(f.policy, f.locked, f.viewportW, f.viewportH);
   }
 
+  resumeBridge(): void {
+    try {
+      void this.ctl.runJavaScript("try{ if(typeof window.__hm_flush==='function') window.__hm_flush(); }catch(e){}")
+        .catch((e: Error) => {
+          hilog.warn(HILOG_DOM, 'Bridge', '[resume] flush failed: %{public}s', String(e));
+        });
+    } catch (e) {
+      hilog.warn(HILOG_DOM, 'Bridge', '[resume] flush failed: %{public}s', String(e));
+    }
+  }
+
   bindDisplay(): void {
     const cb = (_id: number): void => {
       const f: FitGetter = this.getFit();
@@ -222,11 +234,19 @@ export class WebHostController {
       const traceId = this.extractTraceId(raw);
       hilog.info(HILOG_DOM, 'Bridge', '[RX] trace=%{public}s bytes=%{public}d', traceId, raw.length);
 
-      if (traceId.length > 0) {
+      if (traceId.length > 0 && this.acceptedTraces.has(traceId)) {
         this.enqueueAck(traceId);
+        return;
       }
 
-      this.enqueuePersist(msg);
+      if (this.enqueuePersist(msg) && traceId.length > 0) {
+        this.acceptedTraces.add(traceId);
+        if (this.acceptedTraces.size > 2000) {
+          const oldest = this.acceptedTraces.values().next();
+          if (!oldest.done) this.acceptedTraces.delete(oldest.value);
+        }
+        this.enqueueAck(traceId);
+      }
     }
 
     // FPS/PING 等其他消息暂不处理
@@ -338,10 +358,10 @@ export class WebHostController {
     this.ctl.runJavaScript?.(js);
   }
 
-  private enqueuePersist(dump: ApiDump): void {
+  private enqueuePersist(dump: ApiDump): boolean {
     if (this.persistQ.length >= this.MAX_PERSIST_Q) {
-      this.persistQ.shift();
-      hilog.warn(HILOG_DOM, 'Bridge', '[persist] queue overflow, drop oldest');
+      hilog.warn(HILOG_DOM, 'Bridge', '[persist] queue full, defer delivery');
+      return false;
     }
     this.persistQ.push(dump);
 
@@ -349,27 +369,34 @@ export class WebHostController {
       this.persistDraining = true;
       setTimeout(() => { void this.drainPersistQueue(); }, 0);
     }
+    return true;
   }
 
   private async drainPersistQueue(): Promise<void> {
     try {
       while (this.persistQ.length > 0) {
+        const deps = getPersistDeps();
+        if (deps === null) return;
         const dump = this.persistQ.shift()!;
+        const startedAt = Date.now();
 
         try {
-          const deps = getPersistDeps();
-          if (deps === null) continue;
-
           await ingestDump(dump, deps);
         } catch (e) {
           hilog.error(HILOG_DOM, 'Bridge', '[persist] ingest failed: %{public}s', String(e));
+        }
+        const elapsed = Date.now() - startedAt;
+        if (elapsed > 1000) {
+          const endpoint = dump.url.match(/(\/api_[^?#]+)/)?.[1] ?? '';
+          hilog.warn(HILOG_DOM, 'Bridge', '[persist] slow endpoint=%{public}s ms=%{public}d pending=%{public}d',
+            endpoint, elapsed, this.persistQ.length);
         }
       }
     } finally {
       this.persistDraining = false;
       if (this.persistQ.length > 0) {
         this.persistDraining = true;
-        setTimeout(() => { void this.drainPersistQueue(); }, 0);
+        setTimeout(() => { void this.drainPersistQueue(); }, 200);
       }
     }
   }
@@ -405,7 +432,12 @@ export class WebHostController {
           + "}"
           + "}catch(e){}"
 
-      this.ctl.runJavaScript?.(js)
+      void this.ctl.runJavaScript(js).catch((e: Error) => {
+        hilog.warn(HILOG_DOM, 'Bridge', '[ack] delivery failed: %{public}s', String(e));
+      });
+    } catch (e) {
+      // The sender retains the packet until it sees an ACK and will retry it.
+      hilog.warn(HILOG_DOM, 'Bridge', '[ack] delivery failed: %{public}s', String(e));
     } finally {
       this.ackDraining = false
       if (this.ackQ.length > 0) {
