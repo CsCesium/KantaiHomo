@@ -13,7 +13,7 @@ This is an unofficial project and is not affiliated with DMM, C2, or KADOKAWA.
 
 - HarmonyOS app for phone, tablet, and 2in1 devices.
 - Bundle name: `io.github.cesium.kchomo`.
-- Current configured app version: `1.1.2`.
+- Current configured app version: `1.1.3`.
 - Default game URL: `https://play.games.dmm.com/game/kancolle`.
 - Built with ArkTS, ArkWeb, Hvigor, and HarmonyOS SDK 6.x.
 
@@ -39,6 +39,9 @@ This is an unofficial project and is not affiliated with DMM, C2, or KADOKAWA.
 - Battle handling for normal and combined fleets, opening-night and night-to-day
   combat, enemy combined-fleet night targeting, and land-base air-raid damage;
   ship scenarios include carrier night air attacks and current damage-state effects.
+- Battle results show main/escort MVP names and highlight MVP and heavily damaged
+  ships. Aircraft indicators show attacking aircraft after/before stage 2,
+  with separate friendly and enemy colors.
 - Information pages for ship, equipment, sortie logs, and equipment improvement
   recipes, plus static data for expedition, equipment classification, and
   expedition requirement rules.
@@ -49,12 +52,22 @@ This is an unofficial project and is not affiliated with DMM, C2, or KADOKAWA.
   result taiha warnings, expedition returns, repair completion, development,
   construction, and equipment improvement results, with vibration, system
   notification, and Toast modes.
-- System-managed expedition return reminders with registration status and retry
-  controls. Optional practice refresh, monthly ranking settlement, and month-end
-  EO medal reminders have independent switches and are disabled by default.
+- Calendar-backed expedition return, practice refresh, monthly ranking settlement,
+  and EO medal reminders, with registration status, retry controls, an optional
+  important-event mode, and configurable event duration. The three time-point
+  reminder switches are disabled by default.
+- Akashi repair and Nozaki food-supply timers with selectable reminder stages:
+  repair at 20 minutes and food supply at 15/30/45 minutes. Timers indicate when
+  to return to port for settlement, with per-account state and an ongoing status notification.
+- Modernization result Toasts show stat gains and remaining improvement capacity,
+  with an independent toggle.
 - Persistent application mute preference, restored when the app restarts.
 - Resource cache for game image assets, optional audio caching, cache statistics,
   and manual clearing.
+- [Custom ship artwork](entry/src/main/ets/features/shipMods/README.md): import
+  PNG/JPG/WebP images by ship form, resource type, and normal/damaged state;
+  preview, replace, or delete local overrides. Enable the default-off setting
+  and refresh the game to reload already loaded textures.
 - Optional WebView injections for touch hover, two-finger wheel, FPS display,
   ticker RAF, and Pixi rendering compatibility patches.
 
@@ -71,6 +84,7 @@ entry/src/main/ets/features/alerts/  Reminder and notification system
 entry/src/main/ets/features/calc/    Air power, LoS, TP, AACI, damage, and rate calculators
 entry/src/main/ets/features/expedition/ Expedition requirement checking
 entry/src/main/ets/features/quests/  Quest formation checks and progress tracking
+entry/src/main/ets/features/shipMods/ Local ship artwork management and interception
 entry/src/main/resources/rawfile/    Static data, ship avatars, and icons
 ```
 
@@ -119,6 +133,9 @@ hvigor test --type ohos
   [quest tracking documentation](entry/src/main/ets/features/quests/README.md)
   for coverage, update commands, and limitations; bundled rules need no runtime download.
 - Equipment improvement data (`entry/src/main/resources/rawfile/data/improvement.json`) is generated from external KanColle improvement datasets. The packaged data currently declares [akashi-list.me](https://akashi-list.me/) as its source; the updater script can also fetch [ElectronicObserverEN/Data](https://github.com/ElectronicObserverEN/Data)'s `EquipmentUpgrades.json`, which is wiki-derived and maintained by the ElectronicObserver project.
+- The battle aircraft icon uses Microsoft's Windows 8.0 Airplane artwork,
+  sourced from EmojiAll. See the bundled [source notice](entry/src/main/resources/rawfile/icons/airplane_windows8.NOTICE.txt);
+  the artwork remains attributed to Microsoft and is not described here as open-source data.
 - These data files are used only for in-app reference and calculation support. Original data, names, and related rights remain with their respective projects and rightsholders.
 - Project-maintained static rule files, such as equipment classification and expedition requirement data, live under `entry/src/main/resources/rawfile/data/`.
 
@@ -127,6 +144,10 @@ hvigor test --type ohos
 - Notifications and reminders require HarmonyOS notification/reminder
   permissions. The app requests network, network status, background running,
   reminder publishing, and vibration permissions.
+- New background reminders require calendar read/write permission. Use Settings
+  to authorize and register events in the app's dedicated calendar. Sounds,
+  vibration, and delivery depend on the system calendar settings; important-event
+  mode is off by default, and event duration defaults to 30 minutes (15-360 configurable).
 - The `dist/` directory may contain unsigned HAP artifacts and `SHA256SUMS.txt`.
   Sign or install them according to your device policy.
 - From `app`, run `bash dist/generate-checksum.sh` to generate checksums for the
@@ -134,9 +155,17 @@ hvigor test --type ohos
 - Quest formation indicators only check the first fleet's formation. They do not
   confirm map, equipment, or completion requirements. `≈` marks estimated progress
   when earlier or other-device activity is unknown; completion is determined by the game.
-- Successfully registered reminders are managed by the system after the app exits.
-  Check registration status in Settings. Time-point reminders send system notifications
-  without app Toasts or vibration; reopen the app after a device timezone change to
-  recalibrate schedules. Monthly reminders cover a rolling 12-month window.
+- Registered calendar events remain after app exit; existing agent reminders are
+  retained until their normal cancellation conditions apply. Practice reminders
+  register only the remaining occurrences on the current Beijing calendar day;
+  run the app the next day to register that day's reminders. Monthly reminders
+  cover a rolling 11-month window. Reopen after a device timezone change to recalibrate.
+- Harbor timers estimate from observed fleet state; they do not update ship HP or
+  morale and do not confirm server-side recovery. Repair reminders default to
+  20 minutes and food-supply reminders to 15/30 minutes; changing selections
+  does not reset the current timer.
+- Custom artwork stays on the device and survives ordinary resource-cache clearing.
+  Use images matching the original dimensions; overrides also affect seasonal
+  artwork served from the same resource path.
 - Some settings, especially WebView injection toggles, apply after re-entering
   the game page.

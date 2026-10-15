@@ -2,6 +2,61 @@
 
 English | [简体中文](CHANGELOG.zh-CN.md)
 
+## 1.1.3 - 2026-10-15
+
+Compared with `v1.1.2`.
+
+### Added
+
+- Local custom ship artwork management, accessible from Launcher and Settings:
+  search by name, catalog number, or master ID; import PNG/JPG/WebP for individual
+  ship forms, resource types, and normal/damaged states; preview, replace, and delete overrides.
+  The feature is disabled by default and falls back to normal resources when overrides are unavailable.
+- Calendar Kit reminders in a dedicated local calendar, with explicit calendar
+  authorization, registration status, optional important-event mode (off by default),
+  and a 15-360 minute event duration (30 minutes by default).
+- Akashi repair and Nozaki food-supply timers, with per-account persistence,
+  eligibility checks, status notifications, and once-per-stage Toasts. Select
+  repair at 20 minutes or food supply at 15/30/45 minutes; defaults are 20 and 15/30.
+- Modernization result Toasts with individual stat gains and remaining improvement
+  capacity, plus an independent settings toggle.
+- Main/escort MVP names and highlighting in battle results, heavily damaged ship
+  name highlighting, and in-port resupply indicators.
+- Completed/all-local-goals-satisfied quest counts in panel tabs and the tri-fold
+  dashboard, including a shortcut to the quest view. Game confirmation remains authoritative.
+
+### Changed
+
+- New expedition, time-point, and harbor reminders use Calendar Kit; existing
+  agent reminders retain their original lifecycle without duplicate registration.
+  Events alert at their scheduled start with no extra calendar lead time.
+- Practice reminders register only remaining occurrences on the current Beijing
+  calendar day, replacing daily recurrence; the next day requires running the app.
+  Monthly reminders now cover 11 future cycles. Calendar sounds and vibration
+  follow system settings.
+- Harbor reminder selections update only the relevant events without restarting
+  the timer. The ongoing notification prioritizes harbor timing in its title and
+  retains three expedition rows for fleets 2-4.
+- Aircraft counts now show stage-2 attacking aircraft after/before combat with
+  green/red aircraft icons. Two aerial rounds use the first stage-2 entry count
+  and the last stage-2 remaining count; missing stage-2 data is not replaced by stage 1.
+- Expanded AACI types 15/27/53 and shared ship conditions, including Hiryu Kai San
+  and Kitakami Kai San; corrected Atlanta, Akizuki, Tenryu, and UIT/I-504 detection.
+- Updated opening-ASW capability tags for additional ships/forms and corrected
+  sonar, aircraft, and depleted-slot checks for affected ships.
+
+### Fixed
+
+- API delivery now retries in order, acknowledges accepted packets, and suppresses
+  duplicates. Queue saturation defers delivery instead of dropping older updates;
+  foreground/network recovery resumes pending delivery.
+- Failed responses no longer clear valid fleet/battle state. Heavy parsing falls
+  back after a worker timeout, and calendar operations no longer block game-state ingestion.
+- Quest 50%/80% progress calibration no longer rounds small incomplete goals up
+  to completion; uncertain counts retain their estimate indicator.
+- Corrected calendar query compatibility, legacy recurring-practice cleanup,
+  reminder deduplication, and premature expedition/harbor calendar alerts.
+
 ## 1.1.2 - 2026-09-17
 
 Compared with `v1.1.1`.
